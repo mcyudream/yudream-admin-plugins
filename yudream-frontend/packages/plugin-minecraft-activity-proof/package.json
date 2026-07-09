@@ -1,0 +1,30 @@
+{
+  "name": "@yudream/plugin-minecraft-activity-proof",
+  "version": "1.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"
+  },
+  "dependencies": {
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}
