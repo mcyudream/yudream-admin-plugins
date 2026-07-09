@@ -1,0 +1,27 @@
+{
+  "name": "@yudream/plugin-yudream-alipay",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "lint": "vue-tsc -p tsconfig.json --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "dependencies": {
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}
