@@ -1,0 +1,110 @@
+default:
+  tags:
+    - shared
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+variables:
+  PNPM_IGNORE_PACKAGE_MANAGER_VERSION: "true"
+  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
+  COREPACK_NPM_REGISTRY: "https://registry.npmmirror.com"
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  CORE_MAVEN_REGISTRY: ""
+  CORE_NPM_REGISTRY: ""
+  CORE_PACKAGE_TOKEN: ""
+
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - yudream-frontend/.pnpm-store/
+    - .m2/repository/
+  policy: pull-push
+
+stages:
+  - validate
+  - build-frontend
+  - package-plugin
+
+validate:repo:
+  stage: validate
+  image: alpine:3.20
+  script:
+    - echo "yudream-admin-plugins repository initialized"
+
+build:frontend:
+  stage: build-frontend
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:24.15.0-bookworm
+  rules:
+    - exists:
+        - yudream-frontend/package.json
+        - yudream-frontend/packages/*/package.json
+  before_script:
+    - npm config set registry "$NPM_CONFIG_REGISTRY"
+    - corepack enable && corepack prepare pnpm@11.9.0 --activate
+    - pnpm config set registry "$NPM_CONFIG_REGISTRY"
+  script:
+    - cd yudream-frontend
+    - |
+      if [ -n "$CORE_NPM_REGISTRY" ] && [ -n "$CORE_PACKAGE_TOKEN" ]; then
+        REGISTRY_HOST=$(echo "$CORE_NPM_REGISTRY" | sed -E 's#^https?://##')
+        cat > .npmrc <<EOF
+        @yudream:registry=$CORE_NPM_REGISTRY
+        //$REGISTRY_HOST:_authToken=$CORE_PACKAGE_TOKEN
+        always-auth=true
+        EOF
+      fi
+    - pnpm install --no-frozen-lockfile
+    - pnpm -r --filter "./packages/plugin-*" run build
+  artifacts:
+    paths:
+      - yudream-frontend/packages/plugin-*/dist/
+    expire_in: 1 week
+
+package:plugins:
+  stage: package-plugin
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
+  rules:
+    - exists:
+        - pom.xml
+        - yudream-plugins/*/pom.xml
+  needs:
+    - job: build:frontend
+      optional: true
+      artifacts: true
+  script:
+    - |
+      cat > settings.xml <<EOF
+      <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+          <servers>
+              <server>
+                  <id>gitlab-maven</id>
+                  <username>gitlab-ci-token</username>
+                  <password>${CI_JOB_TOKEN}</password>
+              </server>
+          </servers>
+          <profiles>
+              <profile>
+                  <id>gitlab-private</id>
+                  <repositories>
+                      <repository>
+                          <id>gitlab-maven</id>
+                          <url>${CORE_MAVEN_REGISTRY}</url>
+                      </repository>
+                  </repositories>
+              </profile>
+          </profiles>
+          <activeProfiles>
+              <activeProfile>gitlab-private</activeProfile>
+          </activeProfiles>
+      </settings>
+      EOF
+    - mvn -s settings.xml clean package -DskipTests -B -e
+  artifacts:
+    paths:
+      - yudream-plugins/*/target/*.jar
+    expire_in: 1 week

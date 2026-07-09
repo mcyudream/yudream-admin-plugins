@@ -1,0 +1,12 @@
+.idea/
+.mvn/
+.DS_Store
+Thumbs.db
+
+**/node_modules/
+**/dist/
+**/target/
+**/.pnpm-store/
+
+settings.xml
+.npmrc
