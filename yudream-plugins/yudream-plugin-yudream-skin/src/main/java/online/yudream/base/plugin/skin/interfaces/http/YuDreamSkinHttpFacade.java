@@ -288,7 +288,7 @@ public class YuDreamSkinHttpFacade {
             return new PluginHttpResponse(
                     200,
                     Map.of("Cache-Control", "public, max-age=31536000"),
-                    file.contentType() == null ? "image/png" : file.contentType(),
+                    "image/png",
                     file.inputStream().readAllBytes(),
                     false
             );

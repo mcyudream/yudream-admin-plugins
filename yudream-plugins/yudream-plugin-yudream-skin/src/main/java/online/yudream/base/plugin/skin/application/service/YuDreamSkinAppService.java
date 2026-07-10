@@ -262,9 +262,12 @@ public class YuDreamSkinAppService implements PluginSkinService {
 
     private SkinTexture saveUploadedTexture(TextureUploadCmd cmd, String uploaderId) {
         byte[] bytes = Base64.getDecoder().decode(requireText(cmd.base64(), "材质 base64 不能为空"));
+        if (!isPng(bytes)) {
+            throw new IllegalArgumentException("材质必须是 PNG 图像");
+        }
         String hash = HashSupport.sha256(bytes);
         SkinTextureType type = SkinTextureType.from(hasText(cmd.type()) ? cmd.type() : cmd.model());
-        String contentType = hasText(cmd.contentType()) ? cmd.contentType() : "image/png";
+        String contentType = "image/png";
         String objectKey = repository.saveTextureFile(hash, bytes, contentType);
         boolean publicAccess = settings().publicUploadEnabled() && (cmd.publicAccess() == null || cmd.publicAccess());
         return repository.saveTexture(new SkinTexture(
@@ -504,6 +507,19 @@ public class YuDreamSkinAppService implements PluginSkinService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean isPng(byte[] bytes) {
+        byte[] signature = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        if (bytes.length < signature.length) {
+            return false;
+        }
+        for (int i = 0; i < signature.length; i++) {
+            if (bytes[i] != signature[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String blankToNull(String value) {

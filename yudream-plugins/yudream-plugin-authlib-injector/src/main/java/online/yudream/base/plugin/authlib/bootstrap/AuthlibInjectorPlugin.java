@@ -52,7 +52,7 @@ public class AuthlibInjectorPlugin implements YuDreamPlugin {
     public void onEnable(PluginContext context) {
         AuthlibRepository repository = new AuthlibRepository(context.documents());
         AuthlibAppService appService = new AuthlibAppService(context, repository, new AuthlibCryptoService(repository));
-        this.http = new AuthlibHttpFacade(appService);
+        this.http = new AuthlibHttpFacade(appService, context.framework());
     }
 
     @Override

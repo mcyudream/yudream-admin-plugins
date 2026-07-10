@@ -11,22 +11,29 @@ import online.yudream.base.plugin.authlib.interfaces.request.TextureBindRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.TokenRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
+import online.yudream.base.plugin.spi.system.FrameworkServices;
 
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 public class AuthlibHttpFacade {
 
     private static final String API_LOCATION = "/api/plugins/authlib-injector";
+    private static final String APP_WEB_URL_SETTING = "app.web-url";
+    private static final String APP_BASE_URL_SETTING = "app.base-url";
 
     private final AuthlibAppService appService;
+    private final FrameworkServices frameworkServices;
 
-    public AuthlibHttpFacade(AuthlibAppService appService) {
+    public AuthlibHttpFacade(AuthlibAppService appService, FrameworkServices frameworkServices) {
         this.appService = appService;
+        this.frameworkServices = frameworkServices;
     }
 
     public PluginHttpResponse metadata(PluginHttpRequest request) {
@@ -139,6 +146,10 @@ public class AuthlibHttpFacade {
     }
 
     private String origin(PluginHttpRequest request) {
+        Optional<String> configuredOrigin = configuredOrigin();
+        if (configuredOrigin.isPresent()) {
+            return configuredOrigin.get();
+        }
         String proto = firstForwardedValue(header(request, "x-forwarded-proto"));
         String host = header(request, "x-forwarded-host");
         if (host == null) {
@@ -149,6 +160,28 @@ public class AuthlibHttpFacade {
             proto = localHost(host) ? "http" : "https";
         }
         return proto + "://" + (host == null ? "localhost:8080" : host);
+    }
+
+    private Optional<String> configuredOrigin() {
+        return frameworkServices.setting(APP_WEB_URL_SETTING)
+                .or(() -> frameworkServices.setting(APP_BASE_URL_SETTING))
+                .flatMap(this::originOf);
+    }
+
+    private Optional<String> originOf(String value) {
+        try {
+            URI uri = URI.create(value.trim());
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                return Optional.empty();
+            }
+            String origin = uri.getScheme() + "://" + uri.getHost();
+            if (uri.getPort() >= 0) {
+                origin += ":" + uri.getPort();
+            }
+            return Optional.of(origin);
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     private String header(PluginHttpRequest request, String name) {
