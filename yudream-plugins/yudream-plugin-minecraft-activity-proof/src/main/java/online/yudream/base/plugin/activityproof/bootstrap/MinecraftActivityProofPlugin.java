@@ -28,6 +28,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         menuTitle = "学生信息",
         menuIcon = "i-ri:id-card-line",
         menuSort = 35,
+        parentCode = "plugin:yudream-student-info:module:yudreamStudentInfo",
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-student-info/activity-proof",
