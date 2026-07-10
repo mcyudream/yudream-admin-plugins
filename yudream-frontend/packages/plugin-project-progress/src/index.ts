@@ -8,6 +8,7 @@ export const Details = ProjectProgressPlugin
 export const TaskCenter = ProjectProgressPlugin
 export const MyTasks = ProjectProgressPlugin
 export const CheckIns = ProjectProgressPlugin
+export const CheckInStatistics = ProjectProgressPlugin
 export const Acceptance = ProjectProgressPlugin
 export const Members = ProjectProgressPlugin
 export const Settings = ProjectProgressPlugin
@@ -19,6 +20,7 @@ export const routes = {
   TaskCenter,
   MyTasks,
   CheckIns,
+  CheckInStatistics,
   Acceptance,
   Members,
   Settings,
@@ -28,6 +30,7 @@ export const routes = {
   'project-progress/TaskCenter': TaskCenter,
   'project-progress/MyTasks': MyTasks,
   'project-progress/CheckIns': CheckIns,
+  'project-progress/CheckInStatistics': CheckInStatistics,
   'project-progress/Acceptance': Acceptance,
   'project-progress/Members': Members,
   'project-progress/Settings': Settings,
@@ -40,6 +43,7 @@ export {
   TaskCenter as 'project-progress/TaskCenter',
   MyTasks as 'project-progress/MyTasks',
   CheckIns as 'project-progress/CheckIns',
+  CheckInStatistics as 'project-progress/CheckInStatistics',
   Acceptance as 'project-progress/Acceptance',
   Members as 'project-progress/Members',
   Settings as 'project-progress/Settings',

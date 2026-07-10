@@ -50,6 +50,23 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
     }
 
     @Override
+    public long countMappings(String serverId) {
+        if (serverId == null || serverId.isBlank()) {
+            return documents.count(MAPPINGS);
+        }
+        long total = 0;
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> rows = documents.findByField(MAPPINGS, "serverId", serverId, page, 200);
+            total += rows.size();
+            if (rows.size() < 200) {
+                return total;
+            }
+            page++;
+        }
+    }
+
+    @Override
     public PlayerStudentMapping saveMapping(PlayerStudentMapping mapping) {
         return toMapping(documents.save(MAPPINGS, mapping.id(), mappingDocument(mapping)));
     }
@@ -75,6 +92,11 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 .map(this::toExport)
                 .sorted(java.util.Comparator.comparingLong(ActivityProofExportRecord::generatedAt).reversed())
                 .toList();
+    }
+
+    @Override
+    public long countExportRecords() {
+        return documents.count(EXPORTS);
     }
 
     @Override

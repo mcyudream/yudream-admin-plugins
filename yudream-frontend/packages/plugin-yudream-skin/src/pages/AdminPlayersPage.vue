@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -199,10 +199,13 @@ function shortHash(hash?: string) {
 </script>
 
 <template>
-  <div class="skin-admin-table-page">
+  <FaPageHeader title="角色管理" class="mb-0">
+    <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增角色</FaButton>
+  </FaPageHeader>
+  <FaPageMain><div class="skin-admin-table-page">
     <FaTable
       row-key="uuid"
-      table-root-class="skin-admin-player-table-root rounded-lg"
+      table-root-class="skin-admin-player-table-root rounded-lg overflow-hidden"
       table-class="skin-admin-player-table"
       column-visibility
       border
@@ -223,10 +226,6 @@ function shortHash(hash?: string) {
               <FaButton @click="pagination.page = 1">
                 <FaIcon name="i-ri:search-line" />
                 筛选
-              </FaButton>
-              <FaButton @click="openCreate">
-                <FaIcon name="i-ri:add-line" />
-                新增角色
               </FaButton>
             </div>
           </div>
@@ -299,5 +298,5 @@ function shortHash(hash?: string) {
         </label>
       </div>
     </FaModal>
-  </div>
+  </div></FaPageMain>
 </template>

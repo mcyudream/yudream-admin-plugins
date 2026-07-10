@@ -14,6 +14,7 @@ import online.yudream.base.plugin.skin.interfaces.request.RenameClosetItemReques
 import online.yudream.base.plugin.skin.interfaces.request.RenamePlayerRequest;
 import online.yudream.base.plugin.skin.interfaces.request.SkinSettingsSaveRequest;
 import online.yudream.base.plugin.skin.interfaces.request.TextureUploadRequest;
+import online.yudream.base.plugin.skin.interfaces.request.TextureUpdateRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -56,7 +57,6 @@ public class YuDreamSkinHttpFacade {
         body.put("skinUser", appService.findUser(userId).orElse(null));
         body.put("defaultPlayerName", appService.defaultPlayer(userId).map(player -> player.name()).orElse(null));
         body.put("permissions", request.principal().permissions());
-        body.put("manage", request.principal().hasPermission(YuDreamSkinPlugin.MANAGE_PERMISSION));
         return PluginHttpResponse.ok(body);
     }
 
@@ -167,6 +167,14 @@ public class YuDreamSkinHttpFacade {
         ));
     }
 
+    public PluginHttpResponse updateTexture(PluginHttpRequest request) {
+        TextureUpdateRequest body = JsonSupport.read(request.body(), TextureUpdateRequest.class);
+        return PluginHttpResponse.ok(appService.updateTexture(
+                lastPathSegment(request.path()),
+                assembler.toCmd(body)
+        ));
+    }
+
     public PluginHttpResponse deleteTexture(PluginHttpRequest request) {
         appService.deleteTexture(lastPathSegment(request.path()));
         return PluginHttpResponse.ok(Map.of("deleted", true));
@@ -179,6 +187,20 @@ public class YuDreamSkinHttpFacade {
                 ownerId(request),
                 request.principal().userId()
         ));
+    }
+
+    public PluginHttpResponse updateMyTexture(PluginHttpRequest request) {
+        TextureUpdateRequest body = JsonSupport.read(request.body(), TextureUpdateRequest.class);
+        return PluginHttpResponse.ok(appService.updateOwnTexture(
+                lastPathSegment(request.path()),
+                ownerId(request),
+                assembler.toCmd(body)
+        ));
+    }
+
+    public PluginHttpResponse deleteMyTexture(PluginHttpRequest request) {
+        appService.deleteOwnTexture(lastPathSegment(request.path()), ownerId(request));
+        return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
     public PluginHttpResponse textureContent(PluginHttpRequest request) {

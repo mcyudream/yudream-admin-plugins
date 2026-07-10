@@ -53,11 +53,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
   const assignForm = reactive({ skinHash: '', capeHash: '' })
   const playerRenameForm = reactive({ name: '' })
   const closetRenameForm = reactive({ itemName: '' })
-  const canManage = computed(() => {
-    return !!me.value?.manage || sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:yudream-skin:manage')
-  })
+  const canManage = computed(() => sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:yudream-skin:manage'))
   const canUse = computed(() => {
-    return canManage.value || sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:yudream-skin:user')
+    return sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:yudream-skin:user')
   })
   const currentUserId = computed(() => me.value?.userId || sdk.account.userId || '')
   const accountName = computed(() => me.value?.hostUser?.nickname || me.value?.hostUser?.username || sdk.account.username || currentUserId.value)
@@ -413,9 +411,8 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function handleTextureFile(event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
+  async function handleTextureFile(source: Event | File) {
+    const file = source instanceof File ? source : (source.target as HTMLInputElement).files?.[0]
     if (!file) {
       return
     }
@@ -470,6 +467,49 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       }
       toast.success('材质已删除')
       await load()
+    }
+    finally {
+      saving.value = ''
+    }
+  }
+
+  async function updateAdminTexture(hash: string, data: { name: string, publicAccess: boolean }) {
+    saving.value = `admin-texture:${hash}`
+    try {
+      const texture = await api.updateAdminTexture(hash, data)
+      toast.success('材质信息已更新')
+      await load({ includeCloset: false, includePlayers: false, includeTextures: true, scope: 'admin' })
+      selectTexture(texture)
+      return texture
+    }
+    finally {
+      saving.value = ''
+    }
+  }
+
+  async function updateOwnTexture(hash: string, data: { name: string, publicAccess: boolean }) {
+    saving.value = `texture:${hash}`
+    try {
+      const texture = await api.updateMyTexture(hash, data)
+      toast.success('材质信息已更新')
+      await load({ includeCloset: false, includePlayers: false, includeTextures: true, scope: 'user' })
+      selectTexture(texture)
+      return texture
+    }
+    finally {
+      saving.value = ''
+    }
+  }
+
+  async function deleteOwnTexture(hash: string) {
+    saving.value = `texture:${hash}`
+    try {
+      await api.deleteMyTexture(hash)
+      if (selectedTextureHash.value === hash) {
+        selectedTextureHash.value = ''
+      }
+      toast.success('材质已删除')
+      await load({ includeCloset: true, includePlayers: true, includeTextures: true, scope: 'user' })
     }
     finally {
       saving.value = ''
@@ -619,15 +659,17 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function handleMigrationArchive(event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
+  async function handleMigrationArchive(source: Event | File) {
+    const input = source instanceof File ? null : source.target as HTMLInputElement
+    const file = source instanceof File ? source : input?.files?.[0]
     if (!file) {
       return
     }
     if (!file.name.toLowerCase().endsWith('.zip')) {
       toast.error('请选择 zip 压缩包')
-      input.value = ''
+      if (input) {
+        input.value = ''
+      }
       return
     }
     migrationForm.textureArchiveBase64 = await fileToBase64(file)
@@ -851,6 +893,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     uploadTexture,
     uploadAdminTexture,
     deleteAdminTexture,
+    updateAdminTexture,
+    updateOwnTexture,
+    deleteOwnTexture,
     saveClosetItem,
     addTextureToCloset,
     useTextureOnSelectedPlayer,

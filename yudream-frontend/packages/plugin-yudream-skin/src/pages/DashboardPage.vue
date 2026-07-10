@@ -98,10 +98,6 @@
               <FaIcon name="i-ri:magic-line" />
               给当前角色换装
             </a>
-            <a v-if="model.canManage" href="/platform/plugins/yudream-skin/system">
-              <FaIcon name="i-ri:settings-3-line" />
-              皮肤站管理
-            </a>
           </div>
         </SkinPanel>
       </aside>

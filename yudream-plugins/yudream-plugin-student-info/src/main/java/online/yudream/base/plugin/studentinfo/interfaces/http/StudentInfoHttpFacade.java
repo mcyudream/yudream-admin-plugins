@@ -9,6 +9,8 @@ import online.yudream.base.plugin.studentinfo.application.service.StudentInfoApp
 import online.yudream.base.plugin.studentinfo.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.studentinfo.interfaces.assembler.StudentInfoWebAssembler;
 import online.yudream.base.plugin.studentinfo.interfaces.request.StudentInfoSaveRequest;
+import online.yudream.base.plugin.studentinfo.interfaces.request.StudentInfoSelfSaveRequest;
+import online.yudream.base.plugin.studentinfo.interfaces.res.StudentInfoPageRes;
 import online.yudream.base.plugin.studentinfo.interfaces.res.StudentInfoSummaryRes;
 
 import java.net.URLDecoder;
@@ -41,8 +43,8 @@ public class StudentInfoHttpFacade {
 
     public PluginHttpResponse saveMine(PluginHttpRequest request) {
         String userId = currentUserId(request);
-        StudentInfoSaveRequest body = JsonSupport.read(request.body(), StudentInfoSaveRequest.class);
-        var saved = appService.save(assembler.toCmd(body, userId));
+        StudentInfoSelfSaveRequest body = JsonSupport.read(request.body(), StudentInfoSelfSaveRequest.class);
+        var saved = appService.save(assembler.toSelfCmd(body, userId));
         return PluginHttpResponse.ok(assembler.toRes(saved, userOf(userId)));
     }
 
@@ -54,9 +56,10 @@ public class StudentInfoHttpFacade {
                 page(request),
                 size(request)
         );
-        return PluginHttpResponse.ok(appService.list(query).stream()
+        var result = appService.page(query);
+        return PluginHttpResponse.ok(new StudentInfoPageRes(result.records().stream()
                 .map(dto -> assembler.toRes(dto, userOf(dto.userId())))
-                .toList());
+                .toList(), result.total()));
     }
 
     public PluginHttpResponse profile(PluginHttpRequest request) {
@@ -112,7 +115,7 @@ public class StudentInfoHttpFacade {
     }
 
     private int size(PluginHttpRequest request) {
-        return intQuery(request, "size", 20);
+        return intQuery(request, "size", 10);
     }
 
     private int intQuery(PluginHttpRequest request, String key, int defaultValue) {

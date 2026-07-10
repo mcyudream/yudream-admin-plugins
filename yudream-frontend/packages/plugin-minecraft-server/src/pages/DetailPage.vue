@@ -42,92 +42,13 @@
       </McPanel>
 
       <McPanel v-if="model.walletEnabled" title="我的操作记录" eyebrow="Records">
-        <div class="mc-table-wrap">
-          <table class="mc-table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>类型</th>
-                <th>币种</th>
-                <th>金额</th>
-                <th>备注</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="record in model.records" :key="record.id">
-                <td>{{ model.formatTime(record.createdAt) }}</td>
-                <td>{{ record.source || record.type }}</td>
-                <td>{{ record.assetCode }}</td>
-                <td class="amount-cell">{{ model.formatAmount(record.amount) }}</td>
-                <td class="wrap-cell">{{ record.remark || record.businessNo || '-' }}</td>
-              </tr>
-              <tr v-if="!model.records.length">
-                <td colspan="5"><div class="mc-empty compact">暂无操作记录</div></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="mc-pagination">
-          <FaButton size="sm" variant="outline" :disabled="model.recordsPager.page <= 1" @click="model.prevRecordsPage">
-            <FaIcon name="i-ri:arrow-left-s-line" />
-            上一页
-          </FaButton>
-          <span>第 {{ model.recordsPager.page }} 页</span>
-          <FaButton size="sm" variant="outline" :disabled="!model.recordsPager.hasNext" @click="model.nextRecordsPage">
-            下一页
-            <FaIcon name="i-ri:arrow-right-s-line" />
-          </FaButton>
-        </div>
-      </McPanel>
-
-      <McPanel v-if="model.canManage" title="玩家时长统计" eyebrow="Players">
-        <div class="mc-table-wrap">
-          <table class="mc-table">
-            <thead>
-              <tr>
-                <th>玩家</th>
-                <th>状态</th>
-                <th>挂机</th>
-                <th>累计在线</th>
-                <th>累计挂机</th>
-                <th>最近加入</th>
-                <th>最近退出</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="player in model.playerActivities" :key="player.playerId">
-                <td>
-                  <strong>{{ player.playerName || player.playerId }}</strong>
-                  <div class="mc-subtle">{{ player.playerId }}</div>
-                </td>
-                <td><StatusPill :status="player.online ? 'ONLINE' : 'OFFLINE'" /></td>
-                <td>
-                  <span class="mc-afk-pill" :class="{ active: player.afk }">
-                    {{ player.afk ? '挂机中' : '-' }}
-                  </span>
-                </td>
-                <td class="duration-cell">{{ model.formatDuration(player.totalOnlineMillis) }}</td>
-                <td class="duration-cell">{{ model.formatDuration(player.totalAfkMillis) }}</td>
-                <td>{{ model.formatTime(player.lastJoinedAt) }}</td>
-                <td>{{ model.formatTime(player.lastQuitAt) }}</td>
-              </tr>
-              <tr v-if="!model.playerActivities.length">
-                <td colspan="7"><div class="mc-empty compact">暂无玩家时长统计</div></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="mc-pagination">
-          <FaButton size="sm" variant="outline" :disabled="model.playerActivitiesPager.page <= 1" @click="model.prevPlayerActivitiesPage">
-            <FaIcon name="i-ri:arrow-left-s-line" />
-            上一页
-          </FaButton>
-          <span>第 {{ model.playerActivitiesPager.page }} 页</span>
-          <FaButton size="sm" variant="outline" :disabled="!model.playerActivitiesPager.hasNext" @click="model.nextPlayerActivitiesPage">
-            下一页
-            <FaIcon name="i-ri:arrow-right-s-line" />
-          </FaButton>
-        </div>
+        <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" border stripe :columns="recordColumns" :data="model.records">
+          <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
+          <template #cell-source="{ row }">{{ row.original.source || row.original.type }}</template>
+          <template #cell-amount="{ row }">{{ model.formatAmount(row.original.amount) }}</template>
+          <template #cell-remark="{ row }">{{ row.original.remark || row.original.businessNo || '-' }}</template>
+        </FaTable>
+        <FaPagination v-model:page="model.recordsPager.page" v-model:size="model.recordsPager.size" :total="model.recordsPager.total" class="mt-3" @page-change="reloadRecords" @size-change="reloadRecords" />
       </McPanel>
     </div>
     <McPanel v-else title="未找到服务器" eyebrow="Empty">
@@ -137,8 +58,10 @@
 </template>
 
 <script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
+import type { EconomyRecord } from '../types'
 import { computed } from 'vue'
-import { FaButton, FaIcon } from '@yudream/components'
+import { FaPagination, FaTable } from '@yudream/components'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import McPanel from '../components/McPanel.vue'
 import OnlineTrendChart from '../components/OnlineTrendChart.vue'
@@ -150,6 +73,14 @@ const props = defineProps<{
 }>()
 
 const server = computed(() => props.model.selectedServer)
+async function reloadRecords() { await props.model.loadRecords() }
+const recordColumns: TableColumn<EconomyRecord>[] = [
+  { id: 'createdAt', header: '时间', width: 180 },
+  { id: 'source', header: '类型', width: 140 },
+  { accessorKey: 'assetCode', header: '币种', width: 100 },
+  { id: 'amount', header: '金额', width: 120, align: 'right' },
+  { id: 'remark', header: '备注', minWidth: 240 },
+]
 
 function endpointStatus(endpointId?: string) {
   return server.value?.status?.endpoints.find(item => item.endpointId === endpointId)

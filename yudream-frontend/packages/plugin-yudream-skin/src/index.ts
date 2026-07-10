@@ -9,20 +9,24 @@ import SkinPlugin from './SkinPlugin.vue'
 export const Dashboard = SkinPlugin
 export const Closet = SkinPlugin
 export const Settings = SkinPlugin
+export const Migration = SkinPlugin
 export const Players = SkinPlugin
 export const Textures = SkinPlugin
 export const PlayerManagement = SkinPlugin
 export const TextureManagement = SkinPlugin
+export const ClosetManagement = SkinPlugin
 export const ACTION_CARD = DashboardLegacyActionCard
 
 export const routes = {
   Dashboard,
   Closet,
   Settings,
+  Migration,
   Players,
   Textures,
   PlayerManagement,
   TextureManagement,
+  ClosetManagement,
   ACTION_CARD,
   DashboardCurrentPlayerCard,
   DashboardSkinPreviewCard,
@@ -34,10 +38,12 @@ export const routes = {
   'yudream-skin/Dashboard': Dashboard,
   'yudream-skin/Closet': Closet,
   'yudream-skin/Settings': Settings,
+  'yudream-skin/Migration': Migration,
   'yudream-skin/Players': Players,
   'yudream-skin/Textures': Textures,
   'yudream-skin/PlayerManagement': PlayerManagement,
   'yudream-skin/TextureManagement': TextureManagement,
+  'yudream-skin/ClosetManagement': ClosetManagement,
   'yudream-skin/System': Settings,
   'blessing-skin/Home': Dashboard,
   'blessing-skin/Dashboard': Dashboard,

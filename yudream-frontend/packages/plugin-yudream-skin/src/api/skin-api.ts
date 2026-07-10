@@ -10,14 +10,7 @@ export function createSkinApi(sdk: YuDreamPluginSdk) {
     players: () => getAllPages<SkinPlayer>(sdk, '/me/players'),
     adminPlayers: () => getAllPages<SkinPlayer>(sdk, '/admin/players'),
     textures: () => getAllPages<SkinTexture>(sdk, '/textures'),
-    adminTextures: async () => {
-      try {
-        return await getAllPages<SkinTexture>(sdk, '/admin/textures')
-      }
-      catch {
-        return getAllPages<SkinTexture>(sdk, '/textures')
-      }
-    },
+    adminTextures: () => getAllPages<SkinTexture>(sdk, '/admin/textures'),
     closet: () => getAllPages<SkinClosetItem>(sdk, '/me/closet'),
     adminCloset: () => getAllPages<SkinClosetItem>(sdk, '/admin/closet'),
     settings: () => sdk.http.get<SkinSettings>('/settings'),
@@ -31,7 +24,10 @@ export function createSkinApi(sdk: YuDreamPluginSdk) {
     setDefaultPlayer: (data: Record<string, unknown>) => sdk.http.request<SkinPlayer>('/me/default-player', { method: 'PUT', data }),
     assignAdminTextures: (name: string, data: Record<string, unknown>) => sdk.http.request<SkinPlayer>(`/admin/players/${encodeURIComponent(name)}/textures`, { method: 'PUT', data }),
     uploadTexture: (data: Record<string, unknown>) => sdk.http.post<SkinTexture>('/me/textures', data),
+    updateMyTexture: (hash: string, data: Record<string, unknown>) => sdk.http.request<SkinTexture>(`/me/textures/${encodeURIComponent(hash)}`, { method: 'PUT', data }),
+    deleteMyTexture: (hash: string) => sdk.http.request(`/me/textures/${encodeURIComponent(hash)}`, { method: 'DELETE' }),
     uploadAdminTexture: (data: Record<string, unknown>) => sdk.http.post<SkinTexture>('/admin/textures', data),
+    updateAdminTexture: (hash: string, data: Record<string, unknown>) => sdk.http.request<SkinTexture>(`/admin/textures/${encodeURIComponent(hash)}`, { method: 'PUT', data }),
     deleteAdminTexture: (hash: string) => sdk.http.request(`/admin/textures/${encodeURIComponent(hash)}`, { method: 'DELETE' }),
     saveClosetItem: (data: Record<string, unknown>) => sdk.http.post<SkinClosetItem>('/me/closet', data),
     saveAdminClosetItem: (data: Record<string, unknown>) => sdk.http.post<SkinClosetItem>('/admin/closet', data),

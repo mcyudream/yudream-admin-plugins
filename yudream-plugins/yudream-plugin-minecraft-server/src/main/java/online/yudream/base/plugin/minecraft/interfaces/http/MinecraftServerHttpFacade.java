@@ -1,7 +1,7 @@
 package online.yudream.base.plugin.minecraft.interfaces.http;
 
 import online.yudream.base.plugin.minecraft.application.service.MinecraftServerAppService;
-import online.yudream.base.plugin.minecraft.infrastructure.support.JsonSupport;
+import online.yudream.base.plugin.minecraft.interfaces.support.JsonSupport;
 import online.yudream.base.plugin.minecraft.interfaces.assembler.MinecraftServerWebAssembler;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
@@ -22,14 +22,24 @@ public class MinecraftServerHttpFacade {
         this.appService = appService;
     }
 
-    public PluginHttpResponse list(PluginHttpRequest request) {
-        boolean includeDisabled = boolQuery(request, "includeDisabled", false);
+    public PluginHttpResponse userList(PluginHttpRequest request) {
         boolean refresh = boolQuery(request, "refresh", false);
-        return PluginHttpResponse.ok(appService.listServers(includeDisabled, refresh).stream().map(assembler::toRes).toList());
+        var page = appService.pageServers(false, refresh, page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
-    public PluginHttpResponse detail(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.detail(pathSegment(request.path(), 1), boolQuery(request, "refresh", false))));
+    public PluginHttpResponse adminList(PluginHttpRequest request) {
+        boolean refresh = boolQuery(request, "refresh", false);
+        var page = appService.pageServers(true, refresh, page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
+    }
+
+    public PluginHttpResponse userDetail(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(appService.userDetail(pathSegment(request.path(), 1), boolQuery(request, "refresh", false))));
+    }
+
+    public PluginHttpResponse adminDetail(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(appService.detail(pathSegment(request.path(), 2), boolQuery(request, "refresh", false))));
     }
 
     public PluginHttpResponse save(PluginHttpRequest request) {
@@ -38,12 +48,12 @@ public class MinecraftServerHttpFacade {
     }
 
     public PluginHttpResponse delete(PluginHttpRequest request) {
-        appService.deleteServer(pathSegment(request.path(), 1));
+        appService.deleteServer(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
     public PluginHttpResponse refreshStatus(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.detail(pathSegment(request.path(), 1), true)));
+        return PluginHttpResponse.ok(assembler.toRes(appService.detail(pathSegment(request.path(), 2), true)));
     }
 
     public PluginHttpResponse statusHistory(PluginHttpRequest request) {
@@ -58,48 +68,51 @@ public class MinecraftServerHttpFacade {
 
     public PluginHttpResponse previewOpenSeason(PluginHttpRequest request) {
         MinecraftSeasonOpenRequest body = JsonSupport.read(request.body(), MinecraftSeasonOpenRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.previewOpenSeason(pathSegment(request.path(), 1), assembler.toCmd(body), userId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.previewOpenSeason(pathSegment(request.path(), 2), assembler.toCmd(body), userId(request))));
     }
 
     public PluginHttpResponse openSeason(PluginHttpRequest request) {
         MinecraftSeasonOpenRequest body = JsonSupport.read(request.body(), MinecraftSeasonOpenRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.openSeason(pathSegment(request.path(), 1), assembler.toCmd(body), userId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.openSeason(pathSegment(request.path(), 2), assembler.toCmd(body), userId(request))));
     }
 
     public PluginHttpResponse rollbackSeason(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.rollbackSeasonOperation(pathSegment(request.path(), 1), userId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.rollbackSeasonOperation(pathSegment(request.path(), 2), userId(request))));
     }
 
     public PluginHttpResponse operations(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.operations(pathSegment(request.path(), 1), page(request), size(request)).stream().map(assembler::toRes).toList());
+        var page = appService.operations(pathSegment(request.path(), 2), page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
     public PluginHttpResponse myRecords(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.userRecords(pathSegment(request.path(), 1), userId(request), page(request), size(request)).stream().map(assembler::toRes).toList());
+        var page = appService.userRecords(pathSegment(request.path(), 2), userId(request), page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
     public PluginHttpResponse playerActivities(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.playerActivities(pathSegment(request.path(), 1), page(request), size(request)).stream().map(assembler::toRes).toList());
+        var page = appService.playerActivities(pathSegment(request.path(), 2), page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
     public PluginHttpResponse playerJoin(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordJoin(pathSegment(request.path(), 1), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordJoin(pathSegment(request.path(), 2), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerQuit(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordQuit(pathSegment(request.path(), 1), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordQuit(pathSegment(request.path(), 2), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerAfkStart(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkStart(pathSegment(request.path(), 1), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkStart(pathSegment(request.path(), 2), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerAfkEnd(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkEnd(pathSegment(request.path(), 1), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkEnd(pathSegment(request.path(), 2), assembler.toCmd(body))));
     }
 
     private String userId(PluginHttpRequest request) {

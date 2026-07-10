@@ -11,7 +11,9 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
 import online.yudream.base.plugin.wallet.application.service.WalletAppService;
 import online.yudream.base.plugin.wallet.infrastructure.repository.WalletRepository;
-import online.yudream.base.plugin.wallet.interfaces.controller.WalletController;
+import online.yudream.base.plugin.wallet.interfaces.controller.WalletAdminController;
+import online.yudream.base.plugin.wallet.interfaces.controller.WalletUserController;
+import online.yudream.base.plugin.wallet.interfaces.controller.WalletViewController;
 import online.yudream.base.plugin.wallet.interfaces.http.WalletHttpFacade;
 
 @PluginSpec(
@@ -68,7 +70,7 @@ import online.yudream.base.plugin.wallet.interfaces.http.WalletHttpFacade;
                 @PluginRoute(
                         path = "/platform/plugins/yudream-wallet/system/settings",
                         name = "platform-plugin-yudream-wallet-settings",
-                        title = "钱包设置",
+                        title = "币种管理",
                         icon = "i-ri:settings-3-line",
                         parentPath = "/platform/plugins/yudream-wallet/system",
                         parentTitle = "钱包管理",
@@ -77,6 +79,19 @@ import online.yudream.base.plugin.wallet.interfaces.http.WalletHttpFacade;
                         component = "yudream-wallet/Settings",
                         permission = WalletPlugin.MANAGE_PERMISSION,
                         sort = 30
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/yudream-wallet/system/recharge-settings",
+                        name = "platform-plugin-yudream-wallet-recharge-settings",
+                        title = "充值配置",
+                        icon = "i-ri:bank-card-line",
+                        parentPath = "/platform/plugins/yudream-wallet/system",
+                        parentTitle = "钱包管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        parentSort = 10,
+                        component = "yudream-wallet/RechargeSettings",
+                        permission = WalletPlugin.MANAGE_PERMISSION,
+                        sort = 25
                 ),
                 @PluginRoute(
                         path = "/platform/plugins/yudream-wallet/system/balances",
@@ -118,6 +133,9 @@ public class WalletPlugin implements YuDreamPlugin {
         WalletAppService appService = new WalletAppService(new WalletRepository(context.documents()), context.framework());
         appService.initializeDefaults();
         context.registerExtension(PluginWalletService.class, appService);
-        context.registerHttpController(new WalletController(new WalletHttpFacade(appService, context.framework())));
+        WalletHttpFacade http = new WalletHttpFacade(appService, context.framework());
+        context.registerHttpController(new WalletViewController(http));
+        context.registerHttpController(new WalletUserController(http));
+        context.registerHttpController(new WalletAdminController(http));
     }
 }

@@ -119,11 +119,11 @@ import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
                         sort = 40
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/yudream-skin/system/settings",
+                        path = "/platform/plugins/yudream-skin/admin/settings",
                         name = "platform-plugin-yudream-skin-settings",
                         title = "插件设置",
                         icon = "i-ri:settings-3-line",
-                        parentPath = "/platform/plugins/yudream-skin/system",
+                        parentPath = "/platform/plugins/yudream-skin/admin",
                         parentTitle = "皮肤站管理",
                         parentIcon = "i-ri:settings-3-line",
                         parentSort = 10,
@@ -132,11 +132,11 @@ import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
                         sort = 30
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/yudream-skin/system/players",
+                        path = "/platform/plugins/yudream-skin/admin/players",
                         name = "platform-plugin-yudream-skin-manage-players",
                         title = "角色管理",
                         icon = "i-ri:gamepad-line",
-                        parentPath = "/platform/plugins/yudream-skin/system",
+                        parentPath = "/platform/plugins/yudream-skin/admin",
                         parentTitle = "皮肤站管理",
                         parentIcon = "i-ri:settings-3-line",
                         parentSort = 10,
@@ -145,15 +145,41 @@ import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
                         sort = 20
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/yudream-skin/system/textures",
+                        path = "/platform/plugins/yudream-skin/admin/textures",
                         name = "platform-plugin-yudream-skin-manage-textures",
                         title = "材质管理",
                         icon = "i-ri:t-shirt-2-line",
-                        parentPath = "/platform/plugins/yudream-skin/system",
+                        parentPath = "/platform/plugins/yudream-skin/admin",
                         parentTitle = "皮肤站管理",
                         parentIcon = "i-ri:settings-3-line",
                         parentSort = 10,
                         component = "yudream-skin/TextureManagement",
+                        permission = YuDreamSkinPlugin.MANAGE_PERMISSION,
+                        sort = 20
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/yudream-skin/admin/migration",
+                        name = "platform-plugin-yudream-skin-migration",
+                        title = "数据迁移",
+                        icon = "i-ri:database-2-line",
+                        parentPath = "/platform/plugins/yudream-skin/admin",
+                        parentTitle = "皮肤站管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        parentSort = 10,
+                        component = "yudream-skin/Migration",
+                        permission = YuDreamSkinPlugin.MANAGE_PERMISSION,
+                        sort = 25
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/yudream-skin/admin/closet",
+                        name = "platform-plugin-yudream-skin-manage-closet",
+                        title = "衣柜管理",
+                        icon = "i-ri:archive-drawer-line",
+                        parentPath = "/platform/plugins/yudream-skin/admin",
+                        parentTitle = "皮肤站管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        parentSort = 10,
+                        component = "yudream-skin/ClosetManagement",
                         permission = YuDreamSkinPlugin.MANAGE_PERMISSION,
                         sort = 10
                 )

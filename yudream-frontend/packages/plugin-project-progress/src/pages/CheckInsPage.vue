@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectCheckIn } from '../types'
-import { FaFileUpload } from '@yudream/components'
-import { computed, watch } from 'vue'
+import { FaButton, FaFileUpload, FaInput, FaPagination, FaRadioGroup, FaSelect, FaTable, FaTag, FaTextarea } from '@yudream/components'
+import { computed, reactive, watch } from 'vue'
 
-const props = defineProps<{
-  model: ProjectProgressModel
-}>()
-
+const props = defineProps<{ model: ProjectProgressModel }>()
+const pagination = reactive({ page: 1, size: 10 })
+const projectOptions = computed(() => props.model.projects.map(project => ({ label: project.name, value: project.id })))
 const manualTypeOptions = computed(() => {
   const allowed = props.model.selectedProject?.allowedCheckInTypes || []
   return [
@@ -16,163 +16,69 @@ const manualTypeOptions = computed(() => {
     { label: '定位', value: 'LOCATION' },
   ].filter(item => allowed.includes(item.value))
 })
-
-function typeLabel(value: string) {
-  const labels: Record<string, string> = {
-    IMAGE: '图片',
-    FILE: '文件',
-    LOCATION: '定位',
-    MINECRAFT_ONLINE: 'MC 在线时长',
-  }
-  return labels[value] || value
-}
+const pagedRows = computed(() => props.model.checkIns.slice((pagination.page - 1) * pagination.size, pagination.page * pagination.size))
+const columns: TableColumn<ProjectCheckIn>[] = [
+  { id: 'user', header: '打卡人', width: 170, fixed: 'left' },
+  { id: 'type', header: '类型', width: 130 },
+  { id: 'summary', header: '说明', width: 420 },
+  { id: 'createdAt', header: '时间', width: 180 },
+]
 
 watch(manualTypeOptions, (options) => {
-  if (options.length && !options.some(item => item.value === props.model.checkInForm.type)) {
-    props.model.checkInForm.type = options[0].value
-  }
+  if (options.length && !options.some(item => item.value === props.model.checkInForm.type)) props.model.checkInForm.type = options[0].value
 }, { immediate: true })
+watch(() => props.model.checkIns.length, total => { pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(total / pagination.size))) })
+watch(() => pagination.size, () => { pagination.page = 1 })
 
 async function selectProject(projectId: unknown) {
+  pagination.page = 1
   await props.model.selectProjectById(String(projectId || ''))
 }
 
-function fileNames(files: ProjectCheckIn['files']) {
-  return files.map(file => file.filename).join('、')
+function typeLabel(value: string) {
+  return { IMAGE: '图片', FILE: '文件', LOCATION: '定位', MINECRAFT_ONLINE: 'MC 在线时长' }[value] || value
 }
 
-function localUploadRequest() {
-  return Promise.resolve({})
-}
+function fileNames(files: ProjectCheckIn['files']) { return files.map(file => file.filename).join('、') }
+function localUploadRequest() { return Promise.resolve({}) }
 </script>
 
 <template>
   <section class="pp-page">
     <section class="pp-toolbar">
-      <div>
-        <span>进度打卡</span>
-        <h2>项目打卡</h2>
+      <div><span>进度打卡</span><h2>项目打卡</h2></div>
+      <div class="pp-actions">
+        <FaSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" />
+        <FaButton variant="outline" :loading="model.loading" @click="model.load">刷新</FaButton>
+        <FaButton variant="outline" :disabled="!model.checkIns.length" @click="model.exportCheckIns">导出</FaButton>
       </div>
-      <a-space>
-        <a-select
-          :model-value="model.selectedProjectId"
-          placeholder="选择项目"
-          class="pp-project-select"
-          @change="selectProject"
-        >
-          <a-option v-for="project in model.projects" :key="project.id" :value="project.id">
-            {{ project.name }}
-          </a-option>
-        </a-select>
-        <a-button :loading="model.loading" @click="model.load">刷新</a-button>
-      </a-space>
     </section>
 
     <section class="pp-grid">
       <section class="pp-panel">
-        <header class="pp-panel-head">
-          <div>
-            <h3>提交打卡</h3>
-            <span>{{ model.selectedProject?.name || '请选择项目' }}</span>
-          </div>
-        </header>
-
-        <a-form :model="model.checkInForm" layout="vertical" @submit.prevent>
-          <a-form-item label="打卡类型">
-            <a-radio-group v-model="model.checkInForm.type" type="button" :disabled="!model.selectedProjectId">
-              <a-radio v-for="item in manualTypeOptions" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </a-radio>
-            </a-radio-group>
-            <a-empty v-if="model.selectedProjectId && !manualTypeOptions.length" description="该项目未开放手动打卡" />
-          </a-form-item>
-          <a-form-item label="说明">
-            <a-textarea v-model="model.checkInForm.summary" :auto-size="{ minRows: 3, maxRows: 5 }" />
-          </a-form-item>
-          <a-form-item v-if="model.checkInForm.type !== 'LOCATION'" label="上传证明">
-            <FaFileUpload
-              v-model="model.evidenceFiles"
-              :max="1"
-              :http-request="localUploadRequest"
-              description="拖放或点击选择打卡证明"
-            />
-          </a-form-item>
+        <header class="pp-panel-head"><div><h3>提交打卡</h3><span>{{ model.selectedProject?.name || '请选择项目' }}</span></div></header>
+        <div class="pp-form">
+          <label><span>打卡类型</span><FaRadioGroup v-model="model.checkInForm.type" :options="manualTypeOptions" :disabled="!model.selectedProjectId" class="pp-radio-grid" /></label>
+          <div v-if="model.selectedProjectId && !manualTypeOptions.length" class="pp-empty">该项目未开放手动打卡</div>
+          <label><span>说明</span><FaTextarea v-model="model.checkInForm.summary" class="w-full" /></label>
+          <label v-if="model.checkInForm.type !== 'LOCATION'"><span>上传证明</span><FaFileUpload v-model="model.evidenceFiles" :max="1" :http-request="localUploadRequest" description="拖放或点击选择打卡证明" /></label>
           <template v-if="model.checkInForm.type === 'LOCATION'">
-            <a-form-item label="地址">
-              <a-input v-model="model.checkInForm.address" placeholder="定位后可补充地点说明" />
-            </a-form-item>
-            <a-space>
-              <a-button :loading="model.saving" @click="model.useCurrentLocation">获取当前位置</a-button>
-              <span class="pp-muted">
-                {{ model.checkInForm.latitude && model.checkInForm.longitude ? `${model.checkInForm.latitude}, ${model.checkInForm.longitude}` : '尚未获取定位' }}
-              </span>
-            </a-space>
+            <label><span>地址</span><FaInput v-model="model.checkInForm.address" class="w-full" placeholder="定位后可补充地点说明" /></label>
+            <div class="pp-actions"><FaButton variant="outline" :loading="model.saving" @click="model.useCurrentLocation">获取当前位置</FaButton><span class="pp-muted">{{ model.checkInForm.latitude && model.checkInForm.longitude ? `${model.checkInForm.latitude}, ${model.checkInForm.longitude}` : '尚未获取定位' }}</span></div>
           </template>
-          <a-space>
-            <a-button
-              type="primary"
-              :loading="model.saving"
-              :disabled="!model.selectedProjectId || !manualTypeOptions.length"
-              @click="model.submitCheckIn"
-            >
-              提交打卡
-            </a-button>
-            <a-button
-              :disabled="!model.canProjectMinecraftCheckIn() || model.saving"
-              @click="model.minecraftCheckIn()"
-            >
-              MC 在线时长打卡
-            </a-button>
-            <a-button
-              :disabled="!model.selectedProject?.minecraftPolicy.enabled || model.saving"
-              @click="model.autoMinecraftCheckIns"
-            >
-              检查自动打卡
-            </a-button>
-          </a-space>
-        </a-form>
+          <div class="pp-actions"><FaButton :loading="model.saving" :disabled="!model.selectedProjectId || !manualTypeOptions.length" @click="model.submitCheckIn">提交打卡</FaButton><FaButton variant="outline" :disabled="!model.canProjectMinecraftCheckIn() || model.saving" @click="model.minecraftCheckIn()">MC 在线时长打卡</FaButton></div>
+        </div>
       </section>
 
       <section class="pp-panel">
-        <header class="pp-panel-head">
-          <div>
-            <h3>项目打卡记录</h3>
-            <span>{{ model.checkIns.length }} 条记录</span>
-          </div>
-        </header>
-
-        <a-table :data="model.checkIns" :pagination="false" row-key="id" size="small">
-          <template #columns>
-            <a-table-column title="打卡人" :width="150">
-              <template #cell="{ record }">
-                {{ model.userLabel(model.usersById[record.userId]) }}
-              </template>
-            </a-table-column>
-            <a-table-column title="类型" :width="120">
-              <template #cell="{ record }">
-                <a-tag>{{ typeLabel(record.type) }}</a-tag>
-              </template>
-            </a-table-column>
-            <a-table-column title="说明">
-              <template #cell="{ record }">
-                <strong>{{ record.summary || '无说明' }}</strong>
-                <div v-if="record.location" class="pp-table-sub">{{ record.location.address }}</div>
-                <div v-if="record.minecraft" class="pp-table-sub">
-                  {{ model.serverLabel(record.minecraft.serverId) }} · 有效在线 {{ model.minutes(record.minecraft.effectiveOnlineMillis) }}
-                </div>
-                <div v-if="record.files.length" class="pp-table-sub">
-                  {{ fileNames(record.files) }}
-                </div>
-              </template>
-            </a-table-column>
-            <a-table-column title="时间" :width="170">
-              <template #cell="{ record }">
-                {{ model.formatTime(record.createdAt) }}
-              </template>
-            </a-table-column>
-          </template>
-        </a-table>
-        <a-empty v-if="!model.checkIns.length" description="暂无打卡记录" />
+        <header class="pp-panel-head"><div><h3>项目打卡记录</h3><span>{{ model.checkIns.length }} 条记录</span></div></header>
+        <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+          <template #cell-user="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
+          <template #cell-type="{ row }"><FaTag variant="secondary">{{ typeLabel(row.original.type) }}</FaTag></template>
+          <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
+          <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
+        </FaTable>
+        <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.checkIns.length" class="mt-3" />
       </section>
     </section>
   </section>

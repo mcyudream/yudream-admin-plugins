@@ -17,6 +17,7 @@ has_plugin_jars() {
 
 run_step "plugin repo independence validation" "ci/verify-plugin-repo-independence.sh"
 run_step "plugin maven boundary validation" "ci/verify-plugin-maven-boundary.sh"
+run_step "plugin development conformance validation" "ci/verify-plugin-development-conformance.sh"
 run_step "plugin publish pipeline validation" "ci/verify-plugin-publish-pipeline.sh"
 run_step "core npm contract reinstall validation" "ci/verify-core-npm-contracts.sh"
 run_step "docs independence validation" "ci/verify-doc-independence.sh"

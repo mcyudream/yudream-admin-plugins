@@ -5,7 +5,9 @@ import { computed, watch } from 'vue'
 import { useActivityProof } from './composables/useActivityProof'
 import ExportPage from './pages/ExportPage.vue'
 import MinePage from './pages/MinePage.vue'
+import MappingsPage from './pages/MappingsPage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
+import SettingsPage from './pages/SettingsPage.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -21,6 +23,12 @@ const page = computed(() => {
   if (path.endsWith('/activity-proof/records')) {
     return 'records'
   }
+  if (path.endsWith('/activity-proof/mappings')) {
+    return 'mappings'
+  }
+  if (path.endsWith('/activity-proof/settings')) {
+    return 'settings'
+  }
   return 'export'
 })
 
@@ -31,6 +39,8 @@ watch(page, value => model.loadPage(value), { immediate: true })
   <div class="minecraft-activity-proof-plugin">
     <RecordsPage v-if="page === 'records'" :model="model" />
     <MinePage v-else-if="page === 'mine'" :model="model" />
+    <MappingsPage v-else-if="page === 'mappings'" :model="model" />
+    <SettingsPage v-else-if="page === 'settings'" :model="model" />
     <ExportPage v-else :model="model" />
   </div>
 </template>

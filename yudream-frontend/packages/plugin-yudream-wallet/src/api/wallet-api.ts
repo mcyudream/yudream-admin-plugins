@@ -1,7 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { WalletAsset, WalletBalance, WalletRechargeOptions, WalletRechargeResult, WalletRechargeSettings, WalletSummary, WalletTransaction } from '../types'
-
-const PAGE_SIZE = 200
+import type { PagedResult, WalletAsset, WalletBalance, WalletRechargeOptions, WalletRechargeResult, WalletRechargeSettings, WalletSummary, WalletTransaction } from '../types'
 
 export function createWalletApi(sdk: YuDreamPluginSdk) {
   function query(params: Record<string, string | number | undefined>) {
@@ -17,33 +15,20 @@ export function createWalletApi(sdk: YuDreamPluginSdk) {
 
   return {
     status: () => sdk.http.get<WalletSummary>('/status'),
-    assets: () => getAllPages<WalletAsset>(sdk, '/assets'),
-    balances: () => sdk.http.get<WalletBalance[]>('/balances'),
-    adminBalances: (assetCode?: string, page = 1, size = 20) => sdk.http.get<WalletBalance[]>(`/admin/balances${query({ page, size, assetCode })}`),
-    userBalances: (userId: string) => sdk.http.get<WalletBalance[]>(`/users/${encodeURIComponent(userId)}/balances`),
-    transactions: (filters?: Record<string, string>, page = 1, size = 20) => sdk.http.get<WalletTransaction[]>(`/transactions${query({ page, size, ...filters })}`),
-    myTransactions: (filters?: Record<string, string>, page = 1, size = 20) => sdk.http.get<WalletTransaction[]>(`/my/transactions${query({ page, size, ...filters })}`),
-    saveAsset: (data: Record<string, unknown>) => sdk.http.post<WalletAsset>('/assets', data),
-    deleteAsset: (assetCode: string) => sdk.http.request(`/assets/${encodeURIComponent(assetCode)}`, { method: 'DELETE' }),
-    rechargeOptions: () => sdk.http.get<WalletRechargeOptions>('/recharge/options'),
-    rechargeSettings: () => sdk.http.get<WalletRechargeSettings>('/recharge/settings'),
-    saveRechargeSettings: (data: Record<string, unknown>) => sdk.http.request<WalletRechargeSettings>('/recharge/settings', { method: 'PUT', data }),
-    createRecharge: (data: Record<string, unknown>) => sdk.http.post<WalletRechargeResult>('/recharges', data),
-    credit: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/balances/credit', data),
-    debit: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/balances/debit', data),
-    transfer: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/balances/transfer', data),
-  }
-}
-
-async function getAllPages<T>(sdk: YuDreamPluginSdk, path: string) {
-  const records: T[] = []
-  let page = 1
-  while (true) {
-    const batch = await sdk.http.get<T[]>(`${path}?page=${page}&size=${PAGE_SIZE}`)
-    records.push(...batch)
-    if (batch.length < PAGE_SIZE) {
-      return records
-    }
-    page += 1
+    assets: async () => (await sdk.http.get<PagedResult<WalletAsset>>('/assets?page=1&size=100')).records,
+    adminAssets: (page = 1, size = 10) => sdk.http.get<PagedResult<WalletAsset>>(`/admin/assets${query({ page, size })}`),
+    meBalances: () => sdk.http.get<WalletBalance[]>('/me/balances'),
+    adminBalances: (assetCode?: string, page = 1, size = 10) => sdk.http.get<PagedResult<WalletBalance>>(`/admin/balances${query({ page, size, assetCode })}`),
+    adminTransactions: (filters?: Record<string, string>, page = 1, size = 10) => sdk.http.get<PagedResult<WalletTransaction>>(`/admin/transactions${query({ page, size, ...filters })}`),
+    meTransactions: (filters?: Record<string, string>, page = 1, size = 10) => sdk.http.get<PagedResult<WalletTransaction>>(`/me/transactions${query({ page, size, ...filters })}`),
+    saveAsset: (data: Record<string, unknown>) => sdk.http.post<WalletAsset>('/admin/assets', data),
+    deleteAsset: (assetCode: string) => sdk.http.request(`/admin/assets/${encodeURIComponent(assetCode)}`, { method: 'DELETE' }),
+    rechargeOptions: () => sdk.http.get<WalletRechargeOptions>('/me/recharge/options'),
+    rechargeSettings: () => sdk.http.get<WalletRechargeSettings>('/admin/recharge/settings'),
+    saveRechargeSettings: (data: Record<string, unknown>) => sdk.http.request<WalletRechargeSettings>('/admin/recharge/settings', { method: 'PUT', data }),
+    createRecharge: (data: Record<string, unknown>) => sdk.http.post<WalletRechargeResult>('/me/recharges', data),
+    credit: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/admin/balances/credit', data),
+    debit: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/admin/balances/debit', data),
+    transfer: (data: Record<string, unknown>) => sdk.http.post<WalletTransaction>('/me/transfers', data),
   }
 }

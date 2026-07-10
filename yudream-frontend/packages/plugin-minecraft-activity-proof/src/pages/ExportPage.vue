@@ -1,14 +1,30 @@
 <script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
 import type { ActivityProofModel } from '../composables/useActivityProof'
+import type { ActivityProofParticipant } from '../types'
+import { FaButton, FaCheckbox, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTable } from '@yudream/components'
+import { computed } from 'vue'
 import ProofPanel from '../components/ProofPanel.vue'
 
-defineProps<{
+const props = defineProps<{
   model: ActivityProofModel
 }>()
+const participantColumns: TableColumn<ActivityProofParticipant>[] = [
+  { id: 'selected', header: '选择', width: 70, align: 'center' },
+  { id: 'player', header: '玩家', width: 220, fixed: 'left' },
+  { accessorKey: 'studentName', header: '姓名', width: 120 },
+  { accessorKey: 'className', header: '班级', width: 140 },
+  { accessorKey: 'studentNo', header: '学号', width: 140 },
+  { id: 'online', header: '有效在线', width: 120 },
+]
+const serverOptions = computed(() => props.model.servers.map(server => ({ label: `${server.name}${server.enabled ? '' : '（停用）'}`, value: server.id })))
+async function participantPageChanged() { await props.model.reloadServerData() }
 </script>
 
 <template>
   <section class="proof-page">
+    <FaPageHeader title="活动证明导出" />
+    <FaPageMain>
     <section class="proof-toolbar">
       <div>
         <span>Word Export</span>
@@ -30,101 +46,62 @@ defineProps<{
       <span v-else-if="!model.settings?.templateReady">请选择 Word 模板。</span>
     </section>
 
-    <section class="proof-grid">
+    <section class="proof-grid single">
       <ProofPanel title="导出参数" eyebrow="Export">
         <form class="proof-form" @submit.prevent="model.exportWord">
           <label>
             <span>服务器</span>
-            <select v-model="model.selectedServerId" @change="model.reloadServerData">
-              <option v-for="server in model.servers" :key="server.id" :value="server.id">
-                {{ server.name }}{{ server.enabled ? '' : '（停用）' }}
-              </option>
-            </select>
+            <FaSelect v-model="model.selectedServerId" :options="serverOptions" @update:model-value="model.reloadServerData" />
           </label>
           <label>
             <span>活动名称</span>
-            <input v-model="model.exportForm.activityName" autocomplete="off">
+            <FaInput v-model="model.exportForm.activityName" />
           </label>
           <label>
             <span>活动日期</span>
-            <input v-model="model.exportForm.activityDate" autocomplete="off" placeholder="2026年7月8日">
+            <FaInput v-model="model.exportForm.activityDate" placeholder="2026年7月8日" />
           </label>
           <label>
             <span>证明编号</span>
-            <input v-model="model.exportForm.proofNo" autocomplete="off" placeholder="留空自动生成">
+            <FaInput v-model="model.exportForm.proofNo" placeholder="留空自动生成" />
           </label>
           <label>
             <span>学院</span>
-            <input v-model="model.exportForm.college" autocomplete="off">
+            <FaInput v-model="model.exportForm.college" />
           </label>
           <label>
             <span>落款</span>
-            <input v-model="model.exportForm.issuer" autocomplete="off">
+            <FaInput v-model="model.exportForm.issuer" />
           </label>
           <label>
             <span>出具日期</span>
-            <input v-model="model.exportForm.issueDate" autocomplete="off">
+            <FaInput v-model="model.exportForm.issueDate" />
           </label>
           <div class="proof-inline">
             <label>
               <span>最低在线分钟</span>
-              <input v-model.number="model.exportForm.minOnlineMinutes" type="number" min="0" @change="model.reloadServerData">
+              <FaNumberField v-model="model.exportForm.minOnlineMinutes" :min="0" @update:model-value="model.reloadServerData" />
             </label>
             <label class="proof-check">
-              <input v-model="model.exportForm.includeAfk" type="checkbox" @change="model.reloadServerData">
+              <FaCheckbox v-model="model.exportForm.includeAfk" @update:model-value="model.reloadServerData" />
               <span>计入 AFK</span>
             </label>
           </div>
-          <button class="proof-primary" type="submit" :disabled="model.exporting || !model.ready">
+          <FaButton type="submit" :disabled="model.exporting || !model.ready" :loading="model.exporting">
             <span class="i-ri:file-word-2-line" />
             生成 Word
-          </button>
+          </FaButton>
         </form>
       </ProofPanel>
 
-      <ProofPanel title="模板和默认值" eyebrow="Template">
-        <div class="proof-template">
-          <strong>{{ model.selectedTemplate?.name || model.settings?.templateName || '未选择模板' }}</strong>
-          <span>{{ model.selectedTemplate?.originalFilename || model.settings?.templateFilename || '请在 Word 模板能力中维护模板' }}</span>
-          <label>
-            <span>Word 模板</span>
-            <select v-model="model.settingsForm.templateId" :disabled="model.saving" @change="model.selectTemplate">
-              <option value="">请选择模板</option>
-              <option v-for="template in model.templates" :key="template.id" :value="template.id">
-                {{ template.name }} / {{ template.code }}
-              </option>
-            </select>
-          </label>
-          <button class="proof-secondary" type="button" @click="model.reloadTemplates">
-            刷新模板
-          </button>
-        </div>
-        <form class="proof-form compact" @submit.prevent="model.saveSettings">
-          <label>
-            <span>默认活动</span>
-            <input v-model="model.settingsForm.defaultActivityName" autocomplete="off">
-          </label>
-          <label>
-            <span>默认学院</span>
-            <input v-model="model.settingsForm.defaultCollege" autocomplete="off">
-          </label>
-          <label>
-            <span>默认落款</span>
-            <input v-model="model.settingsForm.defaultIssuer" autocomplete="off">
-          </label>
-          <button class="proof-secondary" type="submit" :disabled="model.saving">
-            保存默认值
-          </button>
-        </form>
-      </ProofPanel>
     </section>
 
     <ProofPanel title="玩家与学生信息" eyebrow="Participants">
       <template #action>
         <div class="proof-actions">
-          <button type="button" @click="model.selectAll">全选</button>
-          <button type="button" @click="model.clearSelection">清空</button>
-          <button type="button" @click="model.reloadServerData">刷新</button>
+          <FaButton size="sm" variant="outline" type="button" @click="model.selectAll">全选</FaButton>
+          <FaButton size="sm" variant="outline" type="button" @click="model.clearSelection">清空</FaButton>
+          <FaButton size="sm" variant="outline" type="button" @click="model.reloadServerData">刷新</FaButton>
         </div>
       </template>
       <div class="proof-summary">
@@ -132,62 +109,14 @@ defineProps<{
         <span>{{ model.selectedCount }} 人待导出</span>
         <span>{{ model.unmatchedCount }} 人未匹配学生信息</span>
       </div>
-      <div class="proof-table-wrap">
-        <table class="proof-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>玩家</th>
-              <th>姓名</th>
-              <th>班级</th>
-              <th>学号</th>
-              <th>有效在线</th>
-              <th>映射</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in model.participants" :key="row.playerId">
-              <td>
-                <input type="checkbox" :checked="model.selectedPlayerIds.includes(row.playerId)" @change="model.togglePlayer(row)">
-              </td>
-              <td class="proof-main-cell">
-                <strong>{{ row.playerName }}</strong>
-                <span>{{ row.playerId }}</span>
-              </td>
-              <td>{{ row.studentName || '-' }}</td>
-              <td>{{ row.className || '-' }}</td>
-              <td>{{ row.studentNo || '-' }}</td>
-              <td>{{ model.minutes(row.effectiveOnlineMillis) }}</td>
-              <td>
-                <form class="proof-map-form" @submit.prevent="model.bindStudent(row)">
-                  <input v-model="model.mappingInputs[row.playerId]" name="studentNo" placeholder="学号">
-                  <button type="submit">保存</button>
-                </form>
-              </td>
-            </tr>
-            <tr v-if="!model.participants.length">
-              <td colspan="7">
-                <div class="proof-empty">暂无可导出的玩家在线记录</div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <FaTable row-key="playerId" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1000px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
+        <template #cell-selected="{ row }"><FaCheckbox :model-value="model.selectedPlayerIds.includes(row.original.playerId)" @update:model-value="model.togglePlayer(row.original)" /></template>
+        <template #cell-player="{ row }"><strong>{{ row.original.playerName }}</strong><div>{{ row.original.playerId }}</div></template>
+        <template #cell-online="{ row }">{{ model.minutes(row.original.effectiveOnlineMillis) }}</template>
+      </FaTable>
+      <FaPagination v-model:page="model.participantPager.page" v-model:size="model.participantPager.size" :total="model.participantPager.total" class="mt-3" @page-change="participantPageChanged" @size-change="participantPageChanged" />
     </ProofPanel>
 
-    <section class="proof-grid single">
-      <ProofPanel title="已保存映射" eyebrow="Mappings">
-        <div class="proof-list">
-          <article v-for="row in model.mappings" :key="row.id">
-            <div>
-              <strong>{{ row.playerName || row.playerId }}</strong>
-              <span>{{ row.studentNo }}</span>
-            </div>
-            <button type="button" @click="model.deleteMapping(row)">删除</button>
-          </article>
-          <div v-if="!model.mappings.length" class="proof-empty">暂无手动映射</div>
-        </div>
-      </ProofPanel>
-    </section>
+    </FaPageMain>
   </section>
 </template>

@@ -2,7 +2,7 @@ package online.yudream.base.plugin.activityproof.interfaces.http;
 
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofDownloadDTO;
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
-import online.yudream.base.plugin.activityproof.infrastructure.support.JsonSupport;
+import online.yudream.base.plugin.activityproof.interfaces.support.JsonSupport;
 import online.yudream.base.plugin.activityproof.interfaces.assembler.ActivityProofWebAssembler;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofExportRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofMappingSaveRequest;
@@ -66,7 +66,7 @@ public class ActivityProofHttpFacade {
     }
 
     public PluginHttpResponse deleteMapping(PluginHttpRequest request) {
-        appService.deleteMapping(pathSegment(request.path(), 1));
+        appService.deleteMapping(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
@@ -74,7 +74,9 @@ public class ActivityProofHttpFacade {
         return PluginHttpResponse.ok(appService.participants(
                 firstQuery(request, "serverId"),
                 intQuery(request, "minOnlineMinutes", 0),
-                boolQuery(request, "includeAfk", false)
+                boolQuery(request, "includeAfk", false),
+                page(request),
+                size(request)
         ));
     }
 
@@ -88,25 +90,25 @@ public class ActivityProofHttpFacade {
     }
 
     public PluginHttpResponse myExports(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.myStampedExportRecords(currentUserId(request)));
+        return PluginHttpResponse.ok(appService.myStampedExportRecords(currentUserId(request), page(request), size(request)));
     }
 
     public PluginHttpResponse uploadStampedPdf(PluginHttpRequest request) {
         ActivityProofStampedPdfUploadRequest body = JsonSupport.read(request.body(), ActivityProofStampedPdfUploadRequest.class);
-        return PluginHttpResponse.ok(appService.uploadStampedPdf(assembler.toCmd(pathSegment(request.path(), 1), body)));
+        return PluginHttpResponse.ok(appService.uploadStampedPdf(assembler.toCmd(pathSegment(request.path(), 2), body)));
     }
 
     public PluginHttpResponse deleteExport(PluginHttpRequest request) {
-        appService.deleteExportRecord(pathSegment(request.path(), 1));
+        appService.deleteExportRecord(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
     public PluginHttpResponse download(PluginHttpRequest request) {
-        return downloadResponse(appService.downloadWord(pathSegment(request.path(), 1)), DOCX_CONTENT_TYPE);
+        return downloadResponse(appService.downloadWord(pathSegment(request.path(), 2)), DOCX_CONTENT_TYPE);
     }
 
     public PluginHttpResponse downloadStampedPdf(PluginHttpRequest request) {
-        return downloadResponse(appService.downloadStampedPdf(pathSegment(request.path(), 1)), "application/pdf");
+        return downloadResponse(appService.downloadStampedPdf(pathSegment(request.path(), 2)), "application/pdf");
     }
 
     public PluginHttpResponse downloadMyStampedPdf(PluginHttpRequest request) {

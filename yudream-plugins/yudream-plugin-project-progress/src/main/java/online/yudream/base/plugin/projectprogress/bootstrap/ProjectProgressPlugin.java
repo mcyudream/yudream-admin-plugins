@@ -41,7 +41,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 10
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/projects",
+                        path = "/platform/plugins/project-progress/admin/projects",
                         name = "platform-plugin-project-progress-projects",
                         title = "项目管理",
                         icon = "i-ri:folder-settings-line",
@@ -50,7 +50,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 20
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/details",
+                        path = "/platform/plugins/project-progress/admin/details",
                         name = "platform-plugin-project-progress-details",
                         title = "工作细节",
                         icon = "i-ri:list-check-3",
@@ -59,7 +59,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 22
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/task-center",
+                        path = "/platform/plugins/project-progress/me/task-center",
                         name = "platform-plugin-project-progress-task-center",
                         title = "任务中心",
                         icon = "i-ri:todo-line",
@@ -68,7 +68,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 25
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/my-tasks",
+                        path = "/platform/plugins/project-progress/me/tasks",
                         name = "platform-plugin-project-progress-my-tasks",
                         title = "我的任务",
                         icon = "i-ri:checkbox-circle-line",
@@ -77,13 +77,22 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 30
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/check-ins",
+                        path = "/platform/plugins/project-progress/me/check-ins",
                         name = "platform-plugin-project-progress-check-ins",
                         title = "打卡记录",
                         icon = "i-ri:map-pin-time-line",
                         component = "project-progress/CheckIns",
                         permission = ProjectProgressPlugin.CHECK_IN_PERMISSION,
                         sort = 40
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/project-progress/admin/check-in-statistics",
+                        name = "platform-plugin-project-progress-check-in-statistics",
+                        title = "打卡统计",
+                        icon = "i-ri:bar-chart-box-line",
+                        component = "project-progress/CheckInStatistics",
+                        permission = ProjectProgressPlugin.MANAGE_PERMISSION,
+                        sort = 45
                 ),
                 @PluginRoute(
                         path = "/platform/plugins/project-progress/acceptance",
@@ -95,7 +104,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 50
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/members",
+                        path = "/platform/plugins/project-progress/admin/members",
                         name = "platform-plugin-project-progress-members",
                         title = "成员统计",
                         icon = "i-ri:team-line",
@@ -104,7 +113,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 55
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/project-progress/settings",
+                        path = "/platform/plugins/project-progress/admin/settings",
                         name = "platform-plugin-project-progress-settings",
                         title = "插件设置",
                         icon = "i-ri:settings-3-line",

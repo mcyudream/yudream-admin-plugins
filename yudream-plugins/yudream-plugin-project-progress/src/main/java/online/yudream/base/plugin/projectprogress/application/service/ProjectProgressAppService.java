@@ -253,7 +253,7 @@ public class ProjectProgressAppService {
         ProjectWorkDetail detail = requireDetail(detailId);
         ProjectProgressProject project = requireProject(detail.projectId());
         String safeUserId = requireText(operatorUserId, "请先登录");
-        if (!detail.assignedTo(safeUserId) && !project.canManage(safeUserId)) {
+        if (!detail.assignedTo(safeUserId)) {
             throw new IllegalArgumentException("当前用户不是该工作细节负责人，不能提交验收");
         }
         if (detail.statusCode().equals(project.doneStatusCode())) {
@@ -274,6 +274,14 @@ public class ProjectProgressAppService {
     public List<ProjectCheckInDTO> projectCheckIns(String projectId, int page, int size) {
         requireProject(projectId);
         return repository.listProjectCheckIns(projectId, safePage(page), safeSize(size)).stream().map(assembler::toDTO).toList();
+    }
+
+    public List<ProjectCheckInDTO> myCheckIns(String userId, String projectId, int page, int size) {
+        String safeUserId = requireText(userId, "请先登录");
+        return repository.listCheckInsByUser(safeUserId, safePage(page), safeSize(size)).stream()
+                .filter(item -> projectId == null || projectId.isBlank() || projectId.trim().equals(item.projectId()))
+                .map(assembler::toDTO)
+                .toList();
     }
 
     public ProjectCheckInDTO checkIn(String detailId, ProjectProgressCheckInCmd cmd, String userId) {

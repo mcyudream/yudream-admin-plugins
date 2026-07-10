@@ -78,7 +78,7 @@
           v-model:size="texturePagination.size"
           :total="filteredTextures.length"
           :sizes="texturePageSizes"
-          class="skin-list-pagination"
+          class="skin-list-pagination mt-3"
           layout="total, sizes, ->, pager"
           @size-change="onTexturePageSizeChange"
         />
@@ -104,6 +104,36 @@
               <span>{{ selectedSubtitle }}</span>
             </div>
             <div v-if="model.canUse" class="skin-detail-actions">
+              <template v-if="isSelectedTextureOwner">
+                <FaTooltip text="编辑材质信息" side="top">
+                  <span class="skin-action-tooltip">
+                    <FaButton
+                      variant="outline"
+                      size="icon-sm"
+                      class="skin-action-icon"
+                      :loading="model.selectedTexture ? model.saving === `texture:${model.selectedTexture.hash}` : false"
+                      aria-label="编辑材质信息"
+                      @click="openEdit"
+                    >
+                      <FaIcon name="i-ri:edit-line" />
+                    </FaButton>
+                  </span>
+                </FaTooltip>
+                <FaTooltip text="删除我上传的材质" side="top">
+                  <span class="skin-action-tooltip">
+                    <FaButton
+                      variant="destructive"
+                      size="icon-sm"
+                      class="skin-action-icon"
+                      :loading="model.selectedTexture ? model.saving === `texture:${model.selectedTexture.hash}` : false"
+                      aria-label="删除我上传的材质"
+                      @click="confirmDeleteOwn"
+                    >
+                      <FaIcon name="i-ri:delete-bin-line" />
+                    </FaButton>
+                  </span>
+                </FaTooltip>
+              </template>
               <FaTooltip text="加入衣柜" side="top">
                 <span class="skin-action-tooltip">
                   <FaButton
@@ -188,7 +218,12 @@
         </label>
         <label>
           <span>PNG 文件</span>
-          <input class="file-input" type="file" accept="image/png" @change="model.handleTextureFile">
+          <FaFileUpload
+            v-model="textureFiles"
+            :max="1"
+            :http-request="selectTextureFile"
+            description="拖放或点击选择 PNG 材质"
+          />
         </label>
         <label class="switch-row">
           <span>公开到皮肤库</span>
@@ -196,14 +231,30 @@
         </label>
       </div>
     </FaModal>
+
+    <FaModal
+      v-model="editVisible"
+      title="编辑我的材质"
+      description="可修改名称和公开状态；PNG 内容与类型保持不变，以避免破坏已绑定的角色和衣柜项。"
+      show-cancel-button
+      class="sm:max-w-xl"
+      :confirm-loading="Boolean(model.selectedTexture && model.saving === `texture:${model.selectedTexture.hash}`)"
+      @confirm="saveEdit"
+    >
+      <div class="skin-upload-form">
+        <label><span>名称</span><FaInput v-model="editForm.name" /></label>
+        <label class="switch-row"><span>公开到皮肤库</span><FaSwitch v-model="editForm.publicAccess" :disabled="!model.settings.allowPublicUpload" /></label>
+      </div>
+    </FaModal>
   </section>
 </template>
 
 <script setup lang="ts">
+import type { FileItem, FileUploadRequestOptions } from '@yudream/components'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import type { SkinTexture } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaPagination, FaSelect, FaSwitch, FaTag, FaTooltip } from '@yudream/components'
+import { FaButton, FaFileUpload, FaIcon, FaInput, FaModal, FaPagination, FaSelect, FaSwitch, FaTag, FaTooltip, useFaModal } from '@yudream/components'
 import SkinPanel from '../components/SkinPanel.vue'
 import SkinPreview from '../components/SkinPreview.vue'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
@@ -214,6 +265,10 @@ const props = defineProps<{
 }>()
 
 const uploadVisible = ref(false)
+const editVisible = ref(false)
+const textureFiles = ref<FileItem[]>([])
+const editForm = reactive({ name: '', publicAccess: true })
+const modal = useFaModal()
 const isManagement = computed(() => props.mode === 'management')
 const keyword = ref('')
 const typeFilter = ref('all')
@@ -340,6 +395,10 @@ const selectedUploadedAt = computed(() => {
 const selectedSize = computed(() => {
   return formatSize(props.model.selectedTexture?.size)
 })
+const isSelectedTextureOwner = computed(() => {
+  const texture = props.model.selectedTexture
+  return Boolean(texture && texture.uploaderId === props.model.currentUserId)
+})
 
 function textureKind(texture: SkinTexture) {
   if (texture.type === 'cape') {
@@ -385,5 +444,40 @@ function onTexturePageSizeChange() {
 async function submitUpload() {
   await props.model.uploadTexture()
   uploadVisible.value = false
+  textureFiles.value = []
+}
+
+function openEdit() {
+  const texture = props.model.selectedTexture
+  if (!texture || !isSelectedTextureOwner.value) return
+  editForm.name = texture.name
+  editForm.publicAccess = Boolean(texture.publicAccess)
+  editVisible.value = true
+}
+
+async function saveEdit() {
+  const texture = props.model.selectedTexture
+  if (!texture || !isSelectedTextureOwner.value) return
+  await props.model.updateOwnTexture(texture.hash, { ...editForm })
+  editVisible.value = false
+}
+
+function confirmDeleteOwn() {
+  const texture = props.model.selectedTexture
+  if (!texture || !isSelectedTextureOwner.value) return
+  modal.confirm({
+    title: '删除材质',
+    content: `确认删除“${texture.name}”吗？关联衣柜项会同步清理，角色绑定会置空。`,
+    onConfirm: () => props.model.deleteOwnTexture(texture.hash),
+  })
+}
+
+async function selectTextureFile(options: FileUploadRequestOptions) {
+  if (options.file.type !== 'image/png' && !options.file.name.toLowerCase().endsWith('.png')) {
+    throw new Error('请选择 PNG 文件')
+  }
+  await props.model.handleTextureFile(options.file)
+  options.onProgress(100)
+  return { selected: true }
 }
 </script>

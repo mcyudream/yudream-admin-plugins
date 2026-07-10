@@ -6,9 +6,11 @@ import { computed, onMounted, watch } from 'vue'
 import { useSkinPlugin } from './composables/useSkinPlugin'
 import AdminPlayersPage from './pages/AdminPlayersPage.vue'
 import AdminTexturesPage from './pages/AdminTexturesPage.vue'
+import AdminClosetPage from './pages/AdminClosetPage.vue'
 import ClosetPage from './pages/ClosetPage.vue'
 import DashboardPage from './pages/DashboardPage.vue'
 import PlayersPage from './pages/PlayersPage.vue'
+import MigrationPage from './pages/MigrationPage.vue'
 import SystemPage from './pages/SystemPage.vue'
 import TexturesPage from './pages/TexturesPage.vue'
 import type { SkinPage } from './types'
@@ -22,14 +24,20 @@ const model = useSkinPlugin(props.sdk)
 
 const currentPage = computed<SkinPage>(() => {
   const path = props.route?.path || ''
-  if (path.endsWith('/system/players')) {
+  if (path.endsWith('/admin/players')) {
     return 'playerManagement'
   }
-  if (path.endsWith('/system/textures')) {
+  if (path.endsWith('/admin/textures')) {
     return 'textureManagement'
   }
-  if (path.endsWith('/system/settings') || path.endsWith('/system')) {
+  if (path.endsWith('/admin/closet')) {
+    return 'closetManagement'
+  }
+  if (path.endsWith('/admin/settings') || path.endsWith('/admin')) {
     return 'settings'
+  }
+  if (path.endsWith('/admin/migration')) {
+    return 'migration'
   }
   if (path.endsWith('/players')) {
     return 'players'
@@ -50,6 +58,9 @@ const currentPage = computed<SkinPage>(() => {
   if (component.includes('texturemanagement')) {
     return 'textureManagement'
   }
+  if (component.includes('closetmanagement')) {
+    return 'closetManagement'
+  }
   if (component.includes('dashboard') || component.includes('home')) {
     return 'dashboard'
   }
@@ -68,16 +79,18 @@ const currentPage = computed<SkinPage>(() => {
 const pageComponents: Record<SkinPage, Component> = {
   dashboard: DashboardPage,
   settings: SystemPage,
+  migration: MigrationPage,
   players: PlayersPage,
   textures: TexturesPage,
   closet: ClosetPage,
   playerManagement: AdminPlayersPage,
   textureManagement: AdminTexturesPage,
+  closetManagement: AdminClosetPage,
 }
 
 const pageComponent = computed(() => pageComponents[currentPage.value])
 const currentScope = computed(() => {
-  return currentPage.value === 'settings' || currentPage.value === 'playerManagement' || currentPage.value === 'textureManagement'
+  return currentPage.value === 'settings' || currentPage.value === 'migration' || currentPage.value === 'playerManagement' || currentPage.value === 'textureManagement' || currentPage.value === 'closetManagement'
     ? 'admin'
     : 'user'
 })
@@ -86,8 +99,8 @@ function loadCurrentPage() {
   const includeCollections = currentPage.value !== 'settings'
   return model.load({
     includeCloset: includeCollections && currentPage.value !== 'playerManagement' && currentPage.value !== 'textureManagement',
-    includeMigration: currentPage.value === 'settings',
-    includePlayers: includeCollections && currentPage.value !== 'textureManagement',
+    includeMigration: currentPage.value === 'migration',
+    includePlayers: includeCollections && currentPage.value !== 'textureManagement' && currentPage.value !== 'closetManagement',
     includeTextures: includeCollections,
     scope: currentScope.value,
   })

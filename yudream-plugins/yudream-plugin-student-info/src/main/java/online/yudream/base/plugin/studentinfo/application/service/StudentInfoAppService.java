@@ -5,6 +5,7 @@ import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoServic
 import online.yudream.base.plugin.studentinfo.application.assembler.StudentInfoAppAssembler;
 import online.yudream.base.plugin.studentinfo.application.cmd.StudentInfoSaveCmd;
 import online.yudream.base.plugin.studentinfo.application.dto.StudentInfoDTO;
+import online.yudream.base.plugin.studentinfo.application.dto.StudentInfoPageDTO;
 import online.yudream.base.plugin.studentinfo.application.query.StudentInfoQuery;
 import online.yudream.base.plugin.studentinfo.domain.aggregate.StudentInfo;
 import online.yudream.base.plugin.studentinfo.domain.repo.StudentInfoRepository;
@@ -49,16 +50,19 @@ public class StudentInfoAppService implements PluginStudentInfoService {
         return repository.findByStudentNo(studentNo.trim()).map(assembler::toDTO);
     }
 
-    public List<StudentInfoDTO> list(StudentInfoQuery query) {
+    public StudentInfoPageDTO page(StudentInfoQuery query) {
         StudentInfoQuery safeQuery = query == null
-                ? new StudentInfoQuery(null, null, null, 1, 20)
+                ? new StudentInfoQuery(null, null, null, 1, 10)
                 : query;
-        return repository.listAll().stream()
+        List<StudentInfo> matched = repository.listAll().stream()
                 .filter(item -> item.matches(safeQuery.keyword(), safeQuery.college(), safeQuery.className()))
+                .toList();
+        List<StudentInfoDTO> records = matched.stream()
                 .skip((long) (safeQuery.safePage() - 1) * safeQuery.safeSize())
                 .limit(safeQuery.safeSize())
                 .map(assembler::toDTO)
                 .toList();
+        return new StudentInfoPageDTO(records, matched.size());
     }
 
     public long count() {
@@ -66,7 +70,11 @@ public class StudentInfoAppService implements PluginStudentInfoService {
     }
 
     public void delete(String userId) {
-        repository.delete(requireText(userId, "用户不能为空"));
+        String normalizedUserId = requireText(userId, "用户不能为空");
+        if (repository.findByUserId(normalizedUserId).isEmpty()) {
+            throw new IllegalArgumentException("学生档案不存在");
+        }
+        repository.delete(normalizedUserId);
     }
 
     @Override
@@ -81,7 +89,7 @@ public class StudentInfoAppService implements PluginStudentInfoService {
 
     @Override
     public List<PluginStudentInfoProfile> studentInfos(String keyword, int page, int size) {
-        return list(new StudentInfoQuery(keyword, null, null, page, size)).stream()
+        return page(new StudentInfoQuery(keyword, null, null, page, size)).records().stream()
                 .map(this::toPluginProfile)
                 .toList();
     }

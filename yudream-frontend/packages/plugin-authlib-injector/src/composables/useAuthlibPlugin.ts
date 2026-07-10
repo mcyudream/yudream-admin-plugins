@@ -1,20 +1,16 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
+import type { AuthlibEndpoint, AuthlibStatus } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createAuthlibApi } from '../api/authlib-api'
-import type { AuthlibEndpoint, AuthlibStatus } from '../types'
 
 export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
   const api = createAuthlibApi(sdk)
   const toast = useFaToast()
   const loading = ref(false)
   const status = ref<AuthlibStatus | null>(null)
-
-  const baseUrl = computed(() => absoluteUrl(api.apiUrl('/')).replace(/\/$/, ''))
-  const launcherUrl = computed(() => baseUrl.value)
+  const launcherUrl = computed(() => absoluteUrl(api.apiUrl('/')).replace(/\/$/, ''))
   const statusText = computed(() => status.value ? '已连接' : '待刷新')
-  const statusPayload = computed(() => status.value ? JSON.stringify(status.value, null, 2) : '暂无状态数据')
-
   const endpoints = computed<AuthlibEndpoint[]>(() => [
     { method: 'GET', path: '/', note: 'ALI 元数据与公钥' },
     { method: 'POST', path: '/authserver/authenticate', note: '账号登录并获取 accessToken' },
@@ -46,23 +42,11 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
   }
 
   function absoluteUrl(url: string) {
-    if (/^https?:\/\//i.test(url)) {
-      return url
-    }
+    if (/^https?:\/\//i.test(url)) return url
     return `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`
   }
 
-  return reactive({
-    loading,
-    status,
-    baseUrl,
-    launcherUrl,
-    statusText,
-    statusPayload,
-    endpoints,
-    load,
-    copy,
-  })
+  return reactive({ loading, status, launcherUrl, statusText, endpoints, load, copy })
 }
 
 export type AuthlibPluginModel = ReturnType<typeof useAuthlibPlugin>

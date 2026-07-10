@@ -54,6 +54,16 @@ public class YuDreamSkinUserController {
         return http.uploadMyTexture(request);
     }
 
+    @PluginHttpEndpoint(method = "PUT", path = "/me/textures/{hash}", permission = YuDreamSkinPlugin.USER_PERMISSION)
+    public PluginHttpResponse updateMyTexture(PluginHttpRequest request) {
+        return http.updateMyTexture(request);
+    }
+
+    @PluginHttpEndpoint(method = "DELETE", path = "/me/textures/{hash}", permission = YuDreamSkinPlugin.USER_PERMISSION)
+    public PluginHttpResponse deleteMyTexture(PluginHttpRequest request) {
+        return http.deleteMyTexture(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/me/closet", permission = YuDreamSkinPlugin.USER_PERMISSION)
     public PluginHttpResponse myCloset(PluginHttpRequest request) {
         return http.myCloset(request);

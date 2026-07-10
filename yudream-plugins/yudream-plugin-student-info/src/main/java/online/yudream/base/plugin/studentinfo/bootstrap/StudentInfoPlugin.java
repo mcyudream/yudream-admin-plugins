@@ -10,7 +10,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoService;
 import online.yudream.base.plugin.studentinfo.application.service.StudentInfoAppService;
 import online.yudream.base.plugin.studentinfo.infrastructure.repository.StudentInfoDocumentRepository;
-import online.yudream.base.plugin.studentinfo.interfaces.controller.StudentInfoController;
+import online.yudream.base.plugin.studentinfo.interfaces.controller.StudentInfoAdminController;
+import online.yudream.base.plugin.studentinfo.interfaces.controller.StudentInfoUserController;
 import online.yudream.base.plugin.studentinfo.interfaces.http.StudentInfoHttpFacade;
 
 @PluginSpec(
@@ -61,6 +62,8 @@ public class StudentInfoPlugin implements YuDreamPlugin {
     public void onEnable(PluginContext context) {
         StudentInfoAppService appService = new StudentInfoAppService(new StudentInfoDocumentRepository(context.documents()));
         context.registerExtension(PluginStudentInfoService.class, appService);
-        context.registerHttpController(new StudentInfoController(new StudentInfoHttpFacade(appService, context.framework())));
+        StudentInfoHttpFacade http = new StudentInfoHttpFacade(appService, context.framework());
+        context.registerHttpController(new StudentInfoUserController(http));
+        context.registerHttpController(new StudentInfoAdminController(http));
     }
 }

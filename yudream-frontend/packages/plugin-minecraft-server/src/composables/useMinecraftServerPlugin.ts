@@ -4,7 +4,6 @@ import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMinecraftApi } from '../api/minecraft-api'
 
-const MANAGE_PERMISSION = 'plugin:minecraft-server:manage'
 const STATUS_HISTORY_WINDOW = 24 * 60 * 60 * 1000
 const STATUS_HISTORY_LIMIT = 144
 
@@ -21,9 +20,11 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   const records = ref<EconomyRecord[]>([])
   const statusHistory = ref<MinecraftStatusSnapshot[]>([])
   const playerActivities = ref<PlayerActivity[]>([])
-  const recordsPager = reactive({ page: 1, size: 20, hasNext: false })
-  const operationsPager = reactive({ page: 1, size: 10, hasNext: false })
-  const playerActivitiesPager = reactive({ page: 1, size: 20, hasNext: false })
+  const adminSurface = ref(false)
+  const serverPager = reactive({ page: 1, size: 10, total: 0 })
+  const recordsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
+  const operationsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
+  const playerActivitiesPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
 
   const serverForm = reactive<ServerForm>({
     id: '',
@@ -43,17 +44,21 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     rules: defaultRules(),
   })
 
-  const canManage = computed(() => sdk.account.permissions.includes('*') || sdk.account.permissions.includes(MANAGE_PERMISSION))
   const selectedServer = computed(() => servers.value.find(server => server.id === selectedId.value) || servers.value[0])
   const onlineCount = computed(() => selectedServer.value?.status?.onlinePlayers ?? 0)
   const maxCount = computed(() => selectedServer.value?.status?.maxPlayers ?? 0)
   const latestOperation = computed(() => operations.value.find(item => item.status === 'APPLIED'))
 
-  async function load(includeDisabled = canManage.value) {
+  async function load(admin = false) {
     loading.value = true
     try {
+      adminSurface.value = admin
       await loadEconomyStatus()
-      servers.value = await api.list(includeDisabled)
+      const result = admin
+        ? await api.adminList(serverPager.page, serverPager.size)
+        : await api.list(serverPager.page, serverPager.size)
+      servers.value = result.records
+      serverPager.total = result.total
       if (!selectedId.value || !servers.value.some(server => server.id === selectedId.value)) {
         selectedId.value = servers.value[0]?.id || ''
         statusHistory.value = []
@@ -103,24 +108,21 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadSideData(id: string) {
-    const detail = await api.detail(id)
+    const detail = adminSurface.value ? await api.adminDetail(id) : await api.detail(id)
     replaceServer(detail)
-    await loadStatusHistory(id)
-    if (walletEnabled.value) {
-      await loadRecords(id)
-    }
-    else {
-      clearWalletData()
-    }
-    if (canManage.value) {
+    if (adminSurface.value) {
       await Promise.all([
         walletEnabled.value ? loadOperations(id) : Promise.resolve(),
         loadPlayerActivities(id),
       ])
+      records.value = []
     }
     else {
+      await loadStatusHistory(id)
+      if (walletEnabled.value) await loadRecords(id)
       playerActivities.value = []
       playerActivitiesPager.hasNext = false
+      operations.value = []
     }
   }
 
@@ -130,9 +132,10 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       recordsPager.hasNext = false
       return
     }
-    const items = await api.myRecords(serverId, recordsPager.page, recordsPager.size)
-    recordsPager.hasNext = items.length >= recordsPager.size
-    records.value = items
+    const result = await api.myRecords(serverId, recordsPager.page, recordsPager.size)
+    recordsPager.total = result.total
+    recordsPager.hasNext = recordsPager.page * recordsPager.size < result.total
+    records.value = result.records
   }
 
   async function loadOperations(serverId = selectedId.value) {
@@ -141,9 +144,10 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       operationsPager.hasNext = false
       return
     }
-    const items = await api.operations(serverId, operationsPager.page, operationsPager.size)
-    operationsPager.hasNext = items.length >= operationsPager.size
-    operations.value = items
+    const result = await api.operations(serverId, operationsPager.page, operationsPager.size)
+    operationsPager.total = result.total
+    operationsPager.hasNext = operationsPager.page * operationsPager.size < result.total
+    operations.value = result.records
   }
 
   async function loadStatusHistory(serverId = selectedId.value) {
@@ -155,14 +159,15 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadPlayerActivities(serverId = selectedId.value) {
-    if (!serverId || !canManage.value) {
+    if (!serverId || !adminSurface.value) {
       playerActivities.value = []
       playerActivitiesPager.hasNext = false
       return
     }
-    const items = await api.playerActivities(serverId, playerActivitiesPager.page, playerActivitiesPager.size)
-    playerActivitiesPager.hasNext = items.length >= playerActivitiesPager.size
-    playerActivities.value = items
+    const result = await api.playerActivities(serverId, playerActivitiesPager.page, playerActivitiesPager.size)
+    playerActivitiesPager.total = result.total
+    playerActivitiesPager.hasNext = playerActivitiesPager.page * playerActivitiesPager.size < result.total
+    playerActivities.value = result.records
   }
 
   function newServer() {
@@ -225,6 +230,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       selectedId.value = saved.id
       editServer(saved)
       toast.success('服务器已保存')
+      await load(true)
     }
     finally {
       saving.value = false
@@ -399,7 +405,8 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     saving.value = true
     try {
       await api.remove(target.id)
-      servers.value = servers.value.filter(item => item.id !== target.id)
+      if (servers.value.length === 1 && serverPager.page > 1) serverPager.page -= 1
+      await load(true)
       if (selectedId.value === target.id) {
         const next = servers.value[0]
         selectedId.value = next?.id || ''
@@ -551,12 +558,12 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     records,
     statusHistory,
     playerActivities,
+    serverPager,
     recordsPager,
     operationsPager,
     playerActivitiesPager,
     serverForm,
     seasonForm,
-    canManage,
     onlineCount,
     maxCount,
     latestOperation,

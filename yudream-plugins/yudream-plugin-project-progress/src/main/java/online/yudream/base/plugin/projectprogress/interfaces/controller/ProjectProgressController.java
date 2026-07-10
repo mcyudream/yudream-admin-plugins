@@ -24,27 +24,27 @@ public class ProjectProgressController {
         return http.projects(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/users", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/admin/users", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse users(PluginHttpRequest request) {
         return http.users(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/users/resolve", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/users/resolve", permission = ProjectProgressPlugin.VIEW_PERMISSION)
     public PluginHttpResponse resolveUsers(PluginHttpRequest request) {
         return http.resolveUsers(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/departments", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/admin/departments", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse departments(PluginHttpRequest request) {
         return http.departments(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/minecraft/servers", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/admin/minecraft/servers", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse minecraftServers(PluginHttpRequest request) {
         return http.minecraftServers(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/projects", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/admin/projects", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse createProject(PluginHttpRequest request) {
         return http.createProject(request);
     }
@@ -54,12 +54,12 @@ public class ProjectProgressController {
         return http.project(request);
     }
 
-    @PluginHttpEndpoint(method = "PUT", path = "/projects/{projectId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/projects/{projectId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse updateProject(PluginHttpRequest request) {
         return http.updateProject(request);
     }
 
-    @PluginHttpEndpoint(method = "DELETE", path = "/projects/{projectId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/projects/{projectId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse deleteProject(PluginHttpRequest request) {
         return http.deleteProject(request);
     }
@@ -69,12 +69,12 @@ public class ProjectProgressController {
         return http.details(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/projects/{projectId}/member-statistics", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/admin/projects/{projectId}/member-statistics", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse memberStatistics(PluginHttpRequest request) {
         return http.memberStatistics(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/statistics/me", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/me/statistics", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse personalStatistics(PluginHttpRequest request) {
         return http.personalStatistics(request);
     }
@@ -84,42 +84,42 @@ public class ProjectProgressController {
         return http.downloadFile(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/projects/{projectId}/details", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/admin/projects/{projectId}/details", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse createDetail(PluginHttpRequest request) {
         return http.createDetail(request);
     }
 
-    @PluginHttpEndpoint(method = "PUT", path = "/details/{detailId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/details/{detailId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse updateDetail(PluginHttpRequest request) {
         return http.updateDetail(request);
     }
 
-    @PluginHttpEndpoint(method = "DELETE", path = "/details/{detailId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/details/{detailId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse deleteDetail(PluginHttpRequest request) {
         return http.deleteDetail(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/publish", permission = ProjectProgressPlugin.ASSIGN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/admin/details/{detailId}/publish", permission = ProjectProgressPlugin.ASSIGN_PERMISSION)
     public PluginHttpResponse publishDetail(PluginHttpRequest request) {
         return http.publishDetail(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/random-assign", permission = ProjectProgressPlugin.ASSIGN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/admin/details/{detailId}/random-assign", permission = ProjectProgressPlugin.ASSIGN_PERMISSION)
     public PluginHttpResponse randomAssign(PluginHttpRequest request) {
         return http.randomAssign(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/claim", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/me/tasks/{detailId}/claim", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse claim(PluginHttpRequest request) {
         return http.claim(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/my-tasks", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/me/tasks", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse myTasks(PluginHttpRequest request) {
         return http.myTasks(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/tasks/claimable", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/me/tasks/claimable", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse claimableTasks(PluginHttpRequest request) {
         return http.claimableTasks(request);
     }
@@ -129,22 +129,27 @@ public class ProjectProgressController {
         return http.pendingAcceptance(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/submit-acceptance", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/me/tasks/{detailId}/submit-acceptance", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse submitAcceptance(PluginHttpRequest request) {
         return http.submitAcceptance(request);
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/projects/{projectId}/check-ins", permission = ProjectProgressPlugin.VIEW_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/admin/projects/{projectId}/check-ins", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse projectCheckIns(PluginHttpRequest request) {
         return http.projectCheckIns(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/projects/{projectId}/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/me/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    public PluginHttpResponse myCheckIns(PluginHttpRequest request) {
+        return http.myCheckIns(request);
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/me/projects/{projectId}/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse createProjectCheckIn(PluginHttpRequest request) {
         return http.createProjectCheckIn(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/projects/{projectId}/check-ins/minecraft", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/me/projects/{projectId}/check-ins/minecraft", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse projectMinecraftCheckIn(PluginHttpRequest request) {
         return http.projectMinecraftCheckIn(request);
     }
@@ -154,17 +159,17 @@ public class ProjectProgressController {
         return http.checkIns(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/me/tasks/{detailId}/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse createCheckIn(PluginHttpRequest request) {
         return http.createCheckIn(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/check-ins/minecraft", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/me/tasks/{detailId}/check-ins/minecraft", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse minecraftCheckIn(PluginHttpRequest request) {
         return http.minecraftCheckIn(request);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/projects/{projectId}/minecraft/auto-check-ins", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    @PluginHttpEndpoint(method = "POST", path = "/admin/projects/{projectId}/minecraft/auto-check-ins", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse autoMinecraftCheckIns(PluginHttpRequest request) {
         return http.autoMinecraftCheckIns(request);
     }

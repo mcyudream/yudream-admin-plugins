@@ -42,7 +42,7 @@
           v-model:size="closetPagination.size"
           :total="model.closetItems.length"
           :sizes="closetPageSizes"
-          class="skin-list-pagination"
+          class="skin-list-pagination mt-3"
           layout="total, sizes, ->, pager"
           @size-change="onClosetPageSizeChange"
         />

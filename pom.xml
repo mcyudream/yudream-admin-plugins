@@ -17,7 +17,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <yudream.plugin.spi.version>1.0.1</yudream.plugin.spi.version>
+        <yudream.plugin.spi.version>1.0.2</yudream.plugin.spi.version>
         <jackson.version>2.20.0</jackson.version>
     </properties>
 

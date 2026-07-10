@@ -35,7 +35,7 @@ async function load() {
   try {
     const [assetList, balanceList] = await Promise.all([
       api.assets(),
-      api.balances(),
+      api.meBalances(),
     ])
     assets.value = assetList
     balances.value = balanceList

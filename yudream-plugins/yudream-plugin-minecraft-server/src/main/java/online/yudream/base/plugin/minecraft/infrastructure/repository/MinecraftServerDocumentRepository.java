@@ -131,6 +131,11 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     }
 
     @Override
+    public long countOperations(String serverId) {
+        return countByServerId(OPERATIONS, serverId);
+    }
+
+    @Override
     public MinecraftPlayerActivity savePlayerActivity(MinecraftPlayerActivity activity) {
         return toPlayerActivity(documents.save(PLAYER_ACTIVITIES, activity.id(), playerActivityDocument(activity)));
     }
@@ -147,6 +152,24 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 .sorted(java.util.Comparator.comparing(MinecraftPlayerActivity::online).reversed()
                         .thenComparing(java.util.Comparator.comparingLong(MinecraftPlayerActivity::updatedAt).reversed()))
                 .toList();
+    }
+
+    @Override
+    public long countPlayerActivities(String serverId) {
+        return countByServerId(PLAYER_ACTIVITIES, serverId);
+    }
+
+    private long countByServerId(String collection, String serverId) {
+        long total = 0;
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> rows = documents.findByField(collection, "serverId", serverId, page, 200);
+            total += rows.size();
+            if (rows.size() < 200) {
+                return total;
+            }
+            page++;
+        }
     }
 
     private Map<String, Object> serverDocument(MinecraftServer server) {

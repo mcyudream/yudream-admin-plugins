@@ -166,6 +166,18 @@ public class AlipayAppService {
         return repository.listOrders(page, size);
     }
 
+    public long orderCount() {
+        return repository.orderCount();
+    }
+
+    public List<AlipayRechargeOrder> listOrdersByUser(String userId, int page, int size) {
+        return repository.listOrdersByUser(requireText(userId, "User is required"), page, size);
+    }
+
+    public long orderCountByUser(String userId) {
+        return repository.orderCountByUser(requireText(userId, "User is required"));
+    }
+
     private AlipayConfig effectiveConfig(AlipayConfig config) {
         AlipayConfig normalized = config == null ? AlipayConfig.defaults() : config.normalized();
         return new AlipayConfig(

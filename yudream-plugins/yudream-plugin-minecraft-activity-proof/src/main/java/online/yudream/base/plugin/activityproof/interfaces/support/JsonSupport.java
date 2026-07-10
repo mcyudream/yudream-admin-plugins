@@ -1,4 +1,4 @@
-package online.yudream.base.plugin.activityproof.infrastructure.support;
+package online.yudream.base.plugin.activityproof.interfaces.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

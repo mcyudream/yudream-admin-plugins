@@ -54,6 +54,11 @@ public class YuDreamSkinAdminController {
         return http.uploadTexture(request);
     }
 
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/textures/{hash}", permission = YuDreamSkinPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse updateTexture(PluginHttpRequest request) {
+        return http.updateTexture(request);
+    }
+
     @PluginHttpEndpoint(method = "DELETE", path = "/admin/textures/{hash}", permission = YuDreamSkinPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse deleteTexture(PluginHttpRequest request) {
         return http.deleteTexture(request);

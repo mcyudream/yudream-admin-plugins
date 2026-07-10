@@ -4,13 +4,14 @@ import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 import online.yudream.base.plugin.studentinfo.application.cmd.StudentInfoSaveCmd;
 import online.yudream.base.plugin.studentinfo.application.dto.StudentInfoDTO;
 import online.yudream.base.plugin.studentinfo.interfaces.request.StudentInfoSaveRequest;
+import online.yudream.base.plugin.studentinfo.interfaces.request.StudentInfoSelfSaveRequest;
 import online.yudream.base.plugin.studentinfo.interfaces.res.StudentInfoRes;
 
 public class StudentInfoWebAssembler {
 
-    public StudentInfoSaveCmd toCmd(StudentInfoSaveRequest request, String userId) {
-        StudentInfoSaveRequest safeRequest = request == null
-                ? new StudentInfoSaveRequest(null, null, null, null, null)
+    public StudentInfoSaveCmd toSelfCmd(StudentInfoSelfSaveRequest request, String userId) {
+        StudentInfoSelfSaveRequest safeRequest = request == null
+                ? new StudentInfoSelfSaveRequest(null, null, null, null)
                 : request;
         return new StudentInfoSaveCmd(
                 userId,

@@ -2,7 +2,8 @@ package online.yudream.base.plugin.activityproof.bootstrap;
 
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
 import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityProofDocumentRepository;
-import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofController;
+import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
+import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
 import online.yudream.base.plugin.activityproof.interfaces.http.ActivityProofHttpFacade;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -49,13 +50,31 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 11
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/yudream-student-info/activity-proof/mappings",
+                        name = "platform-plugin-yudream-student-info-activity-proof-mappings",
+                        title = "玩家学号映射",
+                        icon = "i-ri:link-m",
+                        component = "minecraft-activity-proof/Mappings",
+                        permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION,
+                        sort = 12
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/yudream-student-info/activity-proof/settings",
+                        name = "platform-plugin-yudream-student-info-activity-proof-settings",
+                        title = "活动证明配置",
+                        icon = "i-ri:settings-3-line",
+                        component = "minecraft-activity-proof/Settings",
+                        permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION,
+                        sort = 13
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/yudream-student-info/my-activity-proofs",
                         name = "platform-plugin-yudream-student-info-my-activity-proofs",
                         title = "我的活动证明",
                         icon = "i-ri:verified-badge-line",
                         component = "minecraft-activity-proof/Mine",
                         permission = MinecraftActivityProofPlugin.ACCESS_USER_PERMISSION,
-                        sort = 12
+                        sort = 14
                 )
         }
 )
@@ -75,6 +94,8 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
                 context.files(),
                 context.framework()
         );
-        context.registerHttpController(new ActivityProofController(new ActivityProofHttpFacade(appService)));
+        ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService);
+        context.registerHttpController(new ActivityProofUserController(http));
+        context.registerHttpController(new ActivityProofAdminController(http));
     }
 }

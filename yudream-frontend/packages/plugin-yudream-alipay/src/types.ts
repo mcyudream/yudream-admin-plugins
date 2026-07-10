@@ -25,3 +25,8 @@ export interface AlipayOrder {
   updatedAt: number
   paidAt: number
 }
+
+export interface PagedResult<T> {
+  records: T[]
+  total: number
+}

@@ -1,10 +1,21 @@
 <script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
+import type { ProjectWorkDetail } from '../types'
+import { computed } from 'vue'
+import { FaButton, FaTable, FaTag } from '@yudream/components'
 import ProgressPanel from '../components/ProgressPanel.vue'
 
 defineProps<{
   model: ProjectProgressModel
 }>()
+
+const detailColumns = computed<TableColumn<ProjectWorkDetail>[]>(() => [
+  { accessorKey: 'title', header: '任务', width: 220, fixed: 'left' },
+  { id: 'status', header: '状态', width: 110, align: 'center' },
+  { id: 'assignees', header: '负责人', width: 220 },
+  { id: 'acceptors', header: '验收人', width: 220 },
+])
 </script>
 
 <template>
@@ -14,7 +25,7 @@ defineProps<{
         <span>实时进度</span>
         <h2>项目进度看板</h2>
       </div>
-      <button type="button" @click="model.load">刷新</button>
+      <FaButton variant="outline" @click="model.load">刷新</FaButton>
     </section>
 
     <section class="pp-metrics">
@@ -57,43 +68,37 @@ defineProps<{
         <div class="pp-progress-line">
           <span :style="{ width: `${model.completion}%` }" />
         </div>
-        <table class="pp-table">
-          <thead>
-            <tr>
-              <th>任务</th>
-              <th>状态</th>
-              <th>负责人</th>
-              <th>验收人</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="detail in model.details" :key="detail.id">
-              <td>{{ detail.title }}</td>
-              <td>{{ model.statusLabel(detail.statusCode) }}</td>
-              <td>
-                <div class="pp-chip-list">
-                  <span v-if="!detail.assigneeUserIds.length" class="pp-muted">未分配</span>
-                  <span v-for="user in model.userOptionsForIds(detail.assigneeUserIds)" :key="user.id" class="pp-chip">
-                    {{ model.userLabel(user) }}
-                  </span>
-                </div>
-              </td>
-              <td>
-                <div class="pp-chip-list">
-                  <span v-if="!detail.acceptorUserIds.length" class="pp-muted">项目负责人</span>
-                  <span v-for="user in model.userOptionsForIds(detail.acceptorUserIds)" :key="user.id" class="pp-chip">
-                    {{ model.userLabel(user) }}
-                  </span>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!model.details.length">
-              <td colspan="4">
-                <div class="pp-empty">暂无工作细节</div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <FaTable
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[760px]"
+          border
+          stripe
+          column-visibility
+          :columns="detailColumns"
+          :data="model.details"
+          empty-text="暂无工作细节"
+        >
+          <template #cell-status="{ row }">
+            <FaTag variant="secondary">{{ model.statusLabel(row.original.statusCode) }}</FaTag>
+          </template>
+          <template #cell-assignees="{ row }">
+            <div class="pp-chip-list">
+              <span v-if="!row.original.assigneeUserIds.length" class="pp-muted">未分配</span>
+              <span v-for="user in model.userOptionsForIds(row.original.assigneeUserIds)" :key="user.id" class="pp-chip">
+                {{ model.userLabel(user) }}
+              </span>
+            </div>
+          </template>
+          <template #cell-acceptors="{ row }">
+            <div class="pp-chip-list">
+              <span v-if="!row.original.acceptorUserIds.length" class="pp-muted">项目负责人</span>
+              <span v-for="user in model.userOptionsForIds(row.original.acceptorUserIds)" :key="user.id" class="pp-chip">
+                {{ model.userLabel(user) }}
+              </span>
+            </div>
+          </template>
+        </FaTable>
       </ProgressPanel>
     </section>
 

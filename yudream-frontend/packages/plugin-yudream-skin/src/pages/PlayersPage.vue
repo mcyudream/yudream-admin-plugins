@@ -82,7 +82,6 @@
 
           <div class="skin-inline-form">
             <FaInput v-model="model.playerForm.name" placeholder="输入角色名，例如 Steve" />
-            <FaInput v-if="isManagement && model.canManage" v-model="model.playerForm.ownerId" placeholder="系统用户 ID" />
             <FaButton :loading="model.saving === 'player'" @click="model.createPlayer">
               <FaIcon name="i-ri:add-line" />
               创建角色

@@ -5,12 +5,6 @@
         <h2>MC 服务器</h2>
         <p>查看服务器在线状态、线路地址和当前周目。</p>
       </div>
-      <div class="mc-actions">
-        <a v-if="model.canManage" class="mc-button" href="/platform/plugins/minecraft-server/admin">
-          <FaIcon name="i-ri:settings-3-line" />
-          管理
-        </a>
-      </div>
     </section>
 
     <div class="mc-server-grid">
@@ -43,16 +37,18 @@
         <div class="mc-empty">管理员还没有发布服务器。</div>
       </McPanel>
     </div>
+    <FaPagination v-model:page="model.serverPager.page" v-model:size="model.serverPager.size" :total="model.serverPager.total" class="mt-3" @page-change="reload" @size-change="reload" />
   </section>
 </template>
 
 <script setup lang="ts">
-import { FaIcon } from '@yudream/components'
+import { FaIcon, FaPagination } from '@yudream/components'
 import McPanel from '../components/McPanel.vue'
 import StatusPill from '../components/StatusPill.vue'
 import type { MinecraftServerPluginModel } from '../composables/useMinecraftServerPlugin'
 
-defineProps<{
+const props = defineProps<{
   model: MinecraftServerPluginModel
 }>()
+async function reload() { await props.model.load(false) }
 </script>

@@ -10,6 +10,7 @@ import online.yudream.base.plugin.skin.application.cmd.RenameClosetItemCmd;
 import online.yudream.base.plugin.skin.application.cmd.RenamePlayerCmd;
 import online.yudream.base.plugin.skin.application.cmd.SkinSettingsSaveCmd;
 import online.yudream.base.plugin.skin.application.cmd.TextureUploadCmd;
+import online.yudream.base.plugin.skin.application.cmd.TextureUpdateCmd;
 import online.yudream.base.plugin.skin.application.dto.YuDreamSkinSummaryDTO;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinPlayer;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinClosetItem;
@@ -258,6 +259,32 @@ public class YuDreamSkinAppService implements PluginSkinService {
                         texture.hash().equals(player.capeHash()) ? null : player.capeHash()
                 )));
         repository.deleteTexture(texture);
+    }
+
+    public SkinTexture updateOwnTexture(String hash, String ownerId, TextureUpdateCmd cmd) {
+        SkinTexture texture = requireTexture(requireText(hash, "材质不能为空"));
+        String userId = requireText(ownerId, "用户不能为空");
+        if (!userId.equals(texture.uploaderId())) {
+            throw new IllegalArgumentException("只能修改自己上传的材质");
+        }
+        String name = requireText(cmd.name(), "材质名称不能为空");
+        boolean publicAccess = settings().publicUploadEnabled() && Boolean.TRUE.equals(cmd.publicAccess());
+        return repository.saveTexture(texture.withMetadata(name, publicAccess));
+    }
+
+    public SkinTexture updateTexture(String hash, TextureUpdateCmd cmd) {
+        SkinTexture texture = requireTexture(requireText(hash, "材质不能为空"));
+        String name = requireText(cmd.name(), "材质名称不能为空");
+        return repository.saveTexture(texture.withMetadata(name, Boolean.TRUE.equals(cmd.publicAccess())));
+    }
+
+    public void deleteOwnTexture(String hash, String ownerId) {
+        SkinTexture texture = requireTexture(requireText(hash, "材质不能为空"));
+        String userId = requireText(ownerId, "用户不能为空");
+        if (!userId.equals(texture.uploaderId())) {
+            throw new IllegalArgumentException("只能删除自己上传的材质");
+        }
+        deleteTexture(texture.hash());
     }
 
     private SkinTexture saveUploadedTexture(TextureUploadCmd cmd, String uploaderId) {

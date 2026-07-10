@@ -128,20 +128,26 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       await loadMemberStats()
       return
     }
+    if (page === 'check-ins') {
+      await loadMyCheckIns()
+      return
+    }
+    if (page === 'check-in-statistics') {
+      await loadCheckInStatistics()
+      return
+    }
     await load()
   }
 
   async function load() {
     loading.value = true
     try {
-      const [nextStatus, nextProjects, nextMinecraftServers] = await Promise.all([
+      const [nextStatus, nextProjects] = await Promise.all([
         api.status(),
         api.projects(),
-        api.minecraftServers(),
       ])
       status.value = nextStatus
       projects.value = nextProjects
-      minecraftServers.value = nextMinecraftServers
       await resolveProjectUsers(nextProjects)
       if (!selectedProjectId.value && nextProjects.length) {
         selectProject(nextProjects[0])
@@ -255,6 +261,46 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function loadCheckInStatistics(projectId = selectedProjectId.value) {
+    loading.value = true
+    try {
+      const [nextStatus, nextProjects] = await Promise.all([
+        api.status(),
+        api.projects(),
+      ])
+      status.value = nextStatus
+      projects.value = nextProjects
+      if (!projectId && nextProjects.length) {
+        projectId = nextProjects[0].id
+      }
+      const project = nextProjects.find(item => item.id === projectId)
+      if (project) {
+        selectProject(project)
+      }
+      await loadProjectCheckIns(projectId)
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  async function loadMyCheckIns() {
+    loading.value = true
+    try {
+      const [nextStatus, nextProjects] = await Promise.all([api.status(), api.projects()])
+      status.value = nextStatus
+      projects.value = nextProjects
+      if (!selectedProjectId.value && nextProjects.length) {
+        selectProject(nextProjects[0])
+      }
+      checkIns.value = await api.myCheckIns(selectedProjectId.value || undefined)
+      await resolveUsers(checkIns.value.map(item => item.userId))
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
   async function reloadProjectData() {
     if (!selectedProjectId.value) {
       details.value = []
@@ -353,6 +399,16 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     finally {
       saving.value = false
     }
+  }
+
+  async function deleteDetail(detail: ProjectWorkDetail) {
+    await action(async () => {
+      await api.deleteDetail(detail.id)
+      details.value = details.value.filter(item => item.id !== detail.id)
+      if (selectedDetailId.value === detail.id) {
+        selectedDetailId.value = details.value[0]?.id || ''
+      }
+    }, '工作细节已删除')
   }
 
   async function publish(detail: ProjectWorkDetail) {
@@ -576,6 +632,33 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     finally {
       saving.value = false
     }
+  }
+
+  function exportDetails() {
+    const project = selectedProject.value
+    exportCsv(`${project?.name || 'project'}-details.csv`, [
+      ['项目', '标题', '说明', '状态', '分配方式', '负责人', '验收人', '已发布', '待验收', '截止时间', '创建时间', '更新时间'],
+      ...details.value.map(detail => [
+        project?.name || '', detail.title, detail.description, detailStatusLabel(detail), assignmentLabel(detail),
+        userOptionsForIds(detail.assigneeUserIds).map(userLabel).join('、'),
+        userOptionsForIds(detail.acceptorUserIds).map(userLabel).join('、'),
+        detail.published ? '是' : '否', detail.pendingAcceptance ? '是' : '否',
+        formatTime(detail.dueAt), formatTime(detail.createdAt), formatTime(detail.updatedAt),
+      ]),
+    ])
+  }
+
+  function exportCheckIns() {
+    const project = selectedProject.value
+    exportCsv(`${project?.name || 'project'}-check-ins.csv`, [
+      ['项目', '打卡人', '类型', '说明', '位置', 'MC 服务器', '有效在线分钟', '附件', '打卡时间'],
+      ...checkIns.value.map(checkIn => [
+        project?.name || '', userLabel(usersById.value[checkIn.userId]), checkIn.type, checkIn.summary,
+        checkIn.location?.address || '', checkIn.minecraft ? serverLabel(checkIn.minecraft.serverId) : '',
+        checkIn.minecraft ? String(minutes(checkIn.minecraft.effectiveOnlineMillis)) : '',
+        checkIn.files.map(file => file.filename).join('、'), formatTime(checkIn.createdAt),
+      ]),
+    ])
   }
 
   async function searchUsers(keyword = '', deptId = '') {
@@ -878,6 +961,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     load,
     loadTaskCenter,
     loadMemberStats,
+    loadCheckInStatistics,
+    loadMyCheckIns,
     reloadProjectData,
     loadMyTasks,
     loadAcceptance,
@@ -887,6 +972,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     saveProject,
     deleteProject,
     saveDetail,
+    deleteDetail,
     publish,
     randomAssign,
     claim,
@@ -901,6 +987,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     canPreviewEvidence,
     previewEvidence,
     downloadEvidence,
+    exportDetails,
+    exportCheckIns,
     newProject,
     newDetail,
     searchUsers,
@@ -1034,6 +1122,22 @@ function saveBlobResponse(response: YuDreamPluginBlobResponse, fallbackName: str
   }
   const filename = resolveFilename(header(response.headers, 'content-disposition'), fallbackName)
   const url = URL.createObjectURL(response.data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function exportCsv(filename: string, rows: string[][]) {
+  if (typeof document === 'undefined') {
+    return
+  }
+  const quote = (value: string) => `"${String(value ?? '').replaceAll('"', '""')}"`
+  const content = `\uFEFF${rows.map(row => row.map(quote).join(',')).join('\r\n')}`
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
   link.href = url
   link.download = filename

@@ -4,8 +4,6 @@ import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createWalletApi } from '../api/wallet-api'
 
-const MANAGE_PERMISSION = 'plugin:yudream-wallet:manage'
-
 export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const api = createWalletApi(sdk)
   const toast = useFaToast()
@@ -13,6 +11,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const saving = ref(false)
   const summary = ref<WalletSummary | null>(null)
   const assets = ref<WalletAsset[]>([])
+  const managedAssets = ref<WalletAsset[]>([])
   const balances = ref<WalletBalance[]>([])
   const adminBalances = ref<WalletBalance[]>([])
   const transactions = ref<WalletTransaction[]>([])
@@ -20,8 +19,10 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const rechargeResult = ref<WalletRechargeResult | null>(null)
   const selectedAssetCode = ref('CNY')
   const selectedBalanceAssetCode = ref('CNY')
-  const balancePager = reactive({ page: 1, size: 20, hasNext: false })
-  const transactionPager = reactive({ page: 1, size: 20, hasNext: false })
+  const balancePager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
+  const assetPager = reactive({ page: 1, size: 10, total: 0 })
+  const transactionPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
+  const currentSurface = ref('user')
 
   const transferForm = reactive<TransferForm>({
     toAccount: '',
@@ -69,7 +70,6 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     user: '',
   })
 
-  const canManage = computed(() => sdk.account.permissions.includes('*') || sdk.account.permissions.includes(MANAGE_PERMISSION))
   const accountName = computed(() => sdk.account.username || `用户 ${sdk.account.userId}`)
   const primaryAsset = computed(() => assets.value.find(item => item.code === selectedAssetCode.value) || assets.value[0])
   const transferableAssets = computed(() => assets.value.filter(asset => asset.enabled && asset.transferEnabled))
@@ -169,14 +169,21 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     return source || '-'
   }
 
-  async function load() {
+  async function load(surface = 'user') {
+    currentSurface.value = surface
     loading.value = true
     try {
-      const [nextSummary, nextAssets, nextBalances, nextRechargeOptions] = await Promise.all([api.status(), api.assets(), api.balances(), api.rechargeOptions()])
-      summary.value = nextSummary as WalletSummary
+      const userSurface = surface === 'user' || surface === 'recharge'
+      const [nextSummary, nextAssets, nextBalances, nextRechargeOptions] = await Promise.all([
+        userSurface ? Promise.resolve(null) : api.status(),
+        api.assets(),
+        userSurface ? api.meBalances() : Promise.resolve([]),
+        userSurface ? api.rechargeOptions() : Promise.resolve(null),
+      ])
+      summary.value = nextSummary as WalletSummary | null
       assets.value = nextAssets as WalletAsset[]
       balances.value = nextBalances as WalletBalance[]
-      rechargeOptions.value = nextRechargeOptions as WalletRechargeOptions
+      rechargeOptions.value = nextRechargeOptions as WalletRechargeOptions | null
       if (!assets.value.some(asset => asset.code === selectedAssetCode.value)) {
         selectedAssetCode.value = assets.value[0]?.code || ''
       }
@@ -190,8 +197,17 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
         changeForm.assetCode = selectedAssetCode.value
       }
       syncRechargeForm()
-      if (canManage.value) {
-        await Promise.all([loadAdminBalances(), loadTransactions(), loadRechargeSettings()])
+      if (surface === 'balances') {
+        await loadAdminBalances()
+      }
+      else if (surface === 'transactions') {
+        await loadTransactions()
+      }
+      else if (surface === 'settings') {
+        await loadAdminAssets()
+      }
+      else if (surface === 'recharge-settings') {
+        await loadRechargeSettings()
       }
       else {
         await loadMyTransactions()
@@ -218,7 +234,6 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     saving.value = true
     try {
       await api.transfer({
-        fromUserId: sdk.account.userId,
         toAccount: transferForm.toAccount.trim(),
         assetCode: transferForm.assetCode,
         amount: transferForm.amount,
@@ -228,7 +243,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       transferForm.toAccount = ''
       transferForm.amount = ''
       transferForm.remark = ''
-      await load()
+      await load(currentSurface.value)
     }
     finally {
       saving.value = false
@@ -248,7 +263,6 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     try {
       rechargeResult.value = null
       rechargeResult.value = await api.createRecharge({
-        userId: sdk.account.userId,
         channelCode: rechargeForm.channelCode,
         assetCode: rechargeForm.assetCode,
         payAmount: rechargeForm.payAmount,
@@ -304,7 +318,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       })
       toast.success('资产已保存')
       resetAssetForm()
-      await load()
+      await Promise.all([loadAdminAssets(), api.assets().then(items => { assets.value = items })])
     }
     finally {
       saving.value = false
@@ -319,7 +333,12 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       if (assetForm.code === asset.code) {
         resetAssetForm()
       }
-      await load()
+      await loadAdminAssets()
+      if (!managedAssets.value.length && assetPager.page > 1) {
+        assetPager.page -= 1
+        await loadAdminAssets()
+      }
+      assets.value = await api.assets()
     }
     finally {
       saving.value = false
@@ -354,7 +373,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
         })),
       })
       toast.success('充值配置已保存')
-      await load()
+      await loadRechargeSettings()
     }
     finally {
       saving.value = false
@@ -388,7 +407,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       toast.success(kind === 'credit' ? '入账成功' : '扣账成功')
       changeForm.amount = ''
       changeForm.remark = ''
-      await load()
+      await Promise.all([loadAdminBalances(), loadTransactions()])
     }
     finally {
       saving.value = false
@@ -396,20 +415,28 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadAdminBalances() {
-    const items = await api.adminBalances(selectedBalanceAssetCode.value, balancePager.page, balancePager.size)
-    balancePager.hasNext = items.length >= balancePager.size
-    adminBalances.value = items
+    const result = await api.adminBalances(selectedBalanceAssetCode.value, balancePager.page, balancePager.size)
+    balancePager.total = result.total
+    balancePager.hasNext = balancePager.page * balancePager.size < result.total
+    adminBalances.value = result.records
+  }
+
+  async function loadAdminAssets() {
+    const result = await api.adminAssets(assetPager.page, assetPager.size)
+    managedAssets.value = result.records
+    assetPager.total = result.total
   }
 
   async function loadTransactions() {
-    const items = await api.transactions({
+    const result = await api.adminTransactions({
       assetCode: transactionFilters.assetCode,
       source: transactionFilters.source,
       type: transactionFilters.type,
       user: transactionFilters.user.trim(),
     }, transactionPager.page, transactionPager.size)
-    transactionPager.hasNext = items.length >= transactionPager.size
-    transactions.value = items
+    transactionPager.total = result.total
+    transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
+    transactions.value = result.records
   }
 
   async function applyTransactionFilters() {
@@ -418,9 +445,10 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadMyTransactions() {
-    const items = await api.myTransactions(undefined, transactionPager.page, transactionPager.size)
-    transactionPager.hasNext = items.length >= transactionPager.size
-    transactions.value = items
+    const result = await api.meTransactions(undefined, transactionPager.page, transactionPager.size)
+    transactionPager.total = result.total
+    transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
+    transactions.value = result.records
   }
 
   async function applyBalanceAsset(assetCode: string) {
@@ -459,7 +487,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       return
     }
     transactionPager.page += 1
-    await (canManage.value ? loadTransactions() : loadMyTransactions())
+    await (currentSurface.value === 'transactions' ? loadTransactions() : loadMyTransactions())
   }
 
   async function prevTransactionPage() {
@@ -467,7 +495,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       return
     }
     transactionPager.page -= 1
-    await (canManage.value ? loadTransactions() : loadMyTransactions())
+    await (currentSurface.value === 'transactions' ? loadTransactions() : loadMyTransactions())
   }
 
   function rechargeRule(assetCode?: string): WalletRechargeRule | undefined {
@@ -493,6 +521,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     saving,
     summary,
     assets,
+    managedAssets,
     balances,
     adminBalances,
     transactions,
@@ -501,6 +530,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     selectedAssetCode,
     selectedBalanceAssetCode,
     balancePager,
+    assetPager,
     transactionPager,
     transferForm,
     rechargeForm,
@@ -508,7 +538,6 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     assetForm,
     changeForm,
     transactionFilters,
-    canManage,
     accountName,
     primaryAsset,
     transferableAssets,
@@ -527,7 +556,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     sourceLabel,
     load,
     loadAdminBalances,
+    loadAdminAssets,
     loadTransactions,
+    loadMyTransactions,
     loadRechargeSettings,
     applyBalanceAsset,
     applyTransactionFilters,

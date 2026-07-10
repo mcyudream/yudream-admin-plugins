@@ -5,6 +5,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useProjectProgress } from './composables/useProjectProgress'
 import AcceptancePage from './pages/AcceptancePage.vue'
 import CheckInsPage from './pages/CheckInsPage.vue'
+import CheckInStatisticsPage from './pages/CheckInStatisticsPage.vue'
 import DashboardPage from './pages/DashboardPage.vue'
 import DetailsPage from './pages/DetailsPage.vue'
 import MemberStatsPage from './pages/MemberStatsPage.vue'
@@ -37,6 +38,9 @@ const pageName = computed(() => {
   if (component.endsWith('/CheckIns')) {
     return 'check-ins'
   }
+  if (component.endsWith('/CheckInStatistics')) {
+    return 'check-in-statistics'
+  }
   if (component.endsWith('/Acceptance')) {
     return 'acceptance'
   }
@@ -64,6 +68,9 @@ const page = computed(() => {
   }
   if (pageName.value === 'check-ins') {
     return CheckInsPage
+  }
+  if (pageName.value === 'check-in-statistics') {
+    return CheckInStatisticsPage
   }
   if (pageName.value === 'acceptance') {
     return AcceptancePage

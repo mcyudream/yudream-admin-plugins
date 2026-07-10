@@ -94,4 +94,9 @@ export interface ExportForm {
   includeAfk: boolean
 }
 
+export interface PageResult<T> {
+  records: T[]
+  total: number
+}
+
 export type TimeValue = number | string | number[] | null | undefined

@@ -67,11 +67,11 @@ public class ProjectProgressHttpFacade {
 
     public PluginHttpResponse updateProject(PluginHttpRequest request) {
         ProjectProgressProjectSaveRequest body = JsonSupport.read(request.body(), ProjectProgressProjectSaveRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.updateProject(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.updateProject(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse deleteProject(PluginHttpRequest request) {
-        appService.deleteProject(pathSegment(request.path(), 1));
+        appService.deleteProject(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
@@ -80,7 +80,7 @@ public class ProjectProgressHttpFacade {
     }
 
     public PluginHttpResponse memberStatistics(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.projectMemberStats(pathSegment(request.path(), 1)).stream().map(assembler::toRes).toList());
+        return PluginHttpResponse.ok(appService.projectMemberStats(pathSegment(request.path(), 2)).stream().map(assembler::toRes).toList());
     }
 
     public PluginHttpResponse personalStatistics(PluginHttpRequest request) {
@@ -93,29 +93,29 @@ public class ProjectProgressHttpFacade {
 
     public PluginHttpResponse createDetail(PluginHttpRequest request) {
         ProjectProgressDetailSaveRequest body = JsonSupport.read(request.body(), ProjectProgressDetailSaveRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.createDetail(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.createDetail(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse updateDetail(PluginHttpRequest request) {
         ProjectProgressDetailSaveRequest body = JsonSupport.read(request.body(), ProjectProgressDetailSaveRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.updateDetail(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.updateDetail(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse deleteDetail(PluginHttpRequest request) {
-        appService.deleteDetail(pathSegment(request.path(), 1));
+        appService.deleteDetail(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
     public PluginHttpResponse publishDetail(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.publishDetail(pathSegment(request.path(), 1), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.publishDetail(pathSegment(request.path(), 2), currentUserId(request))));
     }
 
     public PluginHttpResponse randomAssign(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.randomAssign(pathSegment(request.path(), 1), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.randomAssign(pathSegment(request.path(), 2), currentUserId(request))));
     }
 
     public PluginHttpResponse claim(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.claim(pathSegment(request.path(), 1), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.claim(pathSegment(request.path(), 2), currentUserId(request))));
     }
 
     public PluginHttpResponse myTasks(PluginHttpRequest request) {
@@ -132,20 +132,26 @@ public class ProjectProgressHttpFacade {
 
     public PluginHttpResponse submitAcceptance(PluginHttpRequest request) {
         ProjectProgressCheckInRequest body = JsonSupport.read(request.body(), ProjectProgressCheckInRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.submitAcceptance(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.submitAcceptance(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse projectCheckIns(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.projectCheckIns(pathSegment(request.path(), 1), page(request), size(request)).stream().map(assembler::toRes).toList());
+        return PluginHttpResponse.ok(appService.projectCheckIns(pathSegment(request.path(), 2), page(request), size(request)).stream().map(assembler::toRes).toList());
+    }
+
+    public PluginHttpResponse myCheckIns(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.myCheckIns(currentUserId(request), stringQuery(request, "projectId"), page(request), size(request)).stream()
+                .map(assembler::toRes)
+                .toList());
     }
 
     public PluginHttpResponse createProjectCheckIn(PluginHttpRequest request) {
         ProjectProgressCheckInRequest body = JsonSupport.read(request.body(), ProjectProgressCheckInRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.projectCheckIn(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.projectCheckIn(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse projectMinecraftCheckIn(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.projectMinecraftCheckIn(pathSegment(request.path(), 1), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.projectMinecraftCheckIn(pathSegment(request.path(), 2), currentUserId(request))));
     }
 
     public PluginHttpResponse checkIns(PluginHttpRequest request) {
@@ -154,15 +160,15 @@ public class ProjectProgressHttpFacade {
 
     public PluginHttpResponse createCheckIn(PluginHttpRequest request) {
         ProjectProgressCheckInRequest body = JsonSupport.read(request.body(), ProjectProgressCheckInRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.checkIn(pathSegment(request.path(), 1), assembler.toCmd(body), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.checkIn(pathSegment(request.path(), 2), assembler.toCmd(body), currentUserId(request))));
     }
 
     public PluginHttpResponse minecraftCheckIn(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.minecraftCheckIn(pathSegment(request.path(), 1), currentUserId(request))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.minecraftCheckIn(pathSegment(request.path(), 2), currentUserId(request))));
     }
 
     public PluginHttpResponse autoMinecraftCheckIns(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.autoMinecraftCheckIns(pathSegment(request.path(), 1)).stream().map(assembler::toRes).toList());
+        return PluginHttpResponse.ok(appService.autoMinecraftCheckIns(pathSegment(request.path(), 2)).stream().map(assembler::toRes).toList());
     }
 
     public PluginHttpResponse accept(PluginHttpRequest request) {

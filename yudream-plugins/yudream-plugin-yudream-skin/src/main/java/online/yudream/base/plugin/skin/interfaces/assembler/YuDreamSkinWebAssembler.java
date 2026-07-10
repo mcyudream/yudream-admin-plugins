@@ -10,6 +10,7 @@ import online.yudream.base.plugin.skin.application.cmd.RenameClosetItemCmd;
 import online.yudream.base.plugin.skin.application.cmd.RenamePlayerCmd;
 import online.yudream.base.plugin.skin.application.cmd.SkinSettingsSaveCmd;
 import online.yudream.base.plugin.skin.application.cmd.TextureUploadCmd;
+import online.yudream.base.plugin.skin.application.cmd.TextureUpdateCmd;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinPlayer;
 import online.yudream.base.plugin.skin.interfaces.request.AssignTextureRequest;
 import online.yudream.base.plugin.skin.interfaces.request.ClosetItemSaveRequest;
@@ -21,6 +22,7 @@ import online.yudream.base.plugin.skin.interfaces.request.RenameClosetItemReques
 import online.yudream.base.plugin.skin.interfaces.request.RenamePlayerRequest;
 import online.yudream.base.plugin.skin.interfaces.request.SkinSettingsSaveRequest;
 import online.yudream.base.plugin.skin.interfaces.request.TextureUploadRequest;
+import online.yudream.base.plugin.skin.interfaces.request.TextureUpdateRequest;
 import online.yudream.base.plugin.skin.interfaces.res.SkinPlayerRes;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
@@ -61,6 +63,10 @@ public class YuDreamSkinWebAssembler {
                 request.base64(),
                 request.publicAccess()
         );
+    }
+
+    public TextureUpdateCmd toCmd(TextureUpdateRequest request) {
+        return new TextureUpdateCmd(request.name(), request.publicAccess());
     }
 
     public ClosetItemSaveCmd toCmd(ClosetItemSaveRequest request) {

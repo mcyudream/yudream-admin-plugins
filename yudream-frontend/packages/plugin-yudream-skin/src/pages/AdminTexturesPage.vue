@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { TableColumn } from '@yudream/components'
+import type { FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/components'
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
-import { computed, reactive, watch } from 'vue'
-import { FaButton, FaIcon, FaInput, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { computed, reactive, ref, watch } from 'vue'
+import { FaButton, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaSwitch, FaTable, FaTag, useFaModal } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -11,6 +11,11 @@ const props = defineProps<{
 }>()
 
 const modal = useFaModal()
+const uploadVisible = ref(false)
+const editVisible = ref(false)
+const textureFiles = ref<FileItem[]>([])
+const editingTexture = ref<SkinTexture | null>(null)
+const editForm = reactive({ name: '', publicAccess: true })
 const search = reactive({
   keyword: '',
   type: 'all',
@@ -28,6 +33,11 @@ const visibilityOptions = [
   { label: '全部权限', value: 'all' },
   { label: '公开材质', value: 'public' },
   { label: '私有材质', value: 'private' },
+]
+const uploadTypeOptions = [
+  { label: 'Steve 皮肤', value: 'steve' },
+  { label: 'Alex 皮肤', value: 'alex' },
+  { label: '披风', value: 'cape' },
 ]
 
 const filteredRows = computed(() => {
@@ -78,7 +88,7 @@ const tableColumns = computed<TableColumn<SkinTexture>[]>(() => [
   { id: 'size', header: '大小', width: 96 },
   { id: 'uploadedAt', header: '上传时间', width: 152 },
   { id: 'hash', header: 'Hash', width: 190 },
-  { id: 'operation', header: '操作', width: 92, align: 'center', fixed: 'right' },
+  { id: 'operation', header: '操作', width: 168, align: 'center', fixed: 'right' },
 ])
 
 watch([() => search.keyword, () => search.type, () => search.visibility], () => {
@@ -98,12 +108,57 @@ function resetSearch() {
   pagination.page = 1
 }
 
+function openUpload() {
+  Object.assign(props.model.textureForm, {
+    name: '',
+    type: 'steve',
+    model: 'default',
+    contentType: 'image/png',
+    base64: '',
+    publicAccess: true,
+  })
+  textureFiles.value = []
+  uploadVisible.value = true
+}
+
+async function selectTextureFile(options: FileUploadRequestOptions) {
+  if (options.file.type !== 'image/png' && !options.file.name.toLowerCase().endsWith('.png')) {
+    throw new Error('请选择 PNG 文件')
+  }
+  await props.model.handleTextureFile(options.file)
+  options.onProgress(100)
+  return { selected: true }
+}
+
+async function submitUpload() {
+  if (!props.model.textureForm.base64) {
+    return
+  }
+  await props.model.uploadTexture()
+  uploadVisible.value = false
+  textureFiles.value = []
+}
+
 function confirmDelete(row: SkinTexture) {
   modal.confirm({
     title: '删除材质',
     content: `确认删除材质「${row.name}」吗？关联衣柜项会同步清理，角色绑定会置空。`,
     onConfirm: () => props.model.deleteAdminTexture(row.hash),
   })
+}
+
+function openEdit(row: SkinTexture) {
+  editingTexture.value = row
+  editForm.name = row.name
+  editForm.publicAccess = Boolean(row.publicAccess)
+  editVisible.value = true
+}
+
+async function saveEdit() {
+  if (!editingTexture.value) return
+  await props.model.updateAdminTexture(editingTexture.value.hash, { ...editForm })
+  editVisible.value = false
+  editingTexture.value = null
 }
 
 function onPageChange(page: number) {
@@ -144,10 +199,13 @@ function formatSize(size?: number) {
 </script>
 
 <template>
-  <div class="skin-admin-table-page">
+  <FaPageHeader title="材质管理" class="mb-0">
+    <FaButton @click="openUpload"><FaIcon name="i-ri:upload-cloud-2-line" />上传材质</FaButton>
+  </FaPageHeader>
+  <FaPageMain><div class="skin-admin-table-page">
     <FaTable
       row-key="hash"
-      table-root-class="skin-admin-texture-table-root rounded-lg"
+      table-root-class="skin-admin-texture-table-root rounded-lg overflow-hidden"
       table-class="skin-admin-texture-table"
       column-visibility
       border
@@ -206,9 +264,10 @@ function formatSize(size?: number) {
         <code class="skin-admin-code" :title="row.original.hash">{{ shortHash(row.original.hash) }}</code>
       </template>
       <template #cell-operation="{ row }">
-        <FaButton variant="destructive" size="sm" :loading="model.saving === `admin-texture:${row.original.hash}`" @click="confirmDelete(row.original)">
-          删除
-        </FaButton>
+        <div class="flex-center gap-2">
+          <FaButton variant="outline" size="sm" :loading="model.saving === `admin-texture:${row.original.hash}`" @click="openEdit(row.original)">编辑</FaButton>
+          <FaButton variant="destructive" size="sm" :loading="model.saving === `admin-texture:${row.original.hash}`" @click="confirmDelete(row.original)">删除</FaButton>
+        </div>
       </template>
     </FaTable>
 
@@ -220,5 +279,54 @@ function formatSize(size?: number) {
       @page-change="onPageChange"
       @size-change="onSizeChange"
     />
-  </div>
+
+    <FaModal
+      v-model="editVisible"
+      title="编辑材质信息"
+      description="名称和公开状态可修改；PNG 内容与类型保持不变，以避免破坏已绑定的角色和衣柜项。"
+      show-cancel-button
+      class="sm:max-w-xl"
+      :confirm-loading="Boolean(editingTexture && model.saving === `admin-texture:${editingTexture.hash}`)"
+      @confirm="saveEdit"
+    >
+      <div class="skin-admin-form">
+        <label><span>名称</span><FaInput v-model="editForm.name" /></label>
+        <label class="switch-row"><span>公开到皮肤库</span><FaSwitch v-model="editForm.publicAccess" /></label>
+      </div>
+    </FaModal>
+
+    <FaModal
+      v-model="uploadVisible"
+      title="上传材质"
+      description="上传 PNG 皮肤或披风，并设置全站可见性。"
+      show-cancel-button
+      class="sm:max-w-2xl"
+      :confirm-loading="model.saving === 'texture'"
+      @confirm="submitUpload"
+    >
+      <div class="skin-admin-form">
+        <label>
+          <span>名称</span>
+          <FaInput v-model="model.textureForm.name" placeholder="例如：冬季外套 Steve" />
+        </label>
+        <label>
+          <span>类型</span>
+          <FaSelect v-model="model.textureForm.type" :options="uploadTypeOptions" />
+        </label>
+        <label>
+          <span>PNG 文件</span>
+          <FaFileUpload
+            v-model="textureFiles"
+            :max="1"
+            :http-request="selectTextureFile"
+            description="拖放或点击选择 PNG 材质"
+          />
+        </label>
+        <label class="switch-row">
+          <span>公开到皮肤库</span>
+          <FaSwitch v-model="model.textureForm.publicAccess" />
+        </label>
+      </div>
+    </FaModal>
+  </div></FaPageMain>
 </template>

@@ -1,12 +1,16 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
 import authlibStyles from './styles.css?inline'
 import DashboardEndpointCard from './components/DashboardEndpointCard.vue'
+import AuthlibPlugin from './AuthlibPlugin.vue'
 
 export const EndpointCard = DashboardEndpointCard
+export const AdminStatus = AuthlibPlugin
 
 export const routes = {
   EndpointCard,
+  AdminStatus,
   'authlib-injector/EndpointCard': EndpointCard,
+  'authlib-injector/AdminStatus': AdminStatus,
 }
 
 export function install() {
@@ -26,6 +30,6 @@ export function install() {
 
 export default defineYuDreamPlugin({
   routes,
-  default: DashboardEndpointCard,
+  default: AdminStatus,
   install,
 })

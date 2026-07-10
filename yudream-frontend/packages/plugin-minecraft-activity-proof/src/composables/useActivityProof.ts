@@ -10,13 +10,14 @@ import type {
   TimeValue,
 } from '../types'
 import type { YuDreamPluginBlobResponse, YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { useFaToast } from '@yudream/components'
+import { useFaModal, useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
 
 export function useActivityProof(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
   const toast = useFaToast()
+  const modal = useFaModal()
   const loading = ref(false)
   const saving = ref(false)
   const exporting = ref(false)
@@ -28,6 +29,10 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
   const mappings = ref<ActivityProofMapping[]>([])
   const exports = ref<ActivityProofExportRecord[]>([])
   const myExports = ref<ActivityProofExportRecord[]>([])
+  const mappingPager = reactive({ page: 1, size: 10, total: 0 })
+  const participantPager = reactive({ page: 1, size: 10, total: 0 })
+  const exportsPager = reactive({ page: 1, size: 10, total: 0 })
+  const myExportsPager = reactive({ page: 1, size: 10, total: 0 })
   const selectedServerId = ref('')
   const selectedPlayerIds = ref<string[]>([])
   const mappingInputs = reactive<Record<string, string>>({})
@@ -55,15 +60,18 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
   const selectedTemplate = computed(() => templates.value.find(item => item.id === settingsForm.templateId) || null)
   const unmatchedCount = computed(() => participants.value.filter(item => !item.matched).length)
   const selectedCount = computed(() => selectedPlayerIds.value.length || participants.value.length)
-  const canManage = computed(() => sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:yudream-student-info:manage'))
 
-  async function loadPage(page: 'export' | 'records' | 'mine') {
+  async function loadPage(page: 'export' | 'records' | 'mine' | 'mappings' | 'settings') {
     if (page === 'records') {
       await loadRecords()
       return
     }
     if (page === 'mine') {
       await loadMine()
+      return
+    }
+    if (page === 'settings' || page === 'mappings') {
+      await load()
       return
     }
     await load()
@@ -108,7 +116,9 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
   async function loadRecords() {
     loading.value = true
     try {
-      exports.value = await api.exports()
+      const result = await api.exports(exportsPager.page, exportsPager.size)
+      exports.value = result.records
+      exportsPager.total = result.total
     }
     finally {
       loading.value = false
@@ -118,7 +128,9 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
   async function loadMine() {
     loading.value = true
     try {
-      myExports.value = await api.myExports()
+      const result = await api.myExports(myExportsPager.page, myExportsPager.size)
+      myExports.value = result.records
+      myExportsPager.total = result.total
     }
     finally {
       loading.value = false
@@ -132,15 +144,17 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
       return
     }
     const [nextParticipants, nextMappings] = await Promise.all([
-      api.participants(selectedServerId.value, exportForm.minOnlineMinutes, exportForm.includeAfk),
-      api.mappings(selectedServerId.value),
+      api.participants(selectedServerId.value, exportForm.minOnlineMinutes, exportForm.includeAfk, participantPager.page, participantPager.size),
+      api.mappings(selectedServerId.value, mappingPager.page, mappingPager.size),
     ])
-    participants.value = nextParticipants
-    mappings.value = nextMappings
-    nextParticipants.forEach((item) => {
+    participants.value = nextParticipants.records
+    participantPager.total = nextParticipants.total
+    mappings.value = nextMappings.records
+    mappingPager.total = nextMappings.total
+    nextParticipants.records.forEach((item) => {
       mappingInputs[item.playerId] = mappingInputs[item.playerId] || item.studentNo || ''
     })
-    selectedPlayerIds.value = selectedPlayerIds.value.filter(id => nextParticipants.some(item => item.playerId === id))
+    selectedPlayerIds.value = selectedPlayerIds.value.filter(id => nextParticipants.records.some(item => item.playerId === id))
   }
 
   async function saveSettings() {
@@ -216,15 +230,20 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
   }
 
   async function deleteMapping(row: ActivityProofMapping) {
-    saving.value = true
-    try {
-      await api.deleteMapping(row.id)
-      toast.success('映射已删除')
-      await reloadServerData()
-    }
-    finally {
-      saving.value = false
-    }
+    modal.confirm({
+      title: '删除映射',
+      content: `确认删除「${row.playerName || row.playerId}」的学生映射吗？`,
+      onConfirm: async () => {
+        saving.value = true
+        try {
+          await api.deleteMapping(row.id)
+          if (mappings.value.length === 1 && mappingPager.page > 1) mappingPager.page -= 1
+          toast.success('映射已删除')
+          await reloadServerData()
+        }
+        finally { saving.value = false }
+      },
+    })
   }
 
   function togglePlayer(row: ActivityProofParticipant) {
@@ -332,19 +351,32 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function uploadStampedPdfFile(record: ActivityProofExportRecord, file: File) {
+    const nextRecord = await api.uploadStampedPdf(record.id, {
+      filename: file.name,
+      contentType: file.type || 'application/pdf',
+      base64: await fileToBase64(file),
+    })
+    exports.value = exports.value.map(item => item.id === nextRecord.id ? nextRecord : item)
+    toast.success('盖章 PDF 已上传')
+    return nextRecord
+  }
+
   async function deleteExportRecord(record: ActivityProofExportRecord) {
-    if (typeof window !== 'undefined' && !window.confirm(`确定删除「${record.outputFilename}」吗？`)) {
-      return
-    }
-    saving.value = true
-    try {
-      await api.deleteExport(record.id)
-      exports.value = exports.value.filter(item => item.id !== record.id)
-      toast.success('导出记录已删除')
-    }
-    finally {
-      saving.value = false
-    }
+    modal.confirm({
+      title: '删除导出记录',
+      content: `确认删除「${record.outputFilename}」吗？相关 Word 和盖章 PDF 将同时删除。`,
+      onConfirm: async () => {
+        saving.value = true
+        try {
+          await api.deleteExport(record.id)
+          if (exports.value.length === 1 && exportsPager.page > 1) exportsPager.page -= 1
+          toast.success('导出记录已删除')
+          await loadRecords()
+        }
+        finally { saving.value = false }
+      },
+    })
   }
 
   function syncSettingsForm(nextSettings: ActivityProofSettings) {
@@ -391,13 +423,16 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
     mappings,
     exports,
     myExports,
+    mappingPager,
+    participantPager,
+    exportsPager,
+    myExportsPager,
     selectedServerId,
     selectedPlayerIds,
     mappingInputs,
     settingsForm,
     exportForm,
     ready,
-    canManage,
     selectedServer,
     selectedTemplate,
     unmatchedCount,
@@ -419,6 +454,7 @@ export function useActivityProof(sdk: YuDreamPluginSdk) {
     openDownload,
     openStampedPdf,
     uploadStampedPdf,
+    uploadStampedPdfFile,
     deleteExportRecord,
     formatTime,
     formatFileSize,

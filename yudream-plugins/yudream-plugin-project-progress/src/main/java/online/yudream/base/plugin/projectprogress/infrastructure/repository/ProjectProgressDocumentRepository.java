@@ -152,6 +152,14 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
     }
 
     @Override
+    public List<ProjectCheckInRecord> listCheckInsByUser(String userId, int page, int size) {
+        return documents.findByField(CHECK_INS, "userId", userId, page, size).stream()
+                .map(this::toCheckIn)
+                .sorted(Comparator.comparingLong(ProjectCheckInRecord::createdAt).reversed())
+                .toList();
+    }
+
+    @Override
     public Optional<ProjectCheckInRecord> latestProjectCheckIn(String projectId, String userId) {
         return allProjectCheckIns(projectId).stream()
                 .filter(record -> userId.equals(record.userId()))

@@ -13,4 +13,20 @@ public record SkinTexture(
         Long migratedTid,
         Long uploadedAt
 ) {
+
+    public SkinTexture withMetadata(String name, Boolean publicAccess) {
+        return new SkinTexture(
+                hash,
+                name,
+                type,
+                model,
+                contentType,
+                size,
+                uploaderId,
+                publicAccess,
+                objectKey,
+                migratedTid,
+                uploadedAt
+        );
+    }
 }

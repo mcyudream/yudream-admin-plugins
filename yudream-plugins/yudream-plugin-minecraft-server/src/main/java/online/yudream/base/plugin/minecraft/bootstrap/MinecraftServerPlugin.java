@@ -4,7 +4,9 @@ import online.yudream.base.plugin.minecraft.application.service.MinecraftServerA
 import online.yudream.base.plugin.minecraft.infrastructure.repository.MinecraftServerDocumentRepository;
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusScheduler;
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusService;
-import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerController;
+import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerAdminController;
+import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerReportController;
+import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerUserController;
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -48,7 +50,8 @@ import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
                         icon = "i-ri:file-info-line",
                         component = "minecraft-server/Detail",
                         permission = MinecraftServerPlugin.VIEW_PERMISSION,
-                        sort = 20
+                        sort = 20,
+                        hideInMenu = true
                 ),
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server/admin",
@@ -58,6 +61,58 @@ import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
                         component = "minecraft-server/Admin",
                         permission = MinecraftServerPlugin.MANAGE_PERMISSION,
                         sort = 30
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/minecraft-server/admin/editor",
+                        name = "platform-plugin-minecraft-server-editor",
+                        parentPath = "/platform/plugins/minecraft-server/admin",
+                        parentTitle = "服务器管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        title = "服务器编辑",
+                        icon = "i-ri:edit-line",
+                        component = "minecraft-server/Editor",
+                        permission = MinecraftServerPlugin.MANAGE_PERMISSION,
+                        sort = 31,
+                        hideInMenu = true
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/minecraft-server/admin/seasons",
+                        name = "platform-plugin-minecraft-server-seasons",
+                        parentPath = "/platform/plugins/minecraft-server/admin",
+                        parentTitle = "服务器管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        title = "周目管理",
+                        icon = "i-ri:calendar-event-line",
+                        component = "minecraft-server/Seasons",
+                        permission = MinecraftServerPlugin.MANAGE_PERMISSION,
+                        sort = 32,
+                        hideInMenu = true
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/minecraft-server/admin/operations",
+                        name = "platform-plugin-minecraft-server-operations",
+                        parentPath = "/platform/plugins/minecraft-server/admin",
+                        parentTitle = "服务器管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        title = "周目操作记录",
+                        icon = "i-ri:history-line",
+                        component = "minecraft-server/Operations",
+                        permission = MinecraftServerPlugin.MANAGE_PERMISSION,
+                        sort = 33,
+                        hideInMenu = true
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/minecraft-server/admin/players",
+                        name = "platform-plugin-minecraft-server-players",
+                        parentPath = "/platform/plugins/minecraft-server/admin",
+                        parentTitle = "服务器管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        title = "玩家时长统计",
+                        icon = "i-ri:bar-chart-box-line",
+                        component = "minecraft-server/Players",
+                        permission = MinecraftServerPlugin.MANAGE_PERMISSION,
+                        sort = 34,
+                        hideInMenu = true
                 )
         }
 )
@@ -80,6 +135,9 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         statusScheduler.start();
         context.onDispose(statusScheduler);
         context.registerExtension(PluginMinecraftService.class, appService);
-        context.registerHttpController(new MinecraftServerController(new MinecraftServerHttpFacade(appService)));
+        MinecraftServerHttpFacade http = new MinecraftServerHttpFacade(appService);
+        context.registerHttpController(new MinecraftServerUserController(http));
+        context.registerHttpController(new MinecraftServerAdminController(http));
+        context.registerHttpController(new MinecraftServerReportController(http));
     }
 }

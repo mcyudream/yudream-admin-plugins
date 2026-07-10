@@ -7,6 +7,7 @@ import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveC
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftEconomyRecordDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftSeasonOperationDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftPlayerActivityDTO;
+import online.yudream.base.plugin.minecraft.application.dto.MinecraftPageDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
@@ -66,6 +67,15 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         this.framework = framework;
     }
 
+    public MinecraftPageDTO<MinecraftServerDTO> pageServers(boolean includeDisabled, boolean refreshStatus, int page, int size) {
+        int safePage = safePage(page);
+        int safeSize = safeSize(size);
+        List<MinecraftServerDTO> records = repository.list(safePage, safeSize, includeDisabled).stream()
+                .map(server -> assembler.toDTO(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
+                .toList();
+        return new MinecraftPageDTO<>(records, repository.count(includeDisabled));
+    }
+
     public List<MinecraftServerDTO> listServers(boolean includeDisabled, boolean refreshStatus) {
         return allServers(includeDisabled).stream()
                 .map(server -> assembler.toDTO(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
@@ -108,6 +118,14 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         MinecraftServerStatus status = repository.saveStatus(MinecraftServerStatus.from(server.id(), statuses));
         repository.saveStatusSnapshot(MinecraftStatusSnapshot.from(status));
         return status;
+    }
+
+    public MinecraftServerDTO userDetail(String serverId, boolean refreshStatus) {
+        MinecraftServerDTO detail = detail(serverId, refreshStatus);
+        if (!detail.enabled()) {
+            throw new IllegalArgumentException("服务器不存在");
+        }
+        return detail;
     }
 
     public void refreshEnabledServers() {
@@ -164,15 +182,16 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return assembler.toDTO(rolledBack, realIncomeTotals(wallet()));
     }
 
-    public List<MinecraftSeasonOperationDTO> operations(String serverId, int page, int size) {
+    public MinecraftPageDTO<MinecraftSeasonOperationDTO> operations(String serverId, int page, int size) {
         PluginWalletService wallet = walletOrNull();
         Map<String, BigDecimal> realIncomeTotals = wallet == null ? Map.of() : realIncomeTotals(wallet);
-        return repository.listOperations(serverId, safePage(page), safeSize(size)).stream()
+        List<MinecraftSeasonOperationDTO> records = repository.listOperations(serverId, safePage(page), safeSize(size)).stream()
                 .map(operation -> assembler.toDTO(operation, realIncomeTotals))
                 .toList();
+        return new MinecraftPageDTO<>(records, repository.countOperations(serverId));
     }
 
-    public List<MinecraftEconomyRecordDTO> userRecords(String serverId, String userId, int page, int size) {
+    public MinecraftPageDTO<MinecraftEconomyRecordDTO> userRecords(String serverId, String userId, int page, int size) {
         MinecraftServer server = requireServer(serverId);
         MinecraftServerSeason currentSeason = server.currentSeason();
         Long startAt = currentSeason == null ? null : currentSeason.startedAt();
@@ -203,11 +222,14 @@ public class MinecraftServerAppService implements PluginMinecraftService {
                                 operation.createdAt()
                         )))
                 .toList();
-        return java.util.stream.Stream.concat(walletRecords.stream(), seasonRecords.stream())
+        List<MinecraftEconomyRecordDTO> all = java.util.stream.Stream.concat(walletRecords.stream(), seasonRecords.stream())
                 .sorted(Comparator.comparingLong(MinecraftEconomyRecordDTO::createdAt).reversed())
+                .toList();
+        List<MinecraftEconomyRecordDTO> records = all.stream()
                 .skip((long) (safePage - 1) * safeSize)
                 .limit(safeSize)
                 .toList();
+        return new MinecraftPageDTO<>(records, all.size());
     }
 
     public MinecraftPlayerActivityDTO recordJoin(String serverId, MinecraftPlayerEventCmd cmd) {
@@ -234,12 +256,13 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
     }
 
-    public List<MinecraftPlayerActivityDTO> playerActivities(String serverId, int page, int size) {
+    public MinecraftPageDTO<MinecraftPlayerActivityDTO> playerActivities(String serverId, int page, int size) {
         requireServer(serverId);
         long now = System.currentTimeMillis();
-        return repository.listPlayerActivities(serverId, safePage(page), safeSize(size)).stream()
+        List<MinecraftPlayerActivityDTO> records = repository.listPlayerActivities(serverId, safePage(page), safeSize(size)).stream()
                 .map(activity -> assembler.toDTO(activity, now))
                 .toList();
+        return new MinecraftPageDTO<>(records, repository.countPlayerActivities(serverId));
     }
 
     @Override
@@ -259,7 +282,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     @Override
     public List<PluginMinecraftPlayerActivity> minecraftPlayerActivities(String serverId, int page, int size) {
-        return playerActivities(serverId, page, size).stream()
+        return playerActivities(serverId, page, size).records().stream()
                 .map(this::toPluginActivity)
                 .toList();
     }

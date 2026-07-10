@@ -46,6 +46,25 @@ public class AlipayRepository {
         return documents.findAll(ORDERS, page, size).stream().map(this::toOrder).toList();
     }
 
+    public List<AlipayRechargeOrder> listOrdersByUser(String userId, int page, int size) {
+        return documents.findByField(ORDERS, "userId", userId, page, size).stream().map(this::toOrder).toList();
+    }
+
+    public long orderCountByUser(String userId) {
+        long total = 0;
+        int page = 1;
+        while (true) {
+            int size = documents.findByField(ORDERS, "userId", userId, page, 200).size();
+            total += size;
+            if (size < 200) return total;
+            page++;
+        }
+    }
+
+    public long orderCount() {
+        return documents.count(ORDERS);
+    }
+
     private Map<String, Object> configDocument(AlipayConfig config) {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("appId", config.appId());

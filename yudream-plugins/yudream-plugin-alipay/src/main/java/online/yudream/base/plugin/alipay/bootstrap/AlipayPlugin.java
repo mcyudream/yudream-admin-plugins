@@ -4,7 +4,9 @@ import online.yudream.base.plugin.alipay.application.service.AlipayAppService;
 import online.yudream.base.plugin.alipay.application.service.AlipayPaymentChannel;
 import online.yudream.base.plugin.alipay.infrastructure.repository.AlipayRepository;
 import online.yudream.base.plugin.alipay.infrastructure.service.AlipayGatewayService;
-import online.yudream.base.plugin.alipay.interfaces.controller.AlipayController;
+import online.yudream.base.plugin.alipay.interfaces.controller.AlipayAdminController;
+import online.yudream.base.plugin.alipay.interfaces.controller.AlipayPublicController;
+import online.yudream.base.plugin.alipay.interfaces.controller.AlipayUserController;
 import online.yudream.base.plugin.alipay.interfaces.http.AlipayHttpFacade;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -35,6 +37,15 @@ import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
         parentCode = "plugin:yudream-wallet:module:yudreamWallet",
         routes = {
                 @PluginRoute(
+                        path = "/platform/plugins/yudream-alipay/orders",
+                        name = "platform-plugin-yudream-alipay-my-orders",
+                        title = "我的支付宝订单",
+                        icon = "i-ri:alipay-line",
+                        component = "yudream-alipay/MyOrders",
+                        permission = AlipayPlugin.USER_PERMISSION,
+                        sort = 26
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/yudream-alipay/system/settings",
                         name = "platform-plugin-yudream-alipay-settings",
                         title = "支付宝配置",
@@ -46,6 +57,19 @@ import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
                         component = "yudream-alipay/Settings",
                         permission = AlipayPlugin.MANAGE_PERMISSION,
                         sort = 10
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/yudream-alipay/system/orders",
+                        name = "platform-plugin-yudream-alipay-orders",
+                        title = "支付宝订单",
+                        icon = "i-ri:file-list-3-line",
+                        parentPath = "/platform/plugins/yudream-wallet/system",
+                        parentTitle = "钱包管理",
+                        parentIcon = "i-ri:settings-3-line",
+                        parentSort = 10,
+                        component = "yudream-alipay/Orders",
+                        permission = AlipayPlugin.MANAGE_PERMISSION,
+                        sort = 11
                 )
         }
 )
@@ -67,6 +91,9 @@ public class AlipayPlugin implements YuDreamPlugin {
                 context.framework()
         );
         context.registerExtension(PluginPaymentChannel.class, new AlipayPaymentChannel(appService));
-        context.registerHttpController(new AlipayController(new AlipayHttpFacade(appService)));
+        AlipayHttpFacade http = new AlipayHttpFacade(appService);
+        context.registerHttpController(new AlipayPublicController(http));
+        context.registerHttpController(new AlipayUserController(http));
+        context.registerHttpController(new AlipayAdminController(http));
     }
 }

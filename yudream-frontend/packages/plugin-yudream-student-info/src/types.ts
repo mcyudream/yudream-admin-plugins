@@ -15,18 +15,26 @@ export interface StudentInfoSummary {
   profileCount: number
 }
 
-export interface StudentProfileForm {
-  userId: string
+export interface StudentProfileFields {
   studentName: string
   studentNo: string
   className: string
   college: string
 }
 
+export interface AdminStudentProfileForm extends StudentProfileFields {
+  userId: string
+}
+
 export interface StudentProfileFilters {
   keyword: string
   college: string
   className: string
+}
+
+export interface StudentProfilePage {
+  records: StudentProfile[]
+  total: number
 }
 
 export type TimeValue = number | string | number[] | Date | null | undefined

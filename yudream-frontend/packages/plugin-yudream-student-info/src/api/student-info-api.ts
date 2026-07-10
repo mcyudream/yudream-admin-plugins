@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { StudentInfoSummary, StudentProfile, StudentProfileFilters } from '../types'
+import type { StudentInfoSummary, StudentProfile, StudentProfileFields, StudentProfileFilters, StudentProfilePage } from '../types'
 
 export function createStudentInfoApi(sdk: YuDreamPluginSdk) {
   function query(params: Record<string, string | number | undefined>) {
@@ -14,10 +14,10 @@ export function createStudentInfoApi(sdk: YuDreamPluginSdk) {
   }
 
   return {
-    status: () => sdk.http.get<StudentInfoSummary>('/status'),
+    adminStatus: () => sdk.http.get<StudentInfoSummary>('/admin/status'),
     me: () => sdk.http.get<StudentProfile>('/me'),
-    saveMe: (data: Record<string, unknown>) => sdk.http.request<StudentProfile>('/me', { method: 'PUT', data }),
-    profiles: (filters: StudentProfileFilters, page = 1, size = 20) => sdk.http.get<StudentProfile[]>(`/admin/profiles${query({ page, size, ...filters })}`),
+    saveMe: (data: StudentProfileFields) => sdk.http.request<StudentProfile>('/me', { method: 'PUT', data }),
+    profiles: (filters: StudentProfileFilters, page = 1, size = 10) => sdk.http.get<StudentProfilePage>(`/admin/profiles${query({ page, size, ...filters })}`),
     profile: (userId: string) => sdk.http.get<StudentProfile>(`/admin/profiles/${encodeURIComponent(userId)}`),
     saveProfile: (data: Record<string, unknown>) => sdk.http.request<StudentProfile>('/admin/profiles', { method: 'PUT', data }),
     deleteProfile: (userId: string) => sdk.http.request(`/admin/profiles/${encodeURIComponent(userId)}`, { method: 'DELETE' }),

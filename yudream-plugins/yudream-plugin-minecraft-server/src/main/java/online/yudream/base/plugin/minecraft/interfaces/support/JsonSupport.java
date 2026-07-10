@@ -1,4 +1,4 @@
-package online.yudream.base.plugin.minecraft.infrastructure.support;
+package online.yudream.base.plugin.minecraft.interfaces.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

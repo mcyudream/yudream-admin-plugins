@@ -9,6 +9,11 @@ export interface WalletAsset {
   minTransferAmount?: number | string
 }
 
+export interface PagedResult<T> {
+  records: T[]
+  total: number
+}
+
 export interface WalletUser {
   id: string
   username?: string

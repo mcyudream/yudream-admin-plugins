@@ -1,53 +1,76 @@
+<script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
+import type { AuthlibEndpoint } from '../types'
+import type { AuthlibPluginModel } from '../composables/useAuthlibPlugin'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaTable, FaTag } from '@yudream/components'
+
+defineProps<{ model: AuthlibPluginModel }>()
+
+const columns: TableColumn<AuthlibEndpoint>[] = [
+  { accessorKey: 'method', header: '方法', width: 100, fixed: 'left' },
+  { accessorKey: 'path', header: '协议路径', width: 420 },
+  { accessorKey: 'note', header: '用途', width: 360 },
+]
+</script>
+
 <template>
   <section class="authlib-home">
-    <section class="authlib-hero">
-      <div>
-        <span>Authlib Injector</span>
-        <h2>Yggdrasil 认证服务</h2>
-        <p>基于系统用户认证与 yudream-skin 角色、材质资料，对外提供 Minecraft 启动器和服务端可使用的认证协议端点。</p>
-      </div>
-      <div class="hero-actions">
-        <FaButton @click="model.copy(model.launcherUrl)">
-          <FaIcon name="i-ri:file-copy-line" />
-          复制 API 地址
-        </FaButton>
-      </div>
-    </section>
+    <FaPageHeader title="Authlib 运行状态" description="查看 Yggdrasil 协议服务地址、依赖状态和固定协议端点。" class="mb-0">
+      <FaButton @click="model.copy(model.launcherUrl)">
+        <FaIcon name="i-ri:file-copy-line" />
+        复制 API 地址
+      </FaButton>
+    </FaPageHeader>
 
-    <div class="authlib-grid">
-      <AuthlibPanel title="启动器配置" eyebrow="Launcher">
-        <template #header>
-          <FaTag variant="secondary">{{ model.statusText }}</FaTag>
+    <FaPageMain>
+      <div class="authlib-summary-grid">
+        <FaCard title="启动器配置" description="Yggdrasil 服务根地址" content-class="authlib-card-content">
+          <div class="authlib-address-row">
+            <code>{{ model.launcherUrl }}</code>
+            <FaButton size="sm" variant="outline" @click="model.copy(model.launcherUrl)">
+              <FaIcon name="i-ri:file-copy-line" />
+              复制
+            </FaButton>
+          </div>
+          <p class="authlib-muted">将此地址填写到支持 authlib-injector 的启动器或服务端配置中。</p>
+        </FaCard>
+
+        <FaCard title="服务状态" description="仅管理端可见" content-class="authlib-card-content">
+          <div class="authlib-status-line">
+            <span>连接状态</span>
+            <FaTag :variant="model.status ? 'default' : 'secondary'">{{ model.statusText }}</FaTag>
+          </div>
+          <div class="authlib-status-line"><span>账号来源</span><strong>{{ model.status?.accountSource || '-' }}</strong></div>
+          <div class="authlib-status-line"><span>皮肤插件</span><strong>{{ model.status?.skinPluginEnabled ? '已启用' : '未启用' }}</strong></div>
+          <div class="authlib-status-line"><span>材质地址</span><code>{{ model.status?.textureBaseUrl || '-' }}</code></div>
+        </FaCard>
+      </div>
+
+      <FaTable
+        v-loading="model.loading"
+        row-key="path"
+        table-root-class="authlib-endpoint-table-root rounded-lg overflow-hidden"
+        table-class="min-w-[880px]"
+        border
+        stripe
+        column-visibility
+        :columns="columns"
+        :data="model.endpoints"
+      >
+        <template #toolbar>
+          <div class="authlib-table-toolbar">
+            <div>
+              <strong>协议端点</strong>
+              <span>固定协议清单，不作为管理 CRUD 数据。</span>
+            </div>
+            <FaTag variant="secondary">{{ model.endpoints.length }} 个端点</FaTag>
+          </div>
         </template>
-        <ApiAddressCard :value="model.launcherUrl" @copy="model.copy" />
-        <p class="muted">
-          在启动器或 authlib-injector 参数中使用该地址作为认证服务器根路径。协议响应会附带
-          <code>X-Authlib-Injector-API-Location</code>。
-        </p>
-      </AuthlibPanel>
-
-      <AuthlibPanel title="插件状态" eyebrow="Runtime">
-        <pre>{{ model.statusPayload }}</pre>
-      </AuthlibPanel>
-    </div>
-
-    <AuthlibPanel title="协议端点" eyebrow="Protocol">
-      <template #header>
-        <FaTag>{{ model.endpoints.length }}</FaTag>
-      </template>
-      <EndpointList :endpoints="model.endpoints" />
-    </AuthlibPanel>
+        <template #cell-method="{ row }">
+          <FaTag :variant="row.original.method === 'GET' ? 'secondary' : 'default'">{{ row.original.method }}</FaTag>
+        </template>
+        <template #cell-path="{ row }"><code>{{ row.original.path }}</code></template>
+      </FaTable>
+    </FaPageMain>
   </section>
 </template>
-
-<script setup lang="ts">
-import { FaButton, FaIcon, FaTag } from '@yudream/components'
-import ApiAddressCard from '../components/ApiAddressCard.vue'
-import AuthlibPanel from '../components/AuthlibPanel.vue'
-import EndpointList from '../components/EndpointList.vue'
-import type { AuthlibPluginModel } from '../composables/useAuthlibPlugin'
-
-defineProps<{
-  model: AuthlibPluginModel
-}>()
-</script>

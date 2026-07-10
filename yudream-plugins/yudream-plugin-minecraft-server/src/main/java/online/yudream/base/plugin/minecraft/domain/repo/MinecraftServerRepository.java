@@ -35,9 +35,13 @@ public interface MinecraftServerRepository {
 
     List<MinecraftSeasonOperation> listOperations(String serverId, int page, int size);
 
+    long countOperations(String serverId);
+
     MinecraftPlayerActivity savePlayerActivity(MinecraftPlayerActivity activity);
 
     Optional<MinecraftPlayerActivity> findPlayerActivity(String serverId, String playerId);
 
     List<MinecraftPlayerActivity> listPlayerActivities(String serverId, int page, int size);
+
+    long countPlayerActivities(String serverId);
 }

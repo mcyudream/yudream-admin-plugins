@@ -1,4 +1,4 @@
-export type SkinPage = 'dashboard' | 'players' | 'textures' | 'closet' | 'settings' | 'playerManagement' | 'textureManagement'
+export type SkinPage = 'dashboard' | 'players' | 'textures' | 'closet' | 'settings' | 'migration' | 'playerManagement' | 'textureManagement' | 'closetManagement'
 
 export interface SkinSettings {
   maxPlayersPerUser: number
@@ -27,7 +27,6 @@ export interface SkinMe {
   skinUser?: SkinUser
   defaultPlayerName?: string
   permissions: string[]
-  manage: boolean
 }
 
 export interface SkinUser {

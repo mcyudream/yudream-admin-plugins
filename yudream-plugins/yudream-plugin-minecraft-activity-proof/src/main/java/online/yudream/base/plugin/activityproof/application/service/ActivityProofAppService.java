@@ -9,6 +9,7 @@ import online.yudream.base.plugin.activityproof.application.dto.ActivityProofDep
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofDownloadDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofExportDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofMappingDTO;
+import online.yudream.base.plugin.activityproof.application.dto.ActivityProofPageDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofParticipantDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofServerDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofSettingsDTO;
@@ -122,14 +123,13 @@ public class ActivityProofAppService {
                 .toList();
     }
 
-    public List<ActivityProofMappingDTO> mappings(String serverId, int page, int size) {
+    public ActivityProofPageDTO<ActivityProofMappingDTO> mappings(String serverId, int page, int size) {
         int safePage = safePage(page);
         int safeSize = safeSize(size);
-        return allMappings(serverId).stream()
-                .skip((long) (safePage - 1) * safeSize)
-                .limit(safeSize)
+        List<ActivityProofMappingDTO> records = repository.mappings(serverId, safePage, safeSize).stream()
                 .map(this::toDTO)
                 .toList();
+        return new ActivityProofPageDTO<>(records, repository.countMappings(serverId));
     }
 
     public ActivityProofMappingDTO saveMapping(ActivityProofMappingSaveCmd cmd) {
@@ -146,8 +146,14 @@ public class ActivityProofAppService {
         repository.deleteMapping(requireText(id, "映射 ID 不能为空"));
     }
 
-    public List<ActivityProofParticipantDTO> participants(String serverId, Integer minOnlineMinutes, Boolean includeAfk) {
-        return buildParticipants(requireText(serverId, "服务器不能为空"), minOnlineMinutes, includeAfk, List.of());
+    public ActivityProofPageDTO<ActivityProofParticipantDTO> participants(String serverId, Integer minOnlineMinutes, Boolean includeAfk, int page, int size) {
+        List<ActivityProofParticipantDTO> all = buildParticipants(requireText(serverId, "服务器不能为空"), minOnlineMinutes, includeAfk, List.of());
+        int safePage = safePage(page);
+        int safeSize = safeSize(size);
+        return new ActivityProofPageDTO<>(all.stream()
+                .skip((long) (safePage - 1) * safeSize)
+                .limit(safeSize)
+                .toList(), all.size());
     }
 
     public ActivityProofExportDTO export(ActivityProofExportCmd cmd, String operatorUserId) {
@@ -179,23 +185,31 @@ public class ActivityProofAppService {
         return toDTO(repository.saveExportRecord(record));
     }
 
-    public List<ActivityProofExportDTO> exportRecords(int page, int size) {
-        return repository.exportRecords(safePage(page), safeSize(size)).stream()
+    public ActivityProofPageDTO<ActivityProofExportDTO> exportRecords(int page, int size) {
+        List<ActivityProofExportDTO> records = repository.exportRecords(safePage(page), safeSize(size)).stream()
                 .map(this::toDTO)
                 .toList();
+        return new ActivityProofPageDTO<>(records, repository.countExportRecords());
     }
 
-    public List<ActivityProofExportDTO> myStampedExportRecords(String userId) {
+    public ActivityProofPageDTO<ActivityProofExportDTO> myStampedExportRecords(String userId, int page, int size) {
         String safeUserId = requireText(userId, "请先登录");
         String studentNo = studentInfoService()
                 .flatMap(service -> service.findStudentInfoByUserId(safeUserId))
                 .map(PluginStudentInfoProfile::studentNo)
                 .orElse("");
-        return allExportRecords().stream()
+        List<ActivityProofExportDTO> mine = allExportRecords().stream()
                 .filter(ActivityProofExportRecord::hasStampedPdf)
                 .filter(record -> record.containsParticipant(safeUserId, studentNo))
                 .map(record -> toDTO(record, true))
                 .toList();
+        int safePage = safePage(page);
+        int safeSize = safeSize(size);
+        List<ActivityProofExportDTO> records = mine.stream()
+                .skip((long) (safePage - 1) * safeSize)
+                .limit(safeSize)
+                .toList();
+        return new ActivityProofPageDTO<>(records, mine.size());
     }
 
     public ActivityProofExportDTO uploadStampedPdf(ActivityProofStampedPdfUploadCmd cmd) {
@@ -727,7 +741,7 @@ public class ActivityProofAppService {
 
     private ActivityProofExportDTO toDTO(ActivityProofExportRecord record, boolean mine) {
         return new ActivityProofExportDTO(record.id(), record.serverId(), record.serverName(), record.activityName(),
-                record.outputFilename(), mine ? "" : "/exports/" + encode(record.id()) + "/download",
+                record.outputFilename(), mine ? "" : "/admin/exports/" + encode(record.id()) + "/download",
                 record.participantCount(), record.unmatchedCount(), record.operatorUserId(), record.generatedAt(),
                 record.hasStampedPdf(),
                 record.stampedPdfFilename(),
@@ -740,7 +754,7 @@ public class ActivityProofAppService {
         if (!record.hasStampedPdf()) {
             return "";
         }
-        String prefix = mine ? "/me/exports/" : "/exports/";
+        String prefix = mine ? "/me/exports/" : "/admin/exports/";
         return prefix + encode(record.id()) + "/stamped-pdf/download";
     }
 

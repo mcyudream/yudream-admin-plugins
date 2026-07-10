@@ -1,56 +1,51 @@
-<template>
-  <div class="wallet-table-wrap">
-    <table class="wallet-table">
-      <thead>
-        <tr>
-          <th>类型</th>
-          <th>来源</th>
-          <th>资产</th>
-          <th>金额</th>
-          <th>用户</th>
-          <th>业务单号</th>
-          <th>时间</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in items" :key="item.id">
-          <td>
-            <span class="wallet-tag">{{ model.transactionLabel(item.type) }}</span>
-          </td>
-          <td>{{ model.sourceLabel(item.source) }}</td>
-          <td>{{ model.assetName(item.assetCode) }}</td>
-          <td class="amount-cell">
-            {{ model.assetSymbol(item.assetCode) }}{{ model.formatAmount(item.amount, item.assetCode) }}
-          </td>
-          <td class="wrap-cell">
-            <template v-if="item.type === 'TRANSFER'">
-              {{ model.userLabel(item.fromUser, item.fromUserId) }} → {{ model.userLabel(item.toUser, item.toUserId) }}
-            </template>
-            <template v-else>
-              {{ model.userLabel(item.toUser || item.fromUser, item.toUserId || item.fromUserId) }}
-            </template>
-          </td>
-          <td class="wrap-cell">
-            {{ item.businessNo || '-' }}
-          </td>
-          <td>{{ model.formatTime(item.createdAt) }}</td>
-        </tr>
-        <tr v-if="!items.length">
-          <td colspan="7">
-            <div class="wallet-empty compact">暂无流水</div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</template>
-
 <script setup lang="ts">
+import type { TableColumn } from '@yudream/components'
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import type { WalletTransaction } from '../types'
+import { FaTable, FaTag } from '@yudream/components'
 
-defineProps<{
-  model: WalletPluginModel
-  items: WalletTransaction[]
-}>()
+defineProps<{ model: WalletPluginModel, items: WalletTransaction[] }>()
+
+const columns: TableColumn<WalletTransaction>[] = [
+  { accessorKey: 'type', header: '类型', width: 100 },
+  { accessorKey: 'source', header: '来源', width: 110 },
+  { accessorKey: 'assetCode', header: '资产', width: 100 },
+  { id: 'amount', header: '金额', width: 140 },
+  { id: 'user', header: '用户', minWidth: 240 },
+  { accessorKey: 'businessNo', header: '业务单号', minWidth: 220 },
+  { id: 'createdAt', header: '时间', width: 180 },
+]
 </script>
+
+<template>
+  <FaTable
+    row-key="id"
+    table-root-class="rounded-lg overflow-hidden"
+    table-class="min-w-[1050px]"
+    border
+    stripe
+    column-visibility
+    :columns="columns"
+    :data="items"
+    empty-text="暂无流水"
+  >
+    <template #cell-type="{ row }">
+      <FaTag>{{ model.transactionLabel(row.original.type) }}</FaTag>
+    </template>
+    <template #cell-source="{ row }">{{ model.sourceLabel(row.original.source) }}</template>
+    <template #cell-assetCode="{ row }">{{ model.assetName(row.original.assetCode) }}</template>
+    <template #cell-amount="{ row }">
+      {{ model.assetSymbol(row.original.assetCode) }}{{ model.formatAmount(row.original.amount, row.original.assetCode) }}
+    </template>
+    <template #cell-user="{ row }">
+      <template v-if="row.original.type === 'TRANSFER'">
+        {{ model.userLabel(row.original.fromUser, row.original.fromUserId) }} → {{ model.userLabel(row.original.toUser, row.original.toUserId) }}
+      </template>
+      <template v-else>
+        {{ model.userLabel(row.original.toUser || row.original.fromUser, row.original.toUserId || row.original.fromUserId) }}
+      </template>
+    </template>
+    <template #cell-businessNo="{ row }">{{ row.original.businessNo || '-' }}</template>
+    <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
+  </FaTable>
+</template>

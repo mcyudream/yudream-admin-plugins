@@ -8,7 +8,6 @@ import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
 import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
-import online.yudream.base.plugin.wallet.bootstrap.WalletPlugin;
 import online.yudream.base.plugin.wallet.application.service.WalletAppService;
 import online.yudream.base.plugin.wallet.application.cmd.WalletTransferCmd;
 import online.yudream.base.plugin.wallet.infrastructure.support.JsonSupport;
@@ -46,9 +45,8 @@ public class WalletHttpFacade {
     }
 
     public PluginHttpResponse assets(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.listAssets(page(request), size(request)).stream()
-                .map(assembler::toRes)
-                .toList());
+        var records = appService.listAssets(page(request), size(request)).stream().map(assembler::toRes).toList();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.assetCount()));
     }
 
     public PluginHttpResponse saveAsset(PluginHttpRequest request) {
@@ -57,7 +55,7 @@ public class WalletHttpFacade {
     }
 
     public PluginHttpResponse deleteAsset(PluginHttpRequest request) {
-        appService.deleteAsset(pathSegment(request.path(), 1));
+        appService.deleteAsset(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
     }
 
@@ -77,9 +75,8 @@ public class WalletHttpFacade {
     public PluginHttpResponse createRecharge(PluginHttpRequest request) {
         WalletRechargeCreateRequest body = JsonSupport.read(request.body(), WalletRechargeCreateRequest.class);
         Long principalUserId = request.principal().userId();
-        boolean manage = request.principal().hasPermission(WalletPlugin.MANAGE_PERMISSION);
         String userId = body.userId();
-        if (!manage) {
+        {
             if (principalUserId == null) {
                 throw new IllegalArgumentException("请先登录");
             }
@@ -88,7 +85,8 @@ public class WalletHttpFacade {
                 throw new IllegalArgumentException("只能给自己的钱包充值");
             }
             userId = currentUserId;
-        } else if (userId == null || userId.isBlank()) {
+        }
+        if (userId == null || userId.isBlank()) {
             userId = principalUserId == null ? null : String.valueOf(principalUserId);
         }
         return PluginHttpResponse.ok(appService.createRecharge(assembler.toCmd(new WalletRechargeCreateRequest(
@@ -101,9 +99,9 @@ public class WalletHttpFacade {
         ))));
     }
 
-    public PluginHttpResponse balances(PluginHttpRequest request) {
+    private PluginHttpResponse legacyBalances(PluginHttpRequest request) {
         String userId;
-        if (request.principal().hasPermission(WalletPlugin.MANAGE_PERMISSION)) {
+        if (request.principal() == null) {
             userId = firstQuery(request, "userId");
             if (userId == null || userId.isBlank()) {
                 Long principalUserId = request.principal().userId();
@@ -119,17 +117,25 @@ public class WalletHttpFacade {
         return PluginHttpResponse.ok(balanceResponses(appService.balances(userId)));
     }
 
+    public PluginHttpResponse balances(PluginHttpRequest request) {
+        if (request.principal() == null || request.principal().userId() == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        return PluginHttpResponse.ok(balanceResponses(appService.balances(String.valueOf(request.principal().userId()))));
+    }
+
     public PluginHttpResponse adminBalances(PluginHttpRequest request) {
         String assetCode = firstQuery(request, "assetCode");
-        return PluginHttpResponse.ok(balanceResponses(appService.listBalances(assetCode, page(request), size(request))));
+        var records = balanceResponses(appService.listBalances(assetCode, page(request), size(request)));
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.balanceCount(assetCode)));
     }
 
     public PluginHttpResponse userBalances(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(balanceResponses(appService.balances(pathSegment(request.path(), 1))));
+        return PluginHttpResponse.ok(balanceResponses(appService.balances(pathSegment(request.path(), 2))));
     }
 
     public PluginHttpResponse userBalance(PluginHttpRequest request) {
-        var balance = appService.balance(pathSegment(request.path(), 1), pathSegment(request.path(), 3));
+        var balance = appService.balance(pathSegment(request.path(), 2), pathSegment(request.path(), 4));
         return PluginHttpResponse.ok(balanceResponse(balance, appService.historicalIncomeTotals()));
     }
 
@@ -181,9 +187,8 @@ public class WalletHttpFacade {
     public PluginHttpResponse transfer(PluginHttpRequest request) {
         WalletTransferRequest body = JsonSupport.read(request.body(), WalletTransferRequest.class);
         Long principalUserId = request.principal().userId();
-        boolean manage = request.principal().hasPermission(WalletPlugin.MANAGE_PERMISSION);
         String fromUserId = body.fromUserId();
-        if (!manage) {
+        {
             if (principalUserId == null) {
                 throw new IllegalArgumentException("请先登录");
             }
@@ -204,7 +209,7 @@ public class WalletHttpFacade {
         if (userId == null) {
             userId = firstQuery(request, "userId");
         }
-        return PluginHttpResponse.ok(appService.transactions(
+        var records = appService.transactions(
                         firstQuery(request, "assetCode"),
                         firstQuery(request, "type"),
                         firstQuery(request, "source"),
@@ -215,7 +220,10 @@ public class WalletHttpFacade {
                         size(request)
                 ).stream()
                 .map(transaction -> assembler.toRes(transaction, userOf(transaction.fromUserId()), userOf(transaction.toUserId())))
-                .toList());
+                .toList();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.transactionCount(
+                firstQuery(request, "assetCode"), firstQuery(request, "type"), firstQuery(request, "source"), userId,
+                longQuery(request, "startAt"), longQuery(request, "endAt"))));
     }
 
     public PluginHttpResponse myTransactions(PluginHttpRequest request) {
@@ -223,18 +231,22 @@ public class WalletHttpFacade {
         if (principalUserId == null) {
             throw new IllegalArgumentException("请先登录");
         }
-        return PluginHttpResponse.ok(appService.transactions(
+        String userId = String.valueOf(principalUserId);
+        var records = appService.transactions(
                         firstQuery(request, "assetCode"),
                         firstQuery(request, "type"),
                         firstQuery(request, "source"),
-                        String.valueOf(principalUserId),
+                        userId,
                         longQuery(request, "startAt"),
                         longQuery(request, "endAt"),
                         page(request),
                         size(request)
                 ).stream()
                 .map(transaction -> assembler.toRes(transaction, userOf(transaction.fromUserId()), userOf(transaction.toUserId())))
-                .toList());
+                .toList();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.transactionCount(
+                firstQuery(request, "assetCode"), firstQuery(request, "type"), firstQuery(request, "source"), userId,
+                longQuery(request, "startAt"), longQuery(request, "endAt"))));
     }
 
     public PluginHttpResponse transactionByBusinessNo(PluginHttpRequest request) {
@@ -250,7 +262,7 @@ public class WalletHttpFacade {
     }
 
     private int size(PluginHttpRequest request) {
-        return intQuery(request, "size", 20);
+        return intQuery(request, "size", 10);
     }
 
     private List<WalletBalanceRes> balanceResponses(List<PluginWalletBalance> balances) {

@@ -83,6 +83,11 @@ public class WalletAppService implements PluginWalletService {
         return allAssets().stream().map(assembler::toSpi).toList();
     }
 
+    public long assetCount() {
+        initializeDefaults();
+        return repository.assetCount();
+    }
+
     @Override
     public Optional<PluginWalletAsset> findAsset(String assetCode) {
         initializeDefaults();
@@ -265,6 +270,11 @@ public class WalletAppService implements PluginWalletService {
                 .toList();
     }
 
+    public long balanceCount(String assetCode) {
+        initializeDefaults();
+        return hasText(assetCode) ? allBalancesByAsset(assetCode).size() : allBalances().size();
+    }
+
     public Map<String, Map<String, BigDecimal>> historicalIncomeTotals() {
         initializeDefaults();
         return allTransactions().stream()
@@ -323,6 +333,17 @@ public class WalletAppService implements PluginWalletService {
                 .limit(safeSize)
                 .map(assembler::toSpi)
                 .toList();
+    }
+
+    public long transactionCount(String assetCode, String type, String source, String userId, Long startAt, Long endAt) {
+        return allTransactions().stream()
+                .filter(item -> !hasText(assetCode) || item.assetCode().equalsIgnoreCase(assetCode.trim()))
+                .filter(item -> !hasText(type) || item.type().name().equalsIgnoreCase(type.trim()))
+                .filter(item -> !hasText(source) || item.source().equalsIgnoreCase(source.trim()))
+                .filter(item -> !hasText(userId) || userId.trim().equals(item.fromUserId()) || userId.trim().equals(item.toUserId()))
+                .filter(item -> startAt == null || item.createdAt() >= startAt)
+                .filter(item -> endAt == null || item.createdAt() < endAt)
+                .count();
     }
 
     @Override

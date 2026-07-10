@@ -17,6 +17,8 @@ public interface ActivityProofRepository {
 
     List<PlayerStudentMapping> mappings(String serverId, int page, int size);
 
+    long countMappings(String serverId);
+
     PlayerStudentMapping saveMapping(PlayerStudentMapping mapping);
 
     void deleteMapping(String id);
@@ -26,6 +28,8 @@ public interface ActivityProofRepository {
     Optional<ActivityProofExportRecord> exportRecord(String id);
 
     List<ActivityProofExportRecord> exportRecords(int page, int size);
+
+    long countExportRecords();
 
     void deleteExportRecord(String id);
 }

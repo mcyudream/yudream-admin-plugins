@@ -148,4 +148,9 @@ export interface SeasonForm {
   rules: InheritanceRule[]
 }
 
+export interface PageResult<T> {
+  records: T[]
+  total: number
+}
+
 export type TimeValue = number | string | number[] | Date | null | undefined

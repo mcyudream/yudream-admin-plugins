@@ -1,7 +1,6 @@
 package online.yudream.base.plugin.alipay.interfaces.http;
 
 import online.yudream.base.plugin.alipay.application.dto.AlipayNotifyResultDTO;
-import online.yudream.base.plugin.alipay.bootstrap.AlipayPlugin;
 import online.yudream.base.plugin.alipay.application.service.AlipayAppService;
 import online.yudream.base.plugin.alipay.infrastructure.support.FormSupport;
 import online.yudream.base.plugin.alipay.infrastructure.support.JsonSupport;
@@ -37,7 +36,7 @@ public class AlipayHttpFacade {
 
     public PluginHttpResponse createRecharge(PluginHttpRequest request) {
         AlipayRechargeCreateRequest body = JsonSupport.read(request.body(), AlipayRechargeCreateRequest.class);
-        if (!request.principal().hasPermission(AlipayPlugin.MANAGE_PERMISSION)) {
+        {
             Long userId = request.principal().userId();
             if (userId == null) {
                 throw new IllegalArgumentException("请先登录");
@@ -59,9 +58,8 @@ public class AlipayHttpFacade {
     }
 
     public PluginHttpResponse orders(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.listOrders(page(request), size(request)).stream()
-                .map(assembler::toRes)
-                .toList());
+        var records = appService.listOrders(page(request), size(request)).stream().map(assembler::toRes).toList();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.orderCount()));
     }
 
     public PluginHttpResponse order(PluginHttpRequest request) {
@@ -70,6 +68,19 @@ public class AlipayHttpFacade {
                 .map(assembler::toRes)
                 .map(PluginHttpResponse::ok)
                 .orElseGet(() -> PluginHttpResponse.rawJson(404, Map.of("message", "充值订单不存在")));
+    }
+
+    public PluginHttpResponse myOrders(PluginHttpRequest request) {
+        String userId = currentUserId(request);
+        var records = appService.listOrdersByUser(userId, page(request), size(request)).stream().map(assembler::toRes).toList();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", appService.orderCountByUser(userId)));
+    }
+
+    public PluginHttpResponse adminOrder(PluginHttpRequest request) {
+        return appService.findOrder(lastPathSegment(request.path()))
+                .map(assembler::toRes)
+                .map(PluginHttpResponse::ok)
+                .orElseGet(() -> PluginHttpResponse.rawJson(404, Map.of("message", "Order not found")));
     }
 
     public PluginHttpResponse notify(PluginHttpRequest request) {
@@ -106,7 +117,7 @@ public class AlipayHttpFacade {
     }
 
     private int size(PluginHttpRequest request) {
-        return intQuery(request, "size", 20);
+        return intQuery(request, "size", 10);
     }
 
     private int intQuery(PluginHttpRequest request, String key, int defaultValue) {
@@ -141,10 +152,14 @@ public class AlipayHttpFacade {
     }
 
     private boolean canReadOrder(PluginHttpRequest request, String ownerId) {
-        if (request.principal().hasPermission(AlipayPlugin.MANAGE_PERMISSION)) {
-            return true;
-        }
         Long userId = request.principal().userId();
         return userId != null && String.valueOf(userId).equals(ownerId);
+    }
+
+    private String currentUserId(PluginHttpRequest request) {
+        if (request.principal() == null || request.principal().userId() == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        return String.valueOf(request.principal().userId());
     }
 }

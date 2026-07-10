@@ -4,6 +4,8 @@ export interface AuthlibStatus {
   serverName?: string
   publicKey?: string
   enabled?: boolean
+  accountSource?: string
+  skinPluginEnabled?: boolean
   dependencies?: Record<string, unknown>
   [key: string]: unknown
 }
