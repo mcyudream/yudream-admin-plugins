@@ -20,10 +20,8 @@
 - 主体仓对应版本已经发布
 - `yudream-frontend/pnpm-workspace.yaml` 中的 `@yudream/plugin-sdk` / `@yudream/components` 版本与主体仓一致
 - `pom.xml` 中的 `yudream.plugin.spi.version` 与主体仓一致
-- 如果走 Job Token 读主体仓，allowlist 没有被撤销
-- 如果不用 Job Token，已经配置：
-  - `CORE_PACKAGE_USER`
-  - `CORE_PACKAGE_TOKEN`
+- `maven-public` 与 `npm-public` 已允许匿名读取
+- 受保护的 `v*` tag 可以读取 `NEXUS_USERNAME`、`NEXUS_PASSWORD` 完成发布
 
 ## 2. 远端必须成功的 job
 
@@ -47,10 +45,10 @@
 - `publish:plugin-jars` job URL
 - `verify:published-plugin-jars` job URL
 
-以及最终 Generic Package Registry 地址：
+以及最终 Nexus Maven 制品地址：
 
 ```text
-${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/yudream-admin-plugins/${CI_COMMIT_TAG}/
+https://nexus.yudream.online/repository/maven-public/online/yudream/plugins/
 ```
 
 ## 4. 验收时应该关注什么

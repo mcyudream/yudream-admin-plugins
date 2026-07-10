@@ -23,13 +23,13 @@
 默认核心 Maven endpoint：
 
 ```text
-https://gitlab.yudream.online/api/v4/projects/12/packages/maven
+https://nexus.yudream.online/repository/maven-public
 ```
 
 说明：
 
-- `12` 是核心仓在 GitLab 上的数值 `project_id`
-- 不要把 Maven endpoint 配成 `projects/yudream%2Fyudreamadmin/packages/maven` 这种 path-encoded 写法
+- 通用 Maven 依赖和插件优先通过阿里云公共仓库拉取，未命中时回退 Nexus；YuDream Maven 制品最终通过 Nexus `maven-public` 拉取
+- release 与 snapshot 只能分别发布到对应的 hosted 仓
 
 ## 前端工作区边界
 

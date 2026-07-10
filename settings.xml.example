@@ -1,27 +1,32 @@
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-    <servers>
-        <server>
-            <id>gitlab-maven</id>
-            <username>${env.CORE_PACKAGE_USER}</username>
-            <password>${env.CORE_PACKAGE_TOKEN}</password>
-        </server>
-    </servers>
-
     <profiles>
         <profile>
-            <id>gitlab-private</id>
+            <id>yudream-repositories</id>
             <repositories>
                 <repository>
-                    <id>gitlab-maven</id>
-                    <url>https://gitlab.yudream.online/api/v4/projects/12/packages/maven</url>
+                    <id>aliyun-public</id>
+                    <url>https://maven.aliyun.com/repository/public</url>
+                </repository>
+                <repository>
+                    <id>nexus-public</id>
+                    <url>https://nexus.yudream.online/repository/maven-public/</url>
                 </repository>
             </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>aliyun-plugin</id>
+                    <url>https://maven.aliyun.com/repository/public</url>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>nexus-plugin</id>
+                    <url>https://nexus.yudream.online/repository/maven-public/</url>
+                </pluginRepository>
+            </pluginRepositories>
         </profile>
     </profiles>
-
     <activeProfiles>
-        <activeProfile>gitlab-private</activeProfile>
+        <activeProfile>yudream-repositories</activeProfile>
     </activeProfiles>
 </settings>

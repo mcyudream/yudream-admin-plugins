@@ -10,7 +10,7 @@
 
 1. `validate`
    - 校验插件仓没有重新耦合回主体仓
-   - 校验核心 Maven 契约可从远程 GitLab Maven Registry 解析
+   - 校验核心 Maven 契约可从 Nexus `maven-public` 解析
    - 校验插件 POM 不会写死仓库地址、系统路径，也不会回依赖主体实现模块
    - 校验核心 npm 契约可从配置的 registry 独立安装
    - 校验插件仓自己的 JAR 发布/回读流水线没有被改瘦
@@ -22,9 +22,9 @@
    - 校验最终插件 JAR 内确实带有 `META-INF/yudream-plugin/frontend/*/remoteEntry.js`
 4. `publish-plugin`
    - 仅在 Git tag 流水线执行
-   - 把最终插件 JAR 上传到当前插件仓自己的 GitLab Generic Package Registry
+   - 把最终插件 JAR 和 catalog 上传到 Nexus `maven-releases`
 5. `verify-publish`
-   - 在发布完成后重新从 GitLab Generic Package Registry 回读
+   - 在发布完成后重新从 Nexus `maven-public` 回读
    - 校验 `sha256sum.txt`、`plugins.manifest.tsv` 与每个插件 JAR 都与本次构建产物一致
 
 ## 前端工作区边界
@@ -64,30 +64,34 @@ packages:
 
 ## 默认发布地址
 
-发布目标为当前插件仓项目自己的 Generic Package Registry：
+发布目标为 Nexus Maven Release Repository：
 
 ```text
-${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/yudream-admin-plugins/${CI_COMMIT_TAG}/
+https://nexus.yudream.online/repository/maven-releases/online/yudream/plugins/
 ```
+
+每个插件使用 `online.yudream.plugins:<artifactId>:<tag version>:jar` 坐标。发布清单使用
+`online.yudream.plugins:plugin-catalog:<tag version>:tsv`，校验和使用同一制品的
+`sha256` classifier（类型为 `txt`）。
 
 例如某个插件包会落到：
 
 ```text
-.../packages/generic/yudream-admin-plugins/v1.0.0/yudream-plugin-project-progress-1.0-SNAPSHOT.jar
+.../online/yudream/plugins/yudream-plugin-project-progress/1.0.0/yudream-plugin-project-progress-1.0.0.jar
 ```
 
 ## 需要的变量
 
 GitLab tag 流水线默认只依赖：
 
-- `CI_API_V4_URL`
-- `CI_PROJECT_ID`
 - `CI_COMMIT_TAG`
-- `CI_JOB_TOKEN`
+- `NEXUS_USERNAME`
+- `NEXUS_PASSWORD`
+- `NEXUS_MAVEN_RELEASES_URL`
+- `NEXUS_MAVEN_PUBLIC_URL`
 
 可选变量：
 
-- `PLUGIN_GENERIC_PACKAGE_NAME`
 - `PLUGIN_PACKAGE_VERSION`
 
 ## 本地 dry-run
@@ -95,8 +99,6 @@ GitLab tag 流水线默认只依赖：
 可以在不真正上传的情况下验证脚本选包和目标 URL：
 
 ```powershell
-$env:CI_API_V4_URL='https://gitlab.yudream.online/api/v4'
-$env:CI_PROJECT_ID='123'
 $env:CI_COMMIT_TAG='v0.0.0-dryrun'
 $env:DRY_RUN='1'
 & 'C:/Program Files/Git/bin/sh.exe' ci/publish-plugin-jars.sh
@@ -114,8 +116,6 @@ $env:DRY_RUN='1'
 本地也可以先做一次发布后校验的 dry-run：
 
 ```powershell
-$env:CI_API_V4_URL='https://gitlab.yudream.online/api/v4'
-$env:CI_PROJECT_ID='123'
 $env:CI_COMMIT_TAG='v0.0.0-dryrun'
 $env:DRY_RUN='1'
 & 'C:/Program Files/Git/bin/sh.exe' ci/verify-published-plugin-jars.sh

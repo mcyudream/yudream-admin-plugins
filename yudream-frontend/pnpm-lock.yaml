@@ -16,11 +16,11 @@ catalogs:
       specifier: ^0.9.1
       version: 0.9.1
     '@yudream/components':
-      specifier: 1.0.0-snapshot
-      version: 1.0.0-snapshot
+      specifier: 1.0.0
+      version: 1.0.0
     '@yudream/plugin-sdk':
-      specifier: 1.0.1-snapshot
-      version: 1.0.1-snapshot
+      specifier: 1.0.1
+      version: 1.0.1
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -49,10 +49,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -83,10 +83,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -117,10 +117,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       md-editor-v3:
         specifier: ^6.5.3
         version: 6.5.3(vue@3.5.39(typescript@6.0.3))
@@ -157,10 +157,10 @@ importers:
         version: 2.58.0(vue@3.5.39(typescript@6.0.3))
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -191,10 +191,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -225,10 +225,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       skinview3d:
         specifier: ^3.0.1
         version: 3.4.2
@@ -265,10 +265,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -299,10 +299,10 @@ importers:
     dependencies:
       '@yudream/components':
         specifier: 'catalog:'
-        version: 1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
       '@yudream/plugin-sdk':
         specifier: 'catalog:'
-        version: 1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
+        version: 1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.39(typescript@6.0.3)
@@ -848,8 +848,8 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
-  '@yudream/components@1.0.0-snapshot':
-    resolution: {integrity: sha512-WUF005ehIULu9d5Ipg6bpNBJl2p+ohH1WtaLw3SBci9yUIhYQF3WrVBNb6Fv8p6RaTgW755PoEIUF6gr39MojA==}
+  '@yudream/components@1.0.0':
+    resolution: {integrity: sha512-IyR92ywabMHPTGt8LYrm52ZTHKJxXAdcw1Zz789yLZ9RfbEl4+JH8YXJbsXPy/oQQxCgIjcKrxNvY1jKc36FyA==}
     peerDependencies:
       '@vueuse/components': ^14.3.0
       '@vueuse/core': ^14.3.0
@@ -863,8 +863,8 @@ packages:
       unplugin-vue-components:
         optional: true
 
-  '@yudream/plugin-sdk@1.0.1-snapshot':
-    resolution: {integrity: sha512-qCvXvjxiZh5U5uPxp50WBXAMcB2+o1eeH5A1mT3SEjHvvC9R3dpnP4+v5ic0/uhGREEEcuJRt/rOAPSJLtfCGg==}
+  '@yudream/plugin-sdk@1.0.1':
+    resolution: {integrity: sha512-jZ/KRjDuj0aO9xYchlQOy3qH8g9hu1BE6gGqUb11D5/cs/K/yrDH+VPyen8y6X6DFHMau0LfDydxDyuvgQsUWg==}
     peerDependencies:
       vue: ^3.5.38
       vue-router: ^5.1.0
@@ -2268,7 +2268,7 @@ snapshots:
     dependencies:
       vue: 3.5.39(typescript@6.0.3)
 
-  '@yudream/components@1.0.0-snapshot(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))':
+  '@yudream/components@1.0.0(@vueuse/components@14.3.0(vue@3.5.39(typescript@6.0.3)))(@vueuse/core@14.3.0(vue@3.5.39(typescript@6.0.3)))(typescript@6.0.3)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))':
     dependencies:
       '@iconify/vue': 5.0.1(vue@3.5.39(typescript@6.0.3))
       '@lucide/vue': 1.23.0(vue@3.5.39(typescript@6.0.3))
@@ -2295,7 +2295,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@yudream/plugin-sdk@1.0.1-snapshot(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))':
+  '@yudream/plugin-sdk@1.0.1(vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3)))(vue@3.5.39(typescript@6.0.3))':
     dependencies:
       vue: 3.5.39(typescript@6.0.3)
       vue-router: 5.1.0(@vue/compiler-sfc@3.5.39)(rolldown@1.1.4)(vite@8.1.3(@types/node@25.9.5)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))

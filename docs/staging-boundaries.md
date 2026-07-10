@@ -65,7 +65,7 @@ git add yudream-plugins/yudream-plugin-*
 
 如果准备验证远端发布，再补这些环境：
 
-- `CORE_PACKAGE_TOKEN` 或 `CI_JOB_TOKEN`
+- `NEXUS_USERNAME` 和 `NEXUS_PASSWORD`
 - `VERIFY_PUBLISHED_PLUGIN_JARS=true`
 
 最后再人工复查暂存内容：
