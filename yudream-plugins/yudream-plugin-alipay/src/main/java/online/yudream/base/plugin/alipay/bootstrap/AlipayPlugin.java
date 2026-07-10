@@ -32,6 +32,7 @@ import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
         menuTitle = "钱包",
         menuIcon = "i-ri:wallet-3-line",
         menuSort = 30,
+        parentCode = "plugin:yudream-wallet:module:yudreamWallet",
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-alipay/system/settings",
