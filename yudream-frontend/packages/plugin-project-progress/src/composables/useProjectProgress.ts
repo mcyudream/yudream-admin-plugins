@@ -65,6 +65,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       includeAfk: false,
       autoCheckInEnabled: false,
     },
+    notificationConnectionId: null,
+    notificationChannelId: '',
     enabled: true,
   })
 
@@ -741,6 +743,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     projectForm.minCheckInIntervalMinutes = project.minCheckInIntervalMinutes
     projectForm.allowedCheckInTypes = [...project.allowedCheckInTypes]
     projectForm.minecraftPolicy = { ...project.minecraftPolicy }
+    projectForm.notificationConnectionId = project.notificationConnectionId ?? null
+    projectForm.notificationChannelId = project.notificationChannelId || ''
     projectForm.enabled = project.enabled
     void resolveUsers([...project.managerUserIds, ...project.memberUserIds])
   }
@@ -774,6 +778,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       minCheckInIntervalMinutes: projectForm.minCheckInIntervalMinutes,
       allowedCheckInTypes: projectForm.allowedCheckInTypes,
       minecraftPolicy: projectForm.minecraftPolicy,
+      notificationConnectionId: projectForm.notificationConnectionId || null,
+      notificationChannelId: projectForm.notificationChannelId.trim(),
       enabled: projectForm.enabled,
     }
   }
@@ -1046,6 +1052,8 @@ function defaultProjectForm(): ProjectForm {
       includeAfk: false,
       autoCheckInEnabled: false,
     },
+    notificationConnectionId: null,
+    notificationChannelId: '',
     enabled: true,
   }
 }

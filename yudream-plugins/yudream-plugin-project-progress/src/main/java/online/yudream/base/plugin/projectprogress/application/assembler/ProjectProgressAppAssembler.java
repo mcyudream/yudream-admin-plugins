@@ -26,6 +26,7 @@ public class ProjectProgressAppAssembler {
                 project.allowedCheckInTypes().stream().map(Enum::name).toList(),
                 new ProjectProgressProjectDTO.MinecraftPolicyDTO(minecraft.enabled(), minecraft.serverId(),
                         minecraft.requiredOnlineMinutes(), minecraft.includeAfk(), minecraft.autoCheckInEnabled()),
+                project.notificationConnectionId(), project.notificationChannelId(),
                 project.enabled(), project.createdAt(), project.updatedAt());
     }
 

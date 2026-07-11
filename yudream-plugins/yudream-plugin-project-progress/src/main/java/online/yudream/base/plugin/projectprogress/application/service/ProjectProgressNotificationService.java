@@ -10,7 +10,6 @@ import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 import java.util.List;
 
 public class ProjectProgressNotificationService {
-
     private final FrameworkServices framework;
 
     public ProjectProgressNotificationService(FrameworkServices framework) {
@@ -18,26 +17,34 @@ public class ProjectProgressNotificationService {
     }
 
     public void notifyAssigned(ProjectProgressProject project, ProjectWorkDetail detail, List<String> userIds) {
-        send(userIds, "项目任务分配通知", "你被分配了项目任务：" + project.name() + " / " + detail.title());
+        send(userIds, "Project task assigned", "You have a new task: " + project.name() + " / " + detail.title());
     }
 
     public void notifyRework(ProjectProgressProject project, ProjectWorkDetail detail, List<String> userIds, String reason) {
-        send(userIds, "项目任务返工通知", "项目任务未通过验收，请返工：" + project.name() + " / " + detail.title()
-                + (reason == null || reason.isBlank() ? "" : "\n原因：" + reason));
+        send(userIds, "Project task returned", "Please rework: " + project.name() + " / " + detail.title()
+                + (reason == null || reason.isBlank() ? "" : "\nReason: " + reason));
     }
 
     public void notifyCheckInReminder(ProjectProgressProject project, List<String> userIds) {
-        send(userIds, "项目打卡提醒", "请完成本打卡区段的项目打卡：" + project.name());
+        send(userIds, "Project check-in reminder", "Please complete this check-in period: " + project.name());
+    }
+
+    public void notifyPublished(ProjectProgressProject project, ProjectWorkDetail detail) {
+        if (framework == null || framework.messaging() == null || project.notificationConnectionId() == null
+                || project.notificationChannelId().isBlank()) return;
+        framework.messaging().sendToChannel(String.valueOf(project.notificationConnectionId()), project.notificationChannelId(),
+                new PluginMessageContent(PluginMessageContent.Type.TEXT,
+                        "Project detail published\n" + project.name() + " / " + detail.title(), null, null))
+                .exceptionally(ignored -> null);
     }
 
     private void send(List<String> userIds, String subject, String text) {
-        if (framework == null || userIds == null || userIds.isEmpty()) {
-            return;
-        }
+        if (framework == null || userIds == null || userIds.isEmpty()) return;
         for (String userId : userIds) {
             if (framework.messaging() != null) {
-                framework.messaging().sendDirectToBoundUser(userId, new PluginMessageContent(PluginMessageContent.Type.TEXT,
-                        subject + "\n" + text, null, null)).exceptionally(ignored -> null);
+                framework.messaging().sendDirectToBoundUser(userId,
+                        new PluginMessageContent(PluginMessageContent.Type.TEXT, subject + "\n" + text, null, null))
+                        .exceptionally(ignored -> null);
             }
             if (framework.mail() != null) {
                 email(userId).ifPresent(email -> framework.mail().send(PluginMailMessage.text(List.of(email), subject, text)));
@@ -46,12 +53,9 @@ public class ProjectProgressNotificationService {
     }
 
     private java.util.Optional<String> email(String userId) {
-        if (framework == null || framework.users() == null || userId == null || userId.isBlank()) {
-            return java.util.Optional.empty();
-        }
+        if (framework.users() == null || userId == null || userId.isBlank()) return java.util.Optional.empty();
         try {
-            return framework.users().findById(Long.parseLong(userId.trim()))
-                    .map(PluginUserProfile::email)
+            return framework.users().findById(Long.parseLong(userId.trim())).map(PluginUserProfile::email)
                     .filter(value -> value != null && !value.isBlank());
         } catch (NumberFormatException ignored) {
             return java.util.Optional.empty();

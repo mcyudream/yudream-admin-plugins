@@ -134,7 +134,7 @@ public class ProjectProgressAppService {
         ProjectProgressProject project = ProjectProgressProject.create(cmd.name(), cmd.description(), managers(cmd.managerUserIds(), operatorUserId),
                 cmd.memberUserIds(), statuses(cmd.statuses()), cmd.defaultStatusCode(), cmd.doneStatusCode(),
                 cmd.reworkStatusCode(), intValue(cmd.minCheckInIntervalMinutes(), 0), checkInTypes(cmd.allowedCheckInTypes()),
-                minecraftPolicy(cmd.minecraftPolicy()), cmd.enabled() == null || cmd.enabled());
+                minecraftPolicy(cmd.minecraftPolicy()), cmd.notificationConnectionId(), cmd.notificationChannelId(), cmd.enabled() == null || cmd.enabled());
         ProjectProgressProject saved = repository.saveProject(project);
         event(saved.id(), "", operatorUserId, ProjectProgressEventType.PROJECT_SAVED, "项目已创建", Map.of("projectName", saved.name()));
         return assembler.toDTO(saved);
@@ -145,7 +145,7 @@ public class ProjectProgressAppService {
         ProjectProgressProject saved = repository.saveProject(existing.update(cmd.name(), cmd.description(), managers(cmd.managerUserIds(), operatorUserId),
                 cmd.memberUserIds(), statuses(cmd.statuses()), cmd.defaultStatusCode(), cmd.doneStatusCode(),
                 cmd.reworkStatusCode(), intValue(cmd.minCheckInIntervalMinutes(), 0), checkInTypes(cmd.allowedCheckInTypes()),
-                minecraftPolicy(cmd.minecraftPolicy()), cmd.enabled() == null || cmd.enabled()));
+                minecraftPolicy(cmd.minecraftPolicy()), cmd.notificationConnectionId(), cmd.notificationChannelId(), cmd.enabled() == null || cmd.enabled()));
         event(saved.id(), "", operatorUserId, ProjectProgressEventType.PROJECT_SAVED, "项目已更新", Map.of("projectName", saved.name()));
         return assembler.toDTO(saved);
     }
@@ -221,6 +221,7 @@ public class ProjectProgressAppService {
         project = ensureProjectMembers(project, assignees);
         ProjectWorkDetail saved = repository.saveDetail(detail.publish(assignees));
         safeNotifyAssigned(project, saved, assignees);
+        safeNotifyPublished(project, saved);
         event(project.id(), saved.id(), operatorUserId, ProjectProgressEventType.DETAIL_PUBLISHED, "工作细节已发布", Map.of("title", saved.title()));
         return assembler.toDTO(saved);
     }
@@ -551,6 +552,13 @@ public class ProjectProgressAppService {
     private void safeNotifyRework(ProjectProgressProject project, ProjectWorkDetail detail, List<String> assignees, String reason) {
         try {
             notifications.notifyRework(project, detail, assignees, reason);
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void safeNotifyPublished(ProjectProgressProject project, ProjectWorkDetail detail) {
+        try {
+            notifications.notifyPublished(project, detail);
         } catch (RuntimeException ignored) {
         }
     }

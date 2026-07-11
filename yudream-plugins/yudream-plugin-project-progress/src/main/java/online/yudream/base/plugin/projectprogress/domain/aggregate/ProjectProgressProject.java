@@ -23,6 +23,8 @@ public record ProjectProgressProject(
         int minCheckInIntervalMinutes,
         List<ProjectCheckInType> allowedCheckInTypes,
         ProjectMinecraftPolicy minecraftPolicy,
+        Long notificationConnectionId,
+        String notificationChannelId,
         boolean enabled,
         long createdAt,
         long updatedAt
@@ -49,28 +51,29 @@ public record ProjectProgressProject(
                 ? List.of(ProjectCheckInType.IMAGE, ProjectCheckInType.FILE, ProjectCheckInType.LOCATION)
                 : List.copyOf(new LinkedHashSet<>(allowedCheckInTypes));
         minecraftPolicy = minecraftPolicy == null ? ProjectMinecraftPolicy.disabled() : minecraftPolicy;
+        notificationChannelId = notificationChannelId == null ? "" : notificationChannelId.trim();
     }
 
     public static ProjectProgressProject create(String name, String description, List<String> managerUserIds,
                                                 List<String> memberUserIds, List<ProjectStatusOption> statuses,
                                                 String defaultStatusCode, String doneStatusCode, String reworkStatusCode,
                                                 int minCheckInIntervalMinutes, List<ProjectCheckInType> allowedCheckInTypes,
-                                                ProjectMinecraftPolicy minecraftPolicy, boolean enabled) {
+                                                ProjectMinecraftPolicy minecraftPolicy, Long notificationConnectionId, String notificationChannelId, boolean enabled) {
         long now = System.currentTimeMillis();
         List<ProjectStatusOption> safeStatuses = statuses == null || statuses.isEmpty() ? defaultStatuses() : statuses;
         return new ProjectProgressProject(UUID.randomUUID().toString(), name, description, managerUserIds, memberUserIds,
                 safeStatuses, defaultStatusCode == null ? "TODO" : defaultStatusCode, doneStatusCode == null ? "DONE" : doneStatusCode,
-                reworkStatusCode, minCheckInIntervalMinutes, allowedCheckInTypes, minecraftPolicy, enabled, now, now);
+                reworkStatusCode, minCheckInIntervalMinutes, allowedCheckInTypes, minecraftPolicy, notificationConnectionId, notificationChannelId, enabled, now, now);
     }
 
     public ProjectProgressProject update(String name, String description, List<String> managerUserIds,
                                          List<String> memberUserIds, List<ProjectStatusOption> statuses,
                                          String defaultStatusCode, String doneStatusCode, String reworkStatusCode,
                                          int minCheckInIntervalMinutes, List<ProjectCheckInType> allowedCheckInTypes,
-                                         ProjectMinecraftPolicy minecraftPolicy, boolean enabled) {
+                                         ProjectMinecraftPolicy minecraftPolicy, Long notificationConnectionId, String notificationChannelId, boolean enabled) {
         return new ProjectProgressProject(id, name, description, managerUserIds, memberUserIds, statuses,
                 defaultStatusCode, doneStatusCode, reworkStatusCode, minCheckInIntervalMinutes, allowedCheckInTypes,
-                minecraftPolicy, enabled, createdAt, System.currentTimeMillis());
+                minecraftPolicy, notificationConnectionId, notificationChannelId, enabled, createdAt, System.currentTimeMillis());
     }
 
     public boolean allows(ProjectCheckInType type) {
@@ -92,7 +95,7 @@ public record ProjectProgressProject(
         }
         return new ProjectProgressProject(id, name, description, managerUserIds, nextMembers, statuses,
                 defaultStatusCode, doneStatusCode, reworkStatusCode, minCheckInIntervalMinutes, allowedCheckInTypes,
-                minecraftPolicy, enabled, createdAt, System.currentTimeMillis());
+                minecraftPolicy, notificationConnectionId, notificationChannelId, enabled, createdAt, System.currentTimeMillis());
     }
 
     public static List<ProjectStatusOption> defaultStatuses() {

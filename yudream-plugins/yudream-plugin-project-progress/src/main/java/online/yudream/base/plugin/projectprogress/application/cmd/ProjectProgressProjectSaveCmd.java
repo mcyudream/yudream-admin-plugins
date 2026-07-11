@@ -14,6 +14,8 @@ public record ProjectProgressProjectSaveCmd(
         Integer minCheckInIntervalMinutes,
         List<String> allowedCheckInTypes,
         MinecraftPolicy minecraftPolicy,
+        Long notificationConnectionId,
+        String notificationChannelId,
         Boolean enabled
 ) {
     public record Status(String code, String label, Boolean terminal, Integer sort) {

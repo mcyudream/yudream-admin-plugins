@@ -58,6 +58,8 @@ export interface ProjectProgressProject {
   minCheckInIntervalMinutes: number
   allowedCheckInTypes: string[]
   minecraftPolicy: ProjectMinecraftPolicy
+  notificationConnectionId?: number | null
+  notificationChannelId: string
   enabled: boolean
   createdAt: number
   updatedAt: number
@@ -170,6 +172,8 @@ export interface ProjectForm {
   minCheckInIntervalMinutes: number
   allowedCheckInTypes: string[]
   minecraftPolicy: ProjectMinecraftPolicy
+  notificationConnectionId?: number | null
+  notificationChannelId: string
   enabled: boolean
 }
 

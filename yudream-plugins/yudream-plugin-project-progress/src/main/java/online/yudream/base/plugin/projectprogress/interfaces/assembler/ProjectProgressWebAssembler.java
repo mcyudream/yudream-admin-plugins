@@ -43,6 +43,7 @@ public class ProjectProgressWebAssembler {
                         request.minecraftPolicy().enabled(), request.minecraftPolicy().serverId(),
                         request.minecraftPolicy().requiredOnlineMinutes(), request.minecraftPolicy().includeAfk(),
                         request.minecraftPolicy().autoCheckInEnabled()),
+                request.notificationConnectionId(), request.notificationChannelId(),
                 request.enabled());
     }
 
@@ -89,6 +90,7 @@ public class ProjectProgressWebAssembler {
                 dto.allowedCheckInTypes(),
                 new ProjectProgressProjectRes.MinecraftPolicyRes(dto.minecraftPolicy().enabled(), dto.minecraftPolicy().serverId(),
                         dto.minecraftPolicy().requiredOnlineMinutes(), dto.minecraftPolicy().includeAfk(), dto.minecraftPolicy().autoCheckInEnabled()),
+                dto.notificationConnectionId(), dto.notificationChannelId(),
                 dto.enabled(), dto.createdAt(), dto.updatedAt());
     }
 

@@ -272,6 +272,8 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         document.put("minCheckInIntervalMinutes", project.minCheckInIntervalMinutes());
         document.put("allowedCheckInTypes", project.allowedCheckInTypes().stream().map(Enum::name).toList());
         document.put("minecraftPolicy", minecraftPolicyDocument(project.minecraftPolicy()));
+        document.put("notificationConnectionId", project.notificationConnectionId());
+        document.put("notificationChannelId", project.notificationChannelId());
         document.put("enabled", project.enabled());
         document.put("createdAt", project.createdAt());
         document.put("updatedAt", project.updatedAt());
@@ -415,6 +417,8 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 integer(document, "minCheckInIntervalMinutes", 0),
                 checkInTypes(document.get("allowedCheckInTypes")),
                 toMinecraftPolicy(map(document.get("minecraftPolicy"))),
+                nullableNumber(document, "notificationConnectionId"),
+                string(document, "notificationChannelId"),
                 bool(document, "enabled", true),
                 number(document, "createdAt", 0),
                 number(document, "updatedAt", 0)
@@ -518,6 +522,11 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 string(document, "playerId"), string(document, "playerName"),
                 number(document, "totalOnlineMillis", 0), number(document, "totalAfkMillis", 0),
                 number(document, "effectiveOnlineMillis", 0), number(document, "periodStart", 0), number(document, "periodEnd", 0));
+    }
+
+    private Long nullableNumber(Map<String, Object> document, String key) {
+        Object value = document == null ? null : document.get(key);
+        return value instanceof Number number ? number.longValue() : null;
     }
 
     private ProjectCheckInReviewStatus reviewStatus(Map<String, Object> document) {
