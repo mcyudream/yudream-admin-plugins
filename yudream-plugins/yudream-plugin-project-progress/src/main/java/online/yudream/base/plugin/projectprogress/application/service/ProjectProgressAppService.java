@@ -41,6 +41,7 @@ import online.yudream.base.plugin.spi.system.user.PluginDeptOption;
 import online.yudream.base.plugin.spi.system.user.PluginUserDept;
 import online.yudream.base.plugin.spi.system.user.PluginUserOption;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
@@ -79,6 +80,10 @@ public class ProjectProgressAppService {
 
     public ProjectProgressStatusDTO status() {
         return new ProjectProgressStatusDTO(minecraft.ready(), true);
+    }
+
+    public List<PluginMessagingConnection> notificationConnections() {
+        return framework == null || framework.messaging() == null ? List.of() : framework.messaging().connections();
     }
 
     public List<ProjectProgressProjectDTO> projects(int page, int size) {

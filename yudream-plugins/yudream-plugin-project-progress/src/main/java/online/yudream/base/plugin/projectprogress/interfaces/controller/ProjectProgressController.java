@@ -44,6 +44,11 @@ public class ProjectProgressController {
         return http.minecraftServers(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/admin/notification-connections", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse notificationConnections(PluginHttpRequest request) {
+        return http.notificationConnections(request);
+    }
+
     @PluginHttpEndpoint(method = "POST", path = "/admin/projects", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse createProject(PluginHttpRequest request) {
         return http.createProject(request);

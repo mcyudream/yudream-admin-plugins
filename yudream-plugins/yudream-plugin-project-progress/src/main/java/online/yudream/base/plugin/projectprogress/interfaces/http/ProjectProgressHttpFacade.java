@@ -56,6 +56,10 @@ public class ProjectProgressHttpFacade {
                 .toList());
     }
 
+    public PluginHttpResponse notificationConnections(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.notificationConnections());
+    }
+
     public PluginHttpResponse createProject(PluginHttpRequest request) {
         ProjectProgressProjectSaveRequest body = JsonSupport.read(request.body(), ProjectProgressProjectSaveRequest.class);
         return PluginHttpResponse.ok(assembler.toRes(appService.createProject(assembler.toCmd(body), currentUserId(request))));

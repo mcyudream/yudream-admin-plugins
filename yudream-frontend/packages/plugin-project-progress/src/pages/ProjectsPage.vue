@@ -28,7 +28,7 @@ watch(() => pagination.size, () => { pagination.page = 1 })
 function typeLabel(value: string) { return checkInTypeOptions.find(item => item.value === value)?.label || value }
 async function createProject() { props.model.newProject(); await props.model.loadMinecraftServers(); modalVisible.value = true }
 async function editProject(project: ProjectProgressProject) { props.model.selectProject(project); await props.model.loadMinecraftServers(); modalVisible.value = true }
-async function openProject(project: ProjectProgressProject) { await props.model.selectProjectById(project.id); await router.push({ name: 'platform-plugin-project-progress-details' }) }
+async function openProject(project: ProjectProgressProject) { await props.model.selectProjectById(project.id); await router.push('/platform/plugins/project-progress/admin/details') }
 async function saveProject() { await props.model.saveProject(); modalVisible.value = false }
 function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ title: '删除项目', content: `确认删除“${project.name}”吗？相关工作细节与打卡记录可能受到影响。`, onConfirm: () => props.model.deleteProject(project) }) }
 </script>
@@ -61,7 +61,7 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
         <div class="pp-form-grid two"><label><span>打卡周期（分钟）</span><FaNumberField v-model="model.projectForm.minCheckInIntervalMinutes" :min="0" class="w-full" /><p class="pp-help">1440 表示每天至少打卡一次，0 表示不限制周期。</p></label><label><span>允许打卡方式</span><FaCheckboxGroup v-model="model.projectForm.allowedCheckInTypes" :options="checkInTypeOptions" class="pp-checkbox-grid" /></label></div>
         <div class="pp-form-grid three"><label><span>本项目 MC 打卡</span><FaSwitch v-model="model.projectForm.minecraftPolicy.enabled" /></label><label><span>满足时长自动打卡</span><FaSwitch v-model="model.projectForm.minecraftPolicy.autoCheckInEnabled" /></label><label><span>AFK 计入在线时长</span><FaSwitch v-model="model.projectForm.minecraftPolicy.includeAfk" /></label></div>
         <div class="pp-form-grid two"><label><span>Minecraft 服务器</span><FaSelect v-model="model.projectForm.minecraftPolicy.serverId" :options="serverOptions" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" /></label><label><span>要求在线分钟</span><FaNumberField v-model="model.projectForm.minecraftPolicy.requiredOnlineMinutes" :min="1" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" /></label></div>
-        <div class="pp-form-grid two"><label><span>发布通知连接 ID</span><FaInput :model-value="model.projectForm.notificationConnectionId ?? ''" class="w-full" placeholder="Satori 连接 ID" @update:model-value="value => model.projectForm.notificationConnectionId = value ? Number(value) : null" /></label><label><span>发布通知群频道 ID</span><FaInput v-model="model.projectForm.notificationChannelId" class="w-full" placeholder="Satori 群频道 ID" /></label></div>
+        <div class="pp-form-grid two"><label><span>发布通知连接</span><FaSelect v-model="model.projectForm.notificationConnectionId" :options="model.notificationConnections.map(item => ({ label: `${item.name} (${item.platform})`, value: Number(item.id) }))" class="w-full" clearable /></label><label><span>发布通知群频道 ID</span><FaInput v-model="model.projectForm.notificationChannelId" class="w-full" placeholder="Satori 群频道 ID" /></label></div>
       </div>
       <template #footer><FaButton variant="outline" @click="modalVisible = false">取消</FaButton><FaButton :loading="model.saving" @click="saveProject">保存项目</FaButton></template>
     </FaModal>

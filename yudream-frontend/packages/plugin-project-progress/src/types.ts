@@ -30,6 +30,13 @@ export interface ProjectMinecraftServerOption {
   currentSeasonName?: string
 }
 
+export interface ProjectNotificationConnection {
+  id: string
+  name: string
+  platform: string
+  userId: string
+}
+
 export interface ProjectStatusOption {
   code: string
   label: string

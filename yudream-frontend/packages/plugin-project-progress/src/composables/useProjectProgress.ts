@@ -7,6 +7,7 @@ import type {
   ProjectForm,
   ProjectMemberStats,
   ProjectMinecraftServerOption,
+  ProjectNotificationConnection,
   ProjectPersonalStats,
   ProjectProgressEvent,
   ProjectProgressProject,
@@ -39,6 +40,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
   const memberStats = ref<ProjectMemberStats[]>([])
   const departments = ref<ProjectDeptOption[]>([])
   const minecraftServers = ref<ProjectMinecraftServerOption[]>([])
+  const notificationConnections = ref<ProjectNotificationConnection[]>([])
   const usersById = ref<Record<string, ProjectUserOption>>({})
   const selectedProjectId = ref('')
   const selectedDetailId = ref('')
@@ -148,6 +150,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
         api.status(),
         api.projects(),
       ])
+      notificationConnections.value = await api.notificationConnections()
       status.value = nextStatus
       projects.value = nextProjects
       await resolveProjectUsers(nextProjects)
@@ -707,6 +710,11 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     return minecraftServers.value
   }
 
+  async function loadNotificationConnections() {
+    notificationConnections.value = await api.notificationConnections()
+    return notificationConnections.value
+  }
+
   async function action<T>(fn: () => Promise<T>, success: string) {
     saving.value = true
     try {
@@ -955,6 +963,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     memberStats,
     departments,
     minecraftServers,
+    notificationConnections,
     usersById,
     selectedProjectId,
     selectedDetailId,
@@ -1015,6 +1024,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     loadDepartments,
     loadDepartmentUsers,
     loadMinecraftServers,
+    loadNotificationConnections,
     userOptionsForIds,
     userLabel,
     userMeta,
