@@ -145,20 +145,6 @@
   font-size: 12px;
 }
 
-.pp-form input,
-.pp-form textarea,
-.pp-form select {
-  box-sizing: border-box;
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
-  padding: 8px 9px;
-  color: #0f172a;
-  font: inherit;
-  font-size: 13px;
-}
-
 .pp-form-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -455,8 +441,8 @@
   width: 260px;
 }
 
-.arco-picker-field {
-  min-height: 38px;
+.pp-date-picker {
+  width: 100%;
 }
 
 .pp-picker-summary {

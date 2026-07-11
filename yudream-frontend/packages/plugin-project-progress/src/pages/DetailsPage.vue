@@ -72,7 +72,7 @@ function confirmDelete(detail: ProjectWorkDetail) {
         <div class="pp-form-grid three">
           <label><span>当前状态</span><FaSelect v-model="model.detailForm.statusCode" :options="editableStatusOptions" class="w-full" :disabled="!model.selectedProjectId" /></label>
           <label><span>需要人数</span><FaNumberField v-model="model.detailForm.requiredAssigneeCount" :min="1" class="w-full" :disabled="!model.selectedProjectId" /></label>
-          <label><span>截止时间</span><ADatePicker v-model="model.detailForm.dueAt" show-time format="YYYY-MM-DD HH:mm:ss" :disabled="!model.selectedProjectId" /></label>
+          <label><span>截止时间</span><ADatePicker v-model="model.detailForm.dueAt" show-time format="YYYY-MM-DD HH:mm:ss" class="pp-date-picker" :disabled="!model.selectedProjectId" /></label>
         </div>
         <label><span>分配方式</span><FaRadioGroup v-model="model.detailForm.assignmentMode" :options="assignmentOptions" class="pp-radio-grid" @change="changeAssignmentMode" /></label>
         <label><span>参与范围</span><FaRadioGroup v-model="model.detailForm.candidateScope" :options="scopeOptions" class="pp-radio-grid" /></label>
