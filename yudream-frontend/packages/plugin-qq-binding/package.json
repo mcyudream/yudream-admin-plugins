@@ -1,0 +1,21 @@
+{
+  "name": "@yudream/plugin-qq-binding",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "vite build",
+    "lint": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "dependencies": {
+    "@yudream/plugin-sdk": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

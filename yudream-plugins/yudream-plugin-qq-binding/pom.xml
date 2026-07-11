@@ -9,6 +9,18 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>yudream-plugin-qq-binding</artifactId>
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-qq-binding/dist</directory>
+                <targetPath>META-INF/yudream-plugin/frontend/qq-binding</targetPath>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+    </build>
     <dependencies>
         <dependency>
             <groupId>online.yudream.base</groupId>
