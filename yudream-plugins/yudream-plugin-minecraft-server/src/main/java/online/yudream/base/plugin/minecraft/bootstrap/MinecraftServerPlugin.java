@@ -71,9 +71,6 @@ import java.util.Map;
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server/admin/editor",
                         name = "platform-plugin-minecraft-server-editor",
-                        parentPath = "/platform/plugins/minecraft-server/admin",
-                        parentTitle = "服务器管理",
-                        parentIcon = "i-ri:settings-3-line",
                         title = "服务器编辑",
                         icon = "i-ri:edit-line",
                         component = "minecraft-server/Editor",
@@ -84,9 +81,6 @@ import java.util.Map;
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server/admin/seasons",
                         name = "platform-plugin-minecraft-server-seasons",
-                        parentPath = "/platform/plugins/minecraft-server/admin",
-                        parentTitle = "服务器管理",
-                        parentIcon = "i-ri:settings-3-line",
                         title = "周目管理",
                         icon = "i-ri:calendar-event-line",
                         component = "minecraft-server/Seasons",
@@ -97,9 +91,6 @@ import java.util.Map;
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server/admin/operations",
                         name = "platform-plugin-minecraft-server-operations",
-                        parentPath = "/platform/plugins/minecraft-server/admin",
-                        parentTitle = "服务器管理",
-                        parentIcon = "i-ri:settings-3-line",
                         title = "周目操作记录",
                         icon = "i-ri:history-line",
                         component = "minecraft-server/Operations",
@@ -110,9 +101,6 @@ import java.util.Map;
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server/admin/players",
                         name = "platform-plugin-minecraft-server-players",
-                        parentPath = "/platform/plugins/minecraft-server/admin",
-                        parentTitle = "服务器管理",
-                        parentIcon = "i-ri:settings-3-line",
                         title = "玩家时长统计",
                         icon = "i-ri:bar-chart-box-line",
                         component = "minecraft-server/Players",
