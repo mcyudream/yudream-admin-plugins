@@ -61,6 +61,22 @@ public class QqBindingPlugin implements YuDreamPlugin {
         reply(command, context, "已绑定账号：" + profile.username() + "（ID: " + profile.id() + "）");
     }
 
+    @PluginCommand(code = "qq-binding.commands", command = "指令菜单", name = "查看可用指令", description = "根据当前账号权限查看可以调用的指令及用法", allowAnonymous = true)
+    public void commands(PluginCommandContext command, PluginContext context) {
+        var items = context.framework().commands().listAccessible(command.userId());
+        if (items.isEmpty()) {
+            reply(command, context, "当前没有可用指令。");
+            return;
+        }
+        StringBuilder text = new StringBuilder("可用指令：");
+        items.stream()
+                .filter(item -> !item.code().equals("qq-binding.commands"))
+                .forEach(item -> text.append("\n/" ).append(item.command())
+                        .append(" - ").append(item.name())
+                        .append("：").append(item.description()));
+        reply(command, context, text.toString());
+    }
+
     private void reply(PluginCommandContext command, PluginContext context, String text) {
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(), command.event().channelId(),
