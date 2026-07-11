@@ -445,6 +445,11 @@
   width: 100%;
 }
 
+/* Arco teleports the date panel outside FaModal; keep it above the editor dialog. */
+.arco-picker-popup {
+  z-index: 2100 !important;
+}
+
 .pp-picker-summary {
   display: flex;
   align-items: center;
