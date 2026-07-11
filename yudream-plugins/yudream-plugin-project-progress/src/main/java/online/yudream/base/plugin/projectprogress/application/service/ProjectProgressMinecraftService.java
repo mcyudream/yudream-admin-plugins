@@ -4,6 +4,7 @@ import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraft
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftPolicy;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftPlayerActivity;
+import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
@@ -25,21 +26,22 @@ public class ProjectProgressMinecraftService {
         return minecraft().isPresent();
     }
 
-    public ProjectMinecraftEvidence requireEvidence(ProjectMinecraftPolicy policy, String userId) {
+    public ProjectMinecraftEvidence requireEvidence(ProjectMinecraftPolicy policy, String userId, long periodStart, long periodEnd) {
         if (policy == null || !policy.enabled()) {
             throw new IllegalArgumentException("该项目未启用 Minecraft 在线时长打卡");
         }
         PluginMinecraftPlayerActivity activity = matchActivity(policy.serverId(), userId)
                 .orElseThrow(() -> new IllegalArgumentException("未找到当前用户的 Minecraft 在线记录"));
-        long effective = policy.includeAfk()
-                ? activity.totalOnlineMillis()
-                : Math.max(0, activity.totalOnlineMillis() - activity.totalAfkMillis());
+        PluginMinecraftOnlineWindow window = minecraft()
+                .flatMap(service -> service.minecraftOnlineWindow(policy.serverId(), activity.playerId(), periodStart, periodEnd))
+                .orElseThrow(() -> new IllegalArgumentException("Minecraft activity events cannot calculate this check-in period"));
+        long effective = policy.includeAfk() ? window.onlineMillis() : window.effectiveOnlineMillis();
         long requiredMillis = policy.requiredOnlineMinutes() * 60_000L;
         if (effective < requiredMillis) {
             throw new IllegalArgumentException("Minecraft 在线时长未达到自动打卡要求");
         }
         return new ProjectMinecraftEvidence(policy.serverId(), activity.playerId(), activity.playerName(),
-                activity.totalOnlineMillis(), activity.totalAfkMillis(), effective);
+                window.onlineMillis(), window.afkMillis(), effective, periodStart, periodEnd);
     }
 
     private Optional<PluginMinecraftPlayerActivity> matchActivity(String serverId, String userId) {

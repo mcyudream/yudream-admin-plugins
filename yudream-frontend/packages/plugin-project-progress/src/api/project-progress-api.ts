@@ -67,6 +67,8 @@ export function createProjectProgressApi(sdk: YuDreamPluginSdk) {
     pendingAcceptance: () => getAllPages<ProjectWorkDetail>('/acceptance/pending'),
     submitAcceptance: (detailId: string, data: Record<string, unknown>) => sdk.http.post<ProjectWorkDetail>(`/me/tasks/${encodeURIComponent(detailId)}/submit-acceptance`, data),
     projectCheckIns: (projectId: string) => getAllPages<ProjectCheckIn>(`/admin/projects/${encodeURIComponent(projectId)}/check-ins`),
+    rejectCheckIn: (id: string) => sdk.http.post<ProjectCheckIn>(`/admin/check-ins/${encodeURIComponent(id)}/reject`),
+    deleteCheckIn: (id: string) => sdk.http.request(`/admin/check-ins/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     myCheckIns: (projectId?: string) => getAllPages<ProjectCheckIn>('/me/check-ins', { projectId }),
     createProjectCheckIn: (projectId: string, data: Record<string, unknown>) => sdk.http.post<ProjectCheckIn>(`/me/projects/${encodeURIComponent(projectId)}/check-ins`, data),
     projectMinecraftCheckIn: (projectId: string) => sdk.http.post<ProjectCheckIn>(`/me/projects/${encodeURIComponent(projectId)}/check-ins/minecraft`),

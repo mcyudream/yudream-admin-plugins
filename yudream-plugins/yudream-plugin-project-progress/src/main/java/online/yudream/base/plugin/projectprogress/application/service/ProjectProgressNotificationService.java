@@ -4,6 +4,7 @@ import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectProgre
 import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectWorkDetail;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.mail.PluginMailMessage;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.util.List;
@@ -25,12 +26,22 @@ public class ProjectProgressNotificationService {
                 + (reason == null || reason.isBlank() ? "" : "\n原因：" + reason));
     }
 
+    public void notifyCheckInReminder(ProjectProgressProject project, List<String> userIds) {
+        send(userIds, "项目打卡提醒", "请完成本打卡区段的项目打卡：" + project.name());
+    }
+
     private void send(List<String> userIds, String subject, String text) {
-        if (framework == null || framework.mail() == null || userIds == null || userIds.isEmpty()) {
+        if (framework == null || userIds == null || userIds.isEmpty()) {
             return;
         }
         for (String userId : userIds) {
-            email(userId).ifPresent(email -> framework.mail().send(PluginMailMessage.text(List.of(email), subject, text)));
+            if (framework.messaging() != null) {
+                framework.messaging().sendDirectToBoundUser(userId, new PluginMessageContent(PluginMessageContent.Type.TEXT,
+                        subject + "\n" + text, null, null)).exceptionally(ignored -> null);
+            }
+            if (framework.mail() != null) {
+                email(userId).ifPresent(email -> framework.mail().send(PluginMailMessage.text(List.of(email), subject, text)));
+            }
         }
     }
 

@@ -8,6 +8,7 @@ import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinPublicCo
 import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinUserController;
 import online.yudream.base.plugin.skin.interfaces.http.YuDreamSkinHttpFacade;
 import online.yudream.base.plugin.spi.annotation.PluginDashboardCard;
+import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
 import online.yudream.base.plugin.spi.annotation.PluginPermissions;
@@ -15,7 +16,12 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
+
+import java.util.Map;
 
 @PluginSpec(
         code = YuDreamSkinPlugin.CODE,
@@ -191,11 +197,12 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
     public static final String VIEW_PERMISSION = "plugin:yudream-skin:view";
     public static final String USER_PERMISSION = "plugin:yudream-skin:user";
     public static final String MANAGE_PERMISSION = "plugin:yudream-skin:manage";
+    private volatile YuDreamSkinAppService appService;
 
     @Override
     public void onEnable(PluginContext context) {
         YuDreamSkinRepository repository = new YuDreamSkinRepository(context.documents(), context.files());
-        YuDreamSkinAppService appService = new YuDreamSkinAppService(
+        appService = new YuDreamSkinAppService(
                 repository,
                 new YuDreamSkinMigrationService(repository, context.framework().users())
         );
@@ -204,5 +211,21 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
         context.registerHttpController(new YuDreamSkinPublicController(http));
         context.registerHttpController(new YuDreamSkinUserController(http));
         context.registerHttpController(new YuDreamSkinAdminController(http));
+    }
+
+    @PluginCommand(code = "yudream-skin.my-skin", command = "我的皮肤", name = "查询当前角色皮肤", description = "查询当前绑定账号默认角色的皮肤和披风")
+    public void mySkin(PluginCommandContext command, PluginContext context) {
+        if (command.userId() == null) { reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。"); return; }
+        var player = appService.defaultPlayer(String.valueOf(command.userId())).orElse(null);
+        if (player == null) { reply(command, context, "你尚未设置默认 Minecraft 角色。"); return; }
+        reply(command, context, "当前角色：" + player.name() + "\n皮肤：" + (player.skinHash() == null ? "未设置" : player.skinHash())
+                + "\n披风：" + (player.capeHash() == null ? "未设置" : player.capeHash()));
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text) {
+        if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
+        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(), command.event().selfId(),
+                command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
+                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
     }
 }

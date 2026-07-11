@@ -3,6 +3,7 @@ package online.yudream.base.plugin.minecraft.infrastructure.repository;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftEdition;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftSeasonOperationStatus;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
@@ -28,6 +29,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     private static final String STATUS_SNAPSHOTS = "status-snapshots";
     private static final String OPERATIONS = "season-operations";
     private static final String PLAYER_ACTIVITIES = "player-activities";
+    private static final String PLAYER_ACTIVITY_EVENTS = "player-activity-events";
     private static final int SERVER_SCAN_PAGE_SIZE = 200;
     private static final int SNAPSHOT_SCAN_PAGE_SIZE = 200;
     private static final int SNAPSHOT_SCAN_MAX_PAGES = 10;
@@ -75,6 +77,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         deleteByServerId(STATUS_SNAPSHOTS, id);
         deleteByServerId(OPERATIONS, id);
         deleteByServerId(PLAYER_ACTIVITIES, id);
+        deleteByServerId(PLAYER_ACTIVITY_EVENTS, id);
     }
 
     @Override
@@ -159,6 +162,24 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         return countByServerId(PLAYER_ACTIVITIES, serverId);
     }
 
+    @Override
+    public MinecraftPlayerActivityEvent savePlayerActivityEvent(MinecraftPlayerActivityEvent event) {
+        return toPlayerActivityEvent(documents.save(PLAYER_ACTIVITY_EVENTS, event.id(), playerActivityEventDocument(event)));
+    }
+
+    @Override
+    public List<MinecraftPlayerActivityEvent> listPlayerActivityEvents(String serverId, String playerId, int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        return allPlayerActivityEvents(serverId).stream()
+                .map(this::toPlayerActivityEvent)
+                .filter(event -> event.playerId().equals(playerId))
+                .sorted(java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt))
+                .skip((long) (safePage - 1) * safeSize)
+                .limit(safeSize)
+                .toList();
+    }
+
     private long countByServerId(String collection, String serverId) {
         long total = 0;
         int page = 1;
@@ -198,6 +219,17 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
             if (rows.size() < SERVER_SCAN_PAGE_SIZE) {
                 return result;
             }
+            page++;
+        }
+    }
+
+    private List<Map<String, Object>> allPlayerActivityEvents(String serverId) {
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> rows = documents.findByField(PLAYER_ACTIVITY_EVENTS, "serverId", serverId, page, SERVER_SCAN_PAGE_SIZE);
+            result.addAll(rows);
+            if (rows.size() < SERVER_SCAN_PAGE_SIZE) return result;
             page++;
         }
     }
@@ -305,6 +337,17 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("lastQuitAt", activity.lastQuitAt());
         document.put("createdAt", activity.createdAt());
         document.put("updatedAt", activity.updatedAt());
+        return document;
+    }
+
+    private Map<String, Object> playerActivityEventDocument(MinecraftPlayerActivityEvent event) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", event.id());
+        document.put("serverId", event.serverId());
+        document.put("playerId", event.playerId());
+        document.put("playerName", event.playerName());
+        document.put("type", event.type().name());
+        document.put("occurredAt", event.occurredAt());
         return document;
     }
 
@@ -485,6 +528,14 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 nullableNumber(document, "lastQuitAt"),
                 number(document, "createdAt", 0L),
                 number(document, "updatedAt", 0L)
+        );
+    }
+
+    private MinecraftPlayerActivityEvent toPlayerActivityEvent(Map<String, Object> document) {
+        return new MinecraftPlayerActivityEvent(
+                string(document, "id"), string(document, "serverId"), string(document, "playerId"),
+                string(document, "playerName"), MinecraftPlayerActivityEvent.Type.valueOf(string(document, "type")),
+                number(document, "occurredAt", 0L)
         );
     }
 

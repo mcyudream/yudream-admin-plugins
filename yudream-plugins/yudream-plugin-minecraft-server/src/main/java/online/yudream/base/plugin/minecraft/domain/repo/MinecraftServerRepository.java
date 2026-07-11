@@ -3,6 +3,7 @@ package online.yudream.base.plugin.minecraft.domain.repo;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 
@@ -44,4 +45,8 @@ public interface MinecraftServerRepository {
     List<MinecraftPlayerActivity> listPlayerActivities(String serverId, int page, int size);
 
     long countPlayerActivities(String serverId);
+
+    MinecraftPlayerActivityEvent savePlayerActivityEvent(MinecraftPlayerActivityEvent event);
+
+    List<MinecraftPlayerActivityEvent> listPlayerActivityEvents(String serverId, String playerId, int page, int size);
 }

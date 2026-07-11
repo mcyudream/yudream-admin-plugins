@@ -634,6 +634,16 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function rejectCheckIn(record: ProjectCheckIn) {
+    const saved = await action(() => api.rejectCheckIn(record.id), '打卡已驳回')
+    if (saved && selectedProjectId.value) await loadProjectCheckIns(selectedProjectId.value)
+  }
+
+  async function deleteCheckIn(record: ProjectCheckIn) {
+    const deleted = await action(() => api.deleteCheckIn(record.id), '打卡记录已删除')
+    if (deleted !== undefined && selectedProjectId.value) await loadProjectCheckIns(selectedProjectId.value)
+  }
+
   function exportDetails() {
     const project = selectedProject.value
     exportCsv(`${project?.name || 'project'}-details.csv`, [
@@ -980,6 +990,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     useCurrentLocation,
     minecraftCheckIn,
     autoMinecraftCheckIns,
+    rejectCheckIn,
+    deleteCheckIn,
     submitAcceptance,
     review,
     loadProjectCheckIns,

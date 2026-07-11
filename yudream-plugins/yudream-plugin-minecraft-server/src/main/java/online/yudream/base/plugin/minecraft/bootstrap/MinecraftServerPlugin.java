@@ -9,13 +9,19 @@ import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServe
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerUserController;
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
+import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
 import online.yudream.base.plugin.spi.annotation.PluginPermissions;
 import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
+
+import java.util.Map;
 
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
@@ -122,11 +128,12 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
     public static final String VIEW_PERMISSION = "plugin:minecraft-server:view";
     public static final String MANAGE_PERMISSION = "plugin:minecraft-server:manage";
     public static final String REPORT_PERMISSION = "plugin:minecraft-server:report";
+    private volatile MinecraftServerAppService appService;
 
     @Override
     public void onEnable(PluginContext context) {
         MinecraftStatusService statusService = new MinecraftStatusService();
-        MinecraftServerAppService appService = new MinecraftServerAppService(
+        appService = new MinecraftServerAppService(
                 new MinecraftServerDocumentRepository(context.documents()),
                 statusService,
                 context.framework()
@@ -139,5 +146,44 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         context.registerHttpController(new MinecraftServerUserController(http));
         context.registerHttpController(new MinecraftServerAdminController(http));
         context.registerHttpController(new MinecraftServerReportController(http));
+    }
+
+    @PluginCommand(code = "minecraft-server.servers", command = "服务器", name = "查询 Minecraft 服务器", description = "查询服务器状态；可选参数为服务器 ID")
+    public void servers(PluginCommandContext command, PluginContext context) {
+        try {
+            if (command.arguments().size() > 1) { reply(command, context, "用法：/服务器 [服务器ID]"); return; }
+            if (command.arguments().size() == 1) {
+                var server = appService.userDetail(command.arguments().getFirst(), true);
+                reply(command, context, serverText(server));
+                return;
+            }
+            var servers = appService.listServers(false, true);
+            reply(command, context, servers.isEmpty() ? "当前没有可用服务器。" : servers.stream().map(this::serverText).reduce((a, b) -> a + "\n" + b).orElse(""));
+        } catch (RuntimeException e) { reply(command, context, e.getMessage() == null ? "服务器查询失败" : e.getMessage()); }
+    }
+
+    @PluginCommand(code = "minecraft-server.my-online-time", command = "我的在线时长", name = "查询 Minecraft 在线时长", description = "查询绑定账号对应玩家的累计在线时长")
+    public void onlineTime(PluginCommandContext command, PluginContext context) {
+        if (command.userId() == null) { reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。"); return; }
+        var profile = context.framework().users().findById(command.userId()).orElse(null);
+        String username = profile == null || profile.username() == null ? "" : profile.username();
+        var matches = appService.listServers(false, false).stream().flatMap(server -> appService.playerActivities(server.id(), 1, 200).records().stream())
+                .filter(activity -> activity.playerId().equals(String.valueOf(command.userId())) || activity.playerName().equalsIgnoreCase(username)).toList();
+        reply(command, context, matches.isEmpty() ? "未找到关联的 Minecraft 玩家活动记录。" : matches.stream()
+                .map(activity -> "- " + activity.playerName() + "：" + (activity.totalOnlineMillis() / 60000) + " 分钟在线，" + (activity.totalAfkMillis() / 60000) + " 分钟挂机")
+                .reduce((a, b) -> a + "\n" + b).orElse(""));
+    }
+
+    private String serverText(online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO server) {
+        var status = server.status();
+        String online = status == null ? "状态未知" : status.status() + "，在线 " + status.onlinePlayers() + "/" + status.maxPlayers();
+        return server.name() + "（" + server.id() + "）：" + online;
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text) {
+        if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
+        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(), command.event().selfId(),
+                command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
+                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
     }
 }

@@ -12,6 +12,9 @@ public record ProjectCheckInDTO(
         List<FileEvidenceDTO> files,
         LocationDTO location,
         MinecraftEvidenceDTO minecraft,
+        String reviewStatus,
+        String reviewedByUserId,
+        Long reviewedAt,
         long createdAt
 ) {
     public record FileEvidenceDTO(String objectKey, String filename, String contentType, long size, boolean image) {
@@ -21,6 +24,7 @@ public record ProjectCheckInDTO(
     }
 
     public record MinecraftEvidenceDTO(String serverId, String playerId, String playerName,
-                                       long totalOnlineMillis, long totalAfkMillis, long effectiveOnlineMillis) {
+                                       long totalOnlineMillis, long totalAfkMillis, long effectiveOnlineMillis,
+                                       long periodStart, long periodEnd) {
     }
 }

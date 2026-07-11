@@ -8,6 +8,7 @@ import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectWorkDe
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectAcceptanceResult;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectAssignmentMode;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInType;
+import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInReviewStatus;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectProgressEventType;
 import online.yudream.base.plugin.projectprogress.domain.repo.ProjectProgressRepository;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectFileEvidence;
@@ -126,6 +127,16 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
     @Override
     public ProjectCheckInRecord saveCheckIn(ProjectCheckInRecord record) {
         return toCheckIn(documents.save(CHECK_INS, record.id(), checkInDocument(record)));
+    }
+
+    @Override
+    public Optional<ProjectCheckInRecord> findCheckIn(String checkInId) {
+        return documents.findById(CHECK_INS, checkInId).map(this::toCheckIn);
+    }
+
+    @Override
+    public void deleteCheckIn(String checkInId) {
+        documents.delete(CHECK_INS, checkInId);
     }
 
     @Override
@@ -300,6 +311,9 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         document.put("files", record.files().stream().map(this::fileDocument).toList());
         document.put("location", locationDocument(record.location()));
         document.put("minecraft", minecraftEvidenceDocument(record.minecraft()));
+        document.put("reviewStatus", record.reviewStatus().name());
+        document.put("reviewedByUserId", record.reviewedByUserId());
+        document.put("reviewedAt", record.reviewedAt());
         document.put("createdAt", record.createdAt());
         return document;
     }
@@ -382,6 +396,8 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         document.put("totalOnlineMillis", minecraft.totalOnlineMillis());
         document.put("totalAfkMillis", minecraft.totalAfkMillis());
         document.put("effectiveOnlineMillis", minecraft.effectiveOnlineMillis());
+        document.put("periodStart", minecraft.periodStart());
+        document.put("periodEnd", minecraft.periodEnd());
         return document;
     }
 
@@ -438,6 +454,9 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 fileList(document.get("files")),
                 toLocation(map(document.get("location"))),
                 toMinecraftEvidence(map(document.get("minecraft"))),
+                reviewStatus(document),
+                string(document, "reviewedByUserId"),
+                longObject(document, "reviewedAt"),
                 number(document, "createdAt", 0)
         );
     }
@@ -498,7 +517,15 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         return document == null || document.isEmpty() ? null : new ProjectMinecraftEvidence(string(document, "serverId"),
                 string(document, "playerId"), string(document, "playerName"),
                 number(document, "totalOnlineMillis", 0), number(document, "totalAfkMillis", 0),
-                number(document, "effectiveOnlineMillis", 0));
+                number(document, "effectiveOnlineMillis", 0), number(document, "periodStart", 0), number(document, "periodEnd", 0));
+    }
+
+    private ProjectCheckInReviewStatus reviewStatus(Map<String, Object> document) {
+        try {
+            return ProjectCheckInReviewStatus.valueOf(string(document, "reviewStatus"));
+        } catch (IllegalArgumentException ignored) {
+            return ProjectCheckInReviewStatus.APPROVED;
+        }
     }
 
     private List<ProjectFileEvidence> fileList(Object value) {

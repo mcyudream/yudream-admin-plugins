@@ -2,11 +2,12 @@
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectCheckIn } from '../types'
-import { FaButton, FaFileUpload, FaInput, FaPagination, FaRadioGroup, FaSelect, FaTable, FaTag, FaTextarea } from '@yudream/components'
+import { FaButton, FaFileUpload, FaInput, FaPagination, FaRadioGroup, FaSelect, FaTable, FaTag, FaTextarea, useFaModal } from '@yudream/components'
 import { computed, reactive, watch } from 'vue'
 
 const props = defineProps<{ model: ProjectProgressModel }>()
 const pagination = reactive({ page: 1, size: 10 })
+const modal = useFaModal()
 const projectOptions = computed(() => props.model.projects.map(project => ({ label: project.name, value: project.id })))
 const manualTypeOptions = computed(() => {
   const allowed = props.model.selectedProject?.allowedCheckInTypes || []
@@ -23,6 +24,11 @@ const columns: TableColumn<ProjectCheckIn>[] = [
   { id: 'summary', header: '说明', width: 420 },
   { id: 'createdAt', header: '时间', width: 180 },
 ]
+
+columns.push(
+  { id: 'reviewStatus', header: 'Status', width: 120 },
+  { id: 'operation', header: 'Actions', width: 180, fixed: 'right', align: 'center' },
+)
 
 watch(manualTypeOptions, (options) => {
   if (options.length && !options.some(item => item.value === props.model.checkInForm.type)) props.model.checkInForm.type = options[0].value
@@ -41,6 +47,9 @@ function typeLabel(value: string) {
 
 function fileNames(files: ProjectCheckIn['files']) { return files.map(file => file.filename).join('、') }
 function localUploadRequest() { return Promise.resolve({}) }
+function reviewLabel(value: string) { return value === 'REJECTED' ? 'Rejected' : 'Approved' }
+function confirmReject(record: ProjectCheckIn) { modal.confirm({ title: 'Reject check-in', content: 'Reject this check-in record?', onConfirm: () => props.model.rejectCheckIn(record) }) }
+function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete check-in', content: 'This record cannot be restored after deletion.', onConfirm: () => props.model.deleteCheckIn(record) }) }
 </script>
 
 <template>
@@ -77,6 +86,8 @@ function localUploadRequest() { return Promise.resolve({}) }
           <template #cell-type="{ row }"><FaTag variant="secondary">{{ typeLabel(row.original.type) }}</FaTag></template>
           <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
           <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
+          <template #cell-reviewStatus="{ row }"><FaTag :variant="row.original.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.original.reviewStatus) }}</FaTag></template>
+          <template #cell-operation="{ row }"><div class="flex-center gap-2"><FaButton v-if="row.original.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row.original)">Reject</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">Delete</FaButton></div></template>
         </FaTable>
         <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.checkIns.length" class="mt-3" />
       </section>

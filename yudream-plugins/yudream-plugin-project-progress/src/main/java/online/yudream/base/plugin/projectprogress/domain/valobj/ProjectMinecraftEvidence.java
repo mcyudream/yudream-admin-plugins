@@ -6,7 +6,9 @@ public record ProjectMinecraftEvidence(
         String playerName,
         long totalOnlineMillis,
         long totalAfkMillis,
-        long effectiveOnlineMillis
+        long effectiveOnlineMillis,
+        long periodStart,
+        long periodEnd
 ) {
 
     public ProjectMinecraftEvidence {
@@ -16,5 +18,7 @@ public record ProjectMinecraftEvidence(
         totalOnlineMillis = Math.max(totalOnlineMillis, 0);
         totalAfkMillis = Math.max(totalAfkMillis, 0);
         effectiveOnlineMillis = Math.max(effectiveOnlineMillis, 0);
+        periodStart = Math.max(periodStart, 0);
+        periodEnd = Math.max(periodEnd, periodStart);
     }
 }

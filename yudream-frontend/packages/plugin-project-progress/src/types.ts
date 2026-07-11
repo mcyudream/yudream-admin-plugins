@@ -111,7 +111,12 @@ export interface ProjectCheckIn {
     totalOnlineMillis: number
     totalAfkMillis: number
     effectiveOnlineMillis: number
+    periodStart: number
+    periodEnd: number
   } | null
+  reviewStatus: 'APPROVED' | 'REJECTED'
+  reviewedByUserId?: string
+  reviewedAt?: number | null
   createdAt: number
 }
 

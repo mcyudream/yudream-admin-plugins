@@ -276,6 +276,21 @@ public class ProjectProgressAppService {
         return repository.listProjectCheckIns(projectId, safePage(page), safeSize(size)).stream().map(assembler::toDTO).toList();
     }
 
+    public ProjectCheckInDTO rejectCheckIn(String checkInId, String reviewerUserId) {
+        ProjectCheckInRecord record = repository.findCheckIn(requireText(checkInId, "Check-in ID is required"))
+                .orElseThrow(() -> new IllegalArgumentException("Check-in record does not exist"));
+        ProjectCheckInRecord saved = repository.saveCheckIn(record.reject(reviewerUserId));
+        event(saved.projectId(), saved.detailId(), reviewerUserId, ProjectProgressEventType.CHECK_IN_CREATED,
+                "Check-in rejected", Map.of("checkInId", saved.id(), "userId", saved.userId()));
+        return assembler.toDTO(saved);
+    }
+
+    public void deleteCheckIn(String checkInId) {
+        ProjectCheckInRecord record = repository.findCheckIn(requireText(checkInId, "Check-in ID is required"))
+                .orElseThrow(() -> new IllegalArgumentException("Check-in record does not exist"));
+        repository.deleteCheckIn(record.id());
+    }
+
     public List<ProjectCheckInDTO> myCheckIns(String userId, String projectId, int page, int size) {
         String safeUserId = requireText(userId, "请先登录");
         return repository.listCheckInsByUser(safeUserId, safePage(page), safeSize(size)).stream()
@@ -311,7 +326,10 @@ public class ProjectProgressAppService {
         ProjectWorkDetail detail = requireDetail(detailId);
         ProjectProgressProject project = requireProject(detail.projectId());
         ensureCanCheckIn(project, detail, userId, ProjectCheckInType.MINECRAFT_ONLINE);
-        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId);
+        long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
+        long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
+        ensureNoMinecraftCheckInInPeriod(project, userId, periodStart, periodEnd);
+        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, periodStart, periodEnd);
         ProjectCheckInRecord saved = repository.saveCheckIn(ProjectCheckInRecord.create(project.id(), detail.id(), userId,
                 ProjectCheckInType.MINECRAFT_ONLINE, "Minecraft 在线时长自动打卡", List.of(), null, evidence));
         event(project.id(), detail.id(), userId, ProjectProgressEventType.MINECRAFT_CHECK_IN_CREATED, "Minecraft 在线时长打卡已生成", Map.of("userId", userId));
@@ -321,7 +339,10 @@ public class ProjectProgressAppService {
     public ProjectCheckInDTO projectMinecraftCheckIn(String projectId, String userId) {
         ProjectProgressProject project = requireProject(projectId);
         ensureCanProjectCheckIn(project, userId, ProjectCheckInType.MINECRAFT_ONLINE);
-        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId);
+        long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
+        long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
+        ensureNoMinecraftCheckInInPeriod(project, userId, periodStart, periodEnd);
+        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, periodStart, periodEnd);
         ProjectCheckInRecord saved = repository.saveCheckIn(ProjectCheckInRecord.create(project.id(), "", userId,
                 ProjectCheckInType.MINECRAFT_ONLINE, "Minecraft 在线时长自动打卡", List.of(), null, evidence));
         event(project.id(), "", userId, ProjectProgressEventType.MINECRAFT_CHECK_IN_CREATED, "Minecraft 在线时长打卡已生成", Map.of("userId", userId));
@@ -343,6 +364,15 @@ public class ProjectProgressAppService {
             }
         }
         return result;
+    }
+
+    public int remindProjectCheckIns(String projectId) {
+        ProjectProgressProject project = requireProject(projectId);
+        List<String> pending = projectParticipants(project).stream()
+                .filter(userId -> !hasProjectCheckInInCurrentPeriod(project, userId))
+                .toList();
+        notifications.notifyCheckInReminder(project, pending);
+        return pending.size();
     }
 
     public ProjectAcceptanceDTO accept(String detailId, ProjectProgressAcceptanceCmd cmd, String operatorUserId) {
@@ -439,21 +469,31 @@ public class ProjectProgressAppService {
 
     private boolean hasProjectCheckInInCurrentPeriod(ProjectProgressProject project, String userId) {
         long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
-        return periodStart > 0 && repository.latestProjectCheckIn(project.id(), userId)
-                .map(latest -> latest.createdAt() >= periodStart)
-                .orElse(false);
+        long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
+        return allProjectCheckIns(project.id()).stream().anyMatch(record -> record.type() == ProjectCheckInType.MINECRAFT_ONLINE
+                && userId.equals(record.userId()) && record.createdAt() >= periodStart && record.createdAt() < periodEnd);
+    }
+
+    private void ensureNoMinecraftCheckInInPeriod(ProjectProgressProject project, String userId, long periodStart, long periodEnd) {
+        if (allProjectCheckIns(project.id()).stream().anyMatch(record -> record.type() == ProjectCheckInType.MINECRAFT_ONLINE
+                && userId.equals(record.userId()) && record.createdAt() >= periodStart && record.createdAt() < periodEnd)) {
+            throw new IllegalArgumentException("Minecraft check-in has already been submitted for this period");
+        }
     }
 
     private long currentCheckInPeriodStart(int periodMinutes) {
-        if (periodMinutes <= 0) {
-            return 0;
-        }
         ZoneId zone = ZoneId.systemDefault();
         ZonedDateTime now = ZonedDateTime.now(zone);
         ZonedDateTime dayStart = LocalDate.now(zone).atStartOfDay(zone);
         long elapsedMinutes = ChronoUnit.MINUTES.between(dayStart, now);
-        long periodIndex = elapsedMinutes / periodMinutes;
-        return dayStart.plusMinutes(periodIndex * (long) periodMinutes).toInstant().toEpochMilli();
+        long effectivePeriodMinutes = periodMinutes <= 0 ? 24L * 60 : periodMinutes;
+        long periodIndex = elapsedMinutes / effectivePeriodMinutes;
+        return dayStart.plusMinutes(periodIndex * effectivePeriodMinutes).toInstant().toEpochMilli();
+    }
+
+    private long currentCheckInPeriodEnd(int periodMinutes) {
+        long effectivePeriodMinutes = periodMinutes <= 0 ? 24L * 60 : periodMinutes;
+        return currentCheckInPeriodStart(periodMinutes) + effectivePeriodMinutes * 60_000L;
     }
 
     private void ensureCanAccept(ProjectWorkDetail detail, ProjectProgressProject project, String operatorUserId) {

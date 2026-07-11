@@ -13,6 +13,7 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnaps
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftEdition;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftSeasonOperationStatus;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
@@ -26,6 +27,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapsho
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusService;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftPlayerActivity;
+import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftServer;
 import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
 import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
@@ -234,25 +236,33 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public MinecraftPlayerActivityDTO recordJoin(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.playerName(), eventAt(cmd));
+        long eventAt = eventAt(cmd);
+        MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.playerName(), eventAt);
+        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.JOIN, eventAt);
         return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
     }
 
     public MinecraftPlayerActivityDTO recordQuit(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.playerName(), eventAt(cmd));
+        long eventAt = eventAt(cmd);
+        MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.playerName(), eventAt);
+        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.QUIT, eventAt);
         return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
     }
 
     public MinecraftPlayerActivityDTO recordAfkStart(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.playerName(), eventAt(cmd));
+        long eventAt = eventAt(cmd);
+        MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.playerName(), eventAt);
+        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_START, eventAt);
         return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
     }
 
     public MinecraftPlayerActivityDTO recordAfkEnd(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.playerName(), eventAt(cmd));
+        long eventAt = eventAt(cmd);
+        MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.playerName(), eventAt);
+        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_END, eventAt);
         return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
     }
 
@@ -285,6 +295,64 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return playerActivities(serverId, page, size).records().stream()
                 .map(this::toPluginActivity)
                 .toList();
+    }
+
+    @Override
+    public Optional<PluginMinecraftOnlineWindow> minecraftOnlineWindow(String serverId, String playerId, long windowStart, long windowEnd) {
+        if (windowStart <= 0 || windowEnd <= windowStart) return Optional.empty();
+        MinecraftPlayerActivity activity = repository.findPlayerActivity(serverId, playerId).orElse(null);
+        if (activity == null) return Optional.empty();
+        List<MinecraftPlayerActivityEvent> events = allPlayerActivityEvents(serverId, playerId);
+        if (events.isEmpty()) return Optional.empty();
+        long onlineMillis = 0;
+        long afkMillis = 0;
+        Long onlineSince = null;
+        Long afkSince = null;
+        for (MinecraftPlayerActivityEvent event : events) {
+            long at = event.occurredAt();
+            if (at > windowEnd) break;
+            switch (event.type()) {
+                case JOIN -> { if (onlineSince == null) onlineSince = at; }
+                case QUIT -> {
+                    onlineMillis += overlap(onlineSince, at, windowStart, windowEnd);
+                    afkMillis += overlap(afkSince, at, windowStart, windowEnd);
+                    onlineSince = null;
+                    afkSince = null;
+                }
+                case AFK_START -> {
+                    if (onlineSince == null) onlineSince = at;
+                    if (afkSince == null) afkSince = at;
+                }
+                case AFK_END -> {
+                    afkMillis += overlap(afkSince, at, windowStart, windowEnd);
+                    afkSince = null;
+                }
+            }
+        }
+        onlineMillis += overlap(onlineSince, windowEnd, windowStart, windowEnd);
+        afkMillis += overlap(afkSince, windowEnd, windowStart, windowEnd);
+        return Optional.of(new PluginMinecraftOnlineWindow(serverId, playerId, activity.playerName(), windowStart, windowEnd,
+                onlineMillis, afkMillis, Math.max(0, onlineMillis - afkMillis)));
+    }
+
+    private void recordActivityEvent(String serverId, MinecraftPlayerEventCmd cmd, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
+        repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(serverId, cmd.playerId(), cmd.playerName(), type, occurredAt));
+    }
+
+    private List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId, String playerId) {
+        List<MinecraftPlayerActivityEvent> result = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<MinecraftPlayerActivityEvent> batch = repository.listPlayerActivityEvents(serverId, playerId, page, SCAN_PAGE_SIZE);
+            result.addAll(batch);
+            if (batch.size() < SCAN_PAGE_SIZE) return result;
+            page++;
+        }
+    }
+
+    private long overlap(Long start, long end, long windowStart, long windowEnd) {
+        if (start == null || end <= start) return 0;
+        return Math.max(0, Math.min(end, windowEnd) - Math.max(start, windowStart));
     }
 
     private PluginMinecraftServer toPluginServer(MinecraftServerDTO dto) {

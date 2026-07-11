@@ -44,7 +44,9 @@ public class ProjectProgressAppAssembler {
                 record.type().name(), record.summary(), record.files().stream().map(this::toDTO).toList(),
                 location == null ? null : new ProjectCheckInDTO.LocationDTO(location.address(), location.latitude(), location.longitude()),
                 minecraft == null ? null : new ProjectCheckInDTO.MinecraftEvidenceDTO(minecraft.serverId(), minecraft.playerId(),
-                        minecraft.playerName(), minecraft.totalOnlineMillis(), minecraft.totalAfkMillis(), minecraft.effectiveOnlineMillis()),
+                        minecraft.playerName(), minecraft.totalOnlineMillis(), minecraft.totalAfkMillis(), minecraft.effectiveOnlineMillis(),
+                        minecraft.periodStart(), minecraft.periodEnd()),
+                record.reviewStatus().name(), record.reviewedByUserId(), record.reviewedAt(),
                 record.createdAt());
     }
 

@@ -139,6 +139,15 @@ public class ProjectProgressHttpFacade {
         return PluginHttpResponse.ok(appService.projectCheckIns(pathSegment(request.path(), 2), page(request), size(request)).stream().map(assembler::toRes).toList());
     }
 
+    public PluginHttpResponse rejectCheckIn(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(appService.rejectCheckIn(pathSegment(request.path(), 2), currentUserId(request))));
+    }
+
+    public PluginHttpResponse deleteCheckIn(PluginHttpRequest request) {
+        appService.deleteCheckIn(pathSegment(request.path(), 2));
+        return PluginHttpResponse.ok(Map.of("deleted", true));
+    }
+
     public PluginHttpResponse myCheckIns(PluginHttpRequest request) {
         return PluginHttpResponse.ok(appService.myCheckIns(currentUserId(request), stringQuery(request, "projectId"), page(request), size(request)).stream()
                 .map(assembler::toRes)
@@ -169,6 +178,10 @@ public class ProjectProgressHttpFacade {
 
     public PluginHttpResponse autoMinecraftCheckIns(PluginHttpRequest request) {
         return PluginHttpResponse.ok(appService.autoMinecraftCheckIns(pathSegment(request.path(), 2)).stream().map(assembler::toRes).toList());
+    }
+
+    public PluginHttpResponse remindProjectCheckIns(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(Map.of("reminded", appService.remindProjectCheckIns(pathSegment(request.path(), 2))));
     }
 
     public PluginHttpResponse accept(PluginHttpRequest request) {

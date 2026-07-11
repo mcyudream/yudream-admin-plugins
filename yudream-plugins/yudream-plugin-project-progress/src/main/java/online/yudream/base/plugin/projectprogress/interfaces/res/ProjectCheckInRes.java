@@ -12,6 +12,9 @@ public record ProjectCheckInRes(
         List<FileEvidenceRes> files,
         LocationRes location,
         MinecraftEvidenceRes minecraft,
+        String reviewStatus,
+        String reviewedByUserId,
+        Long reviewedAt,
         long createdAt
 ) {
     public record FileEvidenceRes(String objectKey, String filename, String contentType, long size, boolean image) {
@@ -21,6 +24,7 @@ public record ProjectCheckInRes(
     }
 
     public record MinecraftEvidenceRes(String serverId, String playerId, String playerName,
-                                       long totalOnlineMillis, long totalAfkMillis, long effectiveOnlineMillis) {
+                                       long totalOnlineMillis, long totalAfkMillis, long effectiveOnlineMillis,
+                                       long periodStart, long periodEnd) {
     }
 }

@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.projectprogress.domain.aggregate;
 
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInType;
+import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInReviewStatus;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectFileEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectLocationEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
@@ -18,6 +19,9 @@ public record ProjectCheckInRecord(
         List<ProjectFileEvidence> files,
         ProjectLocationEvidence location,
         ProjectMinecraftEvidence minecraft,
+        ProjectCheckInReviewStatus reviewStatus,
+        String reviewedByUserId,
+        Long reviewedAt,
         long createdAt
 ) {
 
@@ -31,13 +35,20 @@ public record ProjectCheckInRecord(
         }
         summary = text(summary);
         files = files == null ? List.of() : List.copyOf(files);
+        reviewStatus = reviewStatus == null ? ProjectCheckInReviewStatus.APPROVED : reviewStatus;
+        reviewedByUserId = text(reviewedByUserId);
     }
 
     public static ProjectCheckInRecord create(String projectId, String detailId, String userId, ProjectCheckInType type,
                                               String summary, List<ProjectFileEvidence> files,
                                               ProjectLocationEvidence location, ProjectMinecraftEvidence minecraft) {
         return new ProjectCheckInRecord(UUID.randomUUID().toString(), projectId, detailId, userId, type, summary,
-                files, location, minecraft, System.currentTimeMillis());
+                files, location, minecraft, ProjectCheckInReviewStatus.APPROVED, "", null, System.currentTimeMillis());
+    }
+
+    public ProjectCheckInRecord reject(String reviewerUserId) {
+        return new ProjectCheckInRecord(id, projectId, detailId, userId, type, summary, files, location, minecraft,
+                ProjectCheckInReviewStatus.REJECTED, requireText(reviewerUserId, "Reviewer user ID is required"), System.currentTimeMillis(), createdAt);
     }
 
     private static String text(String value) {

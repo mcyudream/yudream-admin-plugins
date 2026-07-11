@@ -35,6 +35,10 @@ public interface ProjectProgressRepository {
 
     ProjectCheckInRecord saveCheckIn(ProjectCheckInRecord record);
 
+    Optional<ProjectCheckInRecord> findCheckIn(String checkInId);
+
+    void deleteCheckIn(String checkInId);
+
     List<ProjectCheckInRecord> listCheckIns(String detailId, int page, int size);
 
     Optional<ProjectCheckInRecord> latestCheckIn(String detailId, String userId);

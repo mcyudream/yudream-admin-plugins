@@ -107,7 +107,9 @@ public class ProjectProgressWebAssembler {
                 dto.files().stream().map(file -> new ProjectCheckInRes.FileEvidenceRes(file.objectKey(), file.filename(), file.contentType(), file.size(), file.image())).toList(),
                 dto.location() == null ? null : new ProjectCheckInRes.LocationRes(dto.location().address(), dto.location().latitude(), dto.location().longitude()),
                 dto.minecraft() == null ? null : new ProjectCheckInRes.MinecraftEvidenceRes(dto.minecraft().serverId(), dto.minecraft().playerId(),
-                        dto.minecraft().playerName(), dto.minecraft().totalOnlineMillis(), dto.minecraft().totalAfkMillis(), dto.minecraft().effectiveOnlineMillis()),
+                        dto.minecraft().playerName(), dto.minecraft().totalOnlineMillis(), dto.minecraft().totalAfkMillis(), dto.minecraft().effectiveOnlineMillis(),
+                        dto.minecraft().periodStart(), dto.minecraft().periodEnd()),
+                dto.reviewStatus(), dto.reviewedByUserId(), dto.reviewedAt(),
                 dto.createdAt());
     }
 

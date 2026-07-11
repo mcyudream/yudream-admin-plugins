@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.wallet.bootstrap;
 
 import online.yudream.base.plugin.spi.annotation.PluginDashboardCard;
+import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
 import online.yudream.base.plugin.spi.annotation.PluginPermissions;
@@ -8,6 +9,10 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
+import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransactionQuery;
 import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
 import online.yudream.base.plugin.wallet.application.service.WalletAppService;
 import online.yudream.base.plugin.wallet.infrastructure.repository.WalletRepository;
@@ -15,6 +20,8 @@ import online.yudream.base.plugin.wallet.interfaces.controller.WalletAdminContro
 import online.yudream.base.plugin.wallet.interfaces.controller.WalletUserController;
 import online.yudream.base.plugin.wallet.interfaces.controller.WalletViewController;
 import online.yudream.base.plugin.wallet.interfaces.http.WalletHttpFacade;
+
+import java.util.Map;
 
 @PluginSpec(
         code = WalletPlugin.CODE,
@@ -127,15 +134,46 @@ public class WalletPlugin implements YuDreamPlugin {
     public static final String VIEW_PERMISSION = "plugin:yudream-wallet:view";
     public static final String USER_PERMISSION = "plugin:yudream-wallet:user";
     public static final String MANAGE_PERMISSION = "plugin:yudream-wallet:manage";
+    private volatile WalletAppService appService;
 
     @Override
     public void onEnable(PluginContext context) {
-        WalletAppService appService = new WalletAppService(new WalletRepository(context.documents()), context.framework());
+        appService = new WalletAppService(new WalletRepository(context.documents()), context.framework());
         appService.initializeDefaults();
         context.registerExtension(PluginWalletService.class, appService);
         WalletHttpFacade http = new WalletHttpFacade(appService, context.framework());
         context.registerHttpController(new WalletViewController(http));
         context.registerHttpController(new WalletUserController(http));
         context.registerHttpController(new WalletAdminController(http));
+    }
+
+    @PluginCommand(code = "wallet.balance", command = "我的余额", name = "查询钱包余额", description = "查询当前绑定账号的钱包余额")
+    public void balance(PluginCommandContext command, PluginContext context) {
+        if (!requireUser(command, context)) return;
+        var balances = appService.balances(String.valueOf(command.userId()));
+        reply(command, context, balances.isEmpty() ? "当前没有余额记录。" : "我的余额：\n" + balances.stream()
+                .map(item -> "- " + item.assetCode() + "：" + item.balance()).reduce((a, b) -> a + "\n" + b).orElse(""));
+    }
+
+    @PluginCommand(code = "wallet.transactions", command = "我的流水", name = "查询钱包流水", description = "查询最近十条钱包流水")
+    public void transactions(PluginCommandContext command, PluginContext context) {
+        if (!requireUser(command, context)) return;
+        var records = appService.transactions(new PluginWalletTransactionQuery(null, null, null, String.valueOf(command.userId()), null, null, 1, 10));
+        reply(command, context, records.isEmpty() ? "当前没有钱包流水。" : "最近流水：\n" + records.stream()
+                .map(item -> "- " + item.type() + " " + item.amount() + " " + item.assetCode() + "（" + item.remark() + "）")
+                .reduce((a, b) -> a + "\n" + b).orElse(""));
+    }
+
+    private boolean requireUser(PluginCommandContext command, PluginContext context) {
+        if (command.userId() != null) return true;
+        reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。");
+        return false;
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text) {
+        if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
+        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
+                command.event().selfId(), command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
+                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
     }
 }

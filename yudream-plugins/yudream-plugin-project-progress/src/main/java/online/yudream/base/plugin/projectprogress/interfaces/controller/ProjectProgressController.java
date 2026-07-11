@@ -139,6 +139,16 @@ public class ProjectProgressController {
         return http.projectCheckIns(request);
     }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/check-ins/{checkInId}/reject", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse rejectCheckIn(PluginHttpRequest request) {
+        return http.rejectCheckIn(request);
+    }
+
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/check-ins/{checkInId}", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse deleteCheckIn(PluginHttpRequest request) {
+        return http.deleteCheckIn(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/me/check-ins", permission = ProjectProgressPlugin.CHECK_IN_PERMISSION)
     public PluginHttpResponse myCheckIns(PluginHttpRequest request) {
         return http.myCheckIns(request);
@@ -172,6 +182,11 @@ public class ProjectProgressController {
     @PluginHttpEndpoint(method = "POST", path = "/admin/projects/{projectId}/minecraft/auto-check-ins", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse autoMinecraftCheckIns(PluginHttpRequest request) {
         return http.autoMinecraftCheckIns(request);
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/admin/projects/{projectId}/check-in-reminders", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse remindProjectCheckIns(PluginHttpRequest request) {
+        return http.remindProjectCheckIns(request);
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/details/{detailId}/accept", permission = ProjectProgressPlugin.ACCEPT_PERMISSION)
