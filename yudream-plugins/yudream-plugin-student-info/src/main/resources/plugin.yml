@@ -1,0 +1,4 @@
+name: yudream-student-info
+displayName: 学生信息
+main: online.yudream.base.plugin.studentinfo.bootstrap.StudentInfoPlugin
+version: 1.0.0

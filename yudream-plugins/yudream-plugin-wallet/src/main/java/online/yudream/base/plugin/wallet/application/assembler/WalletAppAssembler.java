@@ -1,8 +1,8 @@
 package online.yudream.base.plugin.wallet.application.assembler;
 
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
+import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletBalance;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
 import online.yudream.base.plugin.wallet.domain.aggregate.WalletAsset;
 import online.yudream.base.plugin.wallet.domain.aggregate.WalletBalance;
 import online.yudream.base.plugin.wallet.domain.aggregate.WalletTransaction;

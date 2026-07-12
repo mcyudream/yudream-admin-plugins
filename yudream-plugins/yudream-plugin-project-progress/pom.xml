@@ -31,6 +31,12 @@
             <artifactId>yudream-plugin-spi</artifactId>
         </dependency>
         <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-minecraft-server</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>

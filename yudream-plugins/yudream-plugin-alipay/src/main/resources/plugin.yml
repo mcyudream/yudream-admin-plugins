@@ -1,0 +1,6 @@
+name: yudream-alipay
+displayName: 支付宝支付
+main: online.yudream.base.plugin.alipay.bootstrap.AlipayPlugin
+version: 1.0.0
+depend:
+  - yudream-wallet

@@ -9,6 +9,7 @@ public record MinecraftEndpointStatusRes(
         Integer protocolId,
         Long ping,
         String motd,
+        String favicon,
         String errorMessage,
         long checkedAt
 ) {

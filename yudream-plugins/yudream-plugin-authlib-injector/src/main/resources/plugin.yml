@@ -1,0 +1,6 @@
+name: authlib-injector
+displayName: 外置登录认证
+main: online.yudream.base.plugin.authlib.bootstrap.AuthlibInjectorPlugin
+version: 1.0.0
+depend:
+  - yudream-skin

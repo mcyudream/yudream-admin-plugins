@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.skin.bootstrap;
 
 import online.yudream.base.plugin.skin.application.service.YuDreamSkinAppService;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.skin.infrastructure.repository.YuDreamSkinRepository;
 import online.yudream.base.plugin.skin.infrastructure.service.YuDreamSkinMigrationService;
 import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinAdminController;
@@ -19,9 +20,16 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
+import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 @PluginSpec(
         code = YuDreamSkinPlugin.CODE,
@@ -206,7 +214,7 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
                 repository,
                 new YuDreamSkinMigrationService(repository, context.framework().users())
         );
-        context.registerExtension(PluginSkinService.class, appService);
+        context.exposeService(PluginSkinService.class, appService);
         YuDreamSkinHttpFacade http = new YuDreamSkinHttpFacade(appService, context.framework());
         context.registerHttpController(new YuDreamSkinPublicController(http));
         context.registerHttpController(new YuDreamSkinUserController(http));
@@ -218,14 +226,50 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
         if (command.userId() == null) { reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。"); return; }
         var player = appService.defaultPlayer(String.valueOf(command.userId())).orElse(null);
         if (player == null) { reply(command, context, "你尚未设置默认 Minecraft 角色。"); return; }
-        reply(command, context, "当前角色：" + player.name() + "\n皮肤：" + (player.skinHash() == null ? "未设置" : player.skinHash())
-                + "\n披风：" + (player.capeHash() == null ? "未设置" : player.capeHash()));
+        List<PluginMessageContent> contents = new ArrayList<>();
+        contents.add(textContent("当前角色：" + player.name()
+                + "\n皮肤：" + (player.skinHash() == null ? "未设置" : "见下方图片")
+                + "\n披风：" + (player.capeHash() == null ? "未设置" : "见下方图片"), command));
+        addTextureImage(contents, player.skinHash(), "皮肤", command);
+        addTextureImage(contents, player.capeHash(), "披风", command);
+        sendSequentially(command, context, contents);
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        sendSequentially(command, context, List.of(textContent(text, command)));
+    }
+
+    private void addTextureImage(List<PluginMessageContent> contents, String hash, String label,
+                                 PluginCommandContext command) {
+        if (hash == null || hash.isBlank()) {
+            return;
+        }
+        PluginStoredFile file = appService.readTexture(hash).orElse(null);
+        if (file == null) {
+            contents.add(textContent(label + "材质文件不存在", command));
+            return;
+        }
+        try (InputStream input = file.inputStream()) {
+            String imageUri = "base64://" + Base64.getEncoder().encodeToString(input.readAllBytes());
+            contents.add(new PluginMessageContent(PluginMessageContent.Type.IMAGE, imageUri, null, Map.of()));
+        } catch (IOException exception) {
+            contents.add(textContent(label + "材质读取失败", command));
+        }
+    }
+
+    private PluginMessageContent textContent(String text, PluginCommandContext command) {
+        return new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
+                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()));
+    }
+
+    private void sendSequentially(PluginCommandContext command, PluginContext context,
+                                  List<PluginMessageContent> contents) {
         if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
-        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(), command.event().selfId(),
-                command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
-                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
+        CompletionStage<?> delivery = CompletableFuture.completedFuture(null);
+        for (PluginMessageContent content : contents) {
+            delivery = delivery.thenCompose(ignored -> context.framework().messaging().send(
+                    new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
+                            command.event().selfId(), command.event().channelId(), content)));
+        }
     }
 }

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; color: #fff; font-family: "Microsoft YaHei", sans-serif; }
+    #minecraft-card { width: 820px; padding: 34px; background: #151515; border: 4px solid #080808; box-shadow: inset 0 0 0 3px #4b4b4b; }
+    .title { text-align: center; font-size: 29px; font-weight: 700; text-shadow: 3px 3px #303030; }
+    .player-name { text-align: center; color: #55ff55; font-size: 21px; margin: 8px 0 24px; text-shadow: 2px 2px #173617; }
+    .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .total { padding: 16px; background: #242424; border: 3px solid #555; box-shadow: inset 0 0 0 2px #0b0b0b; }
+    .label { color: #aaa; font-size: 14px; }
+    .value { margin-top: 5px; font-size: 22px; font-weight: 700; }
+    .server { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 15px 17px; background: #242424; border: 3px solid #555; box-shadow: inset 0 0 0 2px #0b0b0b; }
+    .server + .server { margin-top: 10px; }
+    .server-name { font-size: 19px; font-weight: 700; }
+    .times { color: #bbb; font-size: 15px; margin-top: 7px; }
+    .state { align-self: center; min-width: 92px; text-align: center; padding: 7px 10px; background: #101010; border: 2px solid #555; color: #aaa; }
+    .state.online { color: #55ff55; border-color: #397539; }
+    .state.afk { color: #ffff55; border-color: #777739; }
+    .footer { margin-top: 18px; text-align: center; color: #777; font-size: 14px; }
+  </style>
+</head>
+<body>
+<section id="minecraft-card">
+  <div class="title">玩家统计</div>
+  <div class="player-name" th:text="${playerName}">Steve</div>
+  <div class="totals">
+    <div class="total"><div class="label">累计在线</div><div class="value" th:text="${totalOnline}">0 分钟</div></div>
+    <div class="total"><div class="label">累计挂机</div><div class="value" th:text="${totalAfk}">0 分钟</div></div>
+  </div>
+  <article class="server" th:each="activity : ${activities}">
+    <div>
+      <div class="server-name" th:text="${activity.serverName}">生存服务器</div>
+      <div class="times" th:text="${'在线 ' + activity.onlineTime + ' · 挂机 ' + activity.afkTime}">在线 1 小时</div>
+    </div>
+    <div class="state" th:classappend="${activity.afk ? ' afk' : (activity.online ? ' online' : '')}"
+         th:text="${activity.afk ? '挂机中' : (activity.online ? '在线' : '离线')}">离线</div>
+  </article>
+  <div class="footer">统计数据来自服务器玩家活动上报</div>
+</section>
+</body>
+</html>

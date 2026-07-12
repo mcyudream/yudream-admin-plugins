@@ -1,6 +1,6 @@
 package online.yudream.base.plugin.wallet.application.dto;
 
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
 
 import java.util.List;
 

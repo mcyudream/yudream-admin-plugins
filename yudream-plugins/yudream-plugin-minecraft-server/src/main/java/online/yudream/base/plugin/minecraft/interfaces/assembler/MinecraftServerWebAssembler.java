@@ -137,7 +137,7 @@ public class MinecraftServerWebAssembler {
 
     private MinecraftEndpointStatusRes toRes(MinecraftEndpointStatusDTO dto) {
         return new MinecraftEndpointStatusRes(dto.endpointId(), dto.status(), dto.onlinePlayers(), dto.maxPlayers(),
-                dto.versionName(), dto.protocolId(), dto.ping(), dto.motd(), dto.errorMessage(), dto.checkedAt());
+                dto.versionName(), dto.protocolId(), dto.ping(), dto.motd(), dto.favicon(), dto.errorMessage(), dto.checkedAt());
     }
 
     private MinecraftInheritanceRuleRes toRes(MinecraftInheritanceRuleDTO dto) {

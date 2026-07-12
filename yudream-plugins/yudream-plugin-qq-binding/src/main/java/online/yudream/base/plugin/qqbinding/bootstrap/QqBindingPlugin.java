@@ -12,6 +12,8 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @PluginSpec(code = QqBindingPlugin.CODE, name = "QQ群 QQ 绑定", version = "1.0.0", description = "通过群聊一次性绑定码绑定系统 QQ")
@@ -58,14 +60,29 @@ public class QqBindingPlugin implements YuDreamPlugin {
             reply(command, context, "系统账号不存在或已不可用。");
             return;
         }
-        reply(command, context, "已绑定账号：" + profile.username() + "（ID: " + profile.id() + "）");
+        Map<String, Object> variables = new LinkedHashMap<>();
+        variables.put("username", profile.username());
+        variables.put("nickname", profile.nickname() == null || profile.nickname().isBlank() ? profile.username() : profile.nickname());
+        variables.put("qq", profile.qq() == null ? command.event().userId() : profile.qq());
+        variables.put("email", profile.email() == null || profile.email().isBlank() ? "未设置" : profile.email());
+        variables.put("status", profile.status() == null ? "正常" : profile.status());
+        context.templateRenderer().render("account-profile", variables, "#account-card").whenComplete((image, error) -> {
+            if (error != null || image == null || image.content() == null || image.content().length == 0) {
+                reply(command, context, "已绑定账号：" + profile.username());
+                return;
+            }
+            send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE,
+                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, replyReferrer(command)));
+        });
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        context.framework().messaging().send(new PluginMessageRequest(
-                command.event().connectionId(), command.event().platform(), command.event().selfId(), command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command))
-        ));
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command)));
+    }
+
+    private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
+        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
+                command.event().selfId(), command.event().channelId(), content));
     }
 
     private Map<String, Object> replyReferrer(PluginCommandContext command) {

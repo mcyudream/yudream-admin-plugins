@@ -5,6 +5,7 @@
 - Depend on `online.yudream.base:yudream-plugin-spi` as the only host compile-time contract.
 - Do not depend on host `domain`, `application`, `infrastructure`, `interfaces`, or bootstrap modules.
 - Access host capabilities through stable SPI ports such as `FrameworkServices`, user services, security services, storage, or other published ports.
+- Keep plugin-owned Thymeleaf image templates in `src/main/resources/templates` inside that plugin JAR. Use `PluginContext.templateRenderer()` with a logical template name and optional selector; do not read host templates or another plugin's resources.
 - If the SPI lacks a required capability, change and release the host contract before consuming it here.
 
 ## Package Responsibilities

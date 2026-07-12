@@ -1,0 +1,6 @@
+name: project-progress
+displayName: 项目进度
+main: online.yudream.base.plugin.projectprogress.bootstrap.ProjectProgressPlugin
+version: 1.0.0
+softdepend:
+  - minecraft-server

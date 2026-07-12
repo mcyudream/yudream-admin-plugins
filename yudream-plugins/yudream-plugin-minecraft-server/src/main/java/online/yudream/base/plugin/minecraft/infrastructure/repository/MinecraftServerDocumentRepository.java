@@ -290,6 +290,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("protocolId", status.protocolId());
         document.put("ping", status.ping());
         document.put("motd", status.motd());
+        document.put("favicon", status.favicon());
         document.put("errorMessage", status.errorMessage());
         document.put("checkedAt", status.checkedAt());
         return document;
@@ -448,6 +449,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 nullableInteger(document, "protocolId"),
                 nullableNumber(document, "ping"),
                 string(document, "motd"),
+                string(document, "favicon"),
                 string(document, "errorMessage"),
                 number(document, "checkedAt", 0L)
         );

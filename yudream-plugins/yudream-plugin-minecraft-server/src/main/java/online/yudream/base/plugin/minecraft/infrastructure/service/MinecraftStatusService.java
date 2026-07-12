@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.minecraft.infrastructure.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.lenni0451.mcping.MCPing;
 import net.lenni0451.mcping.responses.BedrockPingResponse;
 import net.lenni0451.mcping.responses.MCPingResponse;
@@ -16,6 +18,8 @@ import java.util.Optional;
 
 public class MinecraftStatusService {
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     public MinecraftEndpointStatus ping(MinecraftServerEndpoint endpoint) {
         if (!endpoint.enabled()) {
             return MinecraftEndpointStatus.offline(endpoint.id(), "线路已停用");
@@ -27,7 +31,7 @@ public class MinecraftStatusService {
                         .timeout(3000, 3000)
                         .getSync();
                 return MinecraftEndpointStatus.online(endpoint.id(), response.getOnlinePlayers(), response.getMaxPlayers(),
-                        response.getVersionName(), response.getProtocolId(), response.getPing(), response.getMotd());
+                        response.getVersionName(), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()), null);
             }
             ResolvedAddress address = resolveJavaAddress(endpoint);
             MCPingResponse response = MCPing.pingModern()
@@ -35,9 +39,65 @@ public class MinecraftStatusService {
                     .timeout(3000, 3000)
                     .getSync();
             return MinecraftEndpointStatus.online(endpoint.id(), response.getOnlinePlayers(), response.getMaxPlayers(),
-                    response.getVersionName(), response.getProtocolId(), response.getPing(), response.getMotd());
+                    response.getVersionName(), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()),
+                    favicon(response.getFavicon()));
         } catch (RuntimeException e) {
             return MinecraftEndpointStatus.offline(endpoint.id(), e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+        }
+    }
+
+    private static String favicon(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.regionMatches(true, 0, "data:image/png;base64,", 0, "data:image/png;base64,".length())
+                ? normalized : null;
+    }
+
+    public static String plainMotd(String motd) {
+        if (motd == null || motd.isBlank()) {
+            return motd;
+        }
+        String value = motd.trim();
+        if (value.startsWith("{") || value.startsWith("[")) {
+            try {
+                StringBuilder text = new StringBuilder();
+                appendComponentText(JSON.readTree(value), text);
+                if (!text.isEmpty()) {
+                    value = text.toString();
+                }
+            } catch (Exception ignored) {
+                // Some servers return malformed components; retain their original MOTD.
+            }
+        }
+        return value.replace("\\u00a7", "§")
+                .replaceAll("(?i)(?:§|&)[0-9A-FK-ORX]", "")
+                .trim();
+    }
+
+    private static void appendComponentText(JsonNode node, StringBuilder text) {
+        if (node == null || node.isNull()) {
+            return;
+        }
+        if (node.isTextual()) {
+            text.append(node.asText());
+            return;
+        }
+        if (node.isArray()) {
+            node.forEach(item -> appendComponentText(item, text));
+            return;
+        }
+        if (!node.isObject()) {
+            return;
+        }
+        JsonNode content = node.get("text");
+        if (content != null && content.isValueNode()) {
+            text.append(content.asText());
+        }
+        JsonNode extra = node.get("extra");
+        if (extra != null) {
+            appendComponentText(extra, text);
         }
     }
 

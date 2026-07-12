@@ -1,0 +1,6 @@
+name: yudream-wallet
+displayName: 用户钱包
+main: online.yudream.base.plugin.wallet.bootstrap.WalletPlugin
+version: 1.0.0
+softdepend:
+  - yudream-skin

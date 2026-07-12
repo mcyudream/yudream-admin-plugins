@@ -12,9 +12,9 @@ import online.yudream.base.plugin.authlib.interfaces.request.SignoutRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.TextureBindRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.TokenRequest;
 import online.yudream.base.plugin.spi.core.PluginContext;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinProfile;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinTexture;
+import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
+import online.yudream.base.plugin.skin.api.PluginSkinTexture;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.nio.charset.StandardCharsets;
@@ -70,7 +70,7 @@ public class AuthlibAppService {
         body.put("apiRoot", normalizedApiRoot);
         body.put("textureBaseUrl", normalizedTextureBaseUrl);
         body.put("accountSource", "system-user");
-        body.put("skinPluginEnabled", context.framework().extension(SKIN_PLUGIN_CODE, PluginSkinService.class).isPresent());
+        body.put("skinPluginEnabled", context.service(SKIN_PLUGIN_CODE, PluginSkinService.class).isPresent());
         body.put("metadata", metadata(normalizedApiRoot, normalizedTextureBaseUrl));
         body.put("endpoints", List.of(
                 "GET /",
@@ -359,7 +359,7 @@ public class AuthlibAppService {
     }
 
     private PluginSkinService skinService() {
-        return context.framework().extension(SKIN_PLUGIN_CODE, PluginSkinService.class)
+        return context.service(SKIN_PLUGIN_CODE, PluginSkinService.class)
                 .orElseThrow(() -> authError("ForbiddenOperationException", "yudream-skin 插件未启用"));
     }
 

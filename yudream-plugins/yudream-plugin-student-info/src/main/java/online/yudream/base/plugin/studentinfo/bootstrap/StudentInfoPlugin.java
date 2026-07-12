@@ -1,13 +1,13 @@
 package online.yudream.base.plugin.studentinfo.bootstrap;
 
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
+import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoService;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
 import online.yudream.base.plugin.spi.annotation.PluginPermissions;
 import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
-import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoService;
 import online.yudream.base.plugin.studentinfo.application.service.StudentInfoAppService;
 import online.yudream.base.plugin.studentinfo.infrastructure.repository.StudentInfoDocumentRepository;
 import online.yudream.base.plugin.studentinfo.interfaces.controller.StudentInfoAdminController;
@@ -61,7 +61,7 @@ public class StudentInfoPlugin implements YuDreamPlugin {
     @Override
     public void onEnable(PluginContext context) {
         StudentInfoAppService appService = new StudentInfoAppService(new StudentInfoDocumentRepository(context.documents()));
-        context.registerExtension(PluginStudentInfoService.class, appService);
+        context.exposeService(PluginStudentInfoService.class, appService);
         StudentInfoHttpFacade http = new StudentInfoHttpFacade(appService, context.framework());
         context.registerHttpController(new StudentInfoUserController(http));
         context.registerHttpController(new StudentInfoAdminController(http));

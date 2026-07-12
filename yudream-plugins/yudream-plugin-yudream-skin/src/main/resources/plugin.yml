@@ -1,0 +1,4 @@
+name: yudream-skin
+displayName: YuDream 皮肤
+main: online.yudream.base.plugin.skin.bootstrap.YuDreamSkinPlugin
+version: 1.0.0

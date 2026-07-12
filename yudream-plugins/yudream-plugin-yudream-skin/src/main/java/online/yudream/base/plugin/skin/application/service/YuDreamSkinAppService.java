@@ -24,9 +24,9 @@ import online.yudream.base.plugin.skin.domain.valobj.SkinSiteSettings;
 import online.yudream.base.plugin.skin.infrastructure.repository.YuDreamSkinRepository;
 import online.yudream.base.plugin.skin.infrastructure.service.YuDreamSkinMigrationService;
 import online.yudream.base.plugin.skin.infrastructure.support.HashSupport;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinProfile;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinTexture;
+import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
+import online.yudream.base.plugin.skin.api.PluginSkinTexture;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.base.plugin.spi.http.PluginSseStream;
 

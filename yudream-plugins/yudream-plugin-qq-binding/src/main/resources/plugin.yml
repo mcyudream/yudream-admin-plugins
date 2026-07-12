@@ -1,0 +1,4 @@
+name: qq-binding
+displayName: QQ 账号绑定
+main: online.yudream.base.plugin.qqbinding.bootstrap.QqBindingPlugin
+version: 1.0.0

@@ -1,8 +1,8 @@
 package online.yudream.base.plugin.wallet.interfaces.assembler;
 
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
+import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletBalance;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
 import online.yudream.base.plugin.wallet.application.cmd.WalletAssetSaveCmd;
 import online.yudream.base.plugin.wallet.application.cmd.WalletChangeCmd;
 import online.yudream.base.plugin.wallet.application.cmd.WalletRechargeCreateCmd;

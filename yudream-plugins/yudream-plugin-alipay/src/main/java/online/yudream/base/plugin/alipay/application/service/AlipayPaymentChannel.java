@@ -1,9 +1,9 @@
 package online.yudream.base.plugin.alipay.application.service;
 
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentChannel;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentChannelInfo;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentCreateRequest;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentCreateResult;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentChannel;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentChannelInfo;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentCreateRequest;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentCreateResult;
 
 public class AlipayPaymentChannel implements PluginPaymentChannel {
 

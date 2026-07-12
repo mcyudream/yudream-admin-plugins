@@ -1,0 +1,9 @@
+name: minecraft-activity-proof
+displayName: Minecraft 活跃证明
+main: online.yudream.base.plugin.activityproof.bootstrap.MinecraftActivityProofPlugin
+version: 1.0.0
+depend:
+  - minecraft-server
+  - yudream-student-info
+softdepend:
+  - yudream-skin

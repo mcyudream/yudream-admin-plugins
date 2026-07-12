@@ -2,12 +2,13 @@ package online.yudream.base.plugin.wallet.interfaces.http;
 
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
+import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinProfile;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
+import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
+import online.yudream.base.plugin.wallet.api.PluginWalletBalance;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
 import online.yudream.base.plugin.wallet.application.service.WalletAppService;
 import online.yudream.base.plugin.wallet.application.cmd.WalletTransferCmd;
 import online.yudream.base.plugin.wallet.infrastructure.support.JsonSupport;
@@ -33,11 +34,13 @@ public class WalletHttpFacade {
 
     private final WalletAppService appService;
     private final FrameworkServices framework;
+    private final PluginContext context;
     private final WalletWebAssembler assembler = new WalletWebAssembler();
 
-    public WalletHttpFacade(WalletAppService appService, FrameworkServices framework) {
+    public WalletHttpFacade(WalletAppService appService, PluginContext context) {
         this.appService = appService;
-        this.framework = framework;
+        this.context = context;
+        this.framework = context.framework();
     }
 
     public PluginHttpResponse status() {
@@ -409,7 +412,7 @@ public class WalletHttpFacade {
     }
 
     private Optional<PluginSkinService> skinService() {
-        return framework == null ? Optional.empty() : framework.extension("yudream-skin", PluginSkinService.class);
+        return context.service("yudream-skin", PluginSkinService.class);
     }
 
     private String normalizeUuid(String uuid) {

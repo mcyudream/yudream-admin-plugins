@@ -1,7 +1,7 @@
 package online.yudream.base.plugin.studentinfo.application.service;
 
-import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoProfile;
-import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoService;
+import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoProfile;
+import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoService;
 import online.yudream.base.plugin.studentinfo.application.assembler.StudentInfoAppAssembler;
 import online.yudream.base.plugin.studentinfo.application.cmd.StudentInfoSaveCmd;
 import online.yudream.base.plugin.studentinfo.application.dto.StudentInfoDTO;

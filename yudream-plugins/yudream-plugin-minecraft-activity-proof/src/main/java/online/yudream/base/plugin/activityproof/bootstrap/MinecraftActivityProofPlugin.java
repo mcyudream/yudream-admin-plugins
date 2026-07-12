@@ -92,7 +92,8 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
         ActivityProofAppService appService = new ActivityProofAppService(
                 new ActivityProofDocumentRepository(context.documents()),
                 context.files(),
-                context.framework()
+                context.framework(),
+                context
         );
         ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService);
         context.registerHttpController(new ActivityProofUserController(http));

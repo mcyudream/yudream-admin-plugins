@@ -15,8 +15,8 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentChannel;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentChannel;
+import online.yudream.base.plugin.wallet.api.PluginWalletService;
 
 @PluginSpec(
         code = AlipayPlugin.CODE,
@@ -81,8 +81,7 @@ public class AlipayPlugin implements YuDreamPlugin {
 
     @Override
     public void onEnable(PluginContext context) {
-        PluginWalletService walletService = context.framework()
-                .extension("yudream-wallet", PluginWalletService.class)
+        PluginWalletService walletService = context.service("yudream-wallet", PluginWalletService.class)
                 .orElseThrow(() -> new IllegalStateException("钱包插件未启用或未注册钱包服务"));
         AlipayAppService appService = new AlipayAppService(
                 new AlipayRepository(context.documents()),
@@ -90,7 +89,7 @@ public class AlipayPlugin implements YuDreamPlugin {
                 walletService,
                 context.framework()
         );
-        context.registerExtension(PluginPaymentChannel.class, new AlipayPaymentChannel(appService));
+        context.exposeService(PluginPaymentChannel.class, new AlipayPaymentChannel(appService));
         AlipayHttpFacade http = new AlipayHttpFacade(appService);
         context.registerHttpController(new AlipayPublicController(http));
         context.registerHttpController(new AlipayUserController(http));

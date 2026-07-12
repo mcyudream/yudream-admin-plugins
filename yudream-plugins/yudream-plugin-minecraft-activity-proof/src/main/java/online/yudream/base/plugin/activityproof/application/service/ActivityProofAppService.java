@@ -20,17 +20,18 @@ import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofPa
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofSettings;
 import online.yudream.base.plugin.activityproof.domain.aggregate.PlayerStudentMapping;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
+import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.document.PluginRenderedDocument;
 import online.yudream.base.plugin.spi.system.document.PluginWordTemplateSummary;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftPlayerActivity;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftServer;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinProfile;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinService;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
+import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
-import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoProfile;
-import online.yudream.base.plugin.spi.system.studentinfo.PluginStudentInfoService;
+import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoProfile;
+import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.io.ByteArrayInputStream;
@@ -68,11 +69,14 @@ public class ActivityProofAppService {
     private final ActivityProofRepository repository;
     private final PluginFileStore files;
     private final FrameworkServices framework;
+    private final PluginContext pluginContext;
 
-    public ActivityProofAppService(ActivityProofRepository repository, PluginFileStore files, FrameworkServices framework) {
+    public ActivityProofAppService(ActivityProofRepository repository, PluginFileStore files, FrameworkServices framework,
+                                   PluginContext pluginContext) {
         this.repository = repository;
         this.files = files;
         this.framework = framework;
+        this.pluginContext = pluginContext;
     }
 
     public ActivityProofStatusDTO status() {
@@ -643,15 +647,15 @@ public class ActivityProofAppService {
     }
 
     private Optional<PluginMinecraftService> minecraftService() {
-        return framework == null ? Optional.empty() : framework.extension(MINECRAFT_PLUGIN, PluginMinecraftService.class);
+        return pluginContext == null ? Optional.empty() : pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class);
     }
 
     private Optional<PluginStudentInfoService> studentInfoService() {
-        return framework == null ? Optional.empty() : framework.extension(STUDENT_INFO_PLUGIN, PluginStudentInfoService.class);
+        return pluginContext == null ? Optional.empty() : pluginContext.service(STUDENT_INFO_PLUGIN, PluginStudentInfoService.class);
     }
 
     private Optional<PluginSkinService> skinService() {
-        return framework == null ? Optional.empty() : framework.extension(SKIN_PLUGIN, PluginSkinService.class);
+        return pluginContext == null ? Optional.empty() : pluginContext.service(SKIN_PLUGIN, PluginSkinService.class);
     }
 
     private boolean wordTemplateEnabled() {

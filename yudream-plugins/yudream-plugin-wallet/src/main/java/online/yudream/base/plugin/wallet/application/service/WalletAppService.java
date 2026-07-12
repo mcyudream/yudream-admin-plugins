@@ -1,17 +1,17 @@
 package online.yudream.base.plugin.wallet.application.service;
 
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletChangeRequest;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransactionQuery;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransferRequest;
-import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentChannel;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentChannelInfo;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentCreateRequest;
-import online.yudream.base.plugin.spi.system.payment.PluginPaymentCreateResult;
+import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletBalance;
+import online.yudream.base.plugin.wallet.api.PluginWalletChangeRequest;
+import online.yudream.base.plugin.wallet.api.PluginWalletService;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransactionQuery;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransferRequest;
+import online.yudream.base.plugin.spi.core.PluginContext;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentChannel;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentChannelInfo;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentCreateRequest;
+import online.yudream.base.plugin.wallet.api.payment.PluginPaymentCreateResult;
 import online.yudream.base.plugin.wallet.application.assembler.WalletAppAssembler;
 import online.yudream.base.plugin.wallet.application.cmd.WalletAssetSaveCmd;
 import online.yudream.base.plugin.wallet.application.cmd.WalletChangeCmd;
@@ -46,12 +46,12 @@ public class WalletAppService implements PluginWalletService {
     private static final int SCAN_PAGE_SIZE = 200;
 
     private final WalletRepository repository;
-    private final FrameworkServices framework;
+    private final PluginContext context;
     private final WalletAppAssembler assembler = new WalletAppAssembler();
 
-    public WalletAppService(WalletRepository repository, FrameworkServices framework) {
+    public WalletAppService(WalletRepository repository, PluginContext context) {
         this.repository = repository;
-        this.framework = framework;
+        this.context = context;
     }
 
     public void initializeDefaults() {
@@ -583,7 +583,7 @@ public class WalletAppService implements PluginWalletService {
     }
 
     private List<PluginPaymentChannel> paymentChannels() {
-        return framework == null ? List.of() : framework.extensions(PluginPaymentChannel.class);
+        return context == null ? List.of() : context.services(PluginPaymentChannel.class);
     }
 
     private WalletRechargeSettingsDTO toDTO(WalletRechargeSettings settings) {

@@ -1,6 +1,10 @@
 package online.yudream.base.plugin.minecraft.application.service;
 
 import online.yudream.base.plugin.minecraft.application.assembler.MinecraftServerAppAssembler;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd;
@@ -26,16 +30,13 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusService;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftPlayerActivity;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftOnlineWindow;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftServer;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletAsset;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletBalance;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletChangeRequest;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransaction;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransactionQuery;
+import online.yudream.base.plugin.spi.core.PluginContext;
+import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletBalance;
+import online.yudream.base.plugin.wallet.api.PluginWalletChangeRequest;
+import online.yudream.base.plugin.wallet.api.PluginWalletService;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransactionQuery;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -61,12 +62,14 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     private final MinecraftServerRepository repository;
     private final MinecraftStatusService statusService;
     private final FrameworkServices framework;
+    private final PluginContext pluginContext;
     private final MinecraftServerAppAssembler assembler = new MinecraftServerAppAssembler();
 
-    public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, FrameworkServices framework) {
+    public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, PluginContext pluginContext) {
         this.repository = repository;
         this.statusService = statusService;
-        this.framework = framework;
+        this.pluginContext = pluginContext;
+        this.framework = pluginContext.framework();
     }
 
     public MinecraftPageDTO<MinecraftServerDTO> pageServers(boolean includeDisabled, boolean refreshStatus, int page, int size) {
@@ -273,6 +276,24 @@ public class MinecraftServerAppService implements PluginMinecraftService {
                 .map(activity -> assembler.toDTO(activity, now))
                 .toList();
         return new MinecraftPageDTO<>(records, repository.countPlayerActivities(serverId));
+    }
+
+    public List<MinecraftPlayerActivityDTO> onlinePlayerActivities(String serverId) {
+        return allPlayerActivities(serverId).stream().filter(MinecraftPlayerActivityDTO::online).toList();
+    }
+
+    public List<MinecraftPlayerActivityDTO> allPlayerActivities(String serverId) {
+        int page = 1;
+        int size = 200;
+        List<MinecraftPlayerActivityDTO> result = new ArrayList<>();
+        while (true) {
+            MinecraftPageDTO<MinecraftPlayerActivityDTO> batch = playerActivities(serverId, page, size);
+            result.addAll(batch.records());
+            if ((long) page * size >= batch.total()) {
+                return List.copyOf(result);
+            }
+            page++;
+        }
     }
 
     @Override
@@ -731,12 +752,12 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     private PluginWalletService wallet() {
-        return framework.extension("yudream-wallet", PluginWalletService.class)
+        return pluginContext.service("yudream-wallet", PluginWalletService.class)
                 .orElseThrow(() -> new IllegalStateException("钱包插件未启用，无法执行周目货币继承"));
     }
 
     private PluginWalletService walletOrNull() {
-        return framework.extension("yudream-wallet", PluginWalletService.class).orElse(null);
+        return pluginContext.service("yudream-wallet", PluginWalletService.class).orElse(null);
     }
 
     private BigDecimal scale(BigDecimal value, int scale) {

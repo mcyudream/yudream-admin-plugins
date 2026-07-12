@@ -2,10 +2,11 @@ package online.yudream.base.plugin.projectprogress.application.service;
 
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftPolicy;
+import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftPlayerActivity;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftOnlineWindow;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.util.List;
@@ -17,9 +18,11 @@ public class ProjectProgressMinecraftService {
     private static final int SCAN_PAGE_SIZE = 200;
 
     private final FrameworkServices framework;
+    private final PluginContext pluginContext;
 
-    public ProjectProgressMinecraftService(FrameworkServices framework) {
+    public ProjectProgressMinecraftService(FrameworkServices framework, PluginContext pluginContext) {
         this.framework = framework;
+        this.pluginContext = pluginContext;
     }
 
     public boolean ready() {
@@ -78,7 +81,7 @@ public class ProjectProgressMinecraftService {
     }
 
     private Optional<PluginMinecraftService> minecraft() {
-        return framework == null ? Optional.empty() : framework.extension(MINECRAFT_PLUGIN, PluginMinecraftService.class);
+        return pluginContext == null ? Optional.empty() : pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class);
     }
 
     private Optional<PluginUserProfile> userProfile(String userId) {

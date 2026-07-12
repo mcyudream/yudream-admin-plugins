@@ -18,7 +18,7 @@ import online.yudream.base.plugin.skin.interfaces.request.TextureUpdateRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.skin.PluginSkinProfile;
+import online.yudream.base.plugin.skin.api.PluginSkinProfile;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 

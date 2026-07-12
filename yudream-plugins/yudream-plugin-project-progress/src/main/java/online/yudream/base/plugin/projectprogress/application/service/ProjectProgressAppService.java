@@ -33,9 +33,10 @@ import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectLocationE
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftPolicy;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectStatusOption;
+import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftServer;
-import online.yudream.base.plugin.spi.system.minecraft.PluginMinecraftService;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 import online.yudream.base.plugin.spi.system.user.PluginDeptOption;
 import online.yudream.base.plugin.spi.system.user.PluginUserDept;
@@ -64,18 +65,21 @@ public class ProjectProgressAppService {
     private final ProjectProgressRepository repository;
     private final PluginFileStore files;
     private final FrameworkServices framework;
+    private final PluginContext pluginContext;
     private final ProjectProgressNotificationService notifications;
     private final ProjectProgressMinecraftService minecraft;
     private final ProjectProgressEventStream eventStream = new ProjectProgressEventStream();
     private final ProjectAssignmentService assignmentService = new ProjectAssignmentService();
     private final ProjectProgressAppAssembler assembler = new ProjectProgressAppAssembler();
 
-    public ProjectProgressAppService(ProjectProgressRepository repository, PluginFileStore files, FrameworkServices framework) {
+    public ProjectProgressAppService(ProjectProgressRepository repository, PluginFileStore files, FrameworkServices framework,
+                                     PluginContext pluginContext) {
         this.repository = repository;
         this.files = files;
         this.framework = framework;
+        this.pluginContext = pluginContext;
         this.notifications = new ProjectProgressNotificationService(framework);
-        this.minecraft = new ProjectProgressMinecraftService(framework);
+        this.minecraft = new ProjectProgressMinecraftService(framework, pluginContext);
     }
 
     public ProjectProgressStatusDTO status() {
@@ -130,7 +134,7 @@ public class ProjectProgressAppService {
         if (framework == null) {
             return List.of();
         }
-        return framework.extension(MINECRAFT_PLUGIN, PluginMinecraftService.class)
+        return pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class)
                 .map(service -> service.minecraftServers(includeDisabled).stream().map(this::toMinecraftServerOptionDTO).toList())
                 .orElseGet(List::of);
     }

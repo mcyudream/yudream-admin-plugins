@@ -9,18 +9,19 @@ public record MinecraftEndpointStatus(
         Integer protocolId,
         Long ping,
         String motd,
+        String favicon,
         String errorMessage,
         long checkedAt
 ) {
 
     public static MinecraftEndpointStatus offline(String endpointId, String errorMessage) {
         return new MinecraftEndpointStatus(endpointId, "OFFLINE", 0, 0, null, null, null,
-                null, errorMessage, System.currentTimeMillis());
+                null, null, errorMessage, System.currentTimeMillis());
     }
 
     public static MinecraftEndpointStatus online(String endpointId, int onlinePlayers, int maxPlayers, String versionName,
-                                                 Integer protocolId, Long ping, String motd) {
+                                                 Integer protocolId, Long ping, String motd, String favicon) {
         return new MinecraftEndpointStatus(endpointId, "ONLINE", onlinePlayers, maxPlayers, versionName,
-                protocolId, ping, motd, null, System.currentTimeMillis());
+                protocolId, ping, motd, favicon, null, System.currentTimeMillis());
     }
 }

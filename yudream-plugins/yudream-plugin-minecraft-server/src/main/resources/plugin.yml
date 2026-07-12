@@ -1,0 +1,6 @@
+name: minecraft-server
+displayName: Minecraft 服务器
+main: online.yudream.base.plugin.minecraft.bootstrap.MinecraftServerPlugin
+version: 1.0.0
+softdepend:
+  - yudream-wallet
