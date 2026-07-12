@@ -28,6 +28,7 @@ async function reload() { await props.model.load(true) }
   <FaPageMain>
     <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[980px]" border stripe column-visibility :columns="columns" :data="model.servers">
       <template #toolbar><FaSearchBar class="w-full"><div class="flex justify-end gap-2"><FaButton variant="outline" :loading="model.loading" @click="reload"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></div></FaSearchBar></template>
+      <template #cell-name="{ row }"><div class="grid gap-1"><strong>{{ row.original.name }}</strong><span class="font-mono text-xs text-muted-foreground">ID: {{ row.original.id }}</span></div></template>
       <template #cell-status="{ row }"><StatusPill :status="row.original.status?.status" /></template>
       <template #cell-enabled="{ row }">{{ row.original.enabled ? '启用' : '停用' }}</template>
       <template #cell-operation="{ row }"><div class="flex flex-wrap justify-center gap-2"><FaButton size="sm" variant="outline" @click="go('Editor', row.original.id)">编辑</FaButton><FaButton size="sm" variant="outline" @click="go('Seasons', row.original.id)">周目</FaButton><FaButton size="sm" variant="outline" @click="go('Operations', row.original.id)">操作记录</FaButton><FaButton size="sm" variant="outline" @click="go('Players', row.original.id)">玩家统计</FaButton></div></template>
