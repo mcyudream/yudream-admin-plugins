@@ -133,16 +133,16 @@ public class AuthlibHttpFacade {
 
     private PluginHttpResponse ali(PluginHttpRequest request, PluginHttpResponse response) {
         Map<String, String> headers = new LinkedHashMap<>(response.headers());
-        headers.put("X-Authlib-Injector-API-Location", API_LOCATION);
+        headers.put("X-Authlib-Injector-API-Location", externalApiLocation(request));
         return new PluginHttpResponse(response.status(), headers, response.contentType(), response.body(), response.wrapped());
     }
 
     private String apiRoot(PluginHttpRequest request) {
-        return origin(request) + API_LOCATION;
+        return origin(request) + externalApiLocation(request);
     }
 
     private String textureBaseUrl(PluginHttpRequest request) {
-        return origin(request) + "/api/plugins/yudream-skin/textures";
+        return origin(request) + forwardedPrefix(request) + "/api/plugins/yudream-skin/textures";
     }
 
     private String origin(PluginHttpRequest request) {
@@ -198,6 +198,22 @@ public class AuthlibHttpFacade {
             return null;
         }
         return value.split(",")[0].trim();
+    }
+
+    private String externalApiLocation(PluginHttpRequest request) {
+        String prefix = forwardedPrefix(request);
+        return prefix + API_LOCATION;
+    }
+
+    private String forwardedPrefix(PluginHttpRequest request) {
+        String value = firstForwardedValue(header(request, "x-forwarded-prefix"));
+        if (value == null || !value.startsWith("/") || value.contains("..") || value.contains("\\")) {
+            return "";
+        }
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value;
     }
 
     private boolean localHost(String host) {
