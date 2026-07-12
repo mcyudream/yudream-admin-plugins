@@ -285,14 +285,17 @@ public class AuthlibAppService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("id", profile.uuid());
         body.put("name", profile.name());
-        body.put("properties", List.of(textureProperty(profile, textureBaseUrl, unsigned)));
+        body.put("properties", List.of(
+                textureProperty(profile, textureBaseUrl, unsigned),
+                uploadableTexturesProperty(unsigned)
+        ));
         return body;
     }
 
     private Map<String, Object> textureProperty(PluginSkinProfile profile, String textureBaseUrl, boolean unsigned) {
         Map<String, Object> property = new LinkedHashMap<>();
         property.put("name", "textures");
-        String value = Base64.getEncoder().encodeToString(texturePayload(profile, textureBaseUrl).getBytes(StandardCharsets.UTF_8));
+        String value = Base64.getEncoder().encodeToString(texturePayload(profile, textureBaseUrl, !unsigned).getBytes(StandardCharsets.UTF_8));
         property.put("value", value);
         if (!unsigned) {
             property.put("signature", cryptoService.sign(value));
@@ -300,7 +303,18 @@ public class AuthlibAppService {
         return property;
     }
 
-    private String texturePayload(PluginSkinProfile profile, String textureBaseUrl) {
+    private Map<String, Object> uploadableTexturesProperty(boolean unsigned) {
+        Map<String, Object> property = new LinkedHashMap<>();
+        property.put("name", "uploadableTextures");
+        String value = "skin,cape";
+        property.put("value", value);
+        if (!unsigned) {
+            property.put("signature", cryptoService.sign(value));
+        }
+        return property;
+    }
+
+    private String texturePayload(PluginSkinProfile profile, String textureBaseUrl, boolean signatureRequired) {
         Map<String, Object> textures = new LinkedHashMap<>();
         if (profile.skin() != null) {
             textures.put("SKIN", textureNode(profile.skin(), textureBaseUrl));
@@ -312,6 +326,10 @@ public class AuthlibAppService {
         payload.put("timestamp", now());
         payload.put("profileId", profile.uuid());
         payload.put("profileName", profile.name());
+        payload.put("isPublic", true);
+        if (signatureRequired) {
+            payload.put("signatureRequired", true);
+        }
         payload.put("textures", textures);
         return JsonSupport.write(payload);
     }
