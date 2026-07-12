@@ -383,11 +383,13 @@ public class WalletHttpFacade {
         }
         String mode = hasText(request.matchMode()) ? request.matchMode().trim().toLowerCase() : "auto";
         Optional<PluginSkinProfile> profile = Optional.empty();
-        if (!"name".equals(mode) && hasText(request.playerUuid())) {
-            profile = skinProfileByUuid(request.playerUuid());
-        }
-        if (profile.isEmpty() && !"uuid".equals(mode) && hasText(request.playerName())) {
-            profile = skinProfileByName(request.playerName());
+        if (skinEnabled()) {
+            if (!"name".equals(mode) && hasText(request.playerUuid())) {
+                profile = skinProfileByUuid(request.playerUuid());
+            }
+            if (profile.isEmpty() && !"uuid".equals(mode) && hasText(request.playerName())) {
+                profile = skinProfileByName(request.playerName());
+            }
         }
         if (profile.isPresent() && hasText(profile.get().ownerId())) {
             return new GameUser(profile.get().ownerId(), profile.get().name(), profile.get().uuid());
@@ -412,7 +414,19 @@ public class WalletHttpFacade {
     }
 
     private Optional<PluginSkinService> skinService() {
+        if (!skinEnabled()) {
+            return Optional.empty();
+        }
         return context.service("yudream-skin", PluginSkinService.class);
+    }
+
+    private boolean skinEnabled() {
+        try {
+            Class.forName("online.yudream.base.plugin.skin.api.PluginSkinService", false, getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private String normalizeUuid(String uuid) {

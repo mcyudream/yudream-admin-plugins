@@ -154,15 +154,22 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     public boolean walletEnabled() {
-        return walletOrNull() != null;
+        try {
+            Class.forName("online.yudream.base.plugin.wallet.api.PluginWalletService", false, getClass().getClassLoader());
+            return pluginContext != null && pluginContext.service("yudream-wallet", PluginWalletService.class).isPresent();
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 
     public MinecraftSeasonOperationDTO previewOpenSeason(String serverId, MinecraftSeasonOpenCmd cmd, String operatorUserId) {
+        requireWalletEnabled();
         MinecraftSeasonOperation operation = buildSeasonOperation(requireServer(serverId), cmd, operatorUserId);
         return assembler.toDTO(operation, realIncomeTotals(wallet()));
     }
 
     public MinecraftSeasonOperationDTO openSeason(String serverId, MinecraftSeasonOpenCmd cmd, String operatorUserId) {
+        requireWalletEnabled();
         MinecraftServer server = requireServer(serverId);
         MinecraftSeasonOperation preview = buildSeasonOperation(server, cmd, operatorUserId);
         List<MinecraftSeasonAdjustment> appliedAdjustments = applyAdjustments(preview);
@@ -172,6 +179,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     public MinecraftSeasonOperationDTO rollbackSeasonOperation(String operationId, String operatorUserId) {
+        requireWalletEnabled();
         MinecraftSeasonOperation operation = repository.findOperation(operationId)
                 .orElseThrow(() -> new IllegalArgumentException("周目操作不存在：" + operationId));
         if (operation.status() != MinecraftSeasonOperationStatus.APPLIED) {
@@ -752,12 +760,22 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     private PluginWalletService wallet() {
+        requireWalletEnabled();
         return pluginContext.service("yudream-wallet", PluginWalletService.class)
                 .orElseThrow(() -> new IllegalStateException("钱包插件未启用，无法执行周目货币继承"));
     }
 
     private PluginWalletService walletOrNull() {
+        if (!walletEnabled()) {
+            return null;
+        }
         return pluginContext.service("yudream-wallet", PluginWalletService.class).orElse(null);
+    }
+
+    private void requireWalletEnabled() {
+        if (!walletEnabled()) {
+            throw new IllegalStateException("钱包插件未启用，无法执行周目货币操作");
+        }
     }
 
     private BigDecimal scale(BigDecimal value, int scale) {

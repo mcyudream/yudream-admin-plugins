@@ -131,7 +131,7 @@ public class ProjectProgressAppService {
     }
 
     public List<ProjectMinecraftServerOptionDTO> minecraftServers(boolean includeDisabled) {
-        if (framework == null) {
+        if (framework == null || !minecraft.ready()) {
             return List.of();
         }
         return pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class)

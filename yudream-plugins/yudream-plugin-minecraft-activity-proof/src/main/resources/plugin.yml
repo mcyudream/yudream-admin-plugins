@@ -5,4 +5,5 @@ version: 1.0.0
 depend:
   - minecraft-server
   - yudream-student-info
+softdepend:
   - yudream-skin

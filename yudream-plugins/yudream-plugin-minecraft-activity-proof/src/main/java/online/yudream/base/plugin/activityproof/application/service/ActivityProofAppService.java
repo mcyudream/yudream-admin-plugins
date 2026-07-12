@@ -540,6 +540,9 @@ public class ActivityProofAppService {
     }
 
     private Optional<PluginSkinProfile> skinProfile(PluginMinecraftPlayerActivity activity) {
+        if (!skinEnabled()) {
+            return Optional.empty();
+        }
         Optional<PluginSkinService> service = skinService();
         if (service.isEmpty()) {
             return Optional.empty();
@@ -655,7 +658,19 @@ public class ActivityProofAppService {
     }
 
     private Optional<PluginSkinService> skinService() {
+        if (!skinEnabled()) {
+            return Optional.empty();
+        }
         return pluginContext == null ? Optional.empty() : pluginContext.service(SKIN_PLUGIN, PluginSkinService.class);
+    }
+
+    private boolean skinEnabled() {
+        try {
+            Class.forName("online.yudream.base.plugin.skin.api.PluginSkinService", false, getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private boolean wordTemplateEnabled() {

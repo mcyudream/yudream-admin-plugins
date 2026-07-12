@@ -81,7 +81,19 @@ public class ProjectProgressMinecraftService {
     }
 
     private Optional<PluginMinecraftService> minecraft() {
+        if (!minecraftEnabled()) {
+            return Optional.empty();
+        }
         return pluginContext == null ? Optional.empty() : pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class);
+    }
+
+    private boolean minecraftEnabled() {
+        try {
+            Class.forName("online.yudream.base.plugin.minecraft.api.PluginMinecraftService", false, getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private Optional<PluginUserProfile> userProfile(String userId) {
