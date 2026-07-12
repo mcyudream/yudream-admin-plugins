@@ -15,8 +15,17 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
+import online.yudream.base.plugin.spi.system.ai.PluginAiTool;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolCall;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolDescriptor;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolResult;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolRisk;
 
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @PluginSpec(
         code = ProjectProgressPlugin.CODE,
@@ -138,39 +147,52 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
     public static final String CHECK_IN_PERMISSION = "plugin:project-progress:check-in";
     public static final String ACCEPT_PERMISSION = "plugin:project-progress:accept";
     private volatile ProjectProgressAppService appService;
+    private final Map<String, NumberedSelection> claimSelections = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable(PluginContext context) {
         appService = new ProjectProgressAppService(
                 new ProjectProgressDocumentRepository(context.documents()),
                 context.files(),
-                context.framework()
+                context.framework(),
+                context
         );
         context.registerHttpController(new ProjectProgressController(new ProjectProgressHttpFacade(appService)));
+        context.registerAiTool(new PluginAiTool() {
+            @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("project.my-tasks", "查询我的任务", "查询当前绑定用户的项目任务", CHECK_IN_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION"), Map.of()); }
+            @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) {
+                if (execution.userId() == null) return new PluginAiToolResult("denied", "当前 QQ 未绑定系统账号", Map.of());
+                return new PluginAiToolResult("tasks", "已查询当前用户任务", Map.of("tasks", appService.myTasks(String.valueOf(execution.userId()), 1, 10)));
+            }
+        });
     }
 
     @PluginCommand(code = "project-progress.my-tasks", command = "我的任务", name = "查询我的任务", description = "查看当前绑定账号的项目任务")
     public void myTasks(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var tasks = appService.myTasks(String.valueOf(command.userId()), 1, 10);
-        reply(command, context, tasks.isEmpty() ? "当前没有分配给你的任务。" : "我的任务：\n" + tasks.stream()
-                .map(task -> "- " + task.title() + "（" + task.statusCode() + "，ID: " + task.id() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
+        if (tasks.isEmpty()) { reply(command, context, "当前没有分配给你的任务。"); return; }
+        renderList(command, context, "我的任务", tasks.stream().map(task -> item(task.title(), task.statusCode(), task.description())).toList(),
+                "任务编号仅用于本次列表", "我的任务：\n" + tasks.stream().map(task -> "- " + task.title() + "（" + task.statusCode() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
     }
 
     @PluginCommand(code = "project-progress.claimable-tasks", command = "可认领任务", name = "查询可认领任务", description = "查看可由当前绑定账号认领的任务")
     public void claimableTasks(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var tasks = appService.claimableTasks(String.valueOf(command.userId()), 1, 10);
-        reply(command, context, tasks.isEmpty() ? "当前没有可认领任务。" : "可认领任务：\n" + tasks.stream()
-                .map(task -> "- " + task.title() + "（ID: " + task.id() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
+        if (tasks.isEmpty()) { reply(command, context, "当前没有可认领任务。"); return; }
+        claimSelections.put(selectionKey(command), new NumberedSelection(tasks.stream().map(task -> task.id()).toList(), System.currentTimeMillis() + 300_000));
+        renderList(command, context, "可认领任务", tasks.stream().map(task -> item(task.title(), task.statusCode(), task.description())).toList(),
+                "发送 /认领任务 编号，例如 /认领任务 1", "可认领任务：\n" + tasks.stream()
+                        .map(task -> "- " + task.title()).reduce((a, b) -> a + "\n" + b).orElse(""));
     }
 
     @PluginCommand(code = "project-progress.claim", command = "认领任务", name = "认领任务", description = "用法：/认领任务 任务ID")
     public void claim(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
-        if (command.arguments().size() != 1) { reply(command, context, "用法：/认领任务 任务ID"); return; }
+        if (command.arguments().size() != 1) { reply(command, context, "用法：/认领任务 编号"); return; }
         try {
-            var task = appService.claim(command.arguments().getFirst(), String.valueOf(command.userId()));
+            var task = appService.claim(resolveClaimId(command, command.arguments().getFirst()), String.valueOf(command.userId()));
             reply(command, context, "已认领任务：" + task.title());
         } catch (RuntimeException e) { reply(command, context, message(e)); }
     }
@@ -179,8 +201,48 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
     public void myCheckIns(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var records = appService.myCheckIns(String.valueOf(command.userId()), null, 1, 10);
-        reply(command, context, records.isEmpty() ? "当前没有打卡记录。" : "最近打卡：\n" + records.stream()
-                .map(record -> "- " + record.type() + " " + record.summary() + "（" + record.reviewStatus() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
+        if (records.isEmpty()) { reply(command, context, "当前没有打卡记录。"); return; }
+        renderList(command, context, "最近打卡", records.stream().map(record -> item(record.type(), record.reviewStatus(), record.summary())).toList(),
+                "最近 10 条记录", "最近打卡：\n" + records.stream()
+                        .map(record -> "- " + record.type() + " " + record.summary() + "（" + record.reviewStatus() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
+    }
+
+    private String resolveClaimId(PluginCommandContext command, String selector) {
+        if (selector == null || !selector.matches("\\d+")) return selector;
+        NumberedSelection selection = claimSelections.get(selectionKey(command));
+        int index = Integer.parseInt(selector);
+        if (selection == null || selection.expiresAt() < System.currentTimeMillis() || index < 1 || index > selection.ids().size()) {
+            throw new IllegalArgumentException("任务编号已失效，请先发送 /可认领任务 获取最新列表。");
+        }
+        return selection.ids().get(index - 1);
+    }
+
+    private String selectionKey(PluginCommandContext command) {
+        return command.event().connectionId() + ":" + command.event().channelId() + ":" + command.event().userId();
+    }
+
+    private Map<String, Object> item(String title, String meta, String description) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("title", title == null ? "未命名" : title);
+        item.put("meta", meta == null ? "" : meta);
+        item.put("description", description == null ? "" : description);
+        return item;
+    }
+
+    private void renderList(PluginCommandContext command, PluginContext context, String title,
+                            List<Map<String, Object>> items, String footer, String fallback) {
+        Map<String, Object> variables = new LinkedHashMap<>();
+        variables.put("title", title);
+        variables.put("items", items);
+        variables.put("footer", footer);
+        context.templateRenderer().render("command-list", variables, "#command-card").whenComplete((image, error) -> {
+            if (error != null || image == null || image.content() == null || image.content().length == 0) {
+                reply(command, context, fallback);
+                return;
+            }
+            send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE,
+                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command)));
+        });
     }
 
     private boolean requireUser(PluginCommandContext command, PluginContext context) {
@@ -190,11 +252,18 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
-        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
-                command.event().selfId(), command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
-                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command)));
     }
 
+    private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
+        if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
+        context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
+                command.event().selfId(), command.event().channelId(), content));
+    }
+
+    private Map<String, Object> referrer(PluginCommandContext command) { return command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()); }
+
     private String message(RuntimeException exception) { return exception.getMessage() == null ? "操作失败" : exception.getMessage(); }
+
+    private record NumberedSelection(List<String> ids, long expiresAt) {}
 }

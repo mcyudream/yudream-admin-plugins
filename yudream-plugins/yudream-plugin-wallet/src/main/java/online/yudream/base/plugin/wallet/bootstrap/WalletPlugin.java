@@ -12,8 +12,13 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletTransactionQuery;
-import online.yudream.base.plugin.spi.system.wallet.PluginWalletService;
+import online.yudream.base.plugin.spi.system.ai.PluginAiTool;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolCall;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolDescriptor;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolResult;
+import online.yudream.base.plugin.spi.system.ai.PluginAiToolRisk;
+import online.yudream.base.plugin.wallet.api.PluginWalletTransactionQuery;
+import online.yudream.base.plugin.wallet.api.PluginWalletService;
 import online.yudream.base.plugin.wallet.application.service.WalletAppService;
 import online.yudream.base.plugin.wallet.infrastructure.repository.WalletRepository;
 import online.yudream.base.plugin.wallet.interfaces.controller.WalletAdminController;
@@ -21,6 +26,9 @@ import online.yudream.base.plugin.wallet.interfaces.controller.WalletUserControl
 import online.yudream.base.plugin.wallet.interfaces.controller.WalletViewController;
 import online.yudream.base.plugin.wallet.interfaces.http.WalletHttpFacade;
 
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @PluginSpec(
@@ -138,30 +146,60 @@ public class WalletPlugin implements YuDreamPlugin {
 
     @Override
     public void onEnable(PluginContext context) {
-        appService = new WalletAppService(new WalletRepository(context.documents()), context.framework());
+        appService = new WalletAppService(new WalletRepository(context.documents()), context);
         appService.initializeDefaults();
-        context.registerExtension(PluginWalletService.class, appService);
-        WalletHttpFacade http = new WalletHttpFacade(appService, context.framework());
+        context.exposeService(PluginWalletService.class, appService);
+        WalletHttpFacade http = new WalletHttpFacade(appService, context);
         context.registerHttpController(new WalletViewController(http));
         context.registerHttpController(new WalletUserController(http));
         context.registerHttpController(new WalletAdminController(http));
+        context.registerAiTool(new PluginAiTool() {
+            @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("wallet.my-balance", "查询我的余额", "查询当前绑定用户的钱包余额", USER_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION"), Map.of()); }
+            @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) {
+                if (execution.userId() == null) return new PluginAiToolResult("denied", "当前 QQ 未绑定系统账号", Map.of());
+                return new PluginAiToolResult("balance", "已查询当前用户余额", Map.of("balances", appService.balances(String.valueOf(execution.userId()))));
+            }
+        });
     }
 
     @PluginCommand(code = "wallet.balance", command = "我的余额", name = "查询钱包余额", description = "查询当前绑定账号的钱包余额")
     public void balance(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var balances = appService.balances(String.valueOf(command.userId()));
-        reply(command, context, balances.isEmpty() ? "当前没有余额记录。" : "我的余额：\n" + balances.stream()
-                .map(item -> "- " + item.assetCode() + "：" + item.balance()).reduce((a, b) -> a + "\n" + b).orElse(""));
+        if (balances.isEmpty()) { reply(command, context, "当前没有余额记录。"); return; }
+        render(command, context, "我的余额", balances.stream().map(item -> row(item.assetCode(), item.balance().toPlainString(), "可用余额")).toList(),
+                "余额以系统钱包记录为准", "我的余额：\n" + balances.stream()
+                        .map(item -> "- " + item.assetCode() + "：" + item.balance()).reduce((a, b) -> a + "\n" + b).orElse(""));
     }
 
     @PluginCommand(code = "wallet.transactions", command = "我的流水", name = "查询钱包流水", description = "查询最近十条钱包流水")
     public void transactions(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var records = appService.transactions(new PluginWalletTransactionQuery(null, null, null, String.valueOf(command.userId()), null, null, 1, 10));
-        reply(command, context, records.isEmpty() ? "当前没有钱包流水。" : "最近流水：\n" + records.stream()
-                .map(item -> "- " + item.type() + " " + item.amount() + " " + item.assetCode() + "（" + item.remark() + "）")
-                .reduce((a, b) -> a + "\n" + b).orElse(""));
+        if (records.isEmpty()) { reply(command, context, "当前没有钱包流水。"); return; }
+        render(command, context, "最近流水", records.stream().map(item -> row(item.type(), item.amount().toPlainString() + " " + item.assetCode(), item.remark())).toList(),
+                "最近 10 条交易", "最近流水：\n" + records.stream()
+                        .map(item -> "- " + item.type() + " " + item.amount() + " " + item.assetCode() + "（" + item.remark() + "）")
+                        .reduce((a, b) -> a + "\n" + b).orElse(""));
+    }
+
+    private Map<String, Object> row(String label, String value, String note) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("label", label == null ? "" : label);
+        row.put("value", value == null ? "" : value);
+        row.put("note", note == null ? "" : note);
+        return row;
+    }
+
+    private void render(PluginCommandContext command, PluginContext context, String title,
+                        List<Map<String, Object>> rows, String footer, String fallback) {
+        Map<String, Object> variables = new LinkedHashMap<>();
+        variables.put("title", title); variables.put("rows", rows); variables.put("footer", footer);
+        context.templateRenderer().render("wallet-summary", variables, "#wallet-card").whenComplete((image, error) -> {
+            if (error != null || image == null || image.content() == null || image.content().length == 0) { reply(command, context, fallback); return; }
+            send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE,
+                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command)));
+        });
     }
 
     private boolean requireUser(PluginCommandContext command, PluginContext context) {
@@ -171,9 +209,14 @@ public class WalletPlugin implements YuDreamPlugin {
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command)));
+    }
+
+    private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
         if (command.event().channelId() == null || command.event().channelId().isBlank()) return;
         context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),
-                command.event().selfId(), command.event().channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
-                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()))));
+                command.event().selfId(), command.event().channelId(), content));
     }
+
+    private Map<String, Object> referrer(PluginCommandContext command) { return command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()); }
 }

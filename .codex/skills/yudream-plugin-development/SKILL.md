@@ -30,11 +30,37 @@ Develop official YuDream plugins as independently buildable frontend remote modu
 - Add a host capability through a stable SPI/SDK contract first. Do not bypass the contract with internal imports, private HTTP clients, or direct Spring bean access.
 - Keep Java `Long` and Snowflake identifiers as strings across JSON, plugin DTOs, TypeScript models, form state, route params, and SDK calls.
 
+## Plugin Metadata And Cross-Plugin APIs
+
+- Declare plugin metadata in `plugin.yml` packaged with the plugin JAR. Every plugin must define `name`, `main`, and `version`; use `depend` for required provider plugins and `softdepend` for optional provider plugins. Do not package `META-INF/services/online.yudream.base.plugin.spi.core.YuDreamPlugin`: runtime instantiates the `main` class from `plugin.yml` and does not use `ServiceLoader`.
+
+```yaml
+name: yudream-plugin-order
+displayName: 订单插件
+main: online.yudream.plugin.order.OrderPlugin
+version: 1.0.0
+depend:
+  - yudream-plugin-wallet
+softdepend:
+  - yudream-plugin-coupon
+```
+
+- `name` is the unique stable plugin code used by dependency declarations and service lookup. Optional `displayName` is the user-facing localized name and falls back to `name`; never use it in `depend`, `softdepend`, routes, or service lookup. `main` is the fully qualified plugin entry class. `version` is the plugin release version. Use YAML lists for `depend` and `softdepend`; omit either key when empty.
+- A hard dependency in `depend` must exist and enable successfully before its consumer is loaded. Missing, disabled, or failed hard dependencies prevent the consumer plugin from loading or enabling.
+- A soft dependency in `softdepend` controls load order only when the provider is present and enabled. Runtime restores enabled soft providers before creating the consumer class loader, so their API classes are visible; missing, disabled, or failed providers do not block the consumer. The consumer must remain loadable without an optional provider, and must not register, display, or enable routes, menus, permissions, scheduled work, or operations that require the absent provider. React appropriately if an optional provider is disabled or unloaded.
+- Keep host-wide technical capabilities in `yudream-plugin-spi`. Do not place a plugin's business ports, DTOs, or extension interfaces in the host SPI merely so another plugin can consume them.
+- A provider plugin may package its public `*.api` interfaces and DTOs in the same JAR as its implementation. Keep implementation types outside that API package and make the API deliberately stable and minimal.
+- A consumer declares a hard or soft plugin dependency and compiles against the provider's API with `provided` scope. Do not package, shade, relocate, or duplicate the provider API classes in the consumer JAR.
+- Resolve and call a provider plugin's public API directly through the runtime's dependency class-loader relationship, not through `registerExtension`, `getExtension`, `framework().extension(s)`, or a plugin-specific HTTP proxy. The consumer must tolerate an unavailable soft provider and must not cache API objects across provider disable/reload.
+- The runtime must load the provider before each dependent consumer and expose the provider's classes to that consumer. Before disabling or unloading a provider, disable/unload all plugins with a hard or active soft dependency on it; otherwise Java interfaces with the same name but different class loaders cannot be cast safely.
+
 ## User And Admin Boundary
 
 - Implement user and administration capabilities as separate surfaces with distinct routes, menu entries, frontend pages, API wrappers/endpoints, permissions, and use cases. Read `references/access-boundaries.md` for the mandatory model.
 - Scope every user-side operation to the authenticated principal. An administrator using a user route remains an ordinary user for that request and must not view or mutate unrelated users' records.
 - Never treat `MANAGE_PERMISSION` as an ownership bypass inside `/me/**`, `/my/**`, or other user-side endpoints. Put cross-user queries and mutations behind explicit `/admin/**` endpoints and management permissions.
+- Plugins that react autonomously to group/chat events must expose a management-protected, plugin-scoped policy API and remote configuration page. Persist policy by connection and channel, apply updates on the next event without restart, and keep disabled, rate-limited, cooldown, and quiet-hour states in the runtime decision path rather than only in the UI.
+- Never ask an operator to type an internal identifier, provider code, model code, connection ID, group ID, user ID, or similar value when the system already owns an authoritative list. Expose a plugin API for that list and render a labeled selector; preserve manual entry only for genuinely external values with no discoverable source.
 - When a plugin exposes user-maintained records, provide the corresponding management surface for authorized administrators to list, inspect, create when meaningful, edit, change status, and delete/archive according to domain rules.
 
 ## Implementation Workflow
@@ -52,6 +78,7 @@ Develop official YuDream plugins as independently buildable frontend remote modu
 - Keep the plugin entry class limited to metadata, dependency construction, registration, lifecycle, and cleanup.
 - Keep controllers thin; delegate parsing/conversion to interface assemblers or facades and use cases to application services.
 - Access host abilities only through SPI ports such as `FrameworkServices`.
+- Put plugin-owned Thymeleaf image templates under the backend plugin's `src/main/resources/templates` directory and render them through `PluginContext.templateRenderer()` after SPI 2.1.0 is released. Use logical template names without `.html`, keep selectors inside the template, and never place plugin templates in the host repository.
 
 ### 3. Implement The Frontend
 

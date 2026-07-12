@@ -1,0 +1,4 @@
+name: ai-chatbot
+displayName: AI 群聊机器人
+main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
+version: 1.0.0
