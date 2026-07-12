@@ -97,22 +97,22 @@ public class MinecraftServerHttpFacade {
 
     public PluginHttpResponse playerJoin(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordJoin(pathSegment(request.path(), 2), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordJoin(reportServerId(request), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerQuit(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordQuit(pathSegment(request.path(), 2), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordQuit(reportServerId(request), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerAfkStart(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkStart(pathSegment(request.path(), 2), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkStart(reportServerId(request), assembler.toCmd(body))));
     }
 
     public PluginHttpResponse playerAfkEnd(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
-        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkEnd(pathSegment(request.path(), 2), assembler.toCmd(body))));
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkEnd(reportServerId(request), assembler.toCmd(body))));
     }
 
     private String userId(PluginHttpRequest request) {
@@ -149,6 +149,16 @@ public class MinecraftServerHttpFacade {
     private String pathSegment(String path, int index) {
         String[] segments = trim(path).split("/");
         return index >= 0 && index < segments.length ? decode(segments[index]) : null;
+    }
+
+    private String reportServerId(PluginHttpRequest request) {
+        String[] segments = trim(request.path()).split("/");
+        for (int i = 0; i + 1 < segments.length; i++) {
+            if ("servers".equals(segments[i])) {
+                return decode(segments[i + 1]);
+            }
+        }
+        throw new IllegalArgumentException("上报路径缺少服务器 ID");
     }
 
     private String trim(String path) {
