@@ -144,7 +144,7 @@ public class AuthlibAppService {
         ));
     }
 
-    public Optional<Object> hasJoined(String username, String serverId, String textureBaseUrl, boolean unsigned) {
+    public Optional<Object> hasJoined(String username, String serverId, String textureBaseUrl) {
         if (!hasText(username) || !hasText(serverId)) {
             return Optional.empty();
         }
@@ -153,7 +153,9 @@ public class AuthlibAppService {
                 .filter(join -> username.equalsIgnoreCase(join.username()))
                 .findFirst()
                 .flatMap(join -> skinService().findProfileByUuid(join.profileId()))
-                .map(profile -> profileResponse(profile, textureBaseUrl, unsigned));
+                // Paper requests hasJoined without unsigned=false. This response must
+                // nevertheless be signed so other clients accept its textures property.
+                .map(profile -> profileResponse(profile, textureBaseUrl, false));
     }
 
     public Object profile(String uuid, String textureBaseUrl, boolean unsigned) {

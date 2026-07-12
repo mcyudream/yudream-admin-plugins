@@ -72,8 +72,7 @@ public class AuthlibHttpFacade {
         try {
             String username = firstQuery(request, "username");
             String serverId = firstQuery(request, "serverId");
-            boolean unsigned = unsigned(request);
-            return appService.hasJoined(username, serverId, textureBaseUrl(request), unsigned)
+            return appService.hasJoined(username, serverId, textureBaseUrl(request))
                     .map(body -> ali(request, PluginHttpResponse.rawJson(200, body)))
                     .orElseGet(() -> ali(request, PluginHttpResponse.noContent()));
         } catch (AuthlibException e) {
