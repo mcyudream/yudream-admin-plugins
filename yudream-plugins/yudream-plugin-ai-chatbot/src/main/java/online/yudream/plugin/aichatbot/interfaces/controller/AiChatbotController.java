@@ -25,4 +25,14 @@ public class AiChatbotController {
     public PluginHttpResponse tools(PluginHttpRequest request) { return http.tools(); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/options/providers", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse providers(PluginHttpRequest request) { return http.providers(); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profiles", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse profiles(PluginHttpRequest request) { return http.profiles(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profile", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse profile(PluginHttpRequest request) { return http.profile(request); }
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/memory-profile", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveProfile(PluginHttpRequest request) { return http.saveProfile(request); }
+    @PluginHttpEndpoint(method = "POST", path = "/admin/memory-profile/enabled", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse profileEnabled(PluginHttpRequest request) { return http.profileEnabled(request); }
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/memory-profile", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse deleteProfile(PluginHttpRequest request) { return http.deleteProfile(request); }
 }

@@ -11,6 +11,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.ai.PluginAiChatMessage;
 import online.yudream.base.plugin.spi.system.ai.PluginAiChatRequest;
 import online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext;
+import online.yudream.base.plugin.spi.system.memory.PluginSemanticMemoryQuery;
+import online.yudream.base.plugin.spi.system.memory.PluginSemanticMemoryRecord;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter;
@@ -18,8 +20,10 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.plugin.aichatbot.application.dto.AiChatbotGroupPolicy;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotPolicyService;
+import online.yudream.plugin.aichatbot.application.service.AiChatbotMemoryProfileService;
 import online.yudream.plugin.aichatbot.interfaces.controller.AiChatbotController;
 import online.yudream.plugin.aichatbot.interfaces.http.AiChatbotHttpFacade;
+import online.yudream.plugin.aichatbot.interfaces.tool.AiChatbotCurrentUserTool;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +37,10 @@ import java.util.logging.Logger;
 
 @PluginSpec(code = AiChatbotPlugin.CODE, name = "ai-chatbot", version = "1.0.0", description = "群聊 AI 回复与用户专属上下文。")
 @PluginPermissions({@PluginPermission(code = AiChatbotPlugin.USE_PERMISSION, name = "使用 AI 群聊", module = "平台插件", description = "@机器人进行 AI 对话"), @PluginPermission(code = AiChatbotPlugin.MANAGE_PERMISSION, name = "管理 AI 群聊", module = "平台插件", description = "管理群聊机器人策略")})
-@PluginFrontend(moduleName = "aiChatbot", menuTitle = "AI 群聊机器人", menuIcon = "i-ri:robot-2-line", menuSort = 65, routes = @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/settings", name = "platform-plugin-ai-chatbot-settings", title = "群聊配置", icon = "i-ri:settings-3-line", component = "ai-chatbot/Settings", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 10))
+@PluginFrontend(moduleName = "aiChatbot", menuTitle = "AI 群聊机器人", menuIcon = "i-ri:robot-2-line", menuSort = 65, routes = {
+        @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/settings", name = "platform-plugin-ai-chatbot-settings", title = "群聊配置", icon = "i-ri:settings-3-line", component = "ai-chatbot/Settings", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 10),
+        @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/memory-profiles", name = "platform-plugin-ai-chatbot-memory-profiles", title = "记忆画像", icon = "i-ri:brain-line", component = "ai-chatbot/MemoryProfiles", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 20)
+})
 public class AiChatbotPlugin implements YuDreamPlugin {
     public static final String CODE = "ai-chatbot";
     public static final String USE_PERMISSION = "plugin:ai-chatbot:use";
@@ -45,7 +52,8 @@ public class AiChatbotPlugin implements YuDreamPlugin {
 
     @Override public void onEnable(PluginContext context) {
         this.context = context; policies = new AiChatbotPolicyService(context.documents());
-        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, context.framework())));
+        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, new AiChatbotMemoryProfileService(context.documents()), context.framework())));
+        context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
     }
 
@@ -76,10 +84,18 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         Long userId = context.framework().users().findByQq(event.userId()).map(profile -> profile.id()).orElse(null);
         if (mentioned && userId == null) { reply(event, "请先绑定系统账号后再使用 AI 对话。"); return CompletableFuture.completedFuture(null); }
         List<PluginAiChatMessage> history = history(mentioned && userId != null ? "user-memory" : "group-history", mentioned && userId != null ? memoryId(event, userId) : groupId(event), mentioned && userId != null ? policy.personalContextLimit() : policy.groupContextLimit());
+        if (userId != null && policy.longTermMemoryEnabled()) {
+            String namespace = groupId(event) + ":" + userId;
+            try {
+                var hits = context.semanticMemory().search(new PluginSemanticMemoryQuery(namespace, event.content(), policy.providerCode(), policy.modelCode(), policy.semanticMemoryTopK())).toCompletableFuture().join();
+                if (!hits.isEmpty()) { history = new ArrayList<>(history); history.addAll(hits.stream().map(hit -> new PluginAiChatMessage("system", "相关长期记忆：" + hit.content())).toList()); }
+                context.semanticMemory().index(new PluginSemanticMemoryRecord(namespace, event.messageId() == null ? UUID.randomUUID().toString() : event.messageId(), event.content(), policy.providerCode(), policy.modelCode(), Map.of("qq", event.userId(), "timestamp", System.currentTimeMillis())));
+            } catch (Exception ignored) { }
+        }
         if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
         String mode = mentioned ? "MENTION" : "RANDOM";
         PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), policy.enabledToolNames());
-        return context.framework().ai().chat(new PluginAiChatRequest(prompt(mode, policy), event.content(), blankToNull(policy.providerCode()), blankToNull(policy.modelCode()), history, execution, mentioned && !policy.enabledToolNames().isEmpty())).handle((result, error) -> {
+        return context.framework().ai().chat(new PluginAiChatRequest(prompt(mode, policy), event.content(), blankToNull(policy.providerCode()), blankToNull(policy.modelCode()), history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error)); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
