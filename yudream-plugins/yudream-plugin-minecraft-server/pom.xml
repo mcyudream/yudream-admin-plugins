@@ -70,6 +70,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-yudream-skin</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>

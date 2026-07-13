@@ -4,3 +4,4 @@ main: online.yudream.base.plugin.minecraft.bootstrap.MinecraftServerPlugin
 version: 1.0.0
 softdepend:
   - yudream-wallet
+  - yudream-skin

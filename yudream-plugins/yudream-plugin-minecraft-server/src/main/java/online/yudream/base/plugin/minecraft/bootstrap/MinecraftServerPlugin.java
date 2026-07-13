@@ -11,6 +11,7 @@ import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServe
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerReportController;
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerUserController;
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -29,9 +30,12 @@ import online.yudream.base.plugin.spi.system.ai.PluginAiToolResult;
 import online.yudream.base.plugin.spi.system.ai.PluginAiToolRisk;
 
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
@@ -172,11 +176,14 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         if (command.userId() == null) { reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。"); return; }
         var profile = context.framework().users().findById(command.userId()).orElse(null);
         String username = profile == null || profile.username() == null ? "" : profile.username();
+        String userId = String.valueOf(command.userId());
+        Set<String> playerIds = playerIdsForUser(context, userId);
         var servers = appService.listServers(false, false);
         Map<String, String> serverNames = servers.stream().collect(java.util.stream.Collectors.toMap(
                 MinecraftServerDTO::id, MinecraftServerDTO::name, (first, ignored) -> first));
         var matches = servers.stream().flatMap(server -> appService.allPlayerActivities(server.id()).stream())
-                .filter(activity -> activity.playerId().equals(String.valueOf(command.userId())) || activity.playerName().equalsIgnoreCase(username)).toList();
+                .filter(activity -> playerIds.contains(normalizePlayerId(activity.playerId()))
+                        || activity.playerName().equalsIgnoreCase(username)).toList();
         if (matches.isEmpty()) { reply(command, context, "未找到关联的 Minecraft 玩家活动记录。"); return; }
         List<Map<String, Object>> activities = matches.stream().map(activity -> activityView(
                 activity, serverNames.getOrDefault(activity.serverId(), activity.serverId()))).toList();
@@ -186,6 +193,19 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         variables.put("totalOnline", duration(matches.stream().mapToLong(MinecraftPlayerActivityDTO::totalOnlineMillis).sum()));
         variables.put("totalAfk", duration(matches.stream().mapToLong(MinecraftPlayerActivityDTO::totalAfkMillis).sum()));
         render(command, context, "player-online-time", variables, "在线时长查询失败");
+    }
+
+    private Set<String> playerIdsForUser(PluginContext context, String userId) {
+        Set<String> playerIds = new HashSet<>();
+        playerIds.add(normalizePlayerId(userId));
+        context.service("yudream-skin", PluginSkinService.class)
+                .ifPresent(service -> service.findProfilesByOwner(userId).forEach(profile ->
+                        playerIds.add(normalizePlayerId(profile.uuid()))));
+        return playerIds;
+    }
+
+    private String normalizePlayerId(String value) {
+        return value == null ? "" : value.trim().replace("-", "").toLowerCase(Locale.ROOT);
     }
 
     private void renderServers(PluginCommandContext command, PluginContext context, List<MinecraftServerDTO> servers) {
