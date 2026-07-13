@@ -3,15 +3,17 @@
 ## Goal
 
 Extend `ai-chatbot` with safe system tools, configurable random-reply tool
-calling, and administrator-managed user memory profiles. The implementation
-must consume only the released `yudream-plugin-spi` 2.3.0 contract.
+calling, administrator-managed user memory profiles, and two-layer memory.
+The host first releases a semantic-memory SPI; the plugin consumes only that
+published contract.
 
 ## Scope And Boundaries
 
-The feature is entirely owned by the AI chatbot plugin. It does not add a
-host-framework dependency, bypass an SPI port, or introduce a graph database.
-Profiles use the plugin document store and retain a portable, structured fact
-model so a future optional graph synchronizer can consume them.
+The chatbot owns policy, short-term state, profiles, and its management UI.
+The host owns the semantic-memory SPI and implementation. The plugin never
+imports Wiki, Neo4j, AI-provider, Spring, or other host-internal types. Neo4j
+is an optional host backing store, not a required plugin dependency or graph
+model.
 
 All profile management is an `/admin/**` capability protected by
 `plugin:ai-chatbot:manage`. The feature intentionally has no personal or
@@ -71,11 +73,48 @@ user messages and an administrator-editable structured profile. AI-assisted
 summarization remains a future enhancement because it requires a robust
 structured-output contract and explicit operating-cost controls.
 
+## Two-Layer Chat Memory
+
+### Short-Term Memory
+
+The chatbot automatically maintains a bounded rolling window per connection
+and channel, plus a bounded per-user conversation window for explicit
+mentions. It evicts the oldest entries at the configured limit and does not
+require an external capability. This remains the complete memory behavior
+when semantic memory is unavailable.
+
+### Long-Term Semantic Memory
+
+Every message observed after the chatbot is enabled is submitted to the host
+semantic-memory service as a vector record. The namespace contains the plugin
+code, connection ID, channel ID, and system user ID; retrieval never crosses a
+group or user namespace. Record metadata contains platform QQ, message ID,
+timestamp, role, and source type. On a reply, the plugin searches only the
+current namespace with the new message and adds the top relevant excerpts to
+the prompt.
+
+The host publishes a generic `PluginSemanticMemoryService` with capability
+status and supported embedding models, asynchronous indexing from text and
+metadata, namespace-constrained search, and record/namespace deletion. Its
+normal implementation may use the existing Neo4j vector index but does not
+create graph relationships.
+
+The service is always present in `FrameworkServices`. When the semantic-memory
+capability, embedding provider, or backend is disabled, it reports unavailable
+and indexing/search returns a non-throwing no-op/empty result. Replies,
+profiles, QQ lookup, and short-term memory therefore remain usable without
+long-term vector memory. The platform exposes no plugin-facing historical
+message archive, so only messages received after plugin enablement can be
+vectorized.
+
 ## Administration Surface
 
 The existing Settings page remains the group policy route. It gains the
 `randomToolCallingEnabled` switch alongside the existing provider/model and
-tool selection controls.
+tool selection controls, plus long-term-memory enablement, embedding model,
+retrieval top-K, and live capability status. Long-term controls remain visible
+but disabled with an explanatory unavailable state when the host capability is
+off.
 
 A separate `Memory Profiles` administration route provides a server-paginated
 `FaTable` with scoped group, QQ, user identity, status, tags, update time, and
@@ -91,13 +130,20 @@ delete; all invoke separate management-protected endpoints.
   result without disclosing account existence beyond the permitted subject.
 - Profile documents are never queried across connection or channel scope by a
   tool.
+- Semantic records and searches carry the same connection/channel/user
+  namespace; failed capability checks never fall back to a wider namespace.
+- Semantic indexing failure is logged and isolated from the reply pipeline; it
+  never prevents the current message from being answered.
 - Profile management APIs are separate from any future user self-service API;
   management permission does not alter a user-scoped endpoint because none is
   added here.
 
 ## Verification
 
-Unit tests cover subject validation, safe user projection, profile scoping,
-policy serialization/defaults, random-tool gating, and profile lifecycle.
-Backend tests/package, the plugin frontend typecheck/build, and final JAR
-remote-entry inspection verify the completed plugin.
+Host contract tests cover unavailable no-op behavior, namespace isolation, and
+the vector adapter. Plugin unit tests cover subject validation, safe user
+projection, profile scoping, policy serialization/defaults, random-tool
+gating, short-term eviction, semantic-memory degradation, and retrieval
+namespace construction. Backend tests/package, SPI publication, the plugin
+frontend typecheck/build, and final JAR remote-entry inspection verify the
+completed feature.

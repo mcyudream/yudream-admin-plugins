@@ -3,19 +3,95 @@
 > **For implementer:** Use TDD throughout. Write failing test first. Watch it fail. Then implement.
 
 **Goal:** Add privacy-preserving QQ account tools, group-scoped managed memory
-profiles, and per-policy random-reply tool calling to the AI chatbot plugin.
+profiles, automatic short-term memory, optional long-term vector memory, and
+per-policy random-reply tool calling to the AI chatbot plugin.
 
-**Architecture:** Register two `READ` `PluginAiTool` implementations through
-the released SPI. Keep profile persistence in the plugin document store, with
-application services owning profile lifecycle and controller/facade code
-owning only HTTP parsing. Extend the existing group policy with one explicit
-random-tool flag; keep group settings and profile management as separate
-frontend routes.
+**Architecture:** First publish a host-owned, generic semantic-memory SPI with
+a no-op unavailable implementation and an optional Neo4j vector adapter. Then
+register two `READ` chatbot tools through the published SPI. Keep short-term
+state and profiles in plugin documents; index and retrieve long-term chat
+memory through a group/user namespace. Group settings and profile management
+remain separate frontend routes.
 
-**Tech Stack:** Java 21, JUnit 5, `yudream-plugin-spi` 2.3.0, Vue 3,
-TypeScript, `@yudream/components`, `@yudream/plugin-sdk`.
+**Tech Stack:** Java 21, JUnit 5, published `yudream-plugin-spi` 2.4.0, Neo4j
+vector search as an optional host capability, Vue 3, TypeScript,
+`@yudream/components`, `@yudream/plugin-sdk`.
 
 ---
+
+### Task 0: Publish optional host semantic-memory contract
+
+**Repository:** `D:/code/yudream-admim`
+
+**Files:**
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryService.java`
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryStatus.java`
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryRecord.java`
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryQuery.java`
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryHit.java`
+- Modify: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/FrameworkServices.java`
+- Create: `yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/PluginSemanticMemoryFrameworkService.java`
+- Modify: `yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/DefaultFrameworkServices.java`
+- Create: `yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/memory/service/Neo4jPluginSemanticMemoryStore.java`
+- Test: `yudream-bootstrap/src/test/java/online/yudream/base/infra/platform/plugin/PluginSemanticMemoryFrameworkServiceTest.java`
+
+**Step 1: Write failing contract tests.** Assert that a disabled capability
+returns `available=false`, accepts indexing without throwing, and returns no
+hits. Assert available search accepts only an explicit namespace and preserves
+the caller's record metadata; assert service results never expose a different
+namespace.
+
+**Step 2: Run the test and confirm it fails.**
+
+```powershell
+cd D:/code/yudream-admim
+mvn -pl yudream-plugins/yudream-plugin-spi,yudream-bootstrap -am test -Dtest=PluginSemanticMemoryFrameworkServiceTest
+```
+
+Expected: compilation failure because the SPI port does not exist.
+
+**Step 3: Write minimal implementation.** Add a host-wide technical port with
+`status`, asynchronous `index`, namespace-constrained `search`, and deletion.
+Always provide the framework service; use a no-op result when the semantic
+memory capability is disabled or unconfigured. Implement the active adapter
+with the established Neo4j vector pattern, without graph relationship writes,
+and isolate adapter errors as unavailable results. Bump and publish the SPI as
+`2.4.0` through the configured Nexus release workflow.
+
+**Step 4: Run the test and confirm it passes.** Re-run the command above, then
+build and deploy only the SPI module after reviewing its staging diff.
+
+**Step 5: Commit.**
+
+```powershell
+cd D:/code/yudream-admim
+git add yudream-plugins/yudream-plugin-spi yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/memory yudream-bootstrap/src/test/java/online/yudream/base/infra/platform/plugin
+git commit -m "feat: expose optional plugin semantic memory"
+```
+
+### Task 0.1: Consume only the published semantic-memory contract
+
+**Files:**
+- Modify: `pom.xml`
+
+**Step 1: Update the standalone repository SPI property to the released
+`2.4.0` artifact only after Nexus publication succeeds.**
+
+**Step 2: Verify resolution.**
+
+```powershell
+mvn -pl yudream-plugins/yudream-plugin-ai-chatbot -am dependency:resolve
+```
+
+Expected: Maven resolves `online.yudream.base:yudream-plugin-spi:2.4.0` from
+the published repository, not the host source tree or a private JAR copy.
+
+**Step 3: Commit.**
+
+```powershell
+git add pom.xml
+git commit -m "build: consume semantic memory spi"
+```
 
 ### Task 1: Establish backend test support and policy regression coverage
 
@@ -26,10 +102,11 @@ TypeScript, `@yudream/components`, `@yudream/plugin-sdk`.
 - Test: `yudream-plugins/yudream-plugin-ai-chatbot/src/test/java/online/yudream/plugin/aichatbot/application/service/AiChatbotPolicyServiceTest.java`
 
 **Step 1: Write the failing test.** Add JUnit Jupiter test coverage that saves
-a policy with `randomToolCallingEnabled=true`, reloads it from an in-memory
-`PluginDocumentStore`, and asserts `toolCallingEnabled("RANDOM")` is true.
-Also assert the default policy keeps random tool calling disabled while mention
-tool calling remains enabled when tools are selected.
+a policy with `randomToolCallingEnabled=true`, `longTermMemoryEnabled=true`,
+an embedding provider/model, and retrieval top-K; reload it from an in-memory
+`PluginDocumentStore`; and asserts every field is retained. Assert
+`toolCallingEnabled("RANDOM")` is true, while defaults keep random tool calling
+and long-term memory disabled.
 
 **Step 2: Run the test and confirm it fails.**
 
@@ -40,10 +117,10 @@ mvn -pl yudream-plugins/yudream-plugin-ai-chatbot -am test -Dtest=AiChatbotPolic
 Expected: compilation failure because the policy field and decision method do
 not exist.
 
-**Step 3: Write the minimal implementation.** Add a boolean field after
-`enabledToolNames`, default it to `false`, persist it in `toDocument`, read it
-with a backwards-compatible false fallback, and expose a method that returns
-true for mentions with selected tools and true for random only with both the
+**Step 3: Write the minimal implementation.** Add explicit random-tool and
+long-term-memory configuration fields, with backwards-compatible disabled
+defaults. Persist them in the policy document, validate top-K and model pairs,
+and expose a tool decision method that permits random tools only with both the
 flag and selected tools. Add test-scoped JUnit Jupiter dependencies and the
 Surefire version required for Java 21.
 
@@ -139,19 +216,21 @@ git add yudream-plugins/yudream-plugin-ai-chatbot/src/main/java/online/yudream/p
 git commit -m "feat: add safe chatbot system tools"
 ```
 
-### Task 4: Capture bounded observations and enable policy-controlled tools
+### Task 4: Maintain short-term memory and optional semantic long-term memory
 
 **Files:**
 - Modify: `yudream-plugins/yudream-plugin-ai-chatbot/src/main/java/online/yudream/plugin/aichatbot/bootstrap/AiChatbotPlugin.java`
 - Modify: `yudream-plugins/yudream-plugin-ai-chatbot/src/main/java/online/yudream/plugin/aichatbot/application/service/AiChatbotMemoryProfileService.java`
+- Create: `yudream-plugins/yudream-plugin-ai-chatbot/src/main/java/online/yudream/plugin/aichatbot/application/service/AiChatbotSemanticMemoryService.java`
 - Test: `yudream-plugins/yudream-plugin-ai-chatbot/src/test/java/online/yudream/plugin/aichatbot/bootstrap/AiChatbotReplyDecisionTest.java`
 
 **Step 1: Write the failing test.** Extract reply execution-request creation
 into a package-visible helper and assert random events set
 `toolCallingEnabled` only when both the group flag and selected tool names are
-present; mention events keep existing selected-tool behavior. Assert user
-observations are appended only for QQ-bound users and remain group-scoped and
-bounded.
+present. Assert short-term windows evict their oldest entry, semantic records
+use a group/user namespace, disabled or failed semantic memory returns no
+extra context and does not fail the reply, and enabled search adds only the
+configured top-K same-namespace excerpts.
 
 **Step 2: Run the test and confirm it fails.**
 
@@ -160,13 +239,16 @@ mvn -pl yudream-plugins/yudream-plugin-ai-chatbot -am test -Dtest=AiChatbotReply
 ```
 
 Expected: assertion failure because random responses currently hard-disable
-tools and no observation collection exists.
+tools and there is no semantic-memory integration or graceful degradation.
 
 **Step 3: Write the minimal implementation.** Use the policy decision method
 when constructing `PluginAiChatRequest`, add a random-mode prompt constraint
-that tools are optional and fact-driven, and record only bounded source
-messages for the resolved system user in `memory-observation`. Keep existing
-reply quotas and queue sequencing unchanged.
+that tools are optional and fact-driven, and keep bounded rolling short-term
+history. For every observed bound-user message, asynchronously submit a
+same-scope semantic record when the policy requests it and the host reports
+available. Search before composing the prompt, log and ignore unavailable or
+failed semantic operations, and retain existing reply quotas and queue
+sequencing.
 
 **Step 4: Run the test and confirm it passes.** Re-run the command above,
 then run all chatbot backend tests.
@@ -189,9 +271,10 @@ git commit -m "feat: gate chatbot tools by reply mode"
 
 **Step 1: Write failing tests.** Assert the facade maps `/admin/memory-profiles`
 page/size queries to a page result and that detail/save/rebuild/enable/delete
-all target one scoped profile. Assert controller endpoint annotations carry
-`MANAGE_PERMISSION`, never `USE_PERMISSION`, and all identifiers remain
-strings at the HTTP boundary.
+all target one scoped profile. Assert `/admin/options/semantic-memory` exposes
+status and safe embedding options without leaking host credentials. Assert
+controller endpoint annotations carry `MANAGE_PERMISSION`, never
+`USE_PERMISSION`, and all identifiers remain strings at the HTTP boundary.
 
 **Step 2: Run the test and confirm it fails.**
 
@@ -204,9 +287,10 @@ exist.
 
 **Step 3: Write the minimal implementation.** Add only `/admin/memory-profiles`
 endpoints: paged list, detail, PUT save, POST rebuild, POST enabled state, and
-DELETE. Parse input through `JsonSupport`, use the profile service, and return
-the plugin's standard HTTP response. Register a second frontend route for the
-management page in the plugin annotation.
+DELETE. Add the read-only semantic-memory option/status endpoint. Parse input
+through `JsonSupport`, use application services, and return the plugin's
+standard HTTP response. Register a second frontend route for the management
+page in the plugin annotation.
 
 **Step 4: Run the test and confirm it passes.** Re-run the command above.
 
@@ -217,7 +301,7 @@ git add yudream-plugins/yudream-plugin-ai-chatbot/src/main/java/online/yudream/p
 git commit -m "feat: manage chatbot memory profiles"
 ```
 
-### Task 6: Extend policy types and settings UI for random tool selection
+### Task 6: Extend settings UI for random tools and optional long-term memory
 
 **Files:**
 - Modify: `yudream-frontend/packages/plugin-ai-chatbot/src/types.ts`
@@ -225,8 +309,10 @@ git commit -m "feat: manage chatbot memory profiles"
 - Test: `yudream-frontend/packages/plugin-ai-chatbot/src/pages/SettingsPage.spec.ts`
 
 **Step 1: Write the failing test.** Verify a form initialized from a policy
-serializes `randomToolCallingEnabled`, displays the switch next to existing
-tool selection, and retains selected tool names when a group policy reloads.
+serializes random-tool and long-term-memory fields, displays the random tool
+switch next to existing tool selection, displays semantic-memory status and
+embedding/top-K controls, disables only semantic controls when unavailable,
+and retains selected tool names when a group policy reloads.
 
 **Step 2: Run the test and confirm it fails.**
 
@@ -238,11 +324,12 @@ pnpm --filter @yudream/plugin-ai-chatbot exec vitest run src/pages/SettingsPage.
 Expected: test/configuration failure because the field and test runner setup
 do not exist.
 
-**Step 3: Write minimal implementation.** Add the field to `GroupPolicy` and
-the form default. Add Vitest and Vue Test Utils only if the frontend workspace
-does not already expose them; otherwise use its established test command.
-Use `FaSwitch`, explain its impact in the field label, and preserve the
-existing `FaSelect` tool allow-list as the second required control.
+**Step 3: Write minimal implementation.** Add typed status/model API methods,
+policy fields, and form defaults. Add Vitest and Vue Test Utils only if the
+frontend workspace does not already expose them; otherwise use its established
+test command. Use `FaSwitch` for each independent flag and preserve the
+existing `FaSelect` tool allow-list as the second required control. Do not
+hide or disable the whole chatbot configuration when semantic memory is off.
 
 **Step 4: Run the focused test and then typecheck/build.**
 
@@ -286,7 +373,9 @@ pnpm --filter @yudream/plugin-ai-chatbot exec vitest run src/pages/MemoryProfile
 Expected: test failure because the page and API methods do not exist.
 
 **Step 3: Write minimal implementation.** Add typed API wrappers for every
-management endpoint and use string identifiers throughout. Implement one
+management endpoint and use string identifiers throughout. Include semantic
+record deletion in profile deletion, but treat unavailable semantic memory as
+an already-complete cleanup. Implement one
 `FaPageHeader`/`FaPageMain` management page with `FaTable`, row key, loading,
 empty/error state, `FaPagination`, and compact operation controls. Use a
 focused `FaDrawer` or `FaModal` for editable summary/tags/facts. Keep settings
@@ -313,7 +402,7 @@ git commit -m "feat: add chatbot memory profile management"
 mvn -pl yudream-plugins/yudream-plugin-ai-chatbot -am test
 ```
 
-Expected: all unit tests pass.
+Expected: all unit tests pass, including disabled semantic-memory degradation.
 
 **Step 2: Build the remote frontend.**
 
@@ -334,6 +423,15 @@ jar tf yudream-plugins/yudream-plugin-ai-chatbot/target/yudream-plugin-ai-chatbo
 ```
 
 Expected: Maven succeeds and the JAR listing contains the remote entry.
+
+**Step 3.1: Verify published-contract consumption.**
+
+```powershell
+mvn -pl yudream-plugins/yudream-plugin-ai-chatbot -am dependency:tree -Dincludes=online.yudream.base:yudream-plugin-spi
+```
+
+Expected: only the released SPI 2.4.0 is present; no host core module is a
+plugin dependency.
 
 **Step 4: Run repository readiness.**
 
