@@ -49,10 +49,11 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private final Map<String, CompletableFuture<Void>> groupQueues = new ConcurrentHashMap<>();
     private PluginContext context;
     private AiChatbotPolicyService policies;
+    private AiChatbotMemoryProfileService profiles;
 
     @Override public void onEnable(PluginContext context) {
-        this.context = context; policies = new AiChatbotPolicyService(context.documents());
-        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, new AiChatbotMemoryProfileService(context.documents()), context.framework())));
+        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents());
+        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, context.framework())));
         context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
     }
@@ -81,7 +82,9 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         if ((!mentioned && !random) || !policies.allowReply(policy, System.currentTimeMillis(), mentioned)) return CompletableFuture.completedFuture(null);
         LOGGER.info(() -> "[YuDreamAdmin] [AI Chatbot] reply triggered: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + (mentioned ? "MENTION" : "RANDOM"));
         if (mentioned && asksForTools(event.content())) { reply(event, toolSummary(policy)); return CompletableFuture.completedFuture(null); }
-        Long userId = context.framework().users().findByQq(event.userId()).map(profile -> profile.id()).orElse(null);
+        var platformProfile = context.framework().users().findByQq(event.userId());
+        Long userId = platformProfile.map(profile -> profile.id()).orElse(null);
+        if (userId != null) profiles.observe(event.connectionId(), event.channelId(), String.valueOf(userId), event.userId(), platformProfile.map(profile -> profile.nickname()).orElse(""), event.content());
         if (mentioned && userId == null) { reply(event, "请先绑定系统账号后再使用 AI 对话。"); return CompletableFuture.completedFuture(null); }
         List<PluginAiChatMessage> history = history(mentioned && userId != null ? "user-memory" : "group-history", mentioned && userId != null ? memoryId(event, userId) : groupId(event), mentioned && userId != null ? policy.personalContextLimit() : policy.groupContextLimit());
         if (userId != null && policy.longTermMemoryEnabled()) {
