@@ -2,3 +2,10 @@ name: ai-chatbot
 displayName: AI 群聊机器人
 main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
 version: 1.0.0
+agents:
+  - code: builtin-group-chatbot
+    name: AI 群聊机器人 Agent
+    description: 用于群聊意图分析、安全分流、上下文回复和插件工具调用
+    icon: i-ri:robot-2-line
+    systemPrompt: 你是 YuDream 群聊机器人。回答简短、友好、准确，遵守调用方提供的群聊上下文、人设、权限和工具范围。
+    workflow: agents/group-chatbot.json

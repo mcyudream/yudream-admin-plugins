@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "agent",
+      "position": { "x": 60, "y": 260 },
+      "data": { "kind": "start", "title": "接收群消息", "outputVariable": "query" }
+    },
+    {
+      "id": "intent",
+      "type": "agent",
+      "position": { "x": 320, "y": 260 },
+      "data": {
+        "kind": "understand",
+        "title": "分析意图与安全性",
+        "providerCode": "runtime",
+        "modelCode": "default",
+        "allowModelOverride": true,
+        "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"reply|refuse\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\"}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse，否则 route=reply。",
+        "inputVariable": "query",
+        "outputVariable": "intent"
+      }
+    },
+    {
+      "id": "route",
+      "type": "agent",
+      "position": { "x": 600, "y": 260 },
+      "data": {
+        "kind": "condition",
+        "title": "是否安全回复",
+        "condition": "intent.route == 'refuse'",
+        "inputVariable": "intent",
+        "outputVariable": "refused"
+      }
+    },
+    {
+      "id": "refusal",
+      "type": "agent",
+      "position": { "x": 880, "y": 90 },
+      "data": {
+        "kind": "template",
+        "title": "生成安全拒答",
+        "template": "这个请求我不能直接执行。原因：{{intent.reason}}。可以换一个不涉及敏感信息或越权操作的问题。",
+        "inputVariable": "intent",
+        "outputVariable": "answer"
+      }
+    },
+    {
+      "id": "reply-task",
+      "type": "agent",
+      "position": { "x": 880, "y": 430 },
+      "data": {
+        "kind": "template",
+        "title": "组织回复任务",
+        "template": "群聊主题：{{intent.topic}}\n建议风格：{{intent.style}}\n用户消息：{{query}}\n请结合运行时人设和历史上下文回复；需要时调用已授权插件工具。",
+        "inputVariable": "intent",
+        "outputVariable": "replyTask"
+      }
+    },
+    {
+      "id": "reply",
+      "type": "agent",
+      "position": { "x": 1160, "y": 430 },
+      "data": {
+        "kind": "llm",
+        "title": "生成群聊回复",
+        "providerCode": "runtime",
+        "modelCode": "default",
+        "allowModelOverride": true,
+        "prompt": "直接给出适合发送到群聊的最终回复，不要解释编排过程。",
+        "inputVariable": "replyTask",
+        "outputVariable": "answer"
+      }
+    },
+    {
+      "id": "end",
+      "type": "agent",
+      "position": { "x": 1430, "y": 260 },
+      "data": { "kind": "end", "title": "输出群消息", "inputVariable": "answer" }
+    }
+  ],
+  "edges": [
+    { "id": "start-intent", "source": "start", "target": "intent" },
+    { "id": "intent-route", "source": "intent", "target": "route" },
+    { "id": "route-refusal", "source": "route", "target": "refusal", "sourceHandle": "true" },
+    { "id": "route-reply", "source": "route", "target": "reply-task", "sourceHandle": "false" },
+    { "id": "reply-task-model", "source": "reply-task", "target": "reply" },
+    { "id": "refusal-end", "source": "refusal", "target": "end" },
+    { "id": "reply-end", "source": "reply", "target": "end" }
+  ]
+}
