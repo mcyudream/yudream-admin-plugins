@@ -5,4 +5,4 @@ public record AiChatbotGroupPolicySaveRequest(String connectionId, String channe
                                                 int cooldownSeconds, int hourlyReplyLimit, String quietHoursStart,
                                                 String quietHoursEnd, String systemPrompt, String persona, java.util.List<String> enabledToolNames,
                                                 boolean randomToolCallingEnabled, boolean longTermMemoryEnabled, int semanticMemoryTopK,
-                                                String providerCode, String modelCode) { }
+                                                String agentCode, String providerCode, String modelCode) { }

@@ -3,12 +3,18 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>online.yudream.plugins</groupId><artifactId>yudream-admin-plugins</artifactId><version>1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>yudream-plugin-ai-chatbot</artifactId>
-  <build><resources>
-    <resource><directory>src/main/resources</directory></resource>
-    <resource><directory>../../yudream-frontend/packages/plugin-ai-chatbot/dist</directory><targetPath>META-INF/yudream-plugin/frontend/ai-chatbot</targetPath><filtering>false</filtering></resource>
-  </resources></build>
   <dependencies>
     <dependency><groupId>online.yudream.base</groupId><artifactId>yudream-plugin-spi</artifactId></dependency>
     <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.11.4</version><scope>test</scope></dependency>
   </dependencies>
+  <build>
+    <resources>
+      <resource><directory>src/main/resources</directory></resource>
+      <resource><directory>../../yudream-frontend/packages/plugin-ai-chatbot/dist</directory><targetPath>META-INF/yudream-plugin/frontend/ai-chatbot</targetPath><filtering>false</filtering></resource>
+    </resources>
+    <plugins>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
+    </plugins>
+  </build>
 </project>

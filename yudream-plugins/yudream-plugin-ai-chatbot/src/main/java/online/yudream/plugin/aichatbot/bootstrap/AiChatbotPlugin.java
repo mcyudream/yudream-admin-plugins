@@ -19,6 +19,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.plugin.aichatbot.application.dto.AiChatbotGroupPolicy;
+import online.yudream.plugin.aichatbot.application.service.AiChatbotAgentService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotPolicyService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotMemoryProfileService;
 import online.yudream.plugin.aichatbot.interfaces.controller.AiChatbotController;
@@ -50,9 +51,10 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private PluginContext context;
     private AiChatbotPolicyService policies;
     private AiChatbotMemoryProfileService profiles;
+    private AiChatbotAgentService agents;
 
     @Override public void onEnable(PluginContext context) {
-        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents());
+        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai());
         context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, context.framework())));
         context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
@@ -98,7 +100,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
         String mode = mentioned ? "MENTION" : "RANDOM";
         PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), policy.enabledToolNames());
-        return context.framework().ai().chat(new PluginAiChatRequest(prompt(mode, policy), event.content(), blankToNull(policy.providerCode()), blankToNull(policy.modelCode()), history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
+        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error)); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
@@ -125,7 +127,6 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         return policy.systemPrompt() + (policy.persona().isBlank() ? "" : " 人设：" + policy.persona())
                 + ("RANDOM".equals(mode) ? " 这是随机回复，不调用工具，不要打断正常交流。" : " 这是用户明确 @ 你，请优先回答当前用户的问题。");
     }
-    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private String groupId(PluginEvent event) { return event.connectionId() + ":" + event.channelId(); }
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
     private void reply(PluginEvent event, String text) { context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId())))); }

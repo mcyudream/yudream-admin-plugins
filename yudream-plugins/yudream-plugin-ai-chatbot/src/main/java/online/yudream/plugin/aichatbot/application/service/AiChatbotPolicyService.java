@@ -37,7 +37,7 @@ public class AiChatbotPolicyService {
         String prompt = stringValue(doc.get("systemPrompt"));
         return new AiChatbotGroupPolicy(connectionId, channelId, boolValue(doc.get("enabled"), d.enabled()), doubleValue(doc.get("randomProbability"), d.randomProbability()),
                 intValue(doc.get("groupContextLimit"), d.groupContextLimit()), intValue(doc.get("personalContextLimit"), d.personalContextLimit()), intValue(doc.get("contextExpansionLimit"), d.contextExpansionLimit()),
-                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), stringList(doc.get("enabledToolNames")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")));
+                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), stringList(doc.get("enabledToolNames")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("agentCode")), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")));
     }
     private Map<String, Object> toDocument(AiChatbotGroupPolicy p) {
         Map<String, Object> v = new LinkedHashMap<>();
@@ -46,7 +46,10 @@ public class AiChatbotPolicyService {
         v.put("cooldownSeconds", p.cooldownSeconds()); v.put("hourlyReplyLimit", p.hourlyReplyLimit());
         if (p.quietHoursStart() != null) v.put("quietHoursStart", p.quietHoursStart());
         if (p.quietHoursEnd() != null) v.put("quietHoursEnd", p.quietHoursEnd());
-        v.put("systemPrompt", p.systemPrompt()); v.put("persona", p.persona()); v.put("enabledToolNames", p.enabledToolNames()); v.put("randomToolCallingEnabled", p.randomToolCallingEnabled()); v.put("longTermMemoryEnabled", p.longTermMemoryEnabled()); v.put("semanticMemoryTopK", p.semanticMemoryTopK()); v.put("providerCode", p.providerCode()); v.put("modelCode", p.modelCode()); v.put("updatedAt", System.currentTimeMillis()); return v;
+        v.put("systemPrompt", p.systemPrompt()); v.put("persona", p.persona()); v.put("enabledToolNames", p.enabledToolNames()); v.put("randomToolCallingEnabled", p.randomToolCallingEnabled()); v.put("longTermMemoryEnabled", p.longTermMemoryEnabled()); v.put("semanticMemoryTopK", p.semanticMemoryTopK()); v.put("agentCode", p.agentCode());
+        if (!p.providerCode().isBlank()) v.put("providerCode", p.providerCode());
+        if (!p.modelCode().isBlank()) v.put("modelCode", p.modelCode());
+        v.put("updatedAt", System.currentTimeMillis()); return v;
     }
     private void validate(AiChatbotGroupPolicy p) {
         requireId(p.connectionId(), "connectionId"); requireId(p.channelId(), "channelId");
