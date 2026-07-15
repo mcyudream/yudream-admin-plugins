@@ -55,7 +55,7 @@ async function selectProject(projectId: unknown) {
     <section class="pp-panel"><div class="pp-stat-grid"><article class="pp-stat-card"><span>打卡总数</span><strong>{{ model.checkIns.length }}</strong></article><article class="pp-stat-card"><span>参与成员</span><strong>{{ participantCount }}</strong></article><article v-for="item in typeCounts" :key="item.type" class="pp-stat-card"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></article></div></section>
     <section class="pp-panel">
       <header class="pp-panel-head"><div><h3>成员打卡明细</h3><span>按打卡次数与最近打卡时间排序</span></div></header>
-      <FaTable v-loading="model.loading" row-key="userId" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[910px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+      <FaTable v-loading="model.loading" row-key="userId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[910px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
         <template #cell-member="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
         <template #cell-lastAt="{ row }">{{ model.formatTime(row.original.lastAt) }}</template>
       </FaTable>

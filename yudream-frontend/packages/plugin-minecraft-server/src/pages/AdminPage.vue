@@ -26,7 +26,7 @@ async function reload() { await props.model.load(true) }
     <FaButton @click="go('Editor')"><FaIcon name="i-ri:add-line" />新增服务器</FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[980px]" border stripe column-visibility :columns="columns" :data="model.servers">
+    <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[980px]" border stripe column-visibility :columns="columns" :data="model.servers">
       <template #toolbar><FaSearchBar class="w-full"><div class="flex justify-end gap-2"><FaButton variant="outline" :loading="model.loading" @click="reload"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></div></FaSearchBar></template>
       <template #cell-name="{ row }"><div class="grid gap-1"><strong>{{ row.original.name }}</strong><span class="font-mono text-xs text-muted-foreground">ID: {{ row.original.id }}</span></div></template>
       <template #cell-status="{ row }"><StatusPill :status="row.original.status?.status" /></template>

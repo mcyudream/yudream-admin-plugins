@@ -712,7 +712,7 @@
   font-size: 13px;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .mc-admin-layout,
   .mc-season-layout {
     grid-template-columns: 1fr;

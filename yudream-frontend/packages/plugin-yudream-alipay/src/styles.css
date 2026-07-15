@@ -122,7 +122,7 @@
   color: var(--color-text-1);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .alipay-hero {
     grid-template-columns: 1fr;
   }

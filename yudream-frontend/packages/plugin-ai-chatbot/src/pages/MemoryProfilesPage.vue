@@ -33,7 +33,7 @@ onMounted(load)
 <template>
   <FaPageHeader title="记忆画像管理" class="mb-0"><FaButton variant="outline" :loading="loading" @click="load">刷新</FaButton></FaPageHeader>
   <FaPageMain>
-    <FaTable v-loading="loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="rows" empty-text="暂无记忆画像">
+    <FaTable v-loading="loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="rows" empty-text="暂无记忆画像">
       <template #cell-scope="{ row }">{{ row.original.connectionId }} / {{ row.original.channelId }}</template>
       <template #cell-enabled="{ row }"><FaTag>{{ row.original.enabled ? '已启用' : '已停用' }}</FaTag></template>
       <template #cell-operation="{ row }"><div class="flex gap-2"><FaButton size="sm" variant="outline" @click="toggle(row.original)">{{ row.original.enabled ? '停用' : '启用' }}</FaButton><FaButton size="sm" variant="destructive" @click="remove(row.original)">删除</FaButton></div></template>

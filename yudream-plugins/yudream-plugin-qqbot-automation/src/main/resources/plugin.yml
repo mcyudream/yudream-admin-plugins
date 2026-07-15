@@ -1,0 +1,4 @@
+name: qqbot-automation
+displayName: QQ 群自动化
+main: online.yudream.plugin.qqbotautomation.bootstrap.QqbotAutomationPlugin
+version: 1.0.0

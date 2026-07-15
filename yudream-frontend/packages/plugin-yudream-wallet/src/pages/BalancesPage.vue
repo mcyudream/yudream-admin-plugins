@@ -33,7 +33,7 @@ function onSizeChange() { props.model.balancePager.page = 1; props.model.loadAdm
       :columns="columns"
       :data="model.adminBalances"
       :row-key="row => `${row.userId}:${row.assetCode}`"
-      table-root-class="rounded-lg overflow-hidden"
+      table-root-class="max-w-full overflow-x-auto rounded-lg"
       table-class="min-w-[1050px]"
       border stripe column-visibility
       empty-text="暂无余额记录"

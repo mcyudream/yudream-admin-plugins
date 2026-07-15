@@ -53,7 +53,7 @@ async function submitReview() {
 
     <section class="pp-panel">
       <header class="pp-panel-head"><div><h3>待验收任务</h3><span>只有已提交验收的任务会出现在这里</span></div></header>
-      <FaTable v-loading="model.loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1490px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无待验收任务">
+      <FaTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1490px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无待验收任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div></template>
         <template #cell-status="{ row }"><div class="pp-chip-list"><FaTag variant="secondary">{{ model.detailStatusLabel(row.original) }}</FaTag><FaTag>待验收</FaTag></div></template>

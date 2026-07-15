@@ -27,7 +27,7 @@ async function saveAsset() { await props.model.saveAsset(); formVisible.value = 
     <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增币种</FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable v-loading="model.loading" row-key="code" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1050px]" border stripe column-visibility :columns="assetColumns" :data="model.managedAssets" empty-text="暂无币种">
+    <FaTable v-loading="model.loading" row-key="code" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1050px]" border stripe column-visibility :columns="assetColumns" :data="model.managedAssets" empty-text="暂无币种">
       <template #cell-type="{ row }"><FaTag>{{ row.original.money ? '货币' : '积分' }}</FaTag></template>
       <template #cell-transferEnabled="{ row }"><FaTag>{{ row.original.transferEnabled ? '允许' : '关闭' }}</FaTag></template>
       <template #cell-enabled="{ row }"><FaTag>{{ row.original.enabled ? '启用' : '停用' }}</FaTag></template>

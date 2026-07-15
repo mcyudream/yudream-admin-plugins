@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Task Heartbeat"
+  short_description: "Report Codex task state through the notification plugin."
+  default_prompt: "Use $codex-task-heartbeat to report this Codex task."

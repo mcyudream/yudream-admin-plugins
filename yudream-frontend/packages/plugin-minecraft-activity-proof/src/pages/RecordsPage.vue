@@ -30,7 +30,7 @@ async function pageChanged() { await props.model.loadRecords() }
       </FaButton>
     </FaPageHeader>
     <FaPageMain>
-      <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1200px]" border stripe column-visibility :columns="columns" :data="model.exports">
+      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1200px]" border stripe column-visibility :columns="columns" :data="model.exports">
         <template #toolbar><FaSearchBar class="w-full"><FaButton variant="outline" :loading="model.loading" @click="model.loadRecords"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></FaSearchBar></template>
         <template #cell-file="{ row }"><strong>{{ row.original.outputFilename }}</strong><div>{{ row.original.serverName || row.original.serverId }}</div></template>
         <template #cell-participants="{ row }">{{ row.original.participantCount }} 人<span v-if="row.original.unmatchedCount"> / {{ row.original.unmatchedCount }} 未匹配</span></template>

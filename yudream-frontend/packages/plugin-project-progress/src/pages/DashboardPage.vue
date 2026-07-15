@@ -70,7 +70,7 @@ const detailColumns = computed<TableColumn<ProjectWorkDetail>[]>(() => [
         </div>
         <FaTable
           row-key="id"
-          table-root-class="rounded-lg overflow-hidden"
+          table-root-class="max-w-full overflow-x-auto rounded-lg"
           table-class="min-w-[760px]"
           border
           stripe

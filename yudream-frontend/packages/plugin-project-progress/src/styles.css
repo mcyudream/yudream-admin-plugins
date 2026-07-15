@@ -876,7 +876,7 @@
   background: #f0fdf4;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
   .pp-grid,
   .pp-metrics,
   .pp-stat-grid,

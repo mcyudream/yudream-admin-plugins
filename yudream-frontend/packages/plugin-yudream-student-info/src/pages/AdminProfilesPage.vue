@@ -62,7 +62,7 @@ onMounted(model.load)
       <FaTable
         v-loading="model.loading"
         row-key="userId"
-        table-root-class="rounded-lg overflow-hidden"
+        table-root-class="max-w-full overflow-x-auto rounded-lg"
         table-class="min-w-[1170px]"
         border
         stripe

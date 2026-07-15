@@ -20,7 +20,7 @@ const columns: TableColumn<WalletTransaction>[] = [
 <template>
   <FaTable
     row-key="id"
-    table-root-class="rounded-lg overflow-hidden"
+    table-root-class="max-w-full overflow-x-auto rounded-lg"
     table-class="min-w-[1050px]"
     border
     stripe

@@ -26,7 +26,7 @@ const columns: TableColumn<RechargeRuleForm>[] = [
         </div>
         <FaSwitch v-model="model.rechargeSettingsForm.enabled" />
       </div>
-      <FaTable row-key="assetCode" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[720px]" border stripe :columns="columns" :data="model.rechargeSettingsForm.rules">
+      <FaTable row-key="assetCode" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[720px]" border stripe :columns="columns" :data="model.rechargeSettingsForm.rules">
         <template #cell-assetCode="{ row }">{{ model.assetName(row.original.assetCode) }} ({{ row.original.assetCode }})</template>
         <template #cell-enabled="{ row }"><FaSwitch v-model="row.original.enabled" /></template>
         <template #cell-ratio="{ row }"><FaInput v-model="row.original.ratio" inputmode="decimal" /></template>

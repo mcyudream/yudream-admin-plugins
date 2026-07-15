@@ -28,7 +28,7 @@ onMounted(load)
 <template>
   <FaPageHeader title="支付宝订单" class="mb-0" />
   <FaPageMain>
-    <FaTable v-loading="loading" row-key="outTradeNo" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1050px]" border stripe column-visibility :columns="columns" :data="filteredRows" empty-text="暂无订单">
+    <FaTable v-loading="loading" row-key="outTradeNo" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1050px]" border stripe column-visibility :columns="columns" :data="filteredRows" empty-text="暂无订单">
       <template #toolbar><FaSearchBar class="w-full"><div class="alipay-form-grid"><FaInput v-model="search" clearable placeholder="订单号 / 用户 / 状态" /><div class="alipay-actions"><FaButton variant="outline" @click="reset">重置</FaButton><FaButton @click="load"><FaIcon name="i-ri:search-line" />查询</FaButton></div></div></FaSearchBar></template>
       <template #cell-status="{ row }"><FaTag>{{ row.original.status }}</FaTag></template>
       <template #cell-createdAt="{ row }">{{ formatTime(row.original.createdAt) }}</template>

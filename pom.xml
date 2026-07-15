@@ -32,6 +32,8 @@
         <module>yudream-plugins/yudream-plugin-wallet</module>
         <module>yudream-plugins/yudream-plugin-qq-binding</module>
         <module>yudream-plugins/yudream-plugin-ai-chatbot</module>
+        <module>yudream-plugins/yudream-plugin-qqbot-automation</module>
+        <module>yudream-plugins/yudream-plugin-codex-task-notify</module>
     </modules>
 
     <dependencyManagement>

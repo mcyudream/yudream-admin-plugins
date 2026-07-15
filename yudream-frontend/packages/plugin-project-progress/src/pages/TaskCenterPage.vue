@@ -30,7 +30,7 @@ watch(() => pagination.size, () => { pagination.page = 1 })
         <div class="rounded-lg border p-4"><span class="text-sm text-muted-foreground">Minecraft 联动</span><strong class="mt-2 block">{{ model.status?.minecraftReady ? '已启用' : '未启用' }}</strong></div>
         <div class="rounded-lg border p-4"><span class="text-sm text-muted-foreground">邮件通知</span><strong class="mt-2 block">{{ model.status?.mailReady ? '可用' : '未配置' }}</strong></div>
       </div>
-      <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[940px]" border stripe column-visibility :columns="columns" :data="rows" empty-text="暂无可认领任务">
+      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[940px]" border stripe column-visibility :columns="columns" :data="rows" empty-text="暂无可认领任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><div class="grid gap-1"><strong>{{ row.original.title }}</strong><span class="text-sm text-muted-foreground">{{ row.original.description || '暂无说明' }}</span></div></template>
         <template #cell-quota="{ row }">{{ row.original.assigneeUserIds.length }} / {{ row.original.requiredAssigneeCount }}</template>

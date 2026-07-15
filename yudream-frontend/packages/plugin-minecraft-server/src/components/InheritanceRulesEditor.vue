@@ -18,7 +18,7 @@ const columns: TableColumn<InheritanceRule>[] = [
       <strong>继承规则</strong>
       <div class="mc-actions"><FaButton size="sm" variant="outline" type="button" @click="model.resetRules">恢复默认</FaButton><FaButton size="sm" type="button" @click="model.addRule"><FaIcon name="i-ri:add-line" />新增规则</FaButton></div>
     </div>
-    <FaTable :row-key="(_row, index) => String(index)" table-root-class="rounded-lg overflow-hidden" border stripe :columns="columns" :data="model.seasonForm.rules">
+    <FaTable :row-key="(_row, index) => String(index)" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="columns" :data="model.seasonForm.rules">
       <template #cell-assetPattern="{ row }"><FaInput v-model="row.original.assetPattern" /></template>
       <template #cell-minAmount="{ row }"><FaInput v-model="row.original.minAmount" /></template>
       <template #cell-maxAmount="{ row }"><FaInput v-model="row.original.maxAmount" /></template>

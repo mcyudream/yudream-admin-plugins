@@ -42,7 +42,7 @@
       </McPanel>
 
       <McPanel v-if="model.walletEnabled" title="我的操作记录" eyebrow="Records">
-        <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" border stripe :columns="recordColumns" :data="model.records">
+        <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="recordColumns" :data="model.records">
           <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
           <template #cell-source="{ row }">{{ row.original.source || row.original.type }}</template>
           <template #cell-amount="{ row }">{{ model.formatAmount(row.original.amount) }}</template>

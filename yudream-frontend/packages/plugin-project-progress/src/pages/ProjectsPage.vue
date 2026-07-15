@@ -37,7 +37,7 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
   <section class="pp-page">
     <section class="pp-toolbar"><div><span>项目配置</span><h2>项目管理</h2></div><div class="pp-actions"><FaButton variant="outline" :loading="model.loading" @click="model.load">刷新</FaButton><FaButton @click="createProject">新建项目</FaButton></div></section>
     <section class="pp-panel">
-      <FaTable v-loading="model.loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1530px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无项目">
+      <FaTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1530px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无项目">
         <template #cell-project="{ row }"><strong>{{ row.original.name }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无描述' }}</div></template>
         <template #cell-status="{ row }"><FaTag :variant="row.original.enabled ? 'default' : 'secondary'">{{ row.original.enabled ? '启用中' : '已停用' }}</FaTag></template>
         <template #cell-managers="{ row }"><div class="pp-chip-list"><FaTag v-for="user in model.userOptionsForIds(row.original.managerUserIds)" :key="user.id" variant="secondary">{{ model.userLabel(user) }}</FaTag></div></template>

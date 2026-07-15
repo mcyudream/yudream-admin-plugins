@@ -81,7 +81,7 @@ function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete 
 
       <section class="pp-panel">
         <header class="pp-panel-head"><div><h3>项目打卡记录</h3><span>{{ model.checkIns.length }} 条记录</span></div></header>
-        <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+        <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
           <template #cell-user="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
           <template #cell-type="{ row }"><FaTag variant="secondary">{{ typeLabel(row.original.type) }}</FaTag></template>
           <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>

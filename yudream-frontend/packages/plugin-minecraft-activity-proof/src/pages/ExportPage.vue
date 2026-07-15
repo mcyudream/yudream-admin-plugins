@@ -109,7 +109,7 @@ async function participantPageChanged() { await props.model.reloadServerData() }
         <span>{{ model.selectedCount }} 人待导出</span>
         <span>{{ model.unmatchedCount }} 人未匹配学生信息</span>
       </div>
-      <FaTable row-key="playerId" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1000px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
+      <FaTable row-key="playerId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1000px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
         <template #cell-selected="{ row }"><FaCheckbox :model-value="model.selectedPlayerIds.includes(row.original.playerId)" @update:model-value="model.togglePlayer(row.original)" /></template>
         <template #cell-player="{ row }"><strong>{{ row.original.playerName }}</strong><div>{{ row.original.playerId }}</div></template>
         <template #cell-online="{ row }">{{ model.minutes(row.original.effectiveOnlineMillis) }}</template>

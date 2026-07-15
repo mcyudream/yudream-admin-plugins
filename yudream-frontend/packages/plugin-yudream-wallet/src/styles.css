@@ -502,7 +502,7 @@
   padding-top: 2px;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
   .wallet-hero,
   .wallet-layout {
     grid-template-columns: 1fr;

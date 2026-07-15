@@ -1,0 +1,4 @@
+name: codex-task-notify
+displayName: Codex 任务通知
+main: online.yudream.plugin.codextasknotify.bootstrap.CodexTaskNotifyPlugin
+version: 1.0.0

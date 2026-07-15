@@ -101,7 +101,7 @@ function localUploadRequest() {
           <span>完成任务后提交验收，通过后才计入完成进度</span>
         </div>
       </header>
-      <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1310px]" border stripe column-visibility :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
+      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1310px]" border stripe column-visibility :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div><div v-if="row.original.acceptanceSummary || row.original.acceptanceFiles.length" class="pp-material-box mt-3"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
         <template #cell-status="{ row }"><div class="pp-chip-list"><FaTag variant="secondary">{{ model.detailStatusLabel(row.original) }}</FaTag><FaTag v-if="row.original.pendingAcceptance">待验收</FaTag></div></template>

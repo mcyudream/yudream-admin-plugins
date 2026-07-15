@@ -104,7 +104,7 @@
   justify-content: center;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
   .student-info-profile-grid,
   .student-info-filter-grid {
     grid-template-columns: 1fr;

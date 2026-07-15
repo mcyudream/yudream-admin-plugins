@@ -102,7 +102,7 @@ function confirmDelete(item: SkinClosetItem) {
   <FaPageMain><div class="skin-admin-table-page">
     <FaTable
       row-key="id"
-      table-root-class="rounded-lg overflow-hidden"
+      table-root-class="max-w-full overflow-x-auto rounded-lg"
       table-class="min-w-[920px]"
       border
       stripe

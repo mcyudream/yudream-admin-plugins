@@ -20,7 +20,7 @@ async function pageChanged() { await props.model.loadMine() }
   <section class="proof-page">
     <FaPageHeader title="我的活动证明"><FaButton variant="outline" :loading="model.loading" @click="model.loadMine"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></FaPageHeader>
     <FaPageMain>
-      <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" border stripe :columns="columns" :data="model.myExports">
+      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="columns" :data="model.myExports">
         <template #cell-uploadedAt="{ row }">{{ model.formatTime(row.original.stampedPdfUploadedAt) }}</template>
         <template #cell-operation="{ row }"><FaButton size="sm" variant="outline" @click="model.openStampedPdf(row.original)">下载 PDF</FaButton></template>
       </FaTable>

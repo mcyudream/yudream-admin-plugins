@@ -28,13 +28,13 @@ async function reload() { await props.model.reloadServerData() }
   <FaPageMain>
     <div class="grid gap-4">
       <div class="grid max-w-md gap-2"><span>服务器</span><FaSelect v-model="model.selectedServerId" :options="serverOptions" @update:model-value="reload" /></div>
-      <FaTable row-key="playerId" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[820px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
+      <FaTable row-key="playerId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[820px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
         <template #cell-operation="{ row }"><form class="flex items-center justify-end gap-2" @submit.prevent="model.bindStudent(row.original)"><FaInput v-model="model.mappingInputs[row.original.playerId]" placeholder="输入学号" /><FaButton size="sm" type="submit">保存</FaButton></form></template>
       </FaTable>
       <FaPagination v-model:page="model.participantPager.page" v-model:size="model.participantPager.size" :total="model.participantPager.total" class="mt-3" @page-change="reload" @size-change="reload" />
       <div class="mt-4 grid gap-3">
         <h3 class="text-base font-semibold">已保存映射</h3>
-        <FaTable row-key="id" table-root-class="rounded-lg overflow-hidden" border stripe :columns="mappingColumns" :data="model.mappings">
+        <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="mappingColumns" :data="model.mappings">
           <template #cell-operation="{ row }"><FaButton size="sm" variant="destructive" @click="model.deleteMapping(row.original)">删除</FaButton></template>
         </FaTable>
         <FaPagination v-model:page="model.mappingPager.page" v-model:size="model.mappingPager.size" :total="model.mappingPager.total" class="mt-3" @page-change="reload" @size-change="reload" />
