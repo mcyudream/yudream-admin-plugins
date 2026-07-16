@@ -362,6 +362,10 @@ public class MediaJobService {
         return sourceUrl != null && (sourceUrl.contains("v.douyin.com") || sourceUrl.contains("www.douyin.com"));
     }
 
+    private boolean isBilibiliSource(String sourceUrl) {
+        return sourceUrl != null && (sourceUrl.contains("b23.tv") || sourceUrl.contains("bilibili.com"));
+    }
+
     private URI douyinApiEndpoint(URI requestEndpoint, String path) {
         return URI.create(requestEndpoint.getScheme() + "://" + requestEndpoint.getAuthority() + path);
     }
@@ -396,6 +400,9 @@ public class MediaJobService {
     private MediaRequest request(AutomationPolicy policy, String sourceUrl) {
         String configured = configuredEndpoint(policy);
         URI configuredEndpoint = URI.create(configured);
+        if (isBilibiliSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
+            return new MediaRequest(appendBilibiliDownloadQuery(configuredEndpoint, sourceUrl), true, sourceUrl);
+        }
         if (isDouyinDockerEndpoint(configuredEndpoint)) {
             URI downloadEndpoint = appendDouyinDownloadQuery(douyinDownloadEndpoint(configuredEndpoint), sourceUrl);
             return new MediaRequest(downloadEndpoint, true, sourceUrl);
@@ -452,7 +459,8 @@ public class MediaJobService {
             throw new DouyinImageDownloadException();
         }
         String directory = filename.contains("_douyin_") || filename.startsWith("douyin_") ? "douyin_video"
-                : filename.contains("_tiktok_") || filename.startsWith("tiktok_") ? "tiktok_video" : null;
+                : filename.contains("_tiktok_") || filename.startsWith("tiktok_") ? "tiktok_video"
+                : filename.startsWith("bilibili_") ? "bilibili_video" : null;
         if (directory == null) {
             throw new IllegalStateException("Media provider returned an unsupported media filename: " + filename);
         }
@@ -513,6 +521,17 @@ public class MediaJobService {
     private URI appendDouyinDownloadQuery(URI endpoint, String sourceUrl) {
         return URI.create(endpoint + (endpoint.getQuery() == null ? "?" : "&")
                 + "url=" + URLEncoder.encode(sourceUrl, StandardCharsets.UTF_8) + "&prefix=false&with_watermark=false");
+    }
+
+    private URI appendBilibiliDownloadQuery(URI configured, String sourceUrl) {
+        String configuredText = configured.toString();
+        int queryIndex = configuredText.indexOf('?');
+        String base = queryIndex >= 0 ? configuredText.substring(0, queryIndex) : configuredText;
+        String query = queryIndex >= 0 ? configuredText.substring(queryIndex) : "";
+        String rawPath = configured.getRawPath();
+        String origin = rawPath == null || rawPath.isEmpty() ? base : base.substring(0, base.length() - rawPath.length());
+        return URI.create(origin + "/api/bilibili/web/download" + query
+                + (query.isEmpty() ? "?" : "&") + "url=" + URLEncoder.encode(sourceUrl, StandardCharsets.UTF_8));
     }
 
     private URI appendUrlQuery(URI endpoint, String sourceUrl) {

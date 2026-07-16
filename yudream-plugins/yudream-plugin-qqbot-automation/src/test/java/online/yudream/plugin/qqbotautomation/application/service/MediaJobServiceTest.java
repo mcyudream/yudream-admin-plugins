@@ -50,13 +50,13 @@ class MediaJobServiceTest {
                     "http://localhost:" + port, false, List.of(), List.of(), false, true, "", ""));
             MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
 
-            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "抖音分享文本 https://b23.tv/example 复制打开抖音"));
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "抖音分享文本 https://v.douyin.com/example 复制打开抖音"));
 
             await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
             Map<String, Object> result = job(documents, jobId);
             assertEquals("MANUAL_TEST", result.get("trigger"));
-            assertEquals("https://b23.tv/example", result.get("sourceUrl"));
-            assertEquals("http://localhost:" + port + "/api/download?url=https%3A%2F%2Fb23.tv%2Fexample&prefix=false&with_watermark=false", result.get("downloadUrl"));
+            assertEquals("https://v.douyin.com/example", result.get("sourceUrl"));
+            assertEquals("http://localhost:" + port + "/api/download?url=https%3A%2F%2Fv.douyin.com%2Fexample&prefix=false&with_watermark=false", result.get("downloadUrl"));
             assertEquals(result, service.find(jobId));
             assertEquals(1, sentMessages.get());
             assertEquals("connection-a", sentRequest.get().connectionId());
@@ -65,7 +65,38 @@ class MediaJobServiceTest {
             assertEquals("group-a", sentRequest.get().channelId());
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, sentRequest.get().content().type());
             assertEquals("file:///media/douyin_video/douyin_7663032596767428986.mp4", sentRequest.get().content().content());
-            assertEquals("/api/download?url=https%3A%2F%2Fb23.tv%2Fexample&prefix=false&with_watermark=false", requestUri.get());
+            assertEquals("/api/download?url=https%3A%2F%2Fv.douyin.com%2Fexample&prefix=false&with_watermark=false", requestUri.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void downloadsBilibiliShortLinksThroughTheDedicatedDockerEndpoint() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        AtomicReference<String> requestUri = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/bilibili/web/download", exchange -> {
+            requestUri.set(exchange.getRequestURI().toString());
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"bilibili_BV1kFKG6pEvU_40009337567.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://b23.tv/ypOBBNS"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("/api/bilibili/web/download?url=https%3A%2F%2Fb23.tv%2FypOBBNS", requestUri.get());
+            assertEquals("file:///media/bilibili_video/bilibili_BV1kFKG6pEvU_40009337567.mp4", sentRequest.get().content().content());
         } finally {
             server.stop(0);
         }
@@ -188,10 +219,10 @@ class MediaJobServiceTest {
                     "http://localhost:" + port + "/parse", false, List.of(), List.of(), false, true, "", ""));
             MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
 
-            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://b23.tv/example"));
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
             await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
-            assertEquals("/parse?url=https%3A%2F%2Fb23.tv%2Fexample", requestUri.get());
+            assertEquals("/parse?url=https%3A%2F%2Fv.douyin.com%2Fexample", requestUri.get());
         } finally {
             server.stop(0);
         }
@@ -223,7 +254,7 @@ class MediaJobServiceTest {
                     "http://localhost:" + server.getAddress().getPort() + "/parse", false, List.of(), List.of(), false, true, "", ""));
             MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
 
-            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://b23.tv/example"));
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
             await(() -> "FAILED".equals(job(documents, jobId).get("status")));
             assertEquals("Media provider HTTP 400: upstream parser rejected share URL", job(documents, jobId).get("error"));
@@ -245,7 +276,7 @@ class MediaJobServiceTest {
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
             MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
 
-            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://b23.tv/example"));
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
             await(() -> "FAILED".equals(job(documents, jobId).get("status")));
             assertEquals("Media provider did not return a media file: upstream parser rejected share URL", job(documents, jobId).get("error"));
@@ -267,7 +298,7 @@ class MediaJobServiceTest {
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
             MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
-            PluginEvent event = new PluginEvent("", "message_receive", "milky", "user-a", "group-a", "https://b23.tv/example",
+            PluginEvent event = new PluginEvent("", "message_receive", "milky", "user-a", "group-a", "https://v.douyin.com/example",
                     "", "", Map.of(), "", null, "connection-a", "self-a", "message-a");
 
             service.handle(event);
