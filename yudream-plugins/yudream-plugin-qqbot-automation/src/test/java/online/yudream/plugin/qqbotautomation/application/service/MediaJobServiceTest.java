@@ -1,14 +1,13 @@
 package online.yudream.plugin.qqbotautomation.application.service;
 
 import com.sun.net.httpserver.HttpServer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessagingService;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageResult;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingRawService;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
@@ -76,6 +75,7 @@ class MediaJobServiceTest {
     void sendsDouyinCommentsAsMergedForwardAfterVideo() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         HttpServer server = douyinServer(200, """
@@ -87,23 +87,26 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
             await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, requests.get(0).content().type());
-            PluginMessageRequest forwardRequest = requests.get(1);
-            assertEquals("group-a", forwardRequest.channelId());
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.COMPOSITE,
-                    forwardRequest.content().type());
-            JsonNode forward = new ObjectMapper().readTree(forwardRequest.content().content());
-            assertEquals("抖音评论", forward.path("title").asText());
-            assertEquals(3, forward.path("messages").size());
-            JsonNode textNode = forward.path("messages").get(2);
-            assertEquals("评论用户", textNode.path("sender_name").asText());
-            assertEquals(10001L, textNode.path("user_id").asLong());
-            assertEquals("第一条评论", textNode.path("segments").get(0).path("data").path("text").asText());
+            Map<String, Object> forward = forwardedPayload.get();
+            assertEquals("group-a", forward.get("group_id"));
+            List<?> message = (List<?>) forward.get("message");
+            Map<?, ?> segment = (Map<?, ?>) message.getFirst();
+            assertEquals("forward", segment.get("type"));
+            Map<?, ?> data = (Map<?, ?>) segment.get("data");
+            assertEquals("抖音评论", data.get("title"));
+            List<?> nodes = (List<?>) data.get("messages");
+            assertEquals(3, nodes.size());
+            Map<?, ?> textNode = (Map<?, ?>) nodes.get(2);
+            assertEquals("评论用户", textNode.get("sender_name"));
+            assertEquals(10001L, textNode.get("user_id"));
+            Map<?, ?> textSegment = (Map<?, ?>) ((List<?>) textNode.get("segments")).getFirst();
+            assertEquals("第一条评论", ((Map<?, ?>) textSegment.get("data")).get("text"));
         } finally {
             server.stop(0);
         }
@@ -149,6 +152,7 @@ class MediaJobServiceTest {
     void sendsDouyinImagePostAudioAsASeparateRecord() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         HttpServer server = douyinImageServer();
@@ -156,16 +160,15 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/image-post"));
 
             await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.COMPOSITE,
-                    requests.get(0).content().type());
+            assertEquals("forward", ((Map<?, ?>) ((List<?>) forwardedPayload.get().get("message")).getFirst()).get("type"));
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.AUDIO,
-                    requests.get(1).content().type());
-            assertEquals("https://audio.example.test/post.mp3", requests.get(1).content().content());
+                    requests.getFirst().content().type());
+            assertEquals("https://audio.example.test/post.mp3", requests.getFirst().content().content());
         } finally {
             server.stop(0);
         }
@@ -351,6 +354,11 @@ class MediaJobServiceTest {
 
     private FrameworkServices framework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
                                         List<PluginMessageRequest> requests) {
+        return framework(sentMessages, sentRequest, requests, null);
+    }
+
+    private FrameworkServices framework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                        List<PluginMessageRequest> requests, AtomicReference<Map<String, Object>> forwardedPayload) {
         PluginMessagingService messaging = (PluginMessagingService) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{PluginMessagingService.class}, (proxy, method, args) -> {
                     if ("connections".equals(method.getName())) {
@@ -368,9 +376,23 @@ class MediaJobServiceTest {
                     }
                     return null;
                 });
+        PluginMessagingRawService rawMessaging = (PluginMessagingRawService) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{PluginMessagingRawService.class}, (proxy, method, args) -> {
+                    if ("invoke".equals(method.getName())) {
+                        sentMessages.incrementAndGet();
+                        if (forwardedPayload != null && args != null && args.length > 2 && args[2] instanceof Map<?, ?> payload) {
+                            Map<String, Object> copy = new HashMap<>();
+                            payload.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                            forwardedPayload.set(copy);
+                        }
+                        return CompletableFuture.completedFuture(Map.of());
+                    }
+                    return null;
+                });
         return (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{FrameworkServices.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "messaging" -> messaging;
+                    case "messagingRaw" -> rawMessaging;
                     default -> null;
                 });
     }

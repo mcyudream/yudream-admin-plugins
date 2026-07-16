@@ -195,14 +195,10 @@ public class MediaJobService {
                 .toList());
         forward.put("summary", summary);
         forward.put("prompt", prompt);
-        try {
-            String content = json.writeValueAsString(forward);
-            return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
-                    new PluginMessageContent(PluginMessageContent.Type.COMPOSITE, content, List.of(), Map.of())))
-                    .thenApply(ignored -> Map.of());
-        } catch (Exception exception) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Unable to build Douyin forward message", exception));
-        }
+        return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
+                "group_id", target.channelId(),
+                "message", List.of(Map.of("type", "forward", "data", forward))
+        ));
     }
 
     private CompletionStage<?> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
