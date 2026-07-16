@@ -949,7 +949,7 @@ packages:
       vue: ^3.5.0
 
   '@yudream/components@1.0.0':
-    resolution: {integrity: sha512-IyR92ywabMHPTGt8LYrm52ZTHKJxXAdcw1Zz789yLZ9RfbEl4+JH8YXJbsXPy/oQQxCgIjcKrxNvY1jKc36FyA==}
+    resolution: {integrity: sha512-UrK1MPZln3JepH/uoiRV/rIZjb8ufWPge3XxPRziOSdmGqd3nhYg2IyWJSkU79JmQZYpzIXn06bOARjJFqcz2w==}
     peerDependencies:
       '@vueuse/components': ^14.3.0
       '@vueuse/core': ^14.3.0
