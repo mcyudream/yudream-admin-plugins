@@ -23,5 +23,6 @@ public class QqbotAutomationController {
     @PluginHttpEndpoint(method = "GET", path = "/admin/options/ai", permission = QqbotAutomationPlugin.MANAGE_PERMISSION) public PluginHttpResponse aiOptions() { return http.aiOptions(); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/media-jobs/{id}", permission = QqbotAutomationPlugin.MANAGE_PERMISSION) public PluginHttpResponse mediaJob(PluginHttpRequest request) { return http.mediaJob(request); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/media-jobs", permission = QqbotAutomationPlugin.MANAGE_PERMISSION) public PluginHttpResponse mediaJobs(PluginHttpRequest request) { return http.mediaJobs(request); }
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/media-jobs", permission = QqbotAutomationPlugin.MANAGE_PERMISSION) public PluginHttpResponse clearMediaJobs() { return http.clearMediaJobs(); }
     @PluginHttpEndpoint(method = "POST", path = "/admin/media-jobs/test", permission = QqbotAutomationPlugin.MANAGE_PERMISSION) public PluginHttpResponse startMediaTest(PluginHttpRequest request) { return http.startMediaTest(request); }
 }

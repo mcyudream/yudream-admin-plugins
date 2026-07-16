@@ -9,6 +9,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessagingService;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageResult;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingRawService;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +77,7 @@ class MediaJobServiceTest {
     void sendsDouyinCommentsAsMergedForwardAfterVideo() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         HttpServer server = douyinServer(200, """
@@ -86,18 +89,25 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
             await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, requests.get(0).content().type());
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.COMPOSITE, requests.get(1).content().type());
-            JsonNode forward = new ObjectMapper().readTree(requests.get(1).content().content());
-            assertEquals("抖音评论", forward.path("title").asText());
-            assertEquals(3, forward.path("messages").size());
-            assertEquals("评论用户", forward.path("messages").get(2).path("sender_name").asText());
-            assertEquals("第一条评论", forward.path("messages").get(2).path("segments").get(0).path("data").path("text").asText());
+            Map<String, Object> forward = forwardedPayload.get();
+            assertEquals("group-a", forward.get("group_id"));
+            List<?> message = (List<?>) forward.get("message");
+            Map<?, ?> segment = (Map<?, ?>) message.getFirst();
+            assertEquals("forward", segment.get("type"));
+            Map<?, ?> data = (Map<?, ?>) segment.get("data");
+            assertEquals("抖音评论", data.get("title"));
+            List<?> nodes = (List<?>) data.get("messages");
+            assertEquals(3, nodes.size());
+            Map<?, ?> textNode = (Map<?, ?>) nodes.get(2);
+            assertEquals("评论用户", textNode.get("sender_name"));
+            Map<?, ?> textSegment = (Map<?, ?>) ((List<?>) textNode.get("segments")).getFirst();
+            assertEquals("第一条评论", ((Map<?, ?>) textSegment.get("data")).get("text"));
         } finally {
             server.stop(0);
         }
@@ -123,6 +133,20 @@ class MediaJobServiceTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    @Test
+    void pagesNewestJobsFirstAndClearsAllJobs() {
+        InMemoryDocuments documents = new InMemoryDocuments();
+        MediaJobService service = new MediaJobService(new AutomationPolicyService(documents), documents, framework(new AtomicInteger()));
+        documents.save("media-job", "older", Map.of("id", "older", "createdAt", 100L));
+        documents.save("media-job", "newest", Map.of("id", "newest", "createdAt", 300L));
+        documents.save("media-job", "middle", Map.of("id", "middle", "createdAt", 200L));
+
+        assertEquals(List.of("newest", "middle"), service.page(1, 2).stream().map(job -> String.valueOf(job.get("id"))).toList());
+        assertEquals(3, service.clear());
+        assertEquals(0, service.total());
+        assertTrue(service.page(1, 10).isEmpty());
     }
 
     @Test
@@ -282,11 +306,16 @@ class MediaJobServiceTest {
     }
 
     private FrameworkServices framework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest) {
-        return framework(sentMessages, sentRequest, null);
+        return framework(sentMessages, sentRequest, null, null);
     }
 
     private FrameworkServices framework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
                                         List<PluginMessageRequest> requests) {
+        return framework(sentMessages, sentRequest, requests, null);
+    }
+
+    private FrameworkServices framework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                        List<PluginMessageRequest> requests, AtomicReference<Map<String, Object>> forwardedPayload) {
         PluginMessagingService messaging = (PluginMessagingService) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{PluginMessagingService.class}, (proxy, method, args) -> {
                     if ("connections".equals(method.getName())) {
@@ -304,8 +333,25 @@ class MediaJobServiceTest {
                     }
                     return null;
                 });
+        PluginMessagingRawService rawMessaging = (PluginMessagingRawService) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{PluginMessagingRawService.class}, (proxy, method, args) -> {
+                    if ("invoke".equals(method.getName())) {
+                        sentMessages.incrementAndGet();
+                        if (forwardedPayload != null && args != null && args.length > 2 && args[2] instanceof Map<?, ?> payload) {
+                            Map<String, Object> copy = new HashMap<>();
+                            payload.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                            forwardedPayload.set(copy);
+                        }
+                        return CompletableFuture.completedFuture(Map.of());
+                    }
+                    return null;
+                });
         return (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{FrameworkServices.class},
-                (proxy, method, args) -> "messaging".equals(method.getName()) ? messaging : null);
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "messaging" -> messaging;
+                    case "messagingRaw" -> rawMessaging;
+                    default -> null;
+                });
     }
 
     private Map<String, Object> job(InMemoryDocuments documents, String id) {
@@ -335,7 +381,16 @@ class MediaJobServiceTest {
             return Optional.ofNullable(values.get(key(collection, id))).map(HashMap::new);
         }
 
-        @Override public List<Map<String, Object>> findAll(String collection, int page, int size) { return List.of(); }
+        @Override
+        public synchronized List<Map<String, Object>> findAll(String collection, int page, int size) {
+            List<Map<String, Object>> records = new ArrayList<>();
+            values.forEach((key, value) -> {
+                if (key.startsWith(collection + ":")) records.add(new HashMap<>(value));
+            });
+            int from = Math.min(Math.max(page - 1, 0) * size, records.size());
+            int to = Math.min(from + size, records.size());
+            return List.copyOf(records.subList(from, to));
+        }
         @Override public List<Map<String, Object>> findByField(String collection, String field, Object value, int page, int size) { return List.of(); }
         @Override public synchronized long count(String collection) { return values.keySet().stream().filter(key -> key.startsWith(collection + ":")).count(); }
         @Override public synchronized void delete(String collection, String id) { values.remove(key(collection, id)); }

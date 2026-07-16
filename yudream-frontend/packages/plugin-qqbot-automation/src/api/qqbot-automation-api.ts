@@ -22,6 +22,7 @@ export function createQqbotAutomationApi(sdk: YuDreamPluginSdk) {
     aiOptions: () => sdk.http.get<AiProviderOption[]>('/admin/options/ai'),
     mediaJob: (id: string) => sdk.http.get<MediaJob | null>(`/admin/media-jobs/${encodeURIComponent(id)}`),
     mediaJobs: (page: number, size: number) => sdk.http.get<PageResult<MediaJob>>(`/admin/media-jobs?page=${page}&size=${size}`),
+    clearMediaJobs: () => sdk.http.request<{ deleted: number }>('/admin/media-jobs', { method: 'DELETE' }),
     startMediaTest: (request: MediaJobTestRequest) => sdk.http.request<{ id: string; trigger: string }>('/admin/media-jobs/test', { method: 'POST', data: request }),
   }
 }

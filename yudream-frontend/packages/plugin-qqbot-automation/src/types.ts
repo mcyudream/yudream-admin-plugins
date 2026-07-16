@@ -53,7 +53,8 @@ export interface MediaJob {
   status: string
   downloadUrl?: string
   error?: string
-  createdAt: number
+  commentError?: string
+  createdAt: number | string
 }
 
 export interface MediaJobTestRequest {

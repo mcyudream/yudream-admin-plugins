@@ -12,6 +12,7 @@ import {
   FaSelect,
   FaTable,
   FaTag,
+  useFaModal,
   useFaToast,
   type TableColumn,
 } from '@yudream/components'
@@ -22,12 +23,14 @@ import type { MediaJob, Option } from '../types'
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createQqbotAutomationApi(props.sdk)
 const toast = useFaToast()
+const modal = useFaModal()
 
 const jobs = ref<MediaJob[]>([])
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
 const loading = ref(false)
+const clearing = ref(false)
 const error = ref('')
 const testOpen = ref(false)
 const submittingTest = ref(false)
@@ -87,8 +90,36 @@ function triggerLabel(trigger?: string) {
   return trigger || '群消息触发'
 }
 
-function formatTime(value: number) {
-  return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+function formatTime(value: number | string | null | undefined) {
+  const timestamp = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? new Date(timestamp).toLocaleString('zh-CN', { hour12: false })
+    : '-'
+}
+
+async function clearJobs() {
+  clearing.value = true
+  try {
+    const result = await api.clearMediaJobs()
+    toast.success(`已删除 ${result.deleted} 条媒体任务`)
+    page.value = 1
+    await load()
+  }
+  catch (cause) {
+    showError(cause, '删除媒体任务失败')
+  }
+  finally {
+    clearing.value = false
+  }
+}
+
+function confirmClearJobs() {
+  if (!total.value) return
+  modal.confirm({
+    title: '清空媒体任务',
+    content: `确认删除全部 ${total.value} 条媒体任务吗？该操作不可恢复。`,
+    onConfirm: () => clearJobs(),
+  })
 }
 
 async function load() {
@@ -175,7 +206,7 @@ async function submitTest() {
       connectionId: testConnectionId.value,
       channelId: testChannelId.value,
       sourceUrl: testUrl.value.trim(),
-Media provider returned an unsupported media filename: douyin_7663032596767428986.mp4    })
+    })
     toast.success('测试任务已创建，解析完成后将发送到所选 QQ 群')
     closeTest()
     page.value = 1
@@ -203,6 +234,10 @@ onMounted(load)
         <FaButton variant="outline" :disabled="loading" @click="load">
           <FaIcon name="i-lucide:refresh-cw" />
           刷新
+        </FaButton>
+        <FaButton variant="destructive" :disabled="!total || clearing" @click="confirmClearJobs">
+          <FaIcon name="i-lucide:trash-2" />
+          清空任务
         </FaButton>
         <FaButton @click="openTest">
           <FaIcon name="i-lucide:flask-conical" />
@@ -235,6 +270,7 @@ onMounted(load)
           <div class="space-y-1">
             <a v-if="row.original.downloadUrl" class="block text-primary hover:underline" :href="row.original.downloadUrl" target="_blank" rel="noreferrer">打开解析结果</a>
             <span v-if="row.original.error" class="block break-all text-sm text-destructive">{{ row.original.error }}</span>
+            <span v-if="row.original.commentError" class="block break-all text-sm text-warning">评论未发送：{{ row.original.commentError }}</span>
             <span v-if="!row.original.downloadUrl && !row.original.error" class="text-sm text-muted-foreground">-</span>
           </div>
         </template>

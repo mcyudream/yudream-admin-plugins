@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.regex.Pattern;
 public class MediaJobService {
     private static final String DEFAULT_DOCKER_ENDPOINT = "http://127.0.0.1";
     private static final String DEFAULT_MILKY_MEDIA_DIRECTORY = "/media";
+    private static final int DOCUMENT_SCAN_SIZE = 200;
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
@@ -72,7 +74,13 @@ public class MediaJobService {
     }
 
     public java.util.List<Map<String, Object>> page(int page, int size) {
-        return documents.findAll("media-job", Math.max(page, 1), Math.max(Math.min(size, 100), 1));
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(Math.min(size, 100), 1);
+        List<Map<String, Object>> jobs = allJobs();
+        jobs.sort(Comparator.comparingLong(this::createdAt).reversed());
+        int from = Math.min((safePage - 1) * safeSize, jobs.size());
+        int to = Math.min(from + safeSize, jobs.size());
+        return List.copyOf(jobs.subList(from, to));
     }
 
     public long total() {
@@ -82,6 +90,40 @@ public class MediaJobService {
     public Map<String, Object> find(String id) {
         if (id == null || id.isBlank()) return null;
         return documents.findById("media-job", id).orElse(null);
+    }
+
+    public long clear() {
+        long deleted = 0;
+        while (true) {
+            List<Map<String, Object>> batch = documents.findAll("media-job", 1, DOCUMENT_SCAN_SIZE);
+            if (batch.isEmpty()) return deleted;
+            for (Map<String, Object> job : batch) {
+                Object id = job.get("id");
+                if (id != null) {
+                    documents.delete("media-job", String.valueOf(id));
+                    deleted++;
+                }
+            }
+        }
+    }
+
+    private List<Map<String, Object>> allJobs() {
+        List<Map<String, Object>> jobs = new ArrayList<>();
+        for (int currentPage = 1; ; currentPage++) {
+            List<Map<String, Object>> batch = documents.findAll("media-job", currentPage, DOCUMENT_SCAN_SIZE);
+            jobs.addAll(batch);
+            if (batch.size() < DOCUMENT_SCAN_SIZE) return jobs;
+        }
+    }
+
+    private long createdAt(Map<String, Object> job) {
+        Object value = job.get("createdAt");
+        if (value instanceof Number number) return number.longValue();
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return 0L;
+        }
     }
 
     private void start(String id, String connectionId, String channelId, String sourceUrl, AutomationPolicy policy,
@@ -124,22 +166,35 @@ public class MediaJobService {
         }
         return fetchDouyinComments(request, target).thenCompose(messages -> {
             if (messages.isEmpty()) return CompletableFuture.completedFuture(null);
-            try {
-                Map<String, Object> forward = new LinkedHashMap<>();
-                forward.put("messages", messages);
-                forward.put("title", "抖音评论");
-                forward.put("preview", messages.stream().limit(4)
-                        .map(message -> String.valueOf(message.get("sender_name")))
-                        .toList());
-                forward.put("summary", "评论区");
-                forward.put("prompt", "抖音评论");
-                String content = json.writeValueAsString(forward);
-                return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
-                        new PluginMessageContent(PluginMessageContent.Type.COMPOSITE, content, List.of(), Map.of())));
-            } catch (Exception exception) {
-                return CompletableFuture.failedFuture(new IllegalStateException("Unable to build Douyin comments message", exception));
-            }
+            return sendForward(target, messages).exceptionallyCompose(error -> {
+                List<Map<String, Object>> textMessages = textOnly(messages);
+                return textMessages.isEmpty() ? CompletableFuture.failedFuture(error) : sendForward(target, textMessages);
+            });
         });
+    }
+
+    private CompletionStage<Map<String, Object>> sendForward(DeliveryTarget target, List<Map<String, Object>> messages) {
+        Map<String, Object> forward = new LinkedHashMap<>();
+        forward.put("messages", messages);
+        forward.put("title", "抖音评论");
+        forward.put("preview", messages.stream().limit(4)
+                .map(message -> String.valueOf(message.get("sender_name")))
+                .toList());
+        forward.put("summary", "评论区");
+        forward.put("prompt", "抖音评论");
+        return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
+                "group_id", target.channelId(),
+                "message", List.of(Map.of("type", "forward", "data", forward))
+        ));
+    }
+
+    private List<Map<String, Object>> textOnly(List<Map<String, Object>> messages) {
+        return messages.stream()
+                .filter(message -> message.get("segments") instanceof List<?> segments
+                        && !segments.isEmpty()
+                        && segments.getFirst() instanceof Map<?, ?> segment
+                        && "text".equals(segment.get("type")))
+                .toList();
     }
 
     private CompletionStage<List<Map<String, Object>>> fetchDouyinComments(MediaRequest request, DeliveryTarget target) {

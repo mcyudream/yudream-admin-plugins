@@ -72,6 +72,7 @@ public class QqbotAutomationHttpFacade {
     public PluginHttpResponse aiOptions() { return PluginHttpResponse.ok(framework.ai().providers()); }
     public PluginHttpResponse mediaJob(PluginHttpRequest request) { return PluginHttpResponse.ok(mediaJobs.find(pathSegment(request.path(), 2))); }
     public PluginHttpResponse mediaJobs(PluginHttpRequest request) { return PluginHttpResponse.ok(Map.of("records", mediaJobs.page(number(request, "page", 1), number(request, "size", 10)), "total", mediaJobs.total())); }
+    public PluginHttpResponse clearMediaJobs() { return PluginHttpResponse.ok(Map.of("deleted", mediaJobs.clear())); }
     private void requireKnownConnection(String connectionId) {
         if (connectionId == null || connectionId.isBlank()) throw new IllegalArgumentException("connectionId cannot be blank");
         boolean known = framework.messaging().connections().stream().anyMatch(item -> connectionId.equals(item.id()));
