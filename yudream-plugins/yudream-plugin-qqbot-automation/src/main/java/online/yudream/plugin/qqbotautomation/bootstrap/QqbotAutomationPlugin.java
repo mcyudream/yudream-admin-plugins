@@ -27,6 +27,7 @@ public class QqbotAutomationPlugin implements YuDreamPlugin {
     public static final String MANAGE_PERMISSION = "plugin:qqbot-automation:manage";
     @Override public void onEnable(PluginContext context) {
         AutomationPolicyService policies = new AutomationPolicyService(context.documents());
+        policies.migrateLegacyPolicies();
         JoinVerificationService verification = new JoinVerificationService(policies, context.framework());
         MediaJobService mediaJobs = new MediaJobService(policies, context.documents(), context.framework());
         context.registerHttpController(new QqbotAutomationController(new QqbotAutomationHttpFacade(policies, mediaJobs, context.framework())));

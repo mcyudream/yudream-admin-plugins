@@ -10,4 +10,8 @@ public record AutomationPolicy(String connectionId, String channelId, boolean en
         return new AutomationPolicy(connectionId, channelId, true, false, "", false,
                 List.of(), List.of(), false, true, "", "");
     }
+
+    public static AutomationPolicy connectionDefaults(String connectionId) {
+        return defaults(connectionId, "");
+    }
 }
