@@ -13,6 +13,19 @@
 
     <artifactId>yudream-plugin-codex-task-notify</artifactId>
 
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-codex-task-notify/dist</directory>
+                <targetPath>META-INF/yudream-plugin/frontend/codex-task-notify</targetPath>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>online.yudream.base</groupId>

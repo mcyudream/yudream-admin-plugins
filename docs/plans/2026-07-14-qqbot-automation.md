@@ -13,10 +13,10 @@
 ### Task 1: Publish typed group-request contracts in the core repository
 
 **Files:**
-- Create: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequest.java`
-- Create: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequestDecision.java`
-- Modify: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginMessagingService.java`
-- Test: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/src/test/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequestTest.java`
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequest.java` (YuDream Admin core repository)
+- Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequestDecision.java` (YuDream Admin core repository)
+- Modify: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/messaging/PluginMessagingService.java` (YuDream Admin core repository)
+- Test: `yudream-plugins/yudream-plugin-spi/src/test/java/online/yudream/base/plugin/spi/system/messaging/PluginGroupRequestTest.java` (YuDream Admin core repository)
 
 **Step 1: Write the failing test**
 
@@ -41,9 +41,9 @@ Expected: PASS.
 ### Task 2: Dispatch QQ group-request events and apply typed decisions
 
 **Files:**
-- Modify: `D:/code/yudream-admim/yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/MilkyPluginEventDispatcher.java`
-- Modify: `D:/code/yudream-admim/yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/MilkyPluginMessagingService.java`
-- Test: `D:/code/yudream-admim/yudream-bootstrap/src/test/java/online/yudream/base/infra/platform/milky/MilkyPluginGroupRequestTest.java`
+- Modify: `yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/MilkyPluginEventDispatcher.java` (YuDream Admin core repository)
+- Modify: `yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/MilkyPluginMessagingService.java` (YuDream Admin core repository)
+- Test: `yudream-bootstrap/src/test/java/online/yudream/base/infra/platform/milky/MilkyPluginGroupRequestTest.java` (YuDream Admin core repository)
 
 **Step 1: Write the failing test**
 
@@ -245,7 +245,7 @@ Expected: PASS.
 - Modify: `yudream-plugins/yudream-plugin-qqbot-automation/pom.xml`
 - Modify: `yudream-plugins/yudream-plugin-qqbot-automation/src/main/resources/plugin.yml`
 - Modify: `pom.xml`
-- Modify: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/pom.xml`
+- Modify: `yudream-plugins/yudream-plugin-spi/pom.xml` (YuDream Admin core repository)
 
 **Step 1: Verify release boundary**
 

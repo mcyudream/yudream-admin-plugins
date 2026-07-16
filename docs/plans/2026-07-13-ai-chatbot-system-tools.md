@@ -21,7 +21,7 @@ vector search as an optional host capability, Vue 3, TypeScript,
 
 ### Task 0: Publish optional host semantic-memory contract
 
-**Repository:** `D:/code/yudream-admim`
+**Repository:** YuDream Admin core repository
 
 **Files:**
 - Create: `yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/memory/PluginSemanticMemoryService.java`
@@ -44,7 +44,7 @@ namespace.
 **Step 2: Run the test and confirm it fails.**
 
 ```powershell
-cd D:/code/yudream-admim
+# Run from the YuDream Admin core repository root.
 mvn -pl yudream-plugins/yudream-plugin-spi,yudream-bootstrap -am test -Dtest=PluginSemanticMemoryFrameworkServiceTest
 ```
 
@@ -64,7 +64,7 @@ build and deploy only the SPI module after reviewing its staging diff.
 **Step 5: Commit.**
 
 ```powershell
-cd D:/code/yudream-admim
+# Run from the YuDream Admin core repository root.
 git add yudream-plugins/yudream-plugin-spi yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/memory yudream-bootstrap/src/test/java/online/yudream/base/infra/platform/plugin
 git commit -m "feat: expose optional plugin semantic memory"
 ```
