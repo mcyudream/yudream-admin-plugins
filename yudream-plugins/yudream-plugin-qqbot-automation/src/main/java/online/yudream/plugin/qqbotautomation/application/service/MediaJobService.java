@@ -195,10 +195,14 @@ public class MediaJobService {
                 .toList());
         forward.put("summary", summary);
         forward.put("prompt", prompt);
-        return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
-                "group_id", target.channelId(),
-                "message", List.of(Map.of("type", "forward", "data", forward))
-        ));
+        try {
+            String content = json.writeValueAsString(forward);
+            return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
+                    new PluginMessageContent(PluginMessageContent.Type.COMPOSITE, content, List.of(), Map.of())))
+                    .thenApply(ignored -> Map.of());
+        } catch (Exception exception) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Unable to build Douyin forward message", exception));
+        }
     }
 
     private CompletionStage<?> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
@@ -225,10 +229,10 @@ public class MediaJobService {
 
     private CompletionStage<?> sendDouyinRecord(DeliveryTarget target, String audioUrl) {
         if (!nonBlank(audioUrl)) return CompletableFuture.completedFuture(null);
-        return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
-                "group_id", target.channelId(),
-                "message", List.of(Map.of("type", "record", "data", Map.of("uri", audioUrl)))
-        )).exceptionally(ignored -> Map.of());
+        return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
+                new PluginMessageContent(PluginMessageContent.Type.AUDIO, audioUrl,
+                        List.of(new PluginMessageContent.Attachment(audioUrl, "douyin-audio.mp3", "audio/mpeg")), Map.of())))
+                .exceptionally(ignored -> null);
     }
 
     private JsonNode douyinMetadata(HttpResponse<String> response) {
@@ -604,8 +608,10 @@ public class MediaJobService {
     private String sanitize(Throwable error) {
         Throwable root = error;
         while (root != null && root.getCause() != null) root = root.getCause();
-        if (root == null || root.getMessage() == null) return "Media parsing failed";
-        String message = root.getMessage().replaceAll("https?://[^\\s]+", "[endpoint]");
+        if (root == null) return "Media parsing failed";
+        String detail = root.getMessage();
+        if (detail == null || detail.isBlank()) detail = root.getClass().getSimpleName();
+        String message = detail.replaceAll("https?://[^\\s]+", "[endpoint]");
         return message.substring(0, Math.min(message.length(), 240));
     }
 
