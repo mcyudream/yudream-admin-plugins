@@ -32,6 +32,7 @@ public class MediaJobService {
     private static final String DEFAULT_DOCKER_ENDPOINT = "http://127.0.0.1";
     private static final String DEFAULT_MILKY_MEDIA_DIRECTORY = "/media";
     private static final int DOCUMENT_SCAN_SIZE = 200;
+    private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
@@ -51,7 +52,7 @@ public class MediaJobService {
         Matcher matcher = MEDIA_LINK.matcher(event.content() == null ? "" : event.content());
         if (!matcher.find()) return;
         start(UUID.randomUUID().toString(), event.connectionId(), event.channelId(), matcher.group(), policy,
-                new DeliveryTarget(event.connectionId(), event.platform(), event.selfId(), event.channelId(), replyTo(event), event.userId()), "EVENT");
+                new DeliveryTarget(event.connectionId(), event.platform(), event.selfId(), event.channelId(), replyTo(event), event.selfId()), "EVENT");
     }
 
     /**
@@ -132,6 +133,16 @@ public class MediaJobService {
         MediaRequest request = request(policy, sourceUrl);
         resolveMedia(request).whenComplete((media, error) -> {
                     if (error != null || media == null || media.deliveryUri().isBlank()) {
+                        if (isDouyinImageDownload(request, error)) {
+                            sendDouyinImagePost(request, target).whenComplete((ignored, imageError) -> {
+                                if (imageError != null) {
+                                    save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(imageError));
+                                    return;
+                                }
+                                save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", request.endpoint().toString(), null);
+                            });
+                            return;
+                        }
                         save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
                         return;
                     }
@@ -166,26 +177,98 @@ public class MediaJobService {
         }
         return fetchDouyinComments(request, target).thenCompose(messages -> {
             if (messages.isEmpty()) return CompletableFuture.completedFuture(null);
-            return sendForward(target, messages).exceptionallyCompose(error -> {
+            return sendForward(target, messages, "抖音评论", "评论区", "抖音评论").exceptionallyCompose(error -> {
                 List<Map<String, Object>> textMessages = textOnly(messages);
-                return textMessages.isEmpty() ? CompletableFuture.failedFuture(error) : sendForward(target, textMessages);
+                return textMessages.isEmpty() ? CompletableFuture.failedFuture(error)
+                        : sendForward(target, textMessages, "抖音评论", "评论区", "抖音评论");
             });
         });
     }
 
-    private CompletionStage<Map<String, Object>> sendForward(DeliveryTarget target, List<Map<String, Object>> messages) {
+    private CompletionStage<Map<String, Object>> sendForward(DeliveryTarget target, List<Map<String, Object>> messages,
+                                                              String title, String summary, String prompt) {
         Map<String, Object> forward = new LinkedHashMap<>();
         forward.put("messages", messages);
-        forward.put("title", "抖音评论");
+        forward.put("title", title);
         forward.put("preview", messages.stream().limit(4)
                 .map(message -> String.valueOf(message.get("sender_name")))
                 .toList());
-        forward.put("summary", "评论区");
-        forward.put("prompt", "抖音评论");
+        forward.put("summary", summary);
+        forward.put("prompt", prompt);
         return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
                 "group_id", target.channelId(),
                 "message", List.of(Map.of("type", "forward", "data", forward))
         ));
+    }
+
+    private CompletionStage<?> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
+        URI endpoint = douyinMetadataEndpoint(request, false);
+        HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30)).GET().build();
+        return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenApply(this::douyinMetadata)
+                .thenCompose(data -> {
+                    List<String> images = douyinImageUrls(data);
+                    if (images.isEmpty()) {
+                        return CompletableFuture.failedFuture(new IllegalStateException("Douyin image post did not return images"));
+                    }
+                    String nickname = nonBlank(data.path("author").path("nickname").asText())
+                            ? data.path("author").path("nickname").asText() : "抖音图文";
+                    long userId = forwardUserId(target.forwardFallbackUserId());
+                    List<Map<String, Object>> messages = images.stream()
+                            .map(uri -> forwardNode(nickname, userId, Map.of("type", "image", "data", Map.of("uri", uri))))
+                            .toList();
+                    return sendForward(target, messages, "抖音图文", "图文作品", "抖音图文")
+                            .thenCompose(ignored -> sendDouyinRecord(target, douyinAudioUrl(data)))
+                            .thenCompose(ignored -> sendDouyinComments(request, target));
+                });
+    }
+
+    private CompletionStage<?> sendDouyinRecord(DeliveryTarget target, String audioUrl) {
+        if (!nonBlank(audioUrl)) return CompletableFuture.completedFuture(null);
+        return framework.messagingRaw().invoke(target.connectionId(), "send_group_message", Map.of(
+                "group_id", target.channelId(),
+                "message", List.of(Map.of("type", "record", "data", Map.of("uri", audioUrl)))
+        )).exceptionally(ignored -> Map.of());
+    }
+
+    private JsonNode douyinMetadata(HttpResponse<String> response) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Douyin metadata HTTP " + response.statusCode() + ": " + providerMessage(response.body()));
+        }
+        try {
+            JsonNode data = json.readTree(response.body()).path("data");
+            if (!data.isObject()) throw new IllegalStateException("Douyin metadata did not return data");
+            return data;
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Douyin metadata returned invalid JSON", exception);
+        }
+    }
+
+    private List<String> douyinImageUrls(JsonNode data) {
+        List<String> urls = new ArrayList<>();
+        for (JsonNode url : data.path("image_data").path("no_watermark_image_list")) {
+            if (url.isTextual() && nonBlank(url.asText())) urls.add(url.asText());
+        }
+        if (!urls.isEmpty()) return urls;
+        for (JsonNode image : data.path("images")) {
+            String url = firstUrl(image.path("url_list"));
+            if (nonBlank(url)) urls.add(url);
+        }
+        return urls;
+    }
+
+    private String douyinAudioUrl(JsonNode data) {
+        for (JsonNode value : List.of(
+                data.path("video").path("play_addr").path("url_list"),
+                data.path("music").path("play_url").path("url_list"),
+                data.path("video_data").path("audio_url_list"))) {
+            String url = firstUrl(value);
+            if (nonBlank(url)) return url;
+        }
+        String uri = data.path("video").path("play_addr").path("uri").asText();
+        return uri.startsWith("http://") || uri.startsWith("https://") ? uri : null;
     }
 
     private List<Map<String, Object>> textOnly(List<Map<String, Object>> messages) {
@@ -198,7 +281,7 @@ public class MediaJobService {
     }
 
     private CompletionStage<List<Map<String, Object>>> fetchDouyinComments(MediaRequest request, DeliveryTarget target) {
-        URI metadataEndpoint = URI.create(appendUrlQuery(douyinApiEndpoint(request.endpoint(), "/api/hybrid/video_data"), request.sourceUrl()) + "&minimal=true");
+        URI metadataEndpoint = douyinMetadataEndpoint(request, true);
         HttpRequest metadataRequest = HttpRequest.newBuilder(metadataEndpoint).timeout(Duration.ofSeconds(30)).GET().build();
         return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(this::douyinAwemeId)
@@ -239,7 +322,7 @@ public class MediaJobService {
             for (JsonNode comment : comments) {
                 JsonNode user = comment.path("user");
                 String nickname = nonBlank(user.path("nickname").asText()) ? user.path("nickname").asText() : "抖音用户";
-                long userId = forwardUserId(user, fallbackUserId);
+                long userId = forwardUserId(fallbackUserId);
                 addImageNode(messages, nickname, userId, firstUrl(comment.path("sticker").path("static_url").path("url_list")));
                 for (JsonNode image : comment.path("image_list")) {
                     addImageNode(messages, nickname, userId, firstUrl(image.path("origin_url").path("url_list")));
@@ -262,22 +345,12 @@ public class MediaJobService {
                 "segments", List.of(segment));
     }
 
-    private long forwardUserId(JsonNode user, String fallbackUserId) {
-        for (String field : List.of("id", "uid", "user_id")) {
-            JsonNode value = user.get(field);
-            if (value != null && value.canConvertToLong()) return value.asLong();
-            if (value != null && value.isTextual()) {
-                try {
-                    return Long.parseLong(value.asText());
-                } catch (NumberFormatException ignored) {
-                    // Try the next possible provider field.
-                }
-            }
-        }
+    private long forwardUserId(String fallbackUserId) {
         try {
-            return Long.parseLong(fallbackUserId);
+            long userId = Long.parseLong(fallbackUserId);
+            return userId >= FALLBACK_FORWARD_UIN && userId <= 4_294_967_295L ? userId : FALLBACK_FORWARD_UIN;
         } catch (RuntimeException ignored) {
-            return 0L;
+            return FALLBACK_FORWARD_UIN;
         }
     }
 
@@ -291,6 +364,17 @@ public class MediaJobService {
 
     private URI douyinApiEndpoint(URI requestEndpoint, String path) {
         return URI.create(requestEndpoint.getScheme() + "://" + requestEndpoint.getAuthority() + path);
+    }
+
+    private URI douyinMetadataEndpoint(MediaRequest request, boolean minimal) {
+        return URI.create(appendUrlQuery(douyinApiEndpoint(request.endpoint(), "/api/hybrid/video_data"), request.sourceUrl())
+                + "&minimal=" + minimal);
+    }
+
+    private boolean isDouyinImageDownload(MediaRequest request, Throwable error) {
+        Throwable root = error;
+        while (root != null && root.getCause() != null) root = root.getCause();
+        return request.dockerDownload() && isDouyinSource(request.sourceUrl()) && root instanceof DouyinImageDownloadException;
     }
 
     private boolean nonBlank(String value) {
@@ -364,6 +448,9 @@ public class MediaJobService {
         String filename = response.headers().firstValue("Content-Disposition")
                 .flatMap(this::filename)
                 .orElseThrow(() -> new IllegalStateException("Media provider did not include a downloadable filename"));
+        if (filename.endsWith("_images.zip") || filename.endsWith("_images_watermark.zip")) {
+            throw new DouyinImageDownloadException();
+        }
         String directory = filename.contains("_douyin_") || filename.startsWith("douyin_") ? "douyin_video"
                 : filename.contains("_tiktok_") || filename.startsWith("tiktok_") ? "tiktok_video" : null;
         if (directory == null) {
@@ -526,4 +613,5 @@ public class MediaJobService {
     private record ResolvedMedia(String downloadUrl, String deliveryUri) { }
     private record DeliveryTarget(String connectionId, String platform, String selfId, String channelId,
                                   Map<String, Object> referrer, String forwardFallbackUserId) { }
+    private static final class DouyinImageDownloadException extends IllegalStateException { }
 }

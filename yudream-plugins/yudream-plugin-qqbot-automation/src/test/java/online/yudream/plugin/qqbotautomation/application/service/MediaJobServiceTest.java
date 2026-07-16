@@ -106,6 +106,7 @@ class MediaJobServiceTest {
             assertEquals(3, nodes.size());
             Map<?, ?> textNode = (Map<?, ?>) nodes.get(2);
             assertEquals("评论用户", textNode.get("sender_name"));
+            assertEquals(10001L, textNode.get("user_id"));
             Map<?, ?> textSegment = (Map<?, ?>) ((List<?>) textNode.get("segments")).getFirst();
             assertEquals("第一条评论", ((Map<?, ?>) textSegment.get("data")).get("text"));
         } finally {
@@ -147,6 +148,31 @@ class MediaJobServiceTest {
         assertEquals(3, service.clear());
         assertEquals(0, service.total());
         assertTrue(service.page(1, 10).isEmpty());
+    }
+
+    @Test
+    void sendsDouyinImagePostAudioAsASeparateRecord() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<Map<String, Object>> rawPayload = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        HttpServer server = douyinImageServer();
+        try {
+            server.start();
+            policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, null, rawPayload));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/image-post"));
+
+            await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
+            List<?> message = (List<?>) rawPayload.get().get("message");
+            Map<?, ?> segment = (Map<?, ?>) message.getFirst();
+            assertEquals("record", segment.get("type"));
+            assertEquals("https://audio.example.test/post.mp3", ((Map<?, ?>) segment.get("data")).get("uri"));
+        } finally {
+            server.stop(0);
+        }
     }
 
     @Test
@@ -290,6 +316,24 @@ class MediaJobServiceTest {
         });
         server.createContext("/api/hybrid/video_data", exchange -> writeJson(exchange, 200, "{\"data\":{\"aweme_id\":\"aweme-123\"}}"));
         server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, commentsStatus, commentsBody));
+        return server;
+    }
+
+    private HttpServer douyinImageServer() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "application/zip");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_aweme_images.zip\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        String metadata = """
+                {"data":{"type":"image","aweme_id":"aweme-image","author":{"nickname":"图文作者"},
+                "image_data":{"no_watermark_image_list":["https://image.example.test/one.jpg","https://image.example.test/two.jpg"]},
+                "music":{"play_url":{"url_list":["https://audio.example.test/post.mp3"]}}}}
+                """;
+        server.createContext("/api/hybrid/video_data", exchange -> writeJson(exchange, 200, metadata));
+        server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, 200, "{\"data\":{\"comments\":[]}}"));
         return server;
     }
 
