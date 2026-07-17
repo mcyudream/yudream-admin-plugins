@@ -6,6 +6,7 @@ import online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,12 +39,27 @@ public class JoinVerificationService {
     private void decide(PluginEvent event, Decision decision) {
         if (decision == Decision.UNDECIDED) return;
         boolean approve = decision == Decision.APPROVE;
-        framework.messagingRaw().invoke(event.connectionId(), "set_group_add_request", Map.of(
-                "flag", event.referrer().get("requestId"), "sub_type", "add", "approve", approve,
-                "reason", approve ? "验证通过" : "验证未通过"));
-        framework.documents("qqbot-automation").save("join-verification-audit", event.connectionId() + ":" + event.referrer().get("requestId"), Map.of(
-                "connectionId", event.connectionId(), "channelId", event.channelId(), "userId", event.userId(),
-                "requestId", event.referrer().get("requestId"), "decision", approve ? "APPROVE" : "REJECT", "createdAt", System.currentTimeMillis()));
+        String requestId = value(event.referrer().get("requestId"));
+        String decisionKey = event.connectionId() + ":" + requestId;
+        framework.messagingRaw().invoke(event.connectionId(), approve ? "accept_group_request" : "reject_group_request",
+                groupRequestPayload(event, requestId)).whenComplete((ignored, error) -> {
+            if (error != null) {
+                DECIDED.remove(decisionKey);
+                return;
+            }
+            framework.documents("qqbot-automation").save("join-verification-audit", decisionKey, Map.of(
+                    "connectionId", event.connectionId(), "channelId", event.channelId(), "userId", event.userId(),
+                    "requestId", requestId, "decision", approve ? "APPROVE" : "REJECT", "createdAt", System.currentTimeMillis()));
+        });
+    }
+
+    private Map<String, Object> groupRequestPayload(PluginEvent event, String requestId) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (event.nativeData() instanceof Map<?, ?> nativeData) {
+            nativeData.forEach((key, value) -> payload.put(String.valueOf(key), value));
+        }
+        payload.putIfAbsent("request_id", requestId);
+        return payload;
     }
 
     private Decision ruleDecision(String comment, AutomationPolicy policy) {
