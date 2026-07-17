@@ -21,21 +21,23 @@ class JoinVerificationServiceTest {
 
     @Test
     void approvesUsingMilkyGroupRequestEndpointAndTheNativePayload() {
-        Invocation invocation = invoke("allow", "request-approve");
+        Invocation invocation = invoke("allow", "101");
 
         assertEquals("accept_group_request", invocation.method());
-        assertEquals("request-approve", invocation.payload().get("request_id"));
+        assertEquals(101L, invocation.payload().get("notification_seq"));
+        assertEquals("join_request", invocation.payload().get("notification_type"));
         assertEquals("group-a", invocation.payload().get("group_id"));
-        assertEquals("user-a", invocation.payload().get("user_id"));
+        assertEquals("user-a", invocation.payload().get("initiator_id"));
         assertEquals("APPROVE", invocation.audit().get("decision"));
     }
 
     @Test
     void rejectsUsingMilkyGroupRequestEndpointAndTheNativePayload() {
-        Invocation invocation = invoke("deny", "request-reject");
+        Invocation invocation = invoke("deny", "102");
 
         assertEquals("reject_group_request", invocation.method());
-        assertEquals("request-reject", invocation.payload().get("request_id"));
+        assertEquals(102L, invocation.payload().get("notification_seq"));
+        assertEquals("join_request", invocation.payload().get("notification_type"));
         assertEquals("REJECT", invocation.audit().get("decision"));
     }
 
@@ -62,8 +64,8 @@ class JoinVerificationServiceTest {
                 });
 
         new JoinVerificationService(policies, framework).handle(new PluginEvent("", "group_request", "milky", "user-a", "group-a",
-                answer, null, null, Map.of("requestId", requestId), "group_request",
-                Map.of("request_id", requestId, "group_id", "group-a", "user_id", "user-a", "comment", answer),
+                answer, null, null, Map.of("requestId", requestId), "group_join_request",
+                Map.of("notification_seq", Long.parseLong(requestId), "group_id", "group-a", "initiator_id", "user-a", "comment", answer),
                 "connection-a", "self-a", requestId));
 
         return new Invocation(method.get(), payload.get(), documents.findById("join-verification-audit", "connection-a:" + requestId).orElseThrow());

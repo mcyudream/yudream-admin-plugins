@@ -58,7 +58,9 @@ public class JoinVerificationService {
         if (event.nativeData() instanceof Map<?, ?> nativeData) {
             nativeData.forEach((key, value) -> payload.put(String.valueOf(key), value));
         }
-        payload.putIfAbsent("request_id", requestId);
+        payload.putIfAbsent("notification_seq", Long.parseLong(requestId));
+        payload.putIfAbsent("notification_type", "group_invited_join_request".equals(event.nativeType())
+                ? "invited_join_request" : "join_request");
         return payload;
     }
 
