@@ -3,6 +3,7 @@ package online.yudream.plugin.worldmap.infrastructure.repository;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.plugin.worldmap.domain.aggregate.RenderTask;
 import online.yudream.plugin.worldmap.domain.enumerate.TaskState;
+import online.yudream.plugin.worldmap.domain.enumerate.RenderPhase;
 import online.yudream.plugin.worldmap.domain.repo.RenderTaskRepo;
 
 import java.util.HashMap;
@@ -63,6 +64,8 @@ public class DocumentRenderTaskRepo implements RenderTaskRepo {
         Map<String, Object> doc = new HashMap<>();
         doc.put("mapId", task.getMapId());
         doc.put("state", task.getState().name());
+        doc.put("phase", task.getPhase().name());
+        doc.put("progressPercent", task.getProgressPercent());
         doc.put("totalTiles", task.getTotalTiles());
         doc.put("doneTiles", task.getDoneTiles());
         doc.put("message", task.getMessage());
@@ -79,6 +82,8 @@ public class DocumentRenderTaskRepo implements RenderTaskRepo {
                 stringValue(doc.get("mapId"), "")
         );
         task.setState(TaskState.valueOf(stringValue(doc.get("state"), "PENDING")));
+        task.setPhase(phaseValue(doc.get("phase")));
+        task.setProgressPercent(intValue(doc.get("progressPercent")));
         task.setTotalTiles(intValue(doc.get("totalTiles")));
         task.setDoneTiles(intValue(doc.get("doneTiles")));
         task.setMessage(stringValue(doc.get("message"), null));
@@ -87,5 +92,13 @@ public class DocumentRenderTaskRepo implements RenderTaskRepo {
         task.setFinishedAt(longValue(doc.get("finishedAt")));
         task.setError(stringValue(doc.get("error"), null));
         return task;
+    }
+
+    private static RenderPhase phaseValue(Object value) {
+        try {
+            return RenderPhase.valueOf(stringValue(value, "IMPORT"));
+        } catch (IllegalArgumentException ignored) {
+            return RenderPhase.IMPORT;
+        }
     }
 }

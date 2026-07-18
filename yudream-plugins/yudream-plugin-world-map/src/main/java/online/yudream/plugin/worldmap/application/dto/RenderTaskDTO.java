@@ -7,6 +7,8 @@ public record RenderTaskDTO(
         String id,
         String mapId,
         String state,
+        String phase,
+        int progressPercent,
         int totalTiles,
         int doneTiles,
         String message,

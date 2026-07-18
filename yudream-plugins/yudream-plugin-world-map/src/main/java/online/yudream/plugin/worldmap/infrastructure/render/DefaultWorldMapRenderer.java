@@ -5,6 +5,7 @@ import online.yudream.plugin.worldmap.infrastructure.resource.BlockModelRegistry
 import online.yudream.plugin.worldmap.infrastructure.resource.ResourcePacks;
 import online.yudream.plugin.worldmap.infrastructure.world.WorldAccess;
 import online.yudream.plugin.worldmap.infrastructure.world.WorldLoader;
+import online.yudream.plugin.worldmap.domain.enumerate.RenderPhase;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -35,6 +36,9 @@ public final class DefaultWorldMapRenderer implements WorldMapRenderer {
     @Override
     public RenderSummary render(RenderJob job, TileSink sink, ProgressListener progress) throws IOException {
         long start = System.currentTimeMillis();
+        if (progress != null) {
+            progress.phase(RenderPhase.ASSETS, "Loading client assets");
+        }
         BlockModelRegistry registry = ResourcePacks.load(job.clientJar());
         byte[] atlasPng = registry.atlas().png();
         sink.putAtlas(atlasPng);
@@ -55,6 +59,9 @@ public final class DefaultWorldMapRenderer implements WorldMapRenderer {
                 .thenComparingInt(t -> t[1]));
 
         int total = tiles.size();
+        if (progress != null) {
+            progress.phase(RenderPhase.HIRES, "Rendering detailed tiles");
+        }
         AtomicInteger done = new AtomicInteger();
         AtomicInteger hiresCount = new AtomicInteger();
         TileSink safeSink = new SynchronizedTileSink(sink);
@@ -76,6 +83,9 @@ public final class DefaultWorldMapRenderer implements WorldMapRenderer {
             // lowres：单线程（量小且按金字塔依赖）
             int lowresCount = 0;
             if (total > 0) {
+                if (progress != null) {
+                    progress.phase(RenderPhase.LOWRES, "Rendering overview tiles");
+                }
                 checkInterrupted();
                 try (WorldAccess raw = WorldLoader.load(job.worldDir(), job.dimension())) {
                     RenderWorldView world = new RenderWorldView(raw, nether, nether && job.stripNetherCeiling());

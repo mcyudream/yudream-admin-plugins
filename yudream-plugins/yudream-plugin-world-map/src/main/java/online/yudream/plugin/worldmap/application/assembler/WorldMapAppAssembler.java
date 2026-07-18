@@ -57,6 +57,8 @@ public class WorldMapAppAssembler {
                 task.getId(),
                 task.getMapId(),
                 task.getState().name(),
+                task.getPhase().name(),
+                task.getProgressPercent(),
                 task.getTotalTiles(),
                 task.getDoneTiles(),
                 task.getMessage(),

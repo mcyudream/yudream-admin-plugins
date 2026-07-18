@@ -8,6 +8,7 @@ import online.yudream.plugin.worldmap.domain.aggregate.RenderTask;
 import online.yudream.plugin.worldmap.domain.repo.MapInstanceRepo;
 import online.yudream.plugin.worldmap.domain.repo.RenderTaskRepo;
 import online.yudream.plugin.worldmap.domain.enumerate.TaskState;
+import online.yudream.plugin.worldmap.domain.enumerate.RenderPhase;
 import online.yudream.plugin.worldmap.infrastructure.render.DefaultWorldMapRenderer;
 import online.yudream.plugin.worldmap.infrastructure.render.ProgressListener;
 import online.yudream.plugin.worldmap.infrastructure.render.RenderJob;
@@ -123,12 +124,16 @@ public class RenderOrchestrator implements AutoCloseable {
     private void runTask(RenderTask task, MapInstance map) {
         Path workDir = null;
         try {
+            updatePhase(task, RenderPhase.IMPORT, 0, "Preparing render input");
             workDir = Files.createTempDirectory("world-map-render-");
+            updatePhase(task, RenderPhase.IMPORT, 100, "Render input prepared");
+            updatePhase(task, RenderPhase.EXTRACT, 0, "Extracting world archive");
             Path worldZip = materialize(
                     tileStorage.worldZip(map.getId()).orElseThrow(() -> new IllegalArgumentException("世界存档缺失")),
                     workDir.resolve("world.zip"), "world.zip");
             Path extracted = WorldArchive.extract(worldZip, workDir.resolve("world"));
             Path worldRoot = WorldArchive.resolveWorldRoot(extracted);
+            updatePhase(task, RenderPhase.EXTRACT, 100, "World archive extracted");
             int[] spawn = WorldArchive.spawn(worldRoot);
             map.setSpawnX(spawn[0]);
             map.setSpawnY(spawn[1]);
@@ -138,12 +143,13 @@ public class RenderOrchestrator implements AutoCloseable {
             map.setMinTileZ(range[1]);
             map.setMaxTileX(range[2]);
             map.setMaxTileZ(range[3]);
+            updatePhase(task, RenderPhase.ASSETS, 0, "Preparing client assets");
             Path clientJar = resolveClientJar(map, workDir.resolve("client.jar"));
             mapRepo.save(map);
 
             int totalTiles = (range[2] - range[0] + 1) * (range[3] - range[1] + 1);
             task.start(totalTiles);
-            publish(task);
+            updatePhase(task, RenderPhase.ASSETS, 100, "Client assets prepared");
 
             RenderJob job = new RenderJob(
                     worldRoot,
@@ -161,10 +167,12 @@ public class RenderOrchestrator implements AutoCloseable {
                 return;
             }
             task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
-            task.succeed();
-            taskRepo.save(task);
+            updatePhase(task, RenderPhase.PUBLISH, 0, "Publishing render output");
             map.markReady(summary.hiresTiles(), summary.lowresTiles());
             mapRepo.save(map);
+            updatePhase(task, RenderPhase.PUBLISH, 100, "Render output published");
+            task.succeed();
+            taskRepo.save(task);
             publish(task);
         } catch (DefaultWorldMapRenderer.InterruptedRenderException e) {
             markCancelled(task.getId(), "渲染任务已取消");
@@ -242,6 +250,12 @@ public class RenderOrchestrator implements AutoCloseable {
         eventStream.publish(assembler.toDTO(task));
     }
 
+    private void updatePhase(RenderTask task, RenderPhase phase, int percent, String message) {
+        task.advancePhase(phase, percent, message);
+        taskRepo.save(task);
+        publish(task);
+    }
+
     private void deleteRecursively(Path dir) {
         if (dir == null || !Files.exists(dir)) {
             return;
@@ -295,6 +309,7 @@ public class RenderOrchestrator implements AutoCloseable {
         private int done;
         private int total;
         private String message;
+        private RenderPhase phase = RenderPhase.HIRES;
 
         ThrottledProgress(RenderTask task) {
             this.task = task;
@@ -312,7 +327,18 @@ public class RenderOrchestrator implements AutoCloseable {
             }
         }
 
+        @Override
+        public synchronized void phase(RenderPhase phase, String message) {
+            this.phase = phase;
+            this.message = message;
+            task.advancePhase(phase, 0, message);
+            taskRepo.save(task);
+            publish(task);
+        }
+
         synchronized void flush() {
+            int percent = total <= 0 ? 0 : Math.round(done * 100f / total);
+            task.advancePhase(phase, percent, message);
             task.advance(done, total, message);
             taskRepo.save(task);
             publish(task);

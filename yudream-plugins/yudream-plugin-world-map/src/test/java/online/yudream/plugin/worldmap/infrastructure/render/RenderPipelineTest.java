@@ -2,6 +2,7 @@ package online.yudream.plugin.worldmap.infrastructure.render;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import online.yudream.plugin.worldmap.domain.enumerate.RenderPhase;
 import online.yudream.plugin.worldmap.infrastructure.world.anvil.ChunkFixtures;
 import online.yudream.plugin.worldmap.infrastructure.world.anvil.MCAWriter;
 import online.yudream.plugin.worldmap.infrastructure.world.anvil.RegionFile;
@@ -59,6 +60,7 @@ class RenderPipelineTest {
     private static CollectingSink sink;
     private static RenderSummary summary;
     private static List<String> progressMessages;
+    private static List<RenderPhase> progressPhases;
 
     record TilePos(int tx, int tz) {
     }
@@ -96,16 +98,25 @@ class RenderPipelineTest {
 
         sink = new CollectingSink();
         progressMessages = new ArrayList<>();
+        progressPhases = new ArrayList<>();
         int[] lastDone = {-1};
         int[] lastTotal = {-1};
         WorldMapRenderer renderer = new DefaultWorldMapRenderer();
         summary = renderer.render(
                 new RenderJob(worldDir, clientJar, "overworld", 0, 0, 1, 0, false),
                 sink,
-                (done, total, message) -> {
-                    lastDone[0] = done;
-                    lastTotal[0] = total;
-                    progressMessages.add(message);
+                new ProgressListener() {
+                    @Override
+                    public void progress(int done, int total, String message) {
+                        lastDone[0] = done;
+                        lastTotal[0] = total;
+                        progressMessages.add(message);
+                    }
+
+                    @Override
+                    public void phase(RenderPhase phase, String message) {
+                        progressPhases.add(phase);
+                    }
                 });
         assertEquals(2, lastTotal[0], "total = hires tile 数");
         assertEquals(2, lastDone[0], "结束时 done 应等于 total");
@@ -178,6 +189,11 @@ class RenderPipelineTest {
     @Test
     void 空tile不产出() {
         assertEquals(2, summary.hiresTiles(), "两个 tile 均有内容");
+    }
+
+    @Test
+    void 渲染阶段按资源高精概览顺序上报() {
+        assertEquals(List.of(RenderPhase.ASSETS, RenderPhase.HIRES, RenderPhase.LOWRES), progressPhases);
     }
 
     // ---------- lowres ----------

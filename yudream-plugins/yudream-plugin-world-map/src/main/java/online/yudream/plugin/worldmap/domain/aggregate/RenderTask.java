@@ -1,6 +1,7 @@
 package online.yudream.plugin.worldmap.domain.aggregate;
 
 import online.yudream.plugin.worldmap.domain.enumerate.TaskState;
+import online.yudream.plugin.worldmap.domain.enumerate.RenderPhase;
 
 /**
  * 渲染任务聚合根。
@@ -10,6 +11,8 @@ public class RenderTask {
     private final String id;
     private final String mapId;
     private TaskState state;
+    private RenderPhase phase;
+    private int progressPercent;
     private int totalTiles;
     private int doneTiles;
     private String message;
@@ -22,6 +25,7 @@ public class RenderTask {
         this.id = id;
         this.mapId = mapId;
         this.state = TaskState.PENDING;
+        this.phase = RenderPhase.IMPORT;
         this.createdAt = System.currentTimeMillis();
     }
 
@@ -43,11 +47,25 @@ public class RenderTask {
         this.message = message;
     }
 
+    public void advancePhase(RenderPhase phase, int phasePercent, String message) {
+        if (isTerminal()) {
+            return;
+        }
+        if (phase.ordinal() < this.phase.ordinal()) {
+            return;
+        }
+        this.phase = phase;
+        this.progressPercent = Math.max(progressPercent, phase.progressAt(phasePercent));
+        this.message = message;
+    }
+
     public void succeed() {
         if (isTerminal()) {
             return;
         }
         this.state = TaskState.SUCCESS;
+        this.phase = RenderPhase.PUBLISH;
+        this.progressPercent = 100;
         this.finishedAt = System.currentTimeMillis();
     }
 
@@ -78,6 +96,10 @@ public class RenderTask {
     public String getMapId() { return mapId; }
     public TaskState getState() { return state; }
     public void setState(TaskState state) { this.state = state; }
+    public RenderPhase getPhase() { return phase; }
+    public void setPhase(RenderPhase phase) { this.phase = phase == null ? RenderPhase.IMPORT : phase; }
+    public int getProgressPercent() { return progressPercent; }
+    public void setProgressPercent(int progressPercent) { this.progressPercent = Math.max(0, Math.min(100, progressPercent)); }
     public int getTotalTiles() { return totalTiles; }
     public void setTotalTiles(int totalTiles) { this.totalTiles = totalTiles; }
     public int getDoneTiles() { return doneTiles; }
