@@ -27,8 +27,8 @@ export class OrbitController implements CameraController {
     this.controls.enabled = active
   }
 
-  update(_dt: number): void {
-    this.controls.update()
+  update(_dt: number): boolean {
+    return this.controls.update()
   }
 
   dispose(): void {

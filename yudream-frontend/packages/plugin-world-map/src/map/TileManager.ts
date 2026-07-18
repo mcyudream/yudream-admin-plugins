@@ -33,6 +33,8 @@ export interface TileManagerOptions {
   maxConcurrent?: number
   /** 有界队列容量，避免快速跳转时积压旧视野请求 */
   maxQueued?: number
+  /** 瓦片可见内容变化时请求一帧绘制 */
+  onChanged?: () => void
 }
 
 /**
@@ -155,6 +157,7 @@ export class TileManager {
           if (!tile || tile.positions.length === 0) {
             this.hires.set(key, { mesh: null, lastUsed: this.frame })
             this.failureCounts.delete(key)
+            this.options.onChanged?.()
             return
           }
           const mesh = this.buildMesh(tile, this.material)
@@ -167,12 +170,19 @@ export class TileManager {
             this.group.add(translucentMesh)
           }
           this.failureCounts.delete(key)
+          this.options.onChanged?.()
         })
         .catch((error: unknown) => {
           if (!controller.signal.aborted) {
             const failures = (this.failureCounts.get(key) ?? 0) + 1
             this.failureCounts.set(key, failures)
-            this.failedUntil.set(key, performance.now() + this.retryDelay(failures))
+            const delay = this.retryDelay(failures)
+            this.failedUntil.set(key, performance.now() + delay)
+            setTimeout(() => {
+              if (!this.disposed && this.desired.has(key)) {
+                this.options.onChanged?.()
+              }
+            }, delay)
             void error
           }
         })
@@ -328,6 +338,7 @@ export class TileManager {
           material.map = texture
           material.color.set(0xffffff)
           material.needsUpdate = true
+          this.options.onChanged?.()
         })
         .catch(() => {
           record.failed = true

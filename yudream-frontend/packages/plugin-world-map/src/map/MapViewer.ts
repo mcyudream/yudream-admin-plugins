@@ -40,7 +40,7 @@ export class MapViewer {
   private translucentMaterial: THREE.ShaderMaterial | null = null
   private atlas: THREE.Texture | null = null
   private source: WorldMapSource | null = null
-  private rafId = 0
+  private rafId: number | null = null
   private lastTime = performance.now()
   private frameCounter = 0
   private timeOfDay = 0.5
@@ -62,7 +62,8 @@ export class MapViewer {
     this.scene.fog = this.fog
 
     this.orbit = new OrbitController(this.camera, this.renderer.domElement)
-    this.fly = new FlyController(this.camera, this.renderer.domElement)
+    this.orbit.controls.addEventListener('change', this.requestRender)
+    this.fly = new FlyController(this.camera, this.renderer.domElement, this.requestRender)
     this.setCameraMode('orbit')
 
     this.markerLayer = new MarkerLayer(this.scene)
@@ -72,7 +73,7 @@ export class MapViewer {
     this.resize()
 
     this.applyTimeOfDay()
-    this.rafId = requestAnimationFrame(this.loop)
+    this.requestRender()
   }
 
   /** 切换地图数据源：加载 settings + atlas，重建 tile 调度，相机定位到 spawn 上方斜视 45° */
@@ -103,6 +104,7 @@ export class MapViewer {
     this.tileManager = new TileManager(source, settings, this.material, this.translucentMaterial, this.scene, {
       hiresRadius: this.options.hiresRadius,
       maxConcurrent: this.options.maxConcurrent,
+      onChanged: this.requestRender,
     })
     void this.markerLayer.load(source)
 
@@ -117,6 +119,7 @@ export class MapViewer {
     this.camera.lookAt(x, y, z)
     this.orbit.controls.target.set(x, y, z)
     this.orbit.controls.update()
+    this.requestRender()
   }
 
   setCameraMode(mode: CameraMode): void {
@@ -129,6 +132,7 @@ export class MapViewer {
       this.camera.getWorldDirection(direction)
       this.orbit.controls.target.copy(this.camera.position).addScaledVector(direction, 60)
     }
+    this.requestRender()
   }
 
   getCameraMode(): CameraMode {
@@ -139,6 +143,7 @@ export class MapViewer {
   setTimeOfDay(t: number): void {
     this.timeOfDay = THREE.MathUtils.clamp(t, 0, 1)
     this.applyTimeOfDay()
+    this.requestRender()
   }
 
   /** 读取当前视角（相机位置 + 当前控制器目标点） */
@@ -153,6 +158,7 @@ export class MapViewer {
     this.orbit.controls.target.set(target.x, target.y, target.z)
     this.camera.lookAt(target.x, target.y, target.z)
     this.orbit.controls.update()
+    this.requestRender()
   }
 
   /** 正在加载/排队中的 hires tile 数（加载进度指示用） */
@@ -195,19 +201,29 @@ export class MapViewer {
     }
   }
 
-  private loop = (): void => {
+  private requestRender = (): void => {
+    if (!this.disposed && this.rafId === null) {
+      this.rafId = requestAnimationFrame(this.renderFrame)
+    }
+  }
+
+  private renderFrame = (): void => {
     if (this.disposed) {
       return
     }
-    this.rafId = requestAnimationFrame(this.loop)
+    this.rafId = null
     const now = performance.now()
     const dt = Math.min((now - this.lastTime) / 1000, 0.1)
     this.lastTime = now
 
     const controller = this.mode === 'orbit' ? this.orbit : this.fly
-    controller.update(dt)
+    const controllerMoving = controller.update(dt)
     this.tileManager?.update(this.camera, controller.target)
     this.renderer.render(this.scene, this.camera)
+
+    if (controllerMoving || this.tileManager?.pendingCount) {
+      this.requestRender()
+    }
 
     this.frameCounter += 1
     if (this.options.onCameraChanged && this.frameCounter % 6 === 0) {
@@ -224,6 +240,7 @@ export class MapViewer {
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
+    this.requestRender()
   }
 
   dispose(): void {
@@ -231,8 +248,12 @@ export class MapViewer {
       return
     }
     this.disposed = true
-    cancelAnimationFrame(this.rafId)
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
     this.resizeObserver.disconnect()
+    this.orbit.controls.removeEventListener('change', this.requestRender)
     this.orbit.dispose()
     this.fly.dispose()
     this.tileManager?.dispose()

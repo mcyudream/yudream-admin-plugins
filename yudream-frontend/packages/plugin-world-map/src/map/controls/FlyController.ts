@@ -20,6 +20,7 @@ export class FlyController implements CameraController {
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly dom: HTMLElement,
+    private readonly onChanged: () => void,
   ) {
     this.dom.addEventListener('click', this.onClick)
     document.addEventListener('mousemove', this.onMouseMove)
@@ -77,6 +78,7 @@ export class FlyController implements CameraController {
     this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * MOUSE_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
     this.euler.set(this.pitch, this.yaw, 0, 'YXZ')
     this.camera.quaternion.setFromEuler(this.euler)
+    this.onChanged()
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
@@ -93,9 +95,9 @@ export class FlyController implements CameraController {
     this.keys.delete(event.code)
   }
 
-  update(dt: number): void {
+  update(dt: number): boolean {
     if (!this.active || !this.locked) {
-      return
+      return false
     }
     const boost = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')
     const speed = (boost ? BOOST_SPEED : BASE_SPEED) * dt
@@ -111,7 +113,10 @@ export class FlyController implements CameraController {
     if (this.move.lengthSq() > 0) {
       this.move.normalize().multiplyScalar(speed)
       this.camera.position.add(this.move)
+      this.onChanged()
+      return true
     }
+    return false
   }
 
   dispose(): void {
