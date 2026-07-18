@@ -1,0 +1,321 @@
+package online.yudream.plugin.worldmap.application.service;
+
+import online.yudream.base.plugin.spi.system.FrameworkServices;
+import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
+import online.yudream.plugin.worldmap.application.assembler.WorldMapAppAssembler;
+import online.yudream.plugin.worldmap.domain.aggregate.MapInstance;
+import online.yudream.plugin.worldmap.domain.aggregate.RenderTask;
+import online.yudream.plugin.worldmap.domain.repo.MapInstanceRepo;
+import online.yudream.plugin.worldmap.domain.repo.RenderTaskRepo;
+import online.yudream.plugin.worldmap.domain.enumerate.TaskState;
+import online.yudream.plugin.worldmap.infrastructure.render.DefaultWorldMapRenderer;
+import online.yudream.plugin.worldmap.infrastructure.render.ProgressListener;
+import online.yudream.plugin.worldmap.infrastructure.render.RenderJob;
+import online.yudream.plugin.worldmap.infrastructure.render.RenderSummary;
+import online.yudream.plugin.worldmap.infrastructure.render.TileSink;
+import online.yudream.plugin.worldmap.infrastructure.render.WorldMapRenderer;
+import online.yudream.plugin.worldmap.infrastructure.storage.TileStorage;
+import online.yudream.plugin.worldmap.infrastructure.world.WorldArchive;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Comparator;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.stream.Stream;
+
+/**
+ * 渲染编排器：单线程队列执行渲染任务，负责存档解包、资产解析、进度上报与资源回收。
+ */
+public class RenderOrchestrator implements AutoCloseable {
+
+    private static final String DEFAULT_CLIENT_JAR_URL = "https://bmclapi2.bangbang93.com/version/1.21.4/client";
+    private static final String CLIENT_JAR_URL_SETTING = "yudream.world-map.client-jar-url";
+    private static final long PROGRESS_PUBLISH_INTERVAL_MS = 250;
+
+    private final RenderTaskRepo taskRepo;
+    private final MapInstanceRepo mapRepo;
+    private final TileStorage tileStorage;
+    private final FrameworkServices framework;
+    private final WorldMapRenderer renderer;
+    private final WorldMapEventStream eventStream;
+    private final WorldMapAppAssembler assembler = new WorldMapAppAssembler();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "world-map-render");
+        thread.setDaemon(true);
+        return thread;
+    });
+    /** 任务 ID → 运行句柄（用于取消） */
+    private final ConcurrentHashMap<String, Future<?>> runningTasks = new ConcurrentHashMap<>();
+
+    public RenderOrchestrator(RenderTaskRepo taskRepo,
+                              MapInstanceRepo mapRepo,
+                              TileStorage tileStorage,
+                              FrameworkServices framework,
+                              WorldMapRenderer renderer,
+                              WorldMapEventStream eventStream) {
+        this.taskRepo = taskRepo;
+        this.mapRepo = mapRepo;
+        this.tileStorage = tileStorage;
+        this.framework = framework;
+        this.renderer = renderer;
+        this.eventStream = eventStream;
+        recoverStaleTasks();
+    }
+
+    /** 插件（服务）重启后，此前 PENDING/RUNNING 的任务一律标记为中断失败。 */
+    private void recoverStaleTasks() {
+        for (RenderTask task : taskRepo.findAll()) {
+            if (task.getState() == TaskState.PENDING || task.getState() == TaskState.RUNNING) {
+                task.fail("服务重启，任务中断");
+                taskRepo.save(task);
+                mapRepo.findById(task.getMapId()).ifPresent(map -> {
+                    if (map.getState() == online.yudream.plugin.worldmap.domain.enumerate.MapState.RENDERING) {
+                        map.markFailed("服务重启，任务中断");
+                        mapRepo.save(map);
+                    }
+                });
+                publish(task);
+            }
+        }
+    }
+
+    /** 取消任务：中断渲染线程，渲染器在下一个 tile 边界退出。 */
+    public synchronized boolean cancel(String taskId) {
+        Future<?> future = runningTasks.remove(taskId);
+        if (future == null) {
+            return false;
+        }
+        boolean cancelled = future.cancel(true);
+        if (!cancelled) {
+            return false;
+        }
+        markCancelled(taskId, "渲染任务已取消");
+        return true;
+    }
+
+    public RenderTask submit(MapInstance map) {
+        RenderTask task = new RenderTask(UUID.randomUUID().toString().replace("-", "").substring(0, 12), map.getId());
+        taskRepo.save(task);
+        map.markRendering();
+        mapRepo.save(map);
+        publish(task);
+        FutureTask<Void> future = new FutureTask<>(() -> {
+            runTask(task, map);
+            return null;
+        });
+        runningTasks.put(task.getId(), future);
+        executor.execute(future);
+        return task;
+    }
+
+    private void runTask(RenderTask task, MapInstance map) {
+        Path workDir = null;
+        try {
+            workDir = Files.createTempDirectory("world-map-render-");
+            Path worldZip = materialize(
+                    tileStorage.worldZip(map.getId()).orElseThrow(() -> new IllegalArgumentException("世界存档缺失")),
+                    workDir.resolve("world.zip"), "world.zip");
+            Path extracted = WorldArchive.extract(worldZip, workDir.resolve("world"));
+            Path worldRoot = WorldArchive.resolveWorldRoot(extracted);
+            int[] spawn = WorldArchive.spawn(worldRoot);
+            map.setSpawnX(spawn[0]);
+            map.setSpawnY(spawn[1]);
+            map.setSpawnZ(spawn[2]);
+            int[] range = WorldArchive.tileRange(worldRoot, map.getDimension());
+            map.setMinTileX(range[0]);
+            map.setMinTileZ(range[1]);
+            map.setMaxTileX(range[2]);
+            map.setMaxTileZ(range[3]);
+            Path clientJar = resolveClientJar(map, workDir.resolve("client.jar"));
+            mapRepo.save(map);
+
+            int totalTiles = (range[2] - range[0] + 1) * (range[3] - range[1] + 1);
+            task.start(totalTiles);
+            publish(task);
+
+            RenderJob job = new RenderJob(
+                    worldRoot,
+                    clientJar,
+                    map.getDimension(),
+                    range[0], range[1], range[2], range[3],
+                    map.isStripNetherCeiling()
+            );
+            ThrottledProgress throttledProgress = new ThrottledProgress(task);
+            RenderSummary summary = renderer.render(job, new StorageTileSink(map.getId()), throttledProgress);
+            throttledProgress.flush();
+
+            if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
+                markCancelled(task.getId(), "渲染任务已取消");
+                return;
+            }
+            task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
+            task.succeed();
+            taskRepo.save(task);
+            map.markReady(summary.hiresTiles(), summary.lowresTiles());
+            mapRepo.save(map);
+            publish(task);
+        } catch (DefaultWorldMapRenderer.InterruptedRenderException e) {
+            markCancelled(task.getId(), "渲染任务已取消");
+        } catch (Exception e) {
+            if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
+                markCancelled(task.getId(), "渲染任务已取消");
+                return;
+            }
+            task.fail(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            taskRepo.save(task);
+            map.markFailed(task.getError());
+            mapRepo.save(map);
+            publish(task);
+        } finally {
+            runningTasks.remove(task.getId());
+            deleteRecursively(workDir);
+        }
+    }
+
+    private synchronized void markCancelled(String taskId, String message) {
+        taskRepo.findById(taskId).ifPresent(task -> {
+            task.cancel(message);
+            taskRepo.save(task);
+            mapRepo.findById(task.getMapId()).ifPresent(map -> {
+                if (map.getState() == online.yudream.plugin.worldmap.domain.enumerate.MapState.RENDERING) {
+                    map.markCancelled(message);
+                    mapRepo.save(map);
+                }
+            });
+            publish(task);
+        });
+    }
+
+    private boolean isCancelled(String taskId) {
+        return taskRepo.findById(taskId)
+                .map(task -> task.getState() == TaskState.CANCELLED)
+                .orElse(false);
+    }
+
+    private Path materialize(PluginStoredFile file, Path target, String label) throws IOException {
+        if (file == null || file.inputStream() == null) {
+            throw new IllegalArgumentException("存储对象不存在：" + label);
+        }
+        try (InputStream input = file.inputStream()) {
+            Files.copy(input, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        return target;
+    }
+
+    private Path resolveClientJar(MapInstance map, Path target) throws IOException, InterruptedException {
+        if (map.getClientJarKey() != null && !map.getClientJarKey().isBlank()) {
+            return materialize(
+                    tileStorage.clientJar(map.getId()).orElseThrow(() -> new IllegalArgumentException("客户端 jar 缺失")),
+                    target, "client.jar");
+        }
+        String url = framework.setting(CLIENT_JAR_URL_SETTING).orElse(DEFAULT_CLIENT_JAR_URL);
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        HttpResponse<byte[]> response = client.send(
+                HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(10)).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+        );
+        if (response.statusCode() != 200 || response.body().length == 0) {
+            throw new IllegalStateException("客户端 jar 下载失败：HTTP " + response.statusCode());
+        }
+        Files.write(target, response.body());
+        tileStorage.saveClientJar(map.getId(), response.body());
+        map.setClientJarKey("maps/" + map.getId() + "/client.jar");
+        return target;
+    }
+
+    private void publish(RenderTask task) {
+        eventStream.publish(assembler.toDTO(task));
+    }
+
+    private void deleteRecursively(Path dir) {
+        if (dir == null || !Files.exists(dir)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(dir)) {
+            for (Path path : stream.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException ignored) {
+            // 临时目录清理失败不影响渲染结果
+        }
+    }
+
+    @Override
+    public void close() {
+        executor.shutdownNow();
+    }
+
+    /**
+     * 渲染产物写入插件文件存储。
+     */
+    private class StorageTileSink implements TileSink {
+        private final String mapId;
+
+        StorageTileSink(String mapId) {
+            this.mapId = mapId;
+        }
+
+        @Override
+        public void putHiresTile(int tx, int tz, byte[] gzipJson) throws IOException {
+            tileStorage.saveHires(mapId, tx, tz, gzipJson);
+        }
+
+        @Override
+        public void putLowresTile(int lod, int tx, int tz, byte[] png) throws IOException {
+            tileStorage.saveLowres(mapId, lod, tx, tz, png);
+        }
+
+        @Override
+        public void putAtlas(byte[] png) throws IOException {
+            tileStorage.saveAtlas(mapId, png);
+        }
+    }
+
+    /**
+     * 节流进度回调：落库 + SSE 推送。
+     */
+    private class ThrottledProgress implements ProgressListener {
+        private final RenderTask task;
+        private long lastPublish;
+        private int done;
+        private int total;
+        private String message;
+
+        ThrottledProgress(RenderTask task) {
+            this.task = task;
+        }
+
+        @Override
+        public synchronized void progress(int done, int total, String message) {
+            this.done = done;
+            this.total = total;
+            this.message = message;
+            long now = System.currentTimeMillis();
+            if (now - lastPublish >= PROGRESS_PUBLISH_INTERVAL_MS) {
+                lastPublish = now;
+                flush();
+            }
+        }
+
+        synchronized void flush() {
+            task.advance(done, total, message);
+            taskRepo.save(task);
+            publish(task);
+        }
+    }
+}
