@@ -47,9 +47,9 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       texture.colorSpace = THREE.SRGBColorSpace
       return texture
     },
-    async fetchHiresTile(tx, tz) {
+    async fetchHiresTile(tx, tz, signal) {
       // gzip JSON：浏览器 fetch 自动处理 Content-Encoding: gzip
-      const res = await fetch(await versioned(api.hiresTileUrl(mapId, tx, tz)))
+      const res = await fetch(await versioned(api.hiresTileUrl(mapId, tx, tz)), { signal })
       if (res.status === 404) {
         return null
       }

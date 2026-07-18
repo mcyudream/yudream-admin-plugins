@@ -18,11 +18,21 @@ interface LowresRecord {
   lastUsed: number
 }
 
+interface TileRequest {
+  key: string
+  tx: number
+  tz: number
+  epoch: number
+  priority: number
+}
+
 export interface TileManagerOptions {
   /** hires 加载半径（单位：tile，默认 4 ≈ 128 方块） */
   hiresRadius?: number
   /** 最大并发 tile 请求数（默认 6） */
   maxConcurrent?: number
+  /** 有界队列容量，避免快速跳转时积压旧视野请求 */
+  maxQueued?: number
 }
 
 /**
@@ -36,13 +46,18 @@ export class TileManager {
   private readonly lowresGroup = new THREE.Group()
   private readonly hires = new Map<string, HiresRecord>()
   private readonly lowres = new Map<string, LowresRecord>()
-  private readonly queue: string[] = []
+  private readonly queue: TileRequest[] = []
   private readonly queued = new Set<string>()
+  private readonly inFlightRequests = new Map<string, AbortController>()
+  private readonly failedUntil = new Map<string, number>()
+  private readonly failureCounts = new Map<string, number>()
   private readonly loader = new THREE.TextureLoader()
   private inFlight = 0
   private frame = 0
   private centerTx = 0
   private centerTz = 0
+  private viewEpoch = 0
+  private desired = new Set<string>()
   private disposed = false
 
   constructor(
@@ -67,8 +82,14 @@ export class TileManager {
     this.frame += 1
     const tileSize = this.settings.hiresTileSize
     const radius = this.options.hiresRadius ?? 4
-    this.centerTx = Math.floor(target.x / tileSize)
-    this.centerTz = Math.floor(target.z / tileSize)
+    const nextCenterTx = Math.floor(target.x / tileSize)
+    const nextCenterTz = Math.floor(target.z / tileSize)
+    if (nextCenterTx !== this.centerTx || nextCenterTz !== this.centerTz) {
+      this.centerTx = nextCenterTx
+      this.centerTz = nextCenterTz
+      this.viewEpoch += 1
+    }
+    const desired = new Set<string>()
 
     // 1. 收集半径内的 hires tile，未加载的入队
     for (let dx = -radius; dx <= radius; dx += 1) {
@@ -77,17 +98,18 @@ export class TileManager {
           continue
         }
         const key = `${this.centerTx + dx},${this.centerTz + dz}`
+        desired.add(key)
         const record = this.hires.get(key)
         if (record) {
           record.lastUsed = this.frame
           continue
         }
-        if (!this.queued.has(key)) {
-          this.queued.add(key)
-          this.queue.push(key)
+        if (!this.queued.has(key) && !this.inFlightRequests.has(key) && !this.isInBackoff(key)) {
+          this.enqueue(key, this.centerTx + dx, this.centerTz + dz, dx * dx + dz * dz)
         }
       }
     }
+    this.replaceDesired(desired)
 
     // 2. 卸载超半径 tile（LRU：最旧未使用的先卸）
     const evictRadius = radius + 1.5
@@ -116,20 +138,23 @@ export class TileManager {
     const maxConcurrent = this.options.maxConcurrent ?? 6
     const evictRadius = (this.options.hiresRadius ?? 4) + 1.5
     while (this.inFlight < maxConcurrent && this.queue.length > 0) {
-      const key = this.queue.shift()!
-      this.queued.delete(key)
-      const [tx, tz] = key.split(',').map(Number)
+      const request = this.queue.shift()!
+      this.queued.delete(request.key)
+      const { key, tx, tz } = request
       if (Math.hypot(tx - this.centerTx, tz - this.centerTz) > evictRadius) {
         continue // 排队期间已滚出范围，直接丢弃
       }
+      const controller = new AbortController()
+      this.inFlightRequests.set(key, controller)
       this.inFlight += 1
-      this.source.fetchHiresTile(tx, tz)
+      this.source.fetchHiresTile(tx, tz, controller.signal)
         .then((tile) => {
-          if (this.disposed) {
+          if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
             return
           }
           if (!tile || tile.positions.length === 0) {
             this.hires.set(key, { mesh: null, lastUsed: this.frame })
+            this.failureCounts.delete(key)
             return
           }
           const mesh = this.buildMesh(tile, this.material)
@@ -141,15 +166,71 @@ export class TileManager {
           if (translucentMesh) {
             this.group.add(translucentMesh)
           }
+          this.failureCounts.delete(key)
         })
-        .catch(() => { /* 网络错误不做负缓存，下次进入范围时重试 */ })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            const failures = (this.failureCounts.get(key) ?? 0) + 1
+            this.failureCounts.set(key, failures)
+            this.failedUntil.set(key, performance.now() + this.retryDelay(failures))
+            void error
+          }
+        })
         .finally(() => {
           this.inFlight -= 1
+          this.inFlightRequests.delete(key)
           if (!this.disposed) {
             this.pump()
           }
         })
     }
+  }
+
+  private enqueue(key: string, tx: number, tz: number, priority: number): void {
+    const maxQueued = this.options.maxQueued ?? 96
+    if (this.queue.length >= maxQueued) {
+      const worst = this.queue.reduce((index, item, candidate) =>
+        item.priority > this.queue[index]!.priority ? candidate : index, 0)
+      if (this.queue[worst]!.priority <= priority) {
+        return
+      }
+      this.queued.delete(this.queue[worst]!.key)
+      this.queue.splice(worst, 1)
+    }
+    this.queued.add(key)
+    this.queue.push({ key, tx, tz, epoch: this.viewEpoch, priority })
+    this.queue.sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
+  }
+
+  private replaceDesired(desired: Set<string>): void {
+    this.desired = desired
+    for (const [key, controller] of this.inFlightRequests) {
+      if (!desired.has(key)) {
+        controller.abort()
+      }
+    }
+    for (let index = this.queue.length - 1; index >= 0; index -= 1) {
+      if (!desired.has(this.queue[index]!.key)) {
+        this.queued.delete(this.queue[index]!.key)
+        this.queue.splice(index, 1)
+      }
+    }
+  }
+
+  private isInBackoff(key: string): boolean {
+    const until = this.failedUntil.get(key)
+    if (!until) {
+      return false
+    }
+    if (performance.now() >= until) {
+      this.failedUntil.delete(key)
+      return false
+    }
+    return true
+  }
+
+  private retryDelay(failures: number): number {
+    return Math.min(30_000, 1_000 * 2 ** Math.min(failures - 1, 5))
   }
 
   private buildMesh(tile: HiresTileGeometry, material: THREE.ShaderMaterial): THREE.Mesh {
@@ -290,6 +371,12 @@ export class TileManager {
     this.disposed = true
     this.queue.length = 0
     this.queued.clear()
+    for (const controller of this.inFlightRequests.values()) {
+      controller.abort()
+    }
+    this.inFlightRequests.clear()
+    this.failedUntil.clear()
+    this.failureCounts.clear()
     for (const record of this.hires.values()) {
       record.mesh?.geometry.dispose()
       record.mesh?.removeFromParent()
