@@ -62,6 +62,7 @@ export function createTerrainMaterial(atlas: THREE.Texture): THREE.ShaderMateria
           0.0,
           1.0
         );
+        if ( texel.a < 0.1 ) discard;
         gl_FragColor = vec4( texel.rgb * vColor * vAo * light, 1.0 );
         #include <fog_fragment>
       }
@@ -84,15 +85,15 @@ export function applyDayFactor(material: THREE.ShaderMaterial, dayFactor: number
 
 /**
  * 半透明地形材质（水面等，契约 §4 translucent 段）：
- * 与不透明地形同一 shader，输出 alpha=0.78，关闭深度写入避免半透明排序伪影。
+ * 与不透明地形同一 shader，保留纹理 alpha，关闭深度写入避免半透明排序伪影。
  */
 export function createTranslucentTerrainMaterial(atlas: THREE.Texture): THREE.ShaderMaterial {
   const material = createTerrainMaterial(atlas)
   material.transparent = true
   material.depthWrite = false
   material.fragmentShader = material.fragmentShader.replace(
-    'gl_FragColor = vec4( texel.rgb * vColor * vAo * light, 1.0 );',
-    'gl_FragColor = vec4( texel.rgb * vColor * vAo * light, 0.78 );',
+    'if ( texel.a < 0.1 ) discard;\n        gl_FragColor = vec4( texel.rgb * vColor * vAo * light, 1.0 );',
+    'if ( texel.a < 0.01 ) discard;\n        gl_FragColor = vec4( texel.rgb * vColor * vAo * light, texel.a * 0.78 );',
   )
   return material
 }

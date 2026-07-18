@@ -303,6 +303,7 @@ export class TileManager {
       // 不写深度 + 先渲染：hires 几何始终在兜底平面之上，
       // 避免平面高度（spawn.y 近似）高于实际地形时遮挡 hires
       depthWrite: false,
+      transparent: true,
     })
     const mesh = new THREE.Mesh(geometry, material)
     mesh.renderOrder = -1
@@ -312,8 +313,7 @@ export class TileManager {
     mesh.updateMatrix()
     const record: LowresRecord = { mesh, texture: null, failed: false, lastUsed: this.frame }
     const rawUrl = this.source.lowresTileUrl(lod, tx, tz)
-    // 以 renderedAt 为资产版本号，重渲染后 URL 变化使浏览器缓存失效
-    const url = rawUrl ? `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${this.settings.renderedAt ?? 0}` : rawUrl
+    const url = rawUrl
     if (url) {
       this.loader.loadAsync(url)
         .then((texture) => {
