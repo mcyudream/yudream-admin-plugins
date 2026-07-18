@@ -112,6 +112,9 @@ public class RenderOrchestrator implements AutoCloseable {
         if (future == null) {
             return false;
         }
+        if (taskRepo.findById(taskId).map(RenderTask::isTerminal).orElse(true)) {
+            return false;
+        }
         boolean cancelled = future.cancel(true);
         if (!cancelled) {
             return false;
@@ -185,15 +188,22 @@ public class RenderOrchestrator implements AutoCloseable {
                 markCancelled(task.getId(), "渲染任务已取消");
                 return;
             }
-            task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
-            updatePhase(task, RenderPhase.PUBLISH, 0, "Publishing render output");
-            generationPublisher.publish(map, generation);
-            map.markReady(summary.hiresTiles(), summary.lowresTiles());
-            mapRepo.save(map);
-            updatePhase(task, RenderPhase.PUBLISH, 100, "Render output published");
-            task.succeed();
-            taskRepo.save(task);
-            publish(task);
+            synchronized (this) {
+                if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
+                    discard(generation);
+                    markCancelled(task.getId(), "渲染任务已取消");
+                    return;
+                }
+                task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
+                updatePhase(task, RenderPhase.PUBLISH, 0, "Publishing render output");
+                generationPublisher.publish(map, generation);
+                map.markReady(summary.hiresTiles(), summary.lowresTiles());
+                mapRepo.save(map);
+                updatePhase(task, RenderPhase.PUBLISH, 100, "Render output published");
+                task.succeed();
+                taskRepo.save(task);
+                publish(task);
+            }
         } catch (DefaultWorldMapRenderer.InterruptedRenderException e) {
             discard(generation);
             markCancelled(task.getId(), "渲染任务已取消");
