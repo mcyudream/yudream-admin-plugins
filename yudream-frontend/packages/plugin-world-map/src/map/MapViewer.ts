@@ -4,6 +4,7 @@ import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
 import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
+import type { MapMarkerSet } from '../types'
 import { TileManager } from './TileManager'
 import type { CameraMode, WorldMapSource } from './types'
 
@@ -12,6 +13,7 @@ export interface MapViewerOptions {
   onCameraChanged?: (position: THREE.Vector3, target: THREE.Vector3) => void
   hiresRadius?: number
   maxConcurrent?: number
+  onMarkerSetsChanged?: (sets: readonly MapMarkerSet[]) => void
 }
 
 const DAY_SKY = new THREE.Color(0x87a9d6)
@@ -106,7 +108,12 @@ export class MapViewer {
       maxConcurrent: this.options.maxConcurrent,
       onChanged: this.requestRender,
     })
-    void this.markerLayer.load(source)
+    void this.markerLayer.load(source).then(() => {
+      if (!this.disposed && this.source === source) {
+        this.options.onMarkerSetsChanged?.(this.markerLayer.sets)
+        this.requestRender()
+      }
+    })
 
     // 初始相机：spawn 上方，方位 45°、俯仰 45° 斜视
     const { x, y, z } = settings.spawn
@@ -185,6 +192,11 @@ export class MapViewer {
   /** 标注点击拾取（二期 UI 入口；一期标注集为空，恒返回 null） */
   pickMarker(ndcX: number, ndcY: number): MarkerPickResult | null {
     return this.markerLayer.pick(ndcX, ndcY, this.camera)
+  }
+
+  setLayerVisible(setId: string, visible: boolean): void {
+    this.markerLayer.setVisible(setId, visible)
+    this.requestRender()
   }
 
   private applyTimeOfDay(): void {

@@ -62,12 +62,15 @@ export interface MapMarker {
   type?: string
   label?: string
   position?: { x: number, y: number, z: number }
+  points?: Array<{ x: number, y: number, z: number }>
+  color?: string
   [key: string]: unknown
 }
 
 export interface MapMarkerSet {
   id?: string
   label?: string
+  defaultVisible?: boolean
   markers?: MapMarker[]
   [key: string]: unknown
 }

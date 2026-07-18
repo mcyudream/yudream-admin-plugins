@@ -4,6 +4,7 @@ import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 import online.yudream.plugin.worldmap.application.service.MapAppService;
+import online.yudream.plugin.worldmap.application.service.WorldMapLayerService;
 import online.yudream.plugin.worldmap.infrastructure.storage.TileStorage;
 
 import java.util.Map;
@@ -19,10 +20,12 @@ public class PublicMapController {
 
     private final MapAppService mapAppService;
     private final TileStorage tileStorage;
+    private final WorldMapLayerService layers;
 
-    public PublicMapController(MapAppService mapAppService, TileStorage tileStorage) {
+    public PublicMapController(MapAppService mapAppService, TileStorage tileStorage, WorldMapLayerService layers) {
         this.mapAppService = mapAppService;
         this.tileStorage = tileStorage;
+        this.layers = layers;
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps")
@@ -94,7 +97,7 @@ public class PublicMapController {
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/markers")
     public PluginHttpResponse markers(PluginHttpRequest request) {
         requireGet(request);
-        return PluginHttpResponse.ok(Map.of("markerSets", java.util.List.of()));
+        return PluginHttpResponse.ok(Map.of("markerSets", layers.markerSets(segment(request.path(), 1))));
     }
 
     private PluginHttpResponse tileResponse(Optional<online.yudream.base.plugin.spi.system.storage.PluginStoredFile> file,

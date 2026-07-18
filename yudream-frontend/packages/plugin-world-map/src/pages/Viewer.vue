@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaIcon, FaSelect, FaSlider } from '@yudream/components'
+import { FaButton, FaCheckbox, FaIcon, FaSelect, FaSlider } from '@yudream/components'
 import { useWorldMapViewer } from '../composables/useWorldMapViewer'
 
 const props = defineProps<{
@@ -19,11 +19,14 @@ const {
   cameraMode,
   timeOfDay,
   cameraPos,
+  markerSets,
+  layerVisibility,
   mock,
   pendingTiles,
   isFullscreen,
   screenshot,
   toggleFullscreen,
+  setLayerVisible,
 } = useWorldMapViewer(props.sdk, props.route)
 
 function toggleCameraMode() {
@@ -82,6 +85,17 @@ function setContainer(el: unknown) {
         XYZ: {{ cameraPos.x }} / {{ cameraPos.y }} / {{ cameraPos.z }}
       </span>
       <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
+    </div>
+
+    <div v-if="markerSets.length" class="world-map-layers">
+      <FaCheckbox
+        v-for="set in markerSets"
+        :key="set.id"
+        :model-value="layerVisibility[set.id ?? ''] ?? set.defaultVisible !== false"
+        @update:model-value="value => setLayerVisible(set.id ?? '', Boolean(value))"
+      >
+        {{ set.label || set.id }}
+      </FaCheckbox>
     </div>
 
     <div v-if="loading" class="world-map-overlay">地图加载中……</div>

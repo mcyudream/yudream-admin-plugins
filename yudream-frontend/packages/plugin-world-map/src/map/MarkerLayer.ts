@@ -8,13 +8,12 @@ export interface MarkerPickResult {
 }
 
 /**
- * 标注层（一期占位）：契约 /maps/{id}/markers 一期返回空集。
- * 这里预留完整结构：setMarkers 渲染入口、pick 点击拾取、资源释放；
- * 二期按 marker.type 创建 sprite/POI mesh 加入 group 并登记到 pickables 即可。
+ * 标注层：消费插件公开 API 的纯 marker DTO，不依赖任何具体渲染引擎类型。
  */
 export class MarkerLayer {
   readonly group = new THREE.Group()
   private markerSets: MapMarkerSet[] = []
+  private readonly visibility = new Map<string, boolean>()
   private pickables: THREE.Object3D[] = []
   private readonly raycaster = new THREE.Raycaster()
   private readonly ndc = new THREE.Vector2()
@@ -40,13 +39,31 @@ export class MarkerLayer {
   }
 
   setMarkers(markerSets: MapMarkerSet[]): void {
-    this.clear()
     this.markerSets = markerSets
-    for (const set of markerSets) {
+    this.renderMarkers()
+  }
+
+  setVisible(setId: string, visible: boolean): void {
+    this.visibility.set(setId, visible)
+    this.renderMarkers()
+  }
+
+  private renderMarkers(): void {
+    this.clear()
+    for (const set of this.markerSets) {
+      const setId = set.id ?? ''
+      const visible = this.visibility.get(setId) ?? set.defaultVisible !== false
+      if (!visible) {
+        continue
+      }
       for (const marker of set.markers ?? []) {
-        // TODO 二期：按 marker.type 创建标注 mesh，
-        // mesh.userData.markerPick = { setId: set.id, marker } 并 push 到 pickables
-        void marker
+        const object = this.createMarker(marker)
+        if (!object) {
+          continue
+        }
+        object.userData.markerPick = { setId, marker } satisfies MarkerPickResult
+        this.group.add(object)
+        this.pickables.push(object)
       }
     }
   }
@@ -66,11 +83,42 @@ export class MarkerLayer {
     const children = [...this.group.children]
     for (const child of children) {
       this.group.remove(child)
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose()
-      }
+      child.traverse((object) => this.disposeObject(object))
     }
     this.pickables = []
+  }
+
+  private createMarker(marker: MapMarker): THREE.Object3D | null {
+    const color = new THREE.Color(marker.color ?? '#f6c845')
+    const type = marker.type?.toUpperCase()
+    if (type === 'POINT' && marker.position) {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(2.5, 12, 8),
+        new THREE.MeshBasicMaterial({ color, depthTest: false }),
+      )
+      mesh.position.set(marker.position.x, marker.position.y, marker.position.z)
+      mesh.renderOrder = 2
+      return mesh
+    }
+    const points = marker.points ?? []
+    if ((type === 'LINE' || type === 'REGION') && points.length >= 2) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(points.map(point =>
+        new THREE.Vector3(point.x, point.y, point.z),
+      ))
+      const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false })
+      const line = type === 'REGION' ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material)
+      line.renderOrder = 2
+      return line
+    }
+    return null
+  }
+
+  private disposeObject(object: THREE.Object3D): void {
+    if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+      object.geometry.dispose()
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      materials.forEach(material => material.dispose())
+    }
   }
 
   dispose(): void {

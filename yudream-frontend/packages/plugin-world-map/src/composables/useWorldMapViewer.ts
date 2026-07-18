@@ -5,7 +5,7 @@ import { createHttpMapSource, createWorldMapApi } from '../api/world-map-api'
 import { MapViewer } from '../map/MapViewer'
 import { createMockMapSource } from '../map/mock'
 import type { CameraMode } from '../map/types'
-import type { MapSummary } from '../types'
+import type { MapMarkerSet, MapSummary } from '../types'
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
 export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded) {
@@ -18,6 +18,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   /** 昼夜滑杆，0..1000 映射 0..1（500 = 正午） */
   const timeOfDay = ref<number[]>([500])
   const cameraPos = ref({ x: 0, y: 0, z: 0 })
+  const markerSets = ref<MapMarkerSet[]>([])
+  const layerVisibility = ref<Record<string, boolean>>({})
 
   /** URL query mock=1 启用内置假数据（无后端渲染自查） */
   const mock = computed(() => {
@@ -101,6 +103,11 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     isFullscreen.value = Boolean(document.fullscreenElement)
   }
 
+  function setLayerVisible(setId: string, visible: boolean): void {
+    layerVisibility.value = { ...layerVisibility.value, [setId]: visible }
+    viewer?.setLayerVisible(setId, visible)
+  }
+
   async function loadCurrentMap(): Promise<void> {
     const seq = ++loadSeq
     loading.value = true
@@ -137,6 +144,10 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
           z: Math.round(position.z),
         }
         scheduleHashWrite()
+      },
+      onMarkerSetsChanged: sets => {
+        markerSets.value = [...sets]
+        layerVisibility.value = Object.fromEntries(sets.map(set => [set.id ?? '', set.defaultVisible !== false]))
       },
     })
     viewer.setTimeOfDay((timeOfDay.value[0] ?? 500) / 1000)
@@ -208,10 +219,13 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     cameraMode,
     timeOfDay,
     cameraPos,
+    markerSets,
+    layerVisibility,
     mock,
     pendingTiles,
     isFullscreen,
     screenshot,
     toggleFullscreen,
+    setLayerVisible,
   }
 }

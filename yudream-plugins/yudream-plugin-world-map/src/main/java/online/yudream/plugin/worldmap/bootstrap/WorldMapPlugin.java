@@ -12,6 +12,8 @@ import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.plugin.worldmap.application.service.MapAppService;
 import online.yudream.plugin.worldmap.application.service.RenderOrchestrator;
 import online.yudream.plugin.worldmap.application.service.WorldMapEventStream;
+import online.yudream.plugin.worldmap.application.service.WorldMapLayerService;
+import online.yudream.base.plugin.worldmap.api.PluginWorldMapService;
 import online.yudream.plugin.worldmap.domain.repo.MapInstanceRepo;
 import online.yudream.plugin.worldmap.domain.repo.RenderTaskRepo;
 import online.yudream.plugin.worldmap.infrastructure.render.DefaultWorldMapRenderer;
@@ -89,7 +91,9 @@ public class WorldMapPlugin implements YuDreamPlugin {
                 taskRepo, mapRepo, tileStorage, context.framework(), renderer, eventStream);
         MapAppService mapAppService = new MapAppService(
                 mapRepo, taskRepo, tileStorage, context.framework(), orchestrator);
-        context.registerHttpController(new PublicMapController(mapAppService, tileStorage));
+        WorldMapLayerService layers = new WorldMapLayerService();
+        context.exposeService(PluginWorldMapService.class, layers);
+        context.registerHttpController(new PublicMapController(mapAppService, tileStorage, layers));
         context.registerHttpController(new AdminMapController(mapAppService, eventStream));
         context.onDispose(orchestrator);
     }

@@ -70,6 +70,22 @@
   font-size: 11px;
 }
 
+.world-map-layers {
+  position: absolute;
+  top: 64px;
+  right: 12px;
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  max-width: min(240px, calc(100% - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 24, 0.78);
+  color: #dce4f5;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+}
+
 .world-map-overlay {
   position: absolute;
   inset: 0;
