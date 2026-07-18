@@ -17,6 +17,7 @@ import online.yudream.plugin.worldmap.infrastructure.render.TileSink;
 import online.yudream.plugin.worldmap.infrastructure.render.WorldMapRenderer;
 import online.yudream.plugin.worldmap.infrastructure.storage.TileStorage;
 import online.yudream.plugin.worldmap.infrastructure.world.WorldArchive;
+import online.yudream.plugin.worldmap.infrastructure.world.WorldTileManifest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -138,7 +139,8 @@ public class RenderOrchestrator implements AutoCloseable {
             map.setSpawnX(spawn[0]);
             map.setSpawnY(spawn[1]);
             map.setSpawnZ(spawn[2]);
-            int[] range = WorldArchive.tileRange(worldRoot, map.getDimension());
+            WorldTileManifest manifest = WorldArchive.tileManifest(worldRoot, map.getDimension());
+            int[] range = new int[]{manifest.minTileX(), manifest.minTileZ(), manifest.maxTileX(), manifest.maxTileZ()};
             map.setMinTileX(range[0]);
             map.setMinTileZ(range[1]);
             map.setMaxTileX(range[2]);
@@ -147,7 +149,7 @@ public class RenderOrchestrator implements AutoCloseable {
             Path clientJar = resolveClientJar(map, workDir.resolve("client.jar"));
             mapRepo.save(map);
 
-            int totalTiles = (range[2] - range[0] + 1) * (range[3] - range[1] + 1);
+            int totalTiles = Math.toIntExact(manifest.tileCount());
             task.start(totalTiles);
             updatePhase(task, RenderPhase.ASSETS, 100, "Client assets prepared");
 
@@ -156,7 +158,7 @@ public class RenderOrchestrator implements AutoCloseable {
                     clientJar,
                     map.getDimension(),
                     range[0], range[1], range[2], range[3],
-                    map.isStripNetherCeiling()
+                    map.isStripNetherCeiling(), manifest
             );
             ThrottledProgress throttledProgress = new ThrottledProgress(task);
             RenderSummary summary = renderer.render(job, new StorageTileSink(map.getId()), throttledProgress);

@@ -3,13 +3,16 @@ package online.yudream.plugin.worldmap.infrastructure.render;
 import online.yudream.plugin.worldmap.infrastructure.resource.BiomeColors;
 import online.yudream.plugin.worldmap.infrastructure.resource.BlockModelRegistry;
 import online.yudream.plugin.worldmap.infrastructure.world.BlockState;
+import online.yudream.plugin.worldmap.infrastructure.world.WorldTileManifest;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * lowres tile 渲染器（CONTRACT §5）：512×512 俯视正交 PNG 金字塔。
@@ -43,38 +46,40 @@ final class LowresRenderer {
      *
      * @return 实际产出的 tile 数（各 lod 合计，全透明不计）
      */
-    int render(int minBX, int minBZ, int maxBX, int maxBZ,
-               TileSink sink, ProgressListener progress, int progressTotal) throws IOException {
+    int render(WorldTileManifest manifest, TileSink sink, ProgressListener progress, int progressTotal) throws IOException {
         Map<Long, BufferedImage> prevLevel = Map.of();
+        Set<Long> requested = new HashSet<>();
+        for (WorldTileManifest.Tile tile : manifest.tiles()) {
+            requested.add(tileKey(Math.floorDiv(tile.x(), 16), Math.floorDiv(tile.z(), 16)));
+        }
         int produced = 0;
         for (int lod = 0; lod <= MAX_LOD; lod++) {
-            int span = TILE_PX << lod; // 该 lod 单 tile 覆盖的方块边长
-            int tx0 = Math.floorDiv(minBX, span);
-            int tx1 = Math.floorDiv(maxBX - 1, span);
-            int tz0 = Math.floorDiv(minBZ, span);
-            int tz1 = Math.floorDiv(maxBZ - 1, span);
             Map<Long, BufferedImage> current = new HashMap<>();
-            for (int tx = tx0; tx <= tx1; tx++) {
-                for (int tz = tz0; tz <= tz1; tz++) {
-                    BufferedImage img = lod == 0 ? renderLod0(tx, tz) : downsample(tx, tz, prevLevel);
-                    if (img == null) {
-                        continue; // 全透明不产出
-                    }
-                    current.put(tileKey(tx, tz), img);
-                    ByteArrayOutputStream bos = new ByteArrayOutputStream(1 << 15);
-                    ImageIO.write(img, "png", bos);
-                    sink.putLowresTile(lod, tx, tz, bos.toByteArray());
-                    produced++;
+            for (long key : requested.stream().sorted().toList()) {
+                int tx = tileX(key);
+                int tz = tileZ(key);
+                BufferedImage img = lod == 0 ? renderLod0(tx, tz) : downsample(tx, tz, prevLevel);
+                if (img == null) {
+                    continue;
                 }
+                current.put(key, img);
+                ByteArrayOutputStream bos = new ByteArrayOutputStream(1 << 15);
+                ImageIO.write(img, "png", bos);
+                sink.putLowresTile(lod, tx, tz, bos.toByteArray());
+                produced++;
             }
             if (progress != null) {
                 progress.progress(progressTotal, progressTotal,
                         "低清 tile lod" + lod + " 完成（" + current.size() + " 个）");
             }
             if (current.isEmpty()) {
-                break; // 更高 lod 范围相同，必然也为空
+                break;
             }
             prevLevel = current;
+            requested = new HashSet<>();
+            for (long key : current.keySet()) {
+                requested.add(tileKey(Math.floorDiv(tileX(key), 2), Math.floorDiv(tileZ(key), 2)));
+            }
         }
         return produced;
     }
@@ -175,5 +180,13 @@ final class LowresRenderer {
 
     private static long tileKey(int tx, int tz) {
         return ((long) tx << 32) | (tz & 0xFFFFFFFFL);
+    }
+
+    private static int tileX(long key) {
+        return (int) (key >> 32);
+    }
+
+    private static int tileZ(long key) {
+        return (int) key;
     }
 }

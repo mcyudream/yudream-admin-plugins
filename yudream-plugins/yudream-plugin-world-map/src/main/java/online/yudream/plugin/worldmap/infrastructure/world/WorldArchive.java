@@ -1,5 +1,6 @@
 package online.yudream.plugin.worldmap.infrastructure.world;
 
+import online.yudream.plugin.worldmap.infrastructure.world.anvil.RegionFile;
 import online.yudream.plugin.worldmap.infrastructure.world.nbt.NbtReader;
 import online.yudream.plugin.worldmap.infrastructure.world.nbt.NbtTag;
 
@@ -8,6 +9,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -97,12 +100,20 @@ public final class WorldArchive {
      * 一个 region 覆盖 512×512 方块 = 16×16 tile。
      */
     public static int[] tileRange(Path worldRoot, String dimension) throws IOException {
+        WorldTileManifest manifest = tileManifest(worldRoot, dimension);
+        return new int[]{manifest.minTileX(), manifest.minTileZ(), manifest.maxTileX(), manifest.maxTileZ()};
+    }
+
+    /**
+     * Builds a sparse render manifest from populated Anvil location-header entries.
+     * Two chunks fit in one 32x32-block hires tile on each axis.
+     */
+    public static WorldTileManifest tileManifest(Path worldRoot, String dimension) throws IOException {
         Path regionDir = dimensionRegionDir(worldRoot, dimension);
         if (!Files.isDirectory(regionDir)) {
             throw new IllegalArgumentException("存档缺少维度目录：" + regionDir);
         }
-        int minTx = Integer.MAX_VALUE, minTz = Integer.MAX_VALUE;
-        int maxTx = Integer.MIN_VALUE, maxTz = Integer.MIN_VALUE;
+        Set<WorldTileManifest.Tile> tiles = new HashSet<>();
         try (Stream<Path> stream = Files.list(regionDir)) {
             for (Path file : stream.filter(Files::isRegularFile).toList()) {
                 Matcher matcher = REGION_FILE.matcher(file.getFileName().toString());
@@ -111,20 +122,32 @@ public final class WorldArchive {
                 }
                 int rx = Integer.parseInt(matcher.group(1));
                 int rz = Integer.parseInt(matcher.group(2));
-                minTx = Math.min(minTx, rx * 16);
-                minTz = Math.min(minTz, rz * 16);
-                maxTx = Math.max(maxTx, rx * 16 + 15);
-                maxTz = Math.max(maxTz, rz * 16 + 15);
+                try (RegionFile region = RegionFile.open(file)) {
+                    for (int localX = 0; localX < 32; localX++) {
+                        for (int localZ = 0; localZ < 32; localZ++) {
+                            if (!region.hasChunk(localX, localZ)) {
+                                continue;
+                            }
+                            int chunkX = rx * 32 + localX;
+                            int chunkZ = rz * 32 + localZ;
+                            tiles.add(new WorldTileManifest.Tile(Math.floorDiv(chunkX, 2), Math.floorDiv(chunkZ, 2)));
+                        }
+                    }
+                }
             }
         }
-        if (minTx > maxTx) {
-            throw new IllegalArgumentException("维度 " + dimension + " 中没有可用的 region 文件");
+        if (tiles.isEmpty()) {
+            throw new IllegalArgumentException("维度 " + dimension + " 中没有包含 chunk 的 region 文件");
         }
-        return new int[]{minTx, minTz, maxTx, maxTz};
+        return WorldTileManifest.of(tiles);
     }
 
     private static Path dimensionRegionDir(Path worldRoot, String dimension) {
-        return switch (dimension == null ? "overworld" : dimension) {
+        String normalized = dimension == null ? "overworld" : dimension;
+        if (normalized.startsWith("minecraft:")) {
+            normalized = normalized.substring("minecraft:".length());
+        }
+        return switch (normalized) {
             case "nether" -> worldRoot.resolve("DIM-1").resolve("region");
             case "the_end" -> worldRoot.resolve("DIM1").resolve("region");
             default -> worldRoot.resolve("region");

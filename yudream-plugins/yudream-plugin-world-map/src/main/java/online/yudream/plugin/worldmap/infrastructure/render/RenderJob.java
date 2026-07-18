@@ -1,5 +1,7 @@
 package online.yudream.plugin.worldmap.infrastructure.render;
 
+import online.yudream.plugin.worldmap.infrastructure.world.WorldTileManifest;
+
 import java.nio.file.Path;
 
 /**
@@ -16,5 +18,12 @@ import java.nio.file.Path;
  */
 public record RenderJob(Path worldDir, Path clientJar, String dimension,
                         int minTileX, int minTileZ, int maxTileX, int maxTileZ,
-                        boolean stripNetherCeiling) {
+                        boolean stripNetherCeiling, WorldTileManifest tileManifest) {
+
+    public RenderJob(Path worldDir, Path clientJar, String dimension,
+                     int minTileX, int minTileZ, int maxTileX, int maxTileZ,
+                     boolean stripNetherCeiling) {
+        this(worldDir, clientJar, dimension, minTileX, minTileZ, maxTileX, maxTileZ,
+                stripNetherCeiling, WorldTileManifest.rectangular(minTileX, minTileZ, maxTileX, maxTileZ));
+    }
 }

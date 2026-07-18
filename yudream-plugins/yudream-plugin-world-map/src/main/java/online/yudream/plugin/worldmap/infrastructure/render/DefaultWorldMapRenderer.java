@@ -46,13 +46,10 @@ public final class DefaultWorldMapRenderer implements WorldMapRenderer {
         boolean nether = isNether(job.dimension());
         BiomeColors biomeColors = biomeColorsOf(registry);
 
-        // hires tile 列表：按 region 文件（16×16 tile）分组排序，提高区块缓存命中
-        List<int[]> tiles = new ArrayList<>();
-        for (int tx = job.minTileX(); tx <= job.maxTileX(); tx++) {
-            for (int tz = job.minTileZ(); tz <= job.maxTileZ(); tz++) {
-                tiles.add(new int[]{tx, tz});
-            }
-        }
+        // Only schedule tiles backed by an actual Anvil chunk header entry.
+        List<int[]> tiles = job.tileManifest().tiles().stream()
+                .map(tile -> new int[]{tile.x(), tile.z()})
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         tiles.sort(Comparator.comparingInt((int[] t) -> t[0] >> 4)
                 .thenComparingInt(t -> t[1] >> 4)
                 .thenComparingInt(t -> t[0])
@@ -90,12 +87,7 @@ public final class DefaultWorldMapRenderer implements WorldMapRenderer {
                 try (WorldAccess raw = WorldLoader.load(job.worldDir(), job.dimension())) {
                     RenderWorldView world = new RenderWorldView(raw, nether, nether && job.stripNetherCeiling());
                     LowresRenderer lowres = new LowresRenderer(world, registry, biomeColors);
-                    lowresCount = lowres.render(
-                            job.minTileX() * HiresTileRenderer.TILE_SIZE,
-                            job.minTileZ() * HiresTileRenderer.TILE_SIZE,
-                            (job.maxTileX() + 1) * HiresTileRenderer.TILE_SIZE,
-                            (job.maxTileZ() + 1) * HiresTileRenderer.TILE_SIZE,
-                            safeSink, progress, total);
+                    lowresCount = lowres.render(job.tileManifest(), safeSink, progress, total);
                 }
             }
             return new RenderSummary(hiresCount.get(), lowresCount, atlasPng.length,
