@@ -25,6 +25,7 @@ public class MapInstance {
     private int lowresTiles;
     private String worldZipKey;
     private String clientJarKey;
+    private String activeGenerationId;
     private long createdAt;
     private long renderedAt;
     private String message;
@@ -99,6 +100,8 @@ public class MapInstance {
     public void setWorldZipKey(String worldZipKey) { this.worldZipKey = worldZipKey; }
     public String getClientJarKey() { return clientJarKey; }
     public void setClientJarKey(String clientJarKey) { this.clientJarKey = clientJarKey; }
+    public String getActiveGenerationId() { return activeGenerationId; }
+    public void setActiveGenerationId(String activeGenerationId) { this.activeGenerationId = activeGenerationId; }
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
     public long getRenderedAt() { return renderedAt; }

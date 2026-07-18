@@ -74,6 +74,18 @@ public final class TileStorage {
         return Optional.ofNullable(store.get(clientJarKey(mapId)));
     }
 
+    public Optional<PluginStoredFile> hires(String mapId, String generationId, int tx, int tz) {
+        return Optional.ofNullable(store.get(hiresKey(mapId, generationId, tx, tz)));
+    }
+
+    public Optional<PluginStoredFile> lowres(String mapId, String generationId, int lod, int tx, int tz) {
+        return Optional.ofNullable(store.get(lowresKey(mapId, generationId, lod, tx, tz)));
+    }
+
+    public Optional<PluginStoredFile> atlas(String mapId, String generationId) {
+        return Optional.ofNullable(store.get(atlasKey(mapId, generationId)));
+    }
+
     // ---------- 透传（供上层按自有 key 存取） ----------
 
     /** 按完整 key 写入。 */
@@ -108,12 +120,28 @@ public final class TileStorage {
         return MAPS_PREFIX + mapId + "/tiles/hires/" + tx + "/" + tz + ".json.gz";
     }
 
+    public static String hiresKey(String mapId, String generationId, int tx, int tz) {
+        return generationPrefix(mapId, generationId) + "/tiles/hires/" + tx + "/" + tz + ".json.gz";
+    }
+
     public static String lowresKey(String mapId, int lod, int tx, int tz) {
         return MAPS_PREFIX + mapId + "/tiles/lowres/" + lod + "/" + tx + "/" + tz + ".png";
     }
 
+    public static String lowresKey(String mapId, String generationId, int lod, int tx, int tz) {
+        return generationPrefix(mapId, generationId) + "/tiles/lowres/" + lod + "/" + tx + "/" + tz + ".png";
+    }
+
     public static String atlasKey(String mapId) {
         return MAPS_PREFIX + mapId + "/textures/atlas.png";
+    }
+
+    public static String atlasKey(String mapId, String generationId) {
+        return generationPrefix(mapId, generationId) + "/textures/atlas.png";
+    }
+
+    private static String generationPrefix(String mapId, String generationId) {
+        return MAPS_PREFIX + mapId + "/generations/" + generationId;
     }
 
     public static String worldZipKey(String mapId) {

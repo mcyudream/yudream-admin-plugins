@@ -33,7 +33,8 @@ public class WorldMapAppAssembler {
                 32,
                 512,
                 4,
-                "textures/atlas.png",
+                map.getActiveGenerationId(),
+                "generations/" + map.getActiveGenerationId() + "/textures/atlas.png",
                 map.getRenderedAt()
         );
     }

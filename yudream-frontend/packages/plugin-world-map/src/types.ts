@@ -24,6 +24,8 @@ export interface MapSettings {
   lowresTileSize: number
   /** 最高 lod 级别（含） */
   lowresMaxLod: number
+  /** 当前已发布的不可变渲染版本 */
+  generationId: string
   /** 相对 /maps/{id}/ 的 atlas 路径，如 textures/atlas.png */
   atlasUrl: string
   renderedAt?: number

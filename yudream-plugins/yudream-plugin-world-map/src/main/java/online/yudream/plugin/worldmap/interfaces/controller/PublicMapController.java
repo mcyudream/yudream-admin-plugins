@@ -15,7 +15,7 @@ import java.util.Optional;
  */
 public class PublicMapController {
 
-    private static final String CACHE_HEADER = "public, max-age=86400";
+    private static final String CACHE_HEADER = "public, max-age=31536000, immutable";
 
     private final MapAppService mapAppService;
     private final TileStorage tileStorage;
@@ -46,7 +46,7 @@ public class PublicMapController {
         String mapId = segments[2];
         int tx = Integer.parseInt(segments[5]);
         int tz = Integer.parseInt(segments[6]);
-        return tileResponse(tileStorage.hires(mapId, tx, tz), "application/json", true);
+        return tileResponse(tileStorage.hires(mapId, activeGeneration(mapId), tx, tz), "application/json", true);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/tiles/lowres/{lod}/{tx}/{tz}")
@@ -58,14 +58,37 @@ public class PublicMapController {
         int lod = Integer.parseInt(segments[5]);
         int tx = Integer.parseInt(segments[6]);
         int tz = Integer.parseInt(segments[7]);
-        return tileResponse(tileStorage.lowres(mapId, lod, tx, tz), "image/png", false);
+        return tileResponse(tileStorage.lowres(mapId, activeGeneration(mapId), lod, tx, tz), "image/png", false);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/textures/atlas.png")
     public PluginHttpResponse atlas(PluginHttpRequest request) {
         requireGet(request);
         String mapId = segment(request.path(), 1);
-        return tileResponse(tileStorage.atlas(mapId), "image/png", false);
+        return tileResponse(tileStorage.atlas(mapId, activeGeneration(mapId)), "image/png", false);
+    }
+
+    @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/tiles/hires/{tx}/{tz}")
+    public PluginHttpResponse generationHiresTile(PluginHttpRequest request) {
+        requireGet(request);
+        String[] segments = request.path().split("/");
+        return tileResponse(tileStorage.hires(segments[2], segments[4], Integer.parseInt(segments[7]), Integer.parseInt(segments[8])),
+                "application/json", true);
+    }
+
+    @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/tiles/lowres/{lod}/{tx}/{tz}")
+    public PluginHttpResponse generationLowresTile(PluginHttpRequest request) {
+        requireGet(request);
+        String[] segments = request.path().split("/");
+        return tileResponse(tileStorage.lowres(segments[2], segments[4], Integer.parseInt(segments[7]),
+                Integer.parseInt(segments[8]), Integer.parseInt(segments[9])), "image/png", false);
+    }
+
+    @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/textures/atlas.png")
+    public PluginHttpResponse generationAtlas(PluginHttpRequest request) {
+        requireGet(request);
+        String[] segments = request.path().split("/");
+        return tileResponse(tileStorage.atlas(segments[2], segments[4]), "image/png", false);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/markers")
@@ -94,6 +117,10 @@ public class PublicMapController {
         if (!"GET".equalsIgnoreCase(request.method())) {
             throw new IllegalArgumentException("仅支持 GET 请求");
         }
+    }
+
+    private String activeGeneration(String mapId) {
+        return mapAppService.requireReady(mapId).getActiveGenerationId();
     }
 
     private String segment(String path, int index) {

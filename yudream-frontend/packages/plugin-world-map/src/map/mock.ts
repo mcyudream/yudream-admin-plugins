@@ -12,6 +12,7 @@ const MOCK_SETTINGS: MapSettings = {
   hiresTileSize: 32,
   lowresTileSize: 512,
   lowresMaxLod: 0,
+  generationId: 'mock',
   atlasUrl: '',
   renderedAt: 0,
 }

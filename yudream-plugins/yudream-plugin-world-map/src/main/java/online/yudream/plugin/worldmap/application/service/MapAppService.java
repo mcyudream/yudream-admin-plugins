@@ -47,7 +47,7 @@ public class MapAppService {
 
     public List<MapSummaryDTO> listPublic() {
         return mapRepo.findAll().stream()
-                .filter(map -> map.getState() == online.yudream.plugin.worldmap.domain.enumerate.MapState.READY)
+                .filter(map -> !isBlank(map.getActiveGenerationId()))
                 .map(assembler::toSummary)
                 .toList();
     }
@@ -118,7 +118,7 @@ public class MapAppService {
     public MapInstance requireReady(String mapId) {
         MapInstance map = mapRepo.findById(mapId)
                 .orElseThrow(() -> new IllegalArgumentException("地图不存在：" + mapId));
-        if (map.getState() != online.yudream.plugin.worldmap.domain.enumerate.MapState.READY) {
+        if (isBlank(map.getActiveGenerationId())) {
             throw new IllegalArgumentException("地图尚未渲染完成");
         }
         return map;

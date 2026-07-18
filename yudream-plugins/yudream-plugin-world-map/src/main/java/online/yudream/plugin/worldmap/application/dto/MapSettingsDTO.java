@@ -13,6 +13,7 @@ public record MapSettingsDTO(
         int hiresTileSize,
         int lowresTileSize,
         int lowresMaxLod,
+        String generationId,
         String atlasUrl,
         long renderedAt
 ) {

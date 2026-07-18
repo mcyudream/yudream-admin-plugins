@@ -4,6 +4,7 @@ import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.plugin.worldmap.application.assembler.WorldMapAppAssembler;
 import online.yudream.plugin.worldmap.domain.aggregate.MapInstance;
+import online.yudream.plugin.worldmap.domain.aggregate.MapGeneration;
 import online.yudream.plugin.worldmap.domain.aggregate.RenderTask;
 import online.yudream.plugin.worldmap.domain.repo.MapInstanceRepo;
 import online.yudream.plugin.worldmap.domain.repo.RenderTaskRepo;
@@ -52,6 +53,7 @@ public class RenderOrchestrator implements AutoCloseable {
     private final FrameworkServices framework;
     private final WorldMapRenderer renderer;
     private final WorldMapEventStream eventStream;
+    private final GenerationPublisher generationPublisher;
     private final WorldMapAppAssembler assembler = new WorldMapAppAssembler();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "world-map-render");
@@ -64,15 +66,26 @@ public class RenderOrchestrator implements AutoCloseable {
     public RenderOrchestrator(RenderTaskRepo taskRepo,
                               MapInstanceRepo mapRepo,
                               TileStorage tileStorage,
+                               FrameworkServices framework,
+                               WorldMapRenderer renderer,
+                               WorldMapEventStream eventStream) {
+        this(taskRepo, mapRepo, tileStorage, framework, renderer, eventStream, new GenerationPublisher(tileStorage));
+    }
+
+    public RenderOrchestrator(RenderTaskRepo taskRepo,
+                              MapInstanceRepo mapRepo,
+                              TileStorage tileStorage,
                               FrameworkServices framework,
                               WorldMapRenderer renderer,
-                              WorldMapEventStream eventStream) {
+                              WorldMapEventStream eventStream,
+                              GenerationPublisher generationPublisher) {
         this.taskRepo = taskRepo;
         this.mapRepo = mapRepo;
         this.tileStorage = tileStorage;
         this.framework = framework;
         this.renderer = renderer;
         this.eventStream = eventStream;
+        this.generationPublisher = generationPublisher;
         recoverStaleTasks();
     }
 
@@ -124,6 +137,7 @@ public class RenderOrchestrator implements AutoCloseable {
 
     private void runTask(RenderTask task, MapInstance map) {
         Path workDir = null;
+        MapGeneration generation = null;
         try {
             updatePhase(task, RenderPhase.IMPORT, 0, "Preparing render input");
             workDir = Files.createTempDirectory("world-map-render-");
@@ -153,6 +167,8 @@ public class RenderOrchestrator implements AutoCloseable {
             task.start(totalTiles);
             updatePhase(task, RenderPhase.ASSETS, 100, "Client assets prepared");
 
+            generation = generationPublisher.stage(map.getId());
+
             RenderJob job = new RenderJob(
                     worldRoot,
                     clientJar,
@@ -161,15 +177,17 @@ public class RenderOrchestrator implements AutoCloseable {
                     map.isStripNetherCeiling(), manifest
             );
             ThrottledProgress throttledProgress = new ThrottledProgress(task);
-            RenderSummary summary = renderer.render(job, new StorageTileSink(map.getId()), throttledProgress);
+            RenderSummary summary = renderer.render(job, new StorageTileSink(generation), throttledProgress);
             throttledProgress.flush();
 
             if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
+                discard(generation);
                 markCancelled(task.getId(), "渲染任务已取消");
                 return;
             }
             task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
             updatePhase(task, RenderPhase.PUBLISH, 0, "Publishing render output");
+            generationPublisher.publish(map, generation);
             map.markReady(summary.hiresTiles(), summary.lowresTiles());
             mapRepo.save(map);
             updatePhase(task, RenderPhase.PUBLISH, 100, "Render output published");
@@ -177,12 +195,15 @@ public class RenderOrchestrator implements AutoCloseable {
             taskRepo.save(task);
             publish(task);
         } catch (DefaultWorldMapRenderer.InterruptedRenderException e) {
+            discard(generation);
             markCancelled(task.getId(), "渲染任务已取消");
         } catch (Exception e) {
             if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
+                discard(generation);
                 markCancelled(task.getId(), "渲染任务已取消");
                 return;
             }
+            discard(generation);
             task.fail(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
             taskRepo.save(task);
             map.markFailed(task.getError());
@@ -258,6 +279,12 @@ public class RenderOrchestrator implements AutoCloseable {
         publish(task);
     }
 
+    private void discard(MapGeneration generation) {
+        if (generation != null) {
+            generationPublisher.discard(generation);
+        }
+    }
+
     private void deleteRecursively(Path dir) {
         if (dir == null || !Files.exists(dir)) {
             return;
@@ -280,25 +307,25 @@ public class RenderOrchestrator implements AutoCloseable {
      * 渲染产物写入插件文件存储。
      */
     private class StorageTileSink implements TileSink {
-        private final String mapId;
+        private final MapGeneration generation;
 
-        StorageTileSink(String mapId) {
-            this.mapId = mapId;
+        StorageTileSink(MapGeneration generation) {
+            this.generation = generation;
         }
 
         @Override
         public void putHiresTile(int tx, int tz, byte[] gzipJson) throws IOException {
-            tileStorage.saveHires(mapId, tx, tz, gzipJson);
+            generationPublisher.saveHires(generation, tx, tz, gzipJson);
         }
 
         @Override
         public void putLowresTile(int lod, int tx, int tz, byte[] png) throws IOException {
-            tileStorage.saveLowres(mapId, lod, tx, tz, png);
+            generationPublisher.saveLowres(generation, lod, tx, tz, png);
         }
 
         @Override
         public void putAtlas(byte[] png) throws IOException {
-            tileStorage.saveAtlas(mapId, png);
+            generationPublisher.saveAtlas(generation, png);
         }
     }
 
