@@ -7,6 +7,7 @@ import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
+import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -349,8 +350,16 @@ export class TileManager {
 
   private createLowresTile(lod: number, tx: number, tz: number, tileSize: number): LowresRecord {
     const segments = this.settings.renderer === 'BLUEMAP' ? Math.max(4, Math.ceil(100 / (lod * 2))) : 1
-    const geometry = new THREE.PlaneGeometry(tileSize, tileSize, segments, segments)
-    geometry.rotateX(-Math.PI / 2)
+    const isBlueMap = this.settings.renderer === 'BLUEMAP'
+    const minLod = this.settings.lowresMinLod ?? 0
+    const lodScale = isBlueMap
+      ? (this.settings.lowresLodFactor ?? 5) ** (lod - minLod)
+      : 1
+    const baseTileSize = isBlueMap ? this.settings.lowresTileSize : tileSize
+    const geometry = isBlueMap
+      ? createBlueMapLowresGeometry(baseTileSize, segments)
+      : new THREE.PlaneGeometry(tileSize, tileSize, segments, segments)
+    if (!isBlueMap) geometry.rotateX(-Math.PI / 2)
     const material = this.settings.renderer === 'BLUEMAP'
       ? createBlueMapLowresMaterial()
       : new THREE.MeshBasicMaterial({
@@ -366,13 +375,19 @@ export class TileManager {
     })
     const mesh = new THREE.Mesh(geometry, material)
     if (material instanceof THREE.ShaderMaterial) {
-      material.uniforms.tileExtent.value = tileSize
+      material.uniforms.tileSize.value.set(baseTileSize, baseTileSize)
+      material.uniforms.lodScale.value = lodScale
       material.uniforms.sunlight.value = 0.75 * this.dayFactor
       material.uniforms.ambient.value = 0.18 + 0.14 * this.dayFactor
     }
     mesh.renderOrder = -1
     // 低清为俯视正交投影，平面放在地表平均高度附近（契约 §5：近似 64 或 settings 推导）
-    mesh.position.set((tx + 0.5) * tileSize, this.settings.spawn.y, (tz + 0.5) * tileSize)
+    if (isBlueMap) {
+      mesh.position.set(tx * baseTileSize * lodScale, 0, tz * baseTileSize * lodScale)
+      mesh.scale.set(lodScale, 1, lodScale)
+    } else {
+      mesh.position.set((tx + 0.5) * tileSize, this.settings.spawn.y, (tz + 0.5) * tileSize)
+    }
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
     const record: LowresRecord = { mesh, texture: null, failed: false, lastUsed: this.frame }
@@ -397,6 +412,8 @@ export class TileManager {
           record.texture = texture
           if (material instanceof THREE.ShaderMaterial) {
             material.uniforms.textureImage.value = texture
+            const image = texture.image as { width?: number, height?: number }
+            material.uniforms.textureSize.value.set(Number(image.width) || 1, Number(image.height) || 2)
           } else {
             material.map = texture
             material.color.set(0xffffff)
@@ -508,7 +525,9 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
     THREE.UniformsLib.fog,
     {
       textureImage: { value: null },
-      tileExtent: { value: 1 },
+      tileSize: { value: new THREE.Vector2(1, 1) },
+      textureSize: { value: new THREE.Vector2(1, 2) },
+      lodScale: { value: 1 },
       sunlight: { value: 0.78 },
       ambient: { value: 0.22 },
       voidColor: { value: new THREE.Color(0x1a2436) },
@@ -521,7 +540,7 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
     depthWrite: false,
     vertexShader: /* glsl */ `
       uniform sampler2D textureImage;
-      uniform float tileExtent;
+      uniform vec2 textureSize;
       varying vec2 vLocal;
       varying float vLight;
       float heightFromMeta(vec4 meta) {
@@ -530,12 +549,12 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
       }
       #include <fog_pars_vertex>
       void main() {
-        vLocal = position.xz + vec2(tileExtent * 0.5);
-        vec2 textureUv = vec2(vLocal.x / tileExtent, vLocal.y / tileExtent);
-        vec4 meta = texture2D(textureImage, vec2(textureUv.x, textureUv.y * 0.5 + 0.5));
+        vLocal = position.xz;
+        vec2 metaUv = vec2(vLocal.x / textureSize.x, vLocal.y / textureSize.y + 0.5);
+        vec4 meta = texture2D(textureImage, metaUv);
         vLight = meta.r * 255.0;
         vec3 displaced = position;
-        displaced.y = heightFromMeta(meta) + 0.5;
+        displaced.y = heightFromMeta(meta) + 1.0 - position.x * 0.0001 - position.z * 0.0002;
         vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
@@ -543,7 +562,9 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
     `,
     fragmentShader: /* glsl */ `
       uniform sampler2D textureImage;
-      uniform float tileExtent;
+      uniform vec2 tileSize;
+      uniform vec2 textureSize;
+      uniform float lodScale;
       uniform float sunlight;
       uniform float ambient;
       uniform vec3 voidColor;
@@ -551,10 +572,16 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
       varying float vLight;
       #include <fog_pars_fragment>
       void main() {
-        vec2 textureUv = vec2(vLocal.x / tileExtent, vLocal.y / tileExtent);
-        vec4 color = texture2D(textureImage, vec2(textureUv.x, textureUv.y * 0.5));
+        vec2 colorUv = vec2(vLocal.x / textureSize.x, min(vLocal.y, tileSize.y) / textureSize.y);
+        vec2 metaUv = vec2(vLocal.x / textureSize.x, vLocal.y / textureSize.y + 0.5);
+        vec4 color = texture2D(textureImage, colorUv);
+        float height = heightFromMeta(texture2D(textureImage, metaUv));
+        float heightX = heightFromMeta(texture2D(textureImage, metaUv + vec2(1.0 / textureSize.x, 0.0)));
+        float heightZ = heightFromMeta(texture2D(textureImage, metaUv + vec2(0.0, 1.0 / textureSize.y)));
+        float shade = clamp(((height - heightX) + (height - heightZ)) / lodScale * 0.06, -0.2, 0.04);
         float light = mix(vLight, 15.0, sunlight);
         color.rgb *= mix(ambient, 1.0, light / 15.0);
+        color.rgb += shade;
         color.rgb = mix(voidColor, color.rgb, color.a);
         gl_FragColor = vec4(color.rgb, 1.0);
         #include <fog_fragment>
