@@ -9,6 +9,8 @@ import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
 import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
 import { shouldMarkLowresLoadFailed, shouldRetainLowresTexture } from './lowresTextureLifecycle'
+import { enqueueLowresRequest } from './lowresRequestQueue'
+import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -36,6 +38,11 @@ interface TileRequest {
   priority: number
 }
 
+interface LowresRequestValue {
+  record: LowresRecord
+  url: string
+}
+
 export interface TileManagerOptions {
   /** hires 加载半径（单位：tile，默认 4 ≈ 128 方块） */
   hiresRadius?: number
@@ -61,9 +68,13 @@ export class TileManager {
   private readonly queue: TileRequest[] = []
   private readonly queued = new Set<string>()
   private readonly inFlightRequests = new Map<string, AbortController>()
+  private readonly lowresQueue: Array<QueuedLowresRequest<LowresRequestValue>> = []
+  private readonly lowresQueued = new Set<string>()
+  private readonly lowresDesired = new Set<string>()
   private readonly failedUntil = new Map<string, number>()
   private readonly failureCounts = new Map<string, number>()
   private inFlight = 0
+  private lowresInFlight = 0
   private frame = 0
   private centerTx = 0
   private centerTz = 0
@@ -145,8 +156,9 @@ export class TileManager {
       this.hires.delete(key)
     }
 
-    this.pump()
     this.updateLowres(camera, target)
+    this.pump()
+    this.pumpLowres()
   }
 
   /** 按并发上限驱动加载队列 */
@@ -336,9 +348,22 @@ export class TileManager {
           this.lowres.set(key, record)
           this.lowresGroup.add(record.mesh)
         }
+        const url = this.source.lowresTileUrl(lod, tx, tz)
+        if (url && !record.texture && !record.request && !record.failed && !this.lowresQueued.has(key)) {
+          this.enqueueLowres(key, record, url, dx * dx + dz * dz)
+        }
         record.lastUsed = this.frame
         // 该区域 hires 已全部就位时隐藏低清平面，避免平面切入山体
         record.mesh.visible = !this.isCoveredByHires(tx, tz, tileSize)
+      }
+    }
+
+    this.lowresDesired.clear()
+    for (const key of wanted) this.lowresDesired.add(key)
+    for (let index = this.lowresQueue.length - 1; index >= 0; index -= 1) {
+      if (!wanted.has(this.lowresQueue[index]!.key)) {
+        this.lowresQueued.delete(this.lowresQueue[index]!.key)
+        this.lowresQueue.splice(index, 1)
       }
     }
 
@@ -393,11 +418,27 @@ export class TileManager {
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
     const record: LowresRecord = { mesh, texture: null, request: null, disposed: false, failed: false, lastUsed: this.frame }
-    const rawUrl = this.source.lowresTileUrl(lod, tx, tz)
-    const url = rawUrl
-    if (url) {
+    return record
+  }
+
+  private enqueueLowres(key: string, record: LowresRecord, url: string, priority: number): void {
+    const request = { key, priority, value: { record, url } }
+    if (enqueueLowresRequest(this.lowresQueue, request, 48)) {
+      this.lowresQueued.add(key)
+    }
+  }
+
+  /** Lowres raster work gets its own small budget so it cannot starve nearby PRBM detail tiles. */
+  private pumpLowres(): void {
+    const maxConcurrent = 4
+    while (this.lowresInFlight < maxConcurrent && this.lowresQueue.length > 0) {
+      const queued = this.lowresQueue.shift()!
+      this.lowresQueued.delete(queued.key)
+      const { key, value: { record, url } } = queued
+      if (record.disposed || !this.lowresDesired.has(key) || record.texture || record.request || record.failed) continue
       const request = new AbortController()
       record.request = request
+      this.lowresInFlight += 1
       this.loadLowresTexture(url, request.signal)
         .then((texture) => {
           if (!shouldRetainLowresTexture(this.disposed, record.disposed)) {
@@ -414,11 +455,12 @@ export class TileManager {
             texture.flipY = true
           }
           record.texture = texture
+          const material = record.mesh.material
           if (material instanceof THREE.ShaderMaterial) {
             material.uniforms.textureImage.value = texture
             const image = texture.image as { width?: number, height?: number }
             material.uniforms.textureSize.value.set(Number(image.width) || 1, Number(image.height) || 2)
-          } else {
+          } else if (material instanceof THREE.MeshBasicMaterial) {
             material.map = texture
             material.color.set(0xffffff)
           }
@@ -432,12 +474,10 @@ export class TileManager {
         })
         .finally(() => {
           if (record.request === request) record.request = null
+          this.lowresInFlight -= 1
+          if (!this.disposed) this.pumpLowres()
         })
     }
-    else {
-      record.failed = true
-    }
-    return record
   }
 
   /** 判断 lowres tile 覆盖的 hires 区域是否已全部加载完成 */
@@ -486,7 +526,7 @@ export class TileManager {
 
   /** 排队中 + 加载中的 hires tile 数 */
   get pendingCount(): number {
-    return this.queue.length + this.inFlight
+    return this.queue.length + this.inFlight + this.lowresQueue.length + this.lowresInFlight
   }
 
   /** Whether a currently visible PRBM mesh references a decoded animated material. */
@@ -526,6 +566,9 @@ export class TileManager {
     this.disposed = true
     this.queue.length = 0
     this.queued.clear()
+    this.lowresQueue.length = 0
+    this.lowresQueued.clear()
+    this.lowresDesired.clear()
     for (const controller of this.inFlightRequests.values()) {
       controller.abort()
     }
