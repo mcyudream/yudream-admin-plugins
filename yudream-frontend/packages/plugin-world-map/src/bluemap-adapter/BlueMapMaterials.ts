@@ -82,6 +82,10 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
       uniform sampler2D textureImage;
       uniform float sunlightStrength;
       uniform float ambientLight;
+      uniform float animationFrameHeight;
+      uniform float animationFrameIndex;
+      uniform float animationNextFrameIndex;
+      uniform float animationInterpolation;
       varying vec2 vUv;
       varying vec3 vColor;
       varying float vAo;
@@ -186,6 +190,11 @@ export function stepBlueMapAnimations(materials: readonly THREE.ShaderMaterial[]
     material.uniforms.animationNextFrameIndex.value = frame.next
     material.uniforms.animationInterpolation.value = frame.interpolation
   }
+}
+
+/** Returns true only after a visible material has decoded an animated texture. */
+export function hasActiveBlueMapAnimations(materials: readonly THREE.ShaderMaterial[]): boolean {
+  return materials.some(material => animationStates.has(material))
 }
 
 export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial[]): void {

@@ -267,7 +267,7 @@ export class MapViewer {
     this.tileManager?.update(this.camera, controller.target)
     this.renderer.render(this.scene, this.camera)
 
-    if (controllerMoving || this.tileManager?.pendingCount) {
+    if (controllerMoving || this.tileManager?.pendingCount || this.tileManager?.hasActiveAnimations) {
       this.requestRender()
     }
 

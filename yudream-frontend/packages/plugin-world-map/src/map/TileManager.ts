@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
-import { ensureBlueMapMaterialTextures } from '../bluemap-adapter/BlueMapMaterials'
+import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 
@@ -431,6 +431,30 @@ export class TileManager {
   /** 排队中 + 加载中的 hires tile 数 */
   get pendingCount(): number {
     return this.queue.length + this.inFlight
+  }
+
+  /** Whether a currently visible PRBM mesh references a decoded animated material. */
+  get hasActiveAnimations(): boolean {
+    if (!Array.isArray(this.material)) {
+      return false
+    }
+    const visibleMaterials = new Set<THREE.ShaderMaterial>()
+    for (const record of this.hires.values()) {
+      const mesh = record.mesh
+      if (!mesh?.visible) {
+        continue
+      }
+      for (const group of mesh.geometry.groups) {
+        if (group.materialIndex === undefined) {
+          continue
+        }
+        const material = this.material[group.materialIndex]
+        if (material) {
+          visibleMaterials.add(material as THREE.ShaderMaterial)
+        }
+      }
+    }
+    return hasActiveBlueMapAnimations([...visibleMaterials])
   }
 
   setDayFactor(dayFactor: number): void {

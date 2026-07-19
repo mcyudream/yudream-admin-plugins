@@ -65,9 +65,14 @@ function setContainer(el: unknown) {
         <FaIcon name="i-mdi:weather-sunny" />
       </div>
 
-      <FaButton size="sm" variant="outline" @click="toggleCameraMode">
+      <FaButton
+        size="sm"
+        variant="outline"
+        :title="cameraMode === 'orbit' ? '切换到飞行模式' : '切换到轨道模式'"
+        @click="toggleCameraMode"
+      >
         <FaIcon :name="cameraMode === 'orbit' ? 'i-mdi:airplane' : 'i-mdi:orbit'" />
-        {{ cameraMode === 'orbit' ? '飞行' : '轨道' }}
+        <span class="world-map-toolbar-mode-label">{{ cameraMode === 'orbit' ? '飞行' : '轨道' }}</span>
       </FaButton>
 
       <FaButton size="sm" variant="outline" title="截图下载" @click="screenshot">
