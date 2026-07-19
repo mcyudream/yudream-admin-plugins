@@ -127,7 +127,7 @@ export class TileManager {
     const stale: [string, HiresRecord][] = []
     for (const [key, record] of this.hires) {
       const [tx, tz] = key.split(',').map(Number)
-      if (Math.hypot(tx - this.centerTx, tz - this.centerTz) > evictRadius) {
+      if (!loadHires || Math.hypot(tx - this.centerTx, tz - this.centerTz) > evictRadius) {
         stale.push([key, record])
       }
     }
