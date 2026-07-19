@@ -8,7 +8,7 @@ import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolic
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
 import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
-import { shouldRetainLowresTexture } from './lowresTextureLifecycle'
+import { shouldMarkLowresLoadFailed, shouldRetainLowresTexture } from './lowresTextureLifecycle'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -21,6 +21,7 @@ interface HiresRecord {
 interface LowresRecord {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.Material>
   texture: THREE.Texture | null
+  request: AbortController | null
   disposed: boolean
   /** 纹理加载失败（404 等）时保留底色平面 */
   failed: boolean
@@ -62,7 +63,6 @@ export class TileManager {
   private readonly inFlightRequests = new Map<string, AbortController>()
   private readonly failedUntil = new Map<string, number>()
   private readonly failureCounts = new Map<string, number>()
-  private readonly loader = new THREE.TextureLoader()
   private inFlight = 0
   private frame = 0
   private centerTx = 0
@@ -392,14 +392,16 @@ export class TileManager {
     }
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
-    const record: LowresRecord = { mesh, texture: null, disposed: false, failed: false, lastUsed: this.frame }
+    const record: LowresRecord = { mesh, texture: null, request: null, disposed: false, failed: false, lastUsed: this.frame }
     const rawUrl = this.source.lowresTileUrl(lod, tx, tz)
     const url = rawUrl
     if (url) {
-      this.loader.loadAsync(url)
+      const request = new AbortController()
+      record.request = request
+      this.loadLowresTexture(url, request.signal)
         .then((texture) => {
           if (!shouldRetainLowresTexture(this.disposed, record.disposed)) {
-            texture.dispose()
+            disposeLowresTexture(texture)
             return
           }
           if (this.settings.renderer === 'BLUEMAP') {
@@ -424,7 +426,12 @@ export class TileManager {
           this.options.onChanged?.()
         })
         .catch(() => {
-          record.failed = true
+          if (shouldMarkLowresLoadFailed(record.disposed, request.signal.aborted)) {
+            record.failed = true
+          }
+        })
+        .finally(() => {
+          if (record.request === request) record.request = null
         })
     }
     else {
@@ -453,7 +460,9 @@ export class TileManager {
   private disposeLowres(record: LowresRecord): void {
     if (record.disposed) return
     record.disposed = true
-    record.texture?.dispose()
+    record.request?.abort()
+    record.request = null
+    if (record.texture) disposeLowresTexture(record.texture)
     record.texture = null
     if (record.mesh.material instanceof THREE.ShaderMaterial) {
       record.mesh.material.uniforms.textureImage.value = null
@@ -463,6 +472,16 @@ export class TileManager {
     record.mesh.geometry.dispose()
     record.mesh.material.dispose()
     record.mesh.removeFromParent()
+  }
+
+  /** Fetch gives lowres tiles the same abort behavior as hires requests during rapid navigation. */
+  private async loadLowresTexture(url: string, signal: AbortSignal): Promise<THREE.Texture> {
+    const response = await fetch(url, { signal })
+    if (!response.ok) throw new Error(`lowres tile: HTTP ${response.status}`)
+    const image = await createImageBitmap(await response.blob())
+    const texture = new THREE.Texture(image)
+    texture.needsUpdate = true
+    return texture
   }
 
   /** 排队中 + 加载中的 hires tile 数 */
@@ -527,6 +546,12 @@ export class TileManager {
     this.group.removeFromParent()
     this.lowresGroup.removeFromParent()
   }
+}
+
+function disposeLowresTexture(texture: THREE.Texture): void {
+  const image = texture.image as { close?: () => void }
+  image.close?.()
+  texture.dispose()
 }
 
 /** BlueMap lowres PNGs pack color in the top half and height/light metadata below it. */
