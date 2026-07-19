@@ -41,11 +41,13 @@ public final class BlueMapCliRenderEngine {
     }
 
     /** Runs one forced render and returns the task-local log file. */
-    public Path render(Path workDir, String mapId, String minecraftVersion) throws IOException {
+    public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir,
+                       String dimension, Path storageRoot) throws IOException {
         Path normalizedWorkDir = workDir.toAbsolutePath().normalize();
         Files.createDirectories(normalizedWorkDir);
         Path configDir = normalizedWorkDir.resolve("config");
         copyConfiguration(configTemplate, configDir);
+        prepareTaskConfiguration(configDir, mapId, worldDir, dimension, storageRoot);
         Path logFile = normalizedWorkDir.resolve("bluemap.log");
         Process process = new ProcessBuilder(commandFor(normalizedWorkDir, mapId, minecraftVersion))
                 .directory(normalizedWorkDir.toFile())
@@ -66,6 +68,60 @@ public final class BlueMapCliRenderEngine {
             throw new IOException("BlueMap CLI failed with exit code " + process.exitValue() + "; see " + logFile);
         }
         return logFile;
+    }
+
+    /**
+     * Turns the administrator-maintained template into a map configuration scoped to one render.
+     * The file storage appends the map id to its root, so {@code root} deliberately names the
+     * parent output directory rather than the final map directory.
+     */
+    static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir,
+                                         String dimension, Path storageRoot) throws IOException {
+        if (mapId == null || !mapId.matches("[A-Za-z0-9_-]+")) {
+            throw new IOException("BlueMap map id contains unsupported characters");
+        }
+        if (worldDir == null || !Files.isDirectory(worldDir) || storageRoot == null) {
+            throw new IOException("BlueMap task world and storage root must be directories");
+        }
+        Path template = configDir.resolve("maps/template.conf");
+        Path storage = configDir.resolve("storages/file.conf");
+        if (!Files.isRegularFile(template) || !Files.isRegularFile(storage)) {
+            throw new IOException("BlueMap template must contain maps/template.conf and storages/file.conf");
+        }
+        String templateText = Files.readString(template);
+        String storageText = Files.readString(storage);
+        requireToken(templateText, "${world}", template);
+        requireToken(templateText, "${dimension}", template);
+        requireToken(storageText, "${root}", storage);
+        String mapText = replace(templateText, "${world}", configPath(worldDir));
+        mapText = replace(mapText, "${dimension}", dimensionKey(dimension));
+        mapText = replace(mapText, "${name}", mapId);
+        Files.writeString(configDir.resolve("maps").resolve(mapId + ".conf"), mapText,
+                java.nio.file.StandardOpenOption.CREATE_NEW);
+        Files.delete(template);
+        Files.writeString(storage, replace(storageText, "${root}", configPath(storageRoot)),
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    private static void requireToken(String text, String token, Path file) throws IOException {
+        if (!text.contains(token)) throw new IOException("BlueMap template is missing " + token + " in " + file);
+    }
+
+    private static String replace(String text, String token, String value) {
+        return text.replace(token, value.replace("\\", "/"));
+    }
+
+    private static String configPath(Path path) {
+        return path.toAbsolutePath().normalize().toString().replace('\\', '/');
+    }
+
+    private static String dimensionKey(String dimension) throws IOException {
+        return switch (dimension) {
+            case "overworld", "minecraft:overworld" -> "minecraft:overworld";
+            case "nether", "minecraft:the_nether" -> "minecraft:the_nether";
+            case "the_end", "end", "minecraft:the_end" -> "minecraft:the_end";
+            default -> throw new IOException("Unsupported BlueMap dimension: " + dimension);
+        };
     }
 
     List<String> commandFor(Path workDir, String mapId, String minecraftVersion) {

@@ -51,12 +51,31 @@ class BlueMapCliRenderEngineTest {
     @Test
     void adapterRejectsStorageOutsideTheTaskDirectory() throws Exception {
         BlueMapRenderEngineAdapter adapter = new BlueMapRenderEngineAdapter();
-        var method = BlueMapRenderEngineAdapter.class.getDeclaredMethod("resolveStorageRoot", Path.class, Path.class);
+        var method = BlueMapRenderEngineAdapter.class.getDeclaredMethod("resolveStorageParent", Path.class, Path.class);
         method.setAccessible(true);
 
         var error = assertThrows(java.lang.reflect.InvocationTargetException.class,
                 () -> method.invoke(adapter, temp.resolve("work"), temp.resolve("outside")));
 
         assertTrue(error.getCause() instanceof java.io.IOException);
+    }
+
+    @Test
+    void createsDynamicMapConfigWithTaskLocalWorldAndStorage() throws Exception {
+        Path config = Files.createDirectories(temp.resolve("config"));
+        Path maps = Files.createDirectories(config.resolve("maps"));
+        Path storages = Files.createDirectories(config.resolve("storages"));
+        Files.writeString(maps.resolve("template.conf"), "world: \"${world}\"\ndimension: \"${dimension}\"\nname: \"${name}\"\nstorage: \"file\"\n");
+        Files.writeString(storages.resolve("file.conf"), "storage-type: file\nroot: \"${root}\"\n");
+        Path world = Files.createDirectories(temp.resolve("world"));
+        Path output = temp.resolve("output");
+
+        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, "nether", output);
+
+        String map = Files.readString(maps.resolve("map-1.conf"));
+        assertTrue(map.contains("minecraft:the_nether"));
+        assertTrue(map.contains(world.toAbsolutePath().toString().replace('\\', '/')));
+        assertTrue(Files.notExists(maps.resolve("template.conf")));
+        assertTrue(Files.readString(storages.resolve("file.conf")).contains(output.toAbsolutePath().toString().replace('\\', '/')));
     }
 }

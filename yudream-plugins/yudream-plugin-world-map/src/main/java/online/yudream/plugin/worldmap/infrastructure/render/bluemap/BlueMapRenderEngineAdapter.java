@@ -34,8 +34,10 @@ public final class BlueMapRenderEngineAdapter {
         }
         BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(config.javaExecutable(), cli, config.configTemplate(),
                 config.maxHeapMiB(), config.timeout());
-        worker.render(workDir, blueMapMapId, config.minecraftVersion());
-        Path storageRoot = resolveStorageRoot(workDir, config.storageRoot());
+        Path storageParent = resolveStorageParent(workDir, config.storageRoot());
+        worker.render(workDir, blueMapMapId, config.minecraftVersion(), job.worldDir(), job.dimension(),
+                storageParent);
+        Path storageRoot = requireStorageRoot(workDir, storageParent, blueMapMapId);
         if (progress != null) {
             progress.phase(online.yudream.plugin.worldmap.domain.enumerate.RenderPhase.LOWRES, "Importing BlueMap output");
         }
@@ -43,11 +45,19 @@ public final class BlueMapRenderEngineAdapter {
         return new RenderSummary(imported.hiresTiles(), imported.lowresTiles(), 0, 0);
     }
 
-    private Path resolveStorageRoot(Path workDir, Path configured) throws IOException {
+    private Path resolveStorageParent(Path workDir, Path configured) throws IOException {
         Path root = configured.isAbsolute() ? configured : workDir.resolve(configured).normalize();
-        if (!root.startsWith(workDir.toAbsolutePath().normalize()) || !Files.isDirectory(root)) {
+        if (!root.startsWith(workDir.toAbsolutePath().normalize())) {
             throw new IOException("BlueMap storage root is not a task-local directory: " + root);
         }
         return root;
+    }
+
+    private Path requireStorageRoot(Path workDir, Path storageParent, String mapId) throws IOException {
+        Path mapRoot = storageParent.resolve(mapId).normalize();
+        if (!mapRoot.startsWith(workDir.toAbsolutePath().normalize()) || !Files.isDirectory(mapRoot)) {
+            throw new IOException("BlueMap storage root is not a task-local map directory: " + mapRoot);
+        }
+        return mapRoot;
     }
 }
