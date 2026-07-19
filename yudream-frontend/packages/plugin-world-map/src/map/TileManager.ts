@@ -11,6 +11,7 @@ import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
 import { shouldMarkLowresLoadFailed, shouldRetainLowresTexture } from './lowresTextureLifecycle'
 import { enqueueLowresRequest } from './lowresRequestQueue'
 import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
+import { decodeLowresImage, releaseLowresImage } from './lowresImageDecode'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -518,7 +519,7 @@ export class TileManager {
   private async loadLowresTexture(url: string, signal: AbortSignal): Promise<THREE.Texture> {
     const response = await fetch(url, { signal })
     if (!response.ok) throw new Error(`lowres tile: HTTP ${response.status}`)
-    const image = await createImageBitmap(await response.blob())
+    const image = await decodeLowresImage(await response.blob())
     const texture = new THREE.Texture(image)
     texture.needsUpdate = true
     return texture
@@ -592,8 +593,7 @@ export class TileManager {
 }
 
 function disposeLowresTexture(texture: THREE.Texture): void {
-  const image = texture.image as { close?: () => void }
-  image.close?.()
+  releaseLowresImage(texture.image as ImageBitmap | HTMLImageElement | null)
   texture.dispose()
 }
 
