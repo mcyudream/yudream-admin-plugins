@@ -7,6 +7,10 @@ export interface MarkerPickResult {
   marker: MapMarker
 }
 
+/** Caps unique canvas textures so a dense marker set cannot exhaust WebGL memory. */
+export const MAX_MARKER_LABELS = 250
+const MAX_MARKER_LABEL_LENGTH = 64
+
 /** Returns a stable navigation point for point, line, and region annotations. */
 export function markerAnchor(marker: MapMarker): THREE.Vector3 | null {
   if (marker.position && finitePosition(marker.position)) {
@@ -21,6 +25,30 @@ export function markerAnchor(marker: MapMarker): THREE.Vector3 | null {
     anchor.add(new THREE.Vector3(point.x, point.y, point.z))
   }
   return anchor.multiplyScalar(1 / points.length)
+}
+
+/** Normalizes untrusted marker labels before using them in a canvas texture. */
+export function markerLabel(marker: MapMarker): string | null {
+  if (typeof marker.label !== 'string') {
+    return null
+  }
+  const normalized = marker.label.replace(/\s+/g, ' ').trim()
+  if (!normalized) {
+    return null
+  }
+  return normalized.length > MAX_MARKER_LABEL_LENGTH
+    ? `${normalized.slice(0, MAX_MARKER_LABEL_LENGTH - 3)}...`
+    : normalized
+}
+
+/** Places labels just above the annotation so the label does not cover its geometry. */
+export function markerLabelAnchor(marker: MapMarker): THREE.Vector3 | null {
+  const anchor = markerAnchor(marker)
+  if (!anchor) {
+    return null
+  }
+  anchor.y += marker.position ? 5 : 2.5
+  return anchor
 }
 
 /**
@@ -66,6 +94,7 @@ export class MarkerLayer {
 
   private renderMarkers(): void {
     this.clear()
+    let labelCount = 0
     for (const set of this.markerSets) {
       const setId = set.id ?? ''
       const visible = this.visibility.get(setId) ?? set.defaultVisible !== false
@@ -73,9 +102,13 @@ export class MarkerLayer {
         continue
       }
       for (const marker of set.markers ?? []) {
-        const object = this.createMarker(marker)
+        const label = labelCount < MAX_MARKER_LABELS ? markerLabel(marker) : null
+        const object = this.createMarker(marker, label)
         if (!object) {
           continue
+        }
+        if (label) {
+          labelCount += 1
         }
         object.userData.markerPick = { setId, marker } satisfies MarkerPickResult
         this.group.add(object)
@@ -104,7 +137,7 @@ export class MarkerLayer {
     this.pickables = []
   }
 
-  private createMarker(marker: MapMarker): THREE.Object3D | null {
+  private createMarker(marker: MapMarker, label: string | null): THREE.Object3D | null {
     const color = new THREE.Color(marker.color ?? '#f6c845')
     const type = marker.type?.toUpperCase()
     if (type === 'POINT' && marker.position) {
@@ -114,6 +147,7 @@ export class MarkerLayer {
       )
       mesh.position.set(marker.position.x, marker.position.y, marker.position.z)
       mesh.renderOrder = 2
+      this.addLabel(mesh, marker, label, color)
       return mesh
     }
     const points = marker.points ?? []
@@ -124,6 +158,7 @@ export class MarkerLayer {
       const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false })
       const line = type === 'REGION' ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material)
       line.renderOrder = 2
+      this.addLabel(line, marker, label, color)
       return line
     }
     return null
@@ -135,12 +170,71 @@ export class MarkerLayer {
       const materials = Array.isArray(object.material) ? object.material : [object.material]
       materials.forEach(material => material.dispose())
     }
+    if (object instanceof THREE.Sprite) {
+      object.material.map?.dispose()
+      object.material.dispose()
+    }
+  }
+
+  private addLabel(parent: THREE.Object3D, marker: MapMarker, label: string | null, color: THREE.Color): void {
+    if (!label) {
+      return
+    }
+    const anchor = markerLabelAnchor(marker)
+    if (!anchor) {
+      return
+    }
+    const sprite = createLabelSprite(label, color)
+    if (!sprite) {
+      return
+    }
+    // Point markers carry their world position on the mesh, while line geometry is world-space.
+    sprite.position.copy(anchor.sub(parent.position))
+    sprite.renderOrder = 3
+    parent.add(sprite)
   }
 
   dispose(): void {
     this.clear()
     this.group.removeFromParent()
   }
+}
+
+function createLabelSprite(label: string, color: THREE.Color): THREE.Sprite | null {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) {
+    return null
+  }
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+  const fontSize = 28
+  const paddingX = 18
+  const paddingY = 10
+  context.font = `600 ${fontSize}px sans-serif`
+  const width = Math.ceil(context.measureText(label).width + paddingX * 2)
+  const height = fontSize + paddingY * 2
+  canvas.width = width * pixelRatio
+  canvas.height = height * pixelRatio
+  context.scale(pixelRatio, pixelRatio)
+  context.font = `600 ${fontSize}px sans-serif`
+  context.textBaseline = 'middle'
+  context.fillStyle = 'rgba(15, 23, 42, 0.88)'
+  context.roundRect(0, 0, width, height, 7)
+  context.fill()
+  context.strokeStyle = color.getStyle()
+  context.lineWidth = 2
+  context.roundRect(1, 1, width - 2, height - 2, 6)
+  context.stroke()
+  context.fillStyle = '#ffffff'
+  context.fillText(label, paddingX, height / 2)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearFilter
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, transparent: true })
+  const sprite = new THREE.Sprite(material)
+  sprite.scale.set(Math.max(12, Math.min(44, width / 12)), 4.5, 1)
+  return sprite
 }
 
 function finitePosition(value: { x: number, y: number, z: number }): boolean {
