@@ -15,6 +15,7 @@ public final class BlueMapRenderEngineAdapter {
 
     private final BlueMapCliLocator locator;
     private final BlueMapFileGenerationImporter importer;
+    private volatile BlueMapCliRenderEngine activeWorker;
 
     public BlueMapRenderEngineAdapter() {
         this(new BlueMapCliLocator(), new BlueMapFileGenerationImporter());
@@ -34,16 +35,27 @@ public final class BlueMapRenderEngineAdapter {
         }
         BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(config.javaExecutable(), cli, config.configTemplate(),
                 config.maxHeapMiB(), config.timeout());
+        activeWorker = worker;
         Path storageParent = resolveStorageParent(workDir, config.storageRoot());
         String workerMapId = BlueMapCliRenderEngine.blueMapMapId(blueMapMapId);
-        worker.render(workDir, workerMapId, config.minecraftVersion(), job.worldDir(), job.clientJar(), job.dimension(),
-                storageParent);
+        try {
+            worker.render(workDir, workerMapId, config.minecraftVersion(), job.worldDir(), job.clientJar(), job.dimension(),
+                    storageParent);
+        } finally {
+            activeWorker = null;
+        }
         Path storageRoot = requireStorageRoot(workDir, storageParent, workerMapId);
         if (progress != null) {
             progress.phase(online.yudream.plugin.worldmap.domain.enumerate.RenderPhase.LOWRES, "Importing BlueMap output");
         }
         BlueMapImportSummary imported = importer.importStorage(storageRoot, generation, publisher);
         return new RenderSummary(imported.hiresTiles(), imported.lowresTiles(), 0, 0);
+    }
+
+    /** Interrupts the currently running isolated BlueMap CLI, if any. */
+    public void cancel() {
+        BlueMapCliRenderEngine worker = activeWorker;
+        if (worker != null) worker.cancel();
     }
 
     private Path resolveStorageParent(Path workDir, Path configured) throws IOException {

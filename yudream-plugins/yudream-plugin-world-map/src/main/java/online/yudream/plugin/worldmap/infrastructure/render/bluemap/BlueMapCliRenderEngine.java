@@ -26,6 +26,7 @@ public final class BlueMapCliRenderEngine {
     private final Path configTemplate;
     private final int maxHeapMiB;
     private final Duration timeout;
+    private volatile Process activeProcess;
 
     public BlueMapCliRenderEngine(Path javaExecutable, Path cliJar, Path configTemplate,
                                   int maxHeapMiB, Duration timeout) {
@@ -60,6 +61,7 @@ public final class BlueMapCliRenderEngine {
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile())
                 .start();
+        activeProcess = process;
         try {
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 terminate(process);
@@ -69,11 +71,19 @@ public final class BlueMapCliRenderEngine {
             terminate(process);
             Thread.currentThread().interrupt();
             throw new IOException("BlueMap CLI render interrupted", exception);
+        } finally {
+            activeProcess = null;
         }
         if (process.exitValue() != 0) {
             throw new IOException("BlueMap CLI failed with exit code " + process.exitValue() + "; see " + logFile);
         }
         return logFile;
+    }
+
+    /** Stops the isolated CLI immediately when its enclosing render task is cancelled. */
+    public void cancel() {
+        Process process = activeProcess;
+        if (process != null && process.isAlive()) terminate(process);
     }
 
     /**

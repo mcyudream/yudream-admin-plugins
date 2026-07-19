@@ -126,6 +126,7 @@ public class RenderOrchestrator implements AutoCloseable {
         if (!cancelled) {
             return false;
         }
+        blueMapRenderer.cancel();
         markCancelled(taskId, "渲染任务已取消");
         return true;
     }

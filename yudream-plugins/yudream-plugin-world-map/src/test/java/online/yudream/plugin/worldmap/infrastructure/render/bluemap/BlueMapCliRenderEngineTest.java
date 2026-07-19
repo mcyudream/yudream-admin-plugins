@@ -96,6 +96,14 @@ class BlueMapCliRenderEngineTest {
         assertTrue(error.getMessage().contains("does not match"));
     }
 
+    @Test
+    void cancellingAnIdleWorkerIsSafe() {
+        BlueMapCliRenderEngine engine = new BlueMapCliRenderEngine(
+                Path.of("java21"), temp.resolve("cli.jar"), temp.resolve("template"), 768, Duration.ofMinutes(1));
+
+        engine.cancel();
+    }
+
     private Path clientJar(String version) throws Exception {
         Path jar = temp.resolve("client-" + version + ".jar");
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(jar))) {
