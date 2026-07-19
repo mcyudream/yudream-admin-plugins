@@ -1,5 +1,7 @@
 package online.yudream.plugin.worldmap.infrastructure.render.bluemap;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import online.yudream.plugin.worldmap.application.service.GenerationPublisher;
 import online.yudream.plugin.worldmap.domain.aggregate.MapGeneration;
 
@@ -19,6 +21,7 @@ public final class BlueMapFileGenerationImporter {
     private static final Pattern LOWRES = Pattern.compile("x(-?\\d+)z(-?\\d+)\\.png");
     private static final int MAX_TILES = 1_000_000;
     private static final int MAX_ASSET_BYTES = 128 * 1024 * 1024;
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     public BlueMapImportSummary importStorage(Path storageRoot, MapGeneration generation,
                                                GenerationPublisher publisher) throws IOException {
@@ -29,6 +32,7 @@ public final class BlueMapFileGenerationImporter {
         }
         int hires = importHires(tiles.resolve("0"), generation, publisher);
         publisher.saveBlueMapTextures(generation, readTextures(root));
+        publisher.saveBlueMapSettings(generation, readSettings(root));
         int lowres = 0;
         try (Stream<Path> levels = Files.list(tiles)) {
             for (Path level : levels.filter(Files::isDirectory).toList()) {
@@ -58,6 +62,39 @@ public final class BlueMapFileGenerationImporter {
             }
         }
         throw new IOException("BlueMap output does not contain textures.json");
+    }
+
+    private byte[] readSettings(Path root) throws IOException {
+        Path settings = root.resolve("settings.json");
+        if (!Files.isRegularFile(settings)) {
+            throw new IOException("BlueMap output does not contain settings.json");
+        }
+        byte[] data = readLimited(Files.newInputStream(settings));
+        validateSettings(data);
+        return data;
+    }
+
+    private void validateSettings(byte[] data) throws IOException {
+        JsonNode root = JSON.readTree(data);
+        if (root == null || !root.isObject()) throw new IOException("BlueMap settings.json must be an object");
+        int hiresX = positive(root, "hires", "tileSize", "x");
+        int hiresY = positive(root, "hires", "tileSize", "y");
+        int lowresX = positive(root, "lowres", "tileSize", "x");
+        int lowresY = positive(root, "lowres", "tileSize", "y");
+        if (hiresX != hiresY || lowresX != lowresY) {
+            throw new IOException("BlueMap settings tiles must be square");
+        }
+        positive(root, "lowres", "lodCount");
+        positive(root, "lowres", "lodFactor");
+    }
+
+    private int positive(JsonNode root, String... path) throws IOException {
+        JsonNode value = root;
+        for (String segment : path) value = value.path(segment);
+        if (!value.canConvertToInt() || value.intValue() < 1 || value.intValue() > 4096) {
+            throw new IOException("Invalid BlueMap settings value: " + String.join(".", path));
+        }
+        return value.intValue();
     }
 
     private int importHires(Path root, MapGeneration generation, GenerationPublisher publisher) throws IOException {

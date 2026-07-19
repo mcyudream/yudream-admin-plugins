@@ -15,6 +15,8 @@ export function createWorldMapApi(sdk: YuDreamPluginSdk) {
       sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/tiles/lowres/${lod}/${tx}/${tz}`),
     blueMapTexturesUrl: (mapId: string, generationId: string) =>
       sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/textures.json`),
+    blueMapSettingsUrl: (mapId: string, generationId: string) =>
+      sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/settings.json`),
   }
 }
 
@@ -54,6 +56,15 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       }
       const response = await fetch(api.blueMapTexturesUrl(mapId, generationId))
       if (!response.ok) throw new Error(`BlueMap textures: HTTP ${response.status}`)
+      return response.json()
+    },
+    async loadBlueMapSettings() {
+      const settings = await loadSettings()
+      if (settings.renderer !== 'BLUEMAP' || !settings.blueMapSettingsUrl) {
+        throw new Error('Map generation does not use BlueMap settings')
+      }
+      const response = await fetch(api.blueMapSettingsUrl(mapId, generationId))
+      if (!response.ok) throw new Error(`BlueMap settings: HTTP ${response.status}`)
       return response.json()
     },
     async fetchHiresTile(tx, tz, signal) {

@@ -60,6 +60,8 @@ class GenerationPublisherTest {
 
         assertThrows(IllegalStateException.class, () -> publisher.publish(map, staging, "BLUEMAP"));
         publisher.saveBlueMapTextures(staging, "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThrows(IllegalStateException.class, () -> publisher.publish(map, staging, "BLUEMAP"));
+        publisher.saveBlueMapSettings(staging, "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         publisher.publish(map, staging, "BLUEMAP");
 
         assertEquals("BLUEMAP", map.getActiveRenderer());

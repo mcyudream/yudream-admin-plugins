@@ -38,6 +38,8 @@ public class WorldMapAppAssembler {
                 map.getActiveRenderer(),
                 "BLUEMAP".equals(map.getActiveRenderer())
                         ? "generations/" + map.getActiveGenerationId() + "/textures.json" : null,
+                "BLUEMAP".equals(map.getActiveRenderer())
+                        ? "generations/" + map.getActiveGenerationId() + "/settings.json" : null,
                 map.getRenderedAt()
         );
     }

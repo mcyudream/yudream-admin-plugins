@@ -55,6 +55,12 @@ public final class GenerationPublisher {
         track(generation, key);
     }
 
+    public void saveBlueMapSettings(MapGeneration generation, byte[] data) {
+        String key = TileStorage.blueMapSettingsKey(generation.mapId(), generation.id());
+        storage.put(key, data, "application/json");
+        track(generation, key);
+    }
+
     public void publish(MapInstance map, MapGeneration generation) {
         publish(map, generation, "YUDREAM");
     }
@@ -65,6 +71,7 @@ public final class GenerationPublisher {
         }
         boolean blueMap = "BLUEMAP".equals(renderer);
         if (blueMap ? storage.blueMapTextures(generation.mapId(), generation.id()).isEmpty()
+                || storage.blueMapSettings(generation.mapId(), generation.id()).isEmpty()
                 : storage.atlas(generation.mapId(), generation.id()).isEmpty()) {
             throw new IllegalStateException("Render generation is missing its renderer textures");
         }

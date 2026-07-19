@@ -90,6 +90,10 @@ public final class TileStorage {
         return Optional.ofNullable(store.get(blueMapTexturesKey(mapId, generationId)));
     }
 
+    public Optional<PluginStoredFile> blueMapSettings(String mapId, String generationId) {
+        return Optional.ofNullable(store.get(blueMapSettingsKey(mapId, generationId)));
+    }
+
     // ---------- 透传（供上层按自有 key 存取） ----------
 
     /** 按完整 key 写入。 */
@@ -154,6 +158,10 @@ public final class TileStorage {
 
     public static String blueMapTexturesKey(String mapId, String generationId) {
         return generationPrefix(mapId, generationId) + "/textures.json";
+    }
+
+    public static String blueMapSettingsKey(String mapId, String generationId) {
+        return generationPrefix(mapId, generationId) + "/settings.json";
     }
 
     private static String generationPrefix(String mapId, String generationId) {

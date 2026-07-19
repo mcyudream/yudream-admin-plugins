@@ -12,7 +12,7 @@ interface HiresRecord {
 }
 
 interface LowresRecord {
-  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.Material>
   texture: THREE.Texture | null
   /** 纹理加载失败（404 等）时保留底色平面 */
   failed: boolean
@@ -61,6 +61,7 @@ export class TileManager {
   private centerTz = 0
   private viewEpoch = 0
   private desired = new Set<string>()
+  private dayFactor = 1
   private disposed = false
 
   constructor(
@@ -85,8 +86,9 @@ export class TileManager {
     this.frame += 1
     const tileSize = this.settings.hiresTileSize
     const radius = this.options.hiresRadius ?? 4
-    const nextCenterTx = Math.floor(target.x / tileSize)
-    const nextCenterTz = Math.floor(target.z / tileSize)
+    const offset = this.settings.hiresTileOffset ?? { x: 0, z: 0 }
+    const nextCenterTx = Math.floor((target.x - offset.x) / tileSize)
+    const nextCenterTz = Math.floor((target.z - offset.z) / tileSize)
     if (nextCenterTx !== this.centerTx || nextCenterTz !== this.centerTz) {
       this.centerTx = nextCenterTx
       this.centerTz = nextCenterTz
@@ -264,17 +266,29 @@ export class TileManager {
   }
 
   private buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[]): THREE.Mesh {
-    const mesh = new THREE.Mesh(decodePrbm(data), material)
+    const geometry = decodePrbm(data)
+    if (Array.isArray(material)) {
+      const invalidGroup = geometry.groups.find(group => {
+        const materialIndex = group.materialIndex
+        return materialIndex === undefined || materialIndex < 0 || materialIndex >= material.length
+      })
+      if (invalidGroup) {
+        geometry.dispose()
+        throw new Error(`PRBM tile references unavailable material ${invalidGroup.materialIndex ?? 'unknown'}`)
+      }
+    }
+    const mesh = new THREE.Mesh(geometry, material)
     mesh.matrixAutoUpdate = false
     return mesh
   }
 
   /** lowres 金字塔平面：按相机距离选 lod，覆盖视野范围，作为 hires 的兜底 */
   private updateLowres(camera: THREE.Camera, target: THREE.Vector3): void {
+    const minLod = this.settings.lowresMinLod ?? 0
     const maxLod = this.settings.lowresMaxLod
     const distance = camera.position.distanceTo(target)
-    const lod = THREE.MathUtils.clamp(Math.floor(Math.log2(Math.max(distance, 1) / 256)), 0, maxLod)
-    const tileSize = this.settings.lowresTileSize * 2 ** lod
+    const lod = THREE.MathUtils.clamp(Math.floor(Math.log2(Math.max(distance, 1) / 256)), minLod, maxLod)
+    const tileSize = this.settings.lowresTileSize * (this.settings.lowresLodFactor ?? 2) ** (lod - minLod)
     const centerTx = Math.floor(target.x / tileSize)
     const centerTz = Math.floor(target.z / tileSize)
     if (this.source.lowresTileUrl(lod, centerTx, centerTz) === null) {
@@ -311,9 +325,12 @@ export class TileManager {
   }
 
   private createLowresTile(lod: number, tx: number, tz: number, tileSize: number): LowresRecord {
-    const geometry = new THREE.PlaneGeometry(tileSize, tileSize)
+    const segments = this.settings.renderer === 'BLUEMAP' ? Math.max(4, Math.ceil(100 / (lod * 2))) : 1
+    const geometry = new THREE.PlaneGeometry(tileSize, tileSize, segments, segments)
     geometry.rotateX(-Math.PI / 2)
-    const material = new THREE.MeshBasicMaterial({
+    const material = this.settings.renderer === 'BLUEMAP'
+      ? createBlueMapLowresMaterial()
+      : new THREE.MeshBasicMaterial({
       color: 0x1a2436,
       fog: true,
       polygonOffset: true,
@@ -325,6 +342,11 @@ export class TileManager {
       transparent: true,
     })
     const mesh = new THREE.Mesh(geometry, material)
+    if (material instanceof THREE.ShaderMaterial) {
+      material.uniforms.tileExtent.value = tileSize
+      material.uniforms.sunlight.value = 0.75 * this.dayFactor
+      material.uniforms.ambient.value = 0.18 + 0.14 * this.dayFactor
+    }
     mesh.renderOrder = -1
     // 低清为俯视正交投影，平面放在地表平均高度附近（契约 §5：近似 64 或 settings 推导）
     mesh.position.set((tx + 0.5) * tileSize, this.settings.spawn.y, (tz + 0.5) * tileSize)
@@ -341,11 +363,17 @@ export class TileManager {
             return
           }
           texture.colorSpace = THREE.SRGBColorSpace
-          texture.magFilter = THREE.LinearFilter
-          texture.minFilter = THREE.LinearFilter
+          texture.magFilter = this.settings.renderer === 'BLUEMAP' ? THREE.NearestFilter : THREE.LinearFilter
+          texture.minFilter = this.settings.renderer === 'BLUEMAP' ? THREE.NearestFilter : THREE.LinearFilter
+          texture.generateMipmaps = false
+          texture.flipY = this.settings.renderer !== 'BLUEMAP'
           record.texture = texture
-          material.map = texture
-          material.color.set(0xffffff)
+          if (material instanceof THREE.ShaderMaterial) {
+            material.uniforms.textureImage.value = texture
+          } else {
+            material.map = texture
+            material.color.set(0xffffff)
+          }
           material.needsUpdate = true
           this.options.onChanged?.()
         })
@@ -362,8 +390,9 @@ export class TileManager {
   /** 判断 lowres tile 覆盖的 hires 区域是否已全部加载完成 */
   private isCoveredByHires(tx: number, tz: number, tileSize: number): boolean {
     const hiresSize = this.settings.hiresTileSize
-    const x0 = Math.floor((tx * tileSize) / hiresSize)
-    const z0 = Math.floor((tz * tileSize) / hiresSize)
+    const offset = this.settings.hiresTileOffset ?? { x: 0, z: 0 }
+    const x0 = Math.floor((tx * tileSize - offset.x) / hiresSize)
+    const z0 = Math.floor((tz * tileSize - offset.z) / hiresSize)
     const count = Math.ceil(tileSize / hiresSize)
     for (let x = x0; x < x0 + count; x += 1) {
       for (let z = z0; z < z0 + count; z += 1) {
@@ -385,6 +414,15 @@ export class TileManager {
   /** 排队中 + 加载中的 hires tile 数 */
   get pendingCount(): number {
     return this.queue.length + this.inFlight
+  }
+
+  setDayFactor(dayFactor: number): void {
+    this.dayFactor = dayFactor
+    for (const record of this.lowres.values()) {
+      if (!(record.mesh.material instanceof THREE.ShaderMaterial)) continue
+      record.mesh.material.uniforms.sunlight.value = 0.75 * dayFactor
+      record.mesh.material.uniforms.ambient.value = 0.18 + 0.14 * dayFactor
+    }
   }
 
   dispose(): void {
@@ -411,4 +449,65 @@ export class TileManager {
     this.group.removeFromParent()
     this.lowresGroup.removeFromParent()
   }
+}
+
+/** BlueMap lowres PNGs pack color in the top half and height/light metadata below it. */
+function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
+  const uniforms = THREE.UniformsUtils.merge([
+    THREE.UniformsLib.fog,
+    {
+      textureImage: { value: null },
+      tileExtent: { value: 1 },
+      sunlight: { value: 0.78 },
+      ambient: { value: 0.22 },
+      voidColor: { value: new THREE.Color(0x1a2436) },
+    },
+  ])
+  return new THREE.ShaderMaterial({
+    uniforms,
+    fog: true,
+    transparent: true,
+    depthWrite: false,
+    vertexShader: /* glsl */ `
+      uniform sampler2D textureImage;
+      uniform float tileExtent;
+      varying vec2 vLocal;
+      varying float vLight;
+      float heightFromMeta(vec4 meta) {
+        float unsignedHeight = meta.g * 65280.0 + meta.b * 255.0;
+        return unsignedHeight >= 32768.0 ? -(65535.0 - unsignedHeight) : unsignedHeight;
+      }
+      #include <fog_pars_vertex>
+      void main() {
+        vLocal = position.xz + vec2(tileExtent * 0.5);
+        vec2 textureUv = vec2(vLocal.x / tileExtent, vLocal.y / tileExtent);
+        vec4 meta = texture2D(textureImage, vec2(textureUv.x, textureUv.y * 0.5 + 0.5));
+        vLight = meta.r * 255.0;
+        vec3 displaced = position;
+        displaced.y = heightFromMeta(meta) + 0.5;
+        vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D textureImage;
+      uniform float tileExtent;
+      uniform float sunlight;
+      uniform float ambient;
+      uniform vec3 voidColor;
+      varying vec2 vLocal;
+      varying float vLight;
+      #include <fog_pars_fragment>
+      void main() {
+        vec2 textureUv = vec2(vLocal.x / tileExtent, vLocal.y / tileExtent);
+        vec4 color = texture2D(textureImage, vec2(textureUv.x, textureUv.y * 0.5));
+        float light = mix(vLight, 15.0, sunlight);
+        color.rgb *= mix(ambient, 1.0, light / 15.0);
+        color.rgb = mix(voidColor, color.rgb, color.a);
+        gl_FragColor = vec4(color.rgb, 1.0);
+        #include <fog_fragment>
+      }
+    `,
+  })
 }

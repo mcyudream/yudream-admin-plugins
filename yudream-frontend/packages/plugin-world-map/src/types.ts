@@ -20,6 +20,8 @@ export interface MapSettings {
   maxY: number
   /** hires tile 边长（方块数），固定 32 */
   hiresTileSize: number
+  /** Hires grid origin. BlueMap defaults to (2, 2); legacy generations use (0, 0). */
+  hiresTileOffset?: { x: number, z: number }
   /** 低清 tile 像素边长，固定 512；lodN 每 tile 覆盖 512 * 2^N 方块 */
   lowresTileSize: number
   /** 最高 lod 级别（含） */
@@ -32,6 +34,12 @@ export interface MapSettings {
   renderer?: 'YUDREAM' | 'BLUEMAP'
   /** BlueMap v5 textures.json, set only for BLUEMAP generations. */
   blueMapTexturesUrl?: string | null
+  /** BlueMap v5 settings.json, set only for BLUEMAP generations. */
+  blueMapSettingsUrl?: string | null
+  /** BlueMap lowres hierarchy multiplier. Legacy generations use 2. */
+  lowresLodFactor?: number
+  /** First lowres directory level. BlueMap starts at 1; legacy generations start at 0. */
+  lowresMinLod?: number
   renderedAt?: number
 }
 
