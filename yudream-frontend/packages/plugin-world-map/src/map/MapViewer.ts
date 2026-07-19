@@ -13,6 +13,7 @@ import { TileManager } from './TileManager'
 import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
+import { renderPixelRatio } from './renderPixelRatio'
 import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
 
@@ -68,7 +69,6 @@ export class MapViewer {
     private readonly options: MapViewerOptions = {},
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1))
     container.appendChild(this.renderer.domElement)
 
@@ -454,6 +454,7 @@ export class MapViewer {
     if (!width || !height) {
       return
     }
+    this.renderer.setPixelRatio(renderPixelRatio(window.devicePixelRatio, width, height))
     this.perspectiveCamera.aspect = width / height
     this.perspectiveCamera.updateProjectionMatrix()
     const halfHeight = FLAT_VIEW_HEIGHT * 0.5
