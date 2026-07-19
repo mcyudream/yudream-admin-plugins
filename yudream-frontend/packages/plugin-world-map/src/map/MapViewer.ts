@@ -10,7 +10,8 @@ import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
 import type { MapMarkerSet } from '../types'
 import { TileManager } from './TileManager'
-import type { CameraMode, WorldMapSource } from './types'
+import type { CameraMode, MapViewMode, WorldMapSource } from './types'
+import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 
 export interface MapViewerOptions {
   /** 相机位置变化回调（节流至约 10Hz），用于坐标显示 */
@@ -25,6 +26,8 @@ const DAY_SKY = new THREE.Color(0x87a9d6)
 const NIGHT_SKY = new THREE.Color(0x070a12)
 /** 初始相机到 spawn 的水平距离 */
 const SPAWN_VIEW_DISTANCE = 120
+const FLAT_CAMERA_HEIGHT = 2_000
+const FLAT_VIEW_HEIGHT = 1_200
 
 /**
  * 3D 地图查看器引擎（视觉对齐 BlueMap 5.x）：
@@ -34,14 +37,18 @@ const SPAWN_VIEW_DISTANCE = 120
 export class MapViewer {
   private readonly renderer: THREE.WebGLRenderer
   private readonly scene = new THREE.Scene()
-  private readonly camera: THREE.PerspectiveCamera
+  private readonly perspectiveCamera: THREE.PerspectiveCamera
+  private readonly flatCamera: THREE.OrthographicCamera
   private readonly fog: THREE.Fog
   private readonly skyColor = new THREE.Color()
   private readonly orbit: OrbitController
+  private readonly flatOrbit: OrbitController
   private readonly fly: FlyController
   private readonly markerLayer: MarkerLayer
   private readonly resizeObserver: ResizeObserver
   private mode: CameraMode = 'orbit'
+  private viewMode: MapViewMode = 'perspective'
+  private readonly perspectiveOffset = new THREE.Vector3(60, 85, 60)
   private tileManager: TileManager | null = null
   private material: THREE.ShaderMaterial | null = null
   private translucentMaterial: THREE.ShaderMaterial | null = null
@@ -63,15 +70,23 @@ export class MapViewer {
     this.renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1))
     container.appendChild(this.renderer.domElement)
 
-    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 4000)
-    this.camera.position.set(0, 200, 0)
+    this.perspectiveCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 4000)
+    this.perspectiveCamera.position.set(0, 200, 0)
+    this.flatCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 8_000)
+    this.flatCamera.up.set(0, 0, -1)
 
-    this.fog = new THREE.Fog(0x000000, 200, 900)
+    this.fog = new THREE.Fog(0x000000, PERSPECTIVE_FOG.near, PERSPECTIVE_FOG.far)
     this.scene.fog = this.fog
 
-    this.orbit = new OrbitController(this.camera, this.renderer.domElement)
+    this.orbit = new OrbitController(this.perspectiveCamera, this.renderer.domElement)
     this.orbit.controls.addEventListener('change', this.requestRender)
-    this.fly = new FlyController(this.camera, this.renderer.domElement, this.requestRender)
+    this.flatOrbit = new OrbitController(this.flatCamera, this.renderer.domElement)
+    this.flatOrbit.controls.enableRotate = false
+    this.flatOrbit.controls.screenSpacePanning = true
+    this.flatOrbit.controls.minZoom = 0.25
+    this.flatOrbit.controls.maxZoom = 8
+    this.flatOrbit.controls.addEventListener('change', this.requestRender)
+    this.fly = new FlyController(this.perspectiveCamera, this.renderer.domElement, this.requestRender)
     this.setCameraMode('orbit')
 
     this.markerLayer = new MarkerLayer(this.scene)
@@ -143,22 +158,28 @@ export class MapViewer {
     // 初始相机：spawn 上方，方位 45°、俯仰 45° 斜视
     const { x, y, z } = settings.spawn
     const horizontal = SPAWN_VIEW_DISTANCE * Math.cos(Math.PI / 4)
-    this.camera.position.set(
+    this.perspectiveCamera.position.set(
       x + horizontal * Math.sin(Math.PI / 4),
       y + SPAWN_VIEW_DISTANCE * Math.sin(Math.PI / 4),
       z + horizontal * Math.cos(Math.PI / 4),
     )
-    this.camera.lookAt(x, y, z)
+    this.perspectiveCamera.lookAt(x, y, z)
     this.orbit.controls.target.set(x, y, z)
     this.orbit.controls.update()
+    this.flatCamera.position.set(x, y + FLAT_CAMERA_HEIGHT, z)
+    this.flatCamera.lookAt(x, y, z)
+    this.flatOrbit.controls.target.set(x, y, z)
+    this.flatOrbit.controls.update()
     this.requestRender()
   }
 
   setCameraMode(mode: CameraMode): void {
+    if (mode === 'fly' && this.viewMode === 'flat') {
+      this.setViewMode('perspective')
+    }
     this.mode = mode
-    this.orbit.setActive(mode === 'orbit')
-    this.fly.setActive(mode === 'fly')
-    if (mode === 'orbit') {
+    this.syncControllerActivation()
+    if (mode === 'orbit' && this.viewMode === 'perspective') {
       // 飞行 → 轨道：把轨道目标放到视线前方，保持视角连续
       const direction = new THREE.Vector3()
       this.camera.getWorldDirection(direction)
@@ -171,6 +192,41 @@ export class MapViewer {
     return this.mode
   }
 
+  setViewMode(mode: MapViewMode): void {
+    if (mode === this.viewMode) {
+      return
+    }
+    if (mode === 'flat') {
+      const target = this.currentTarget()
+      this.perspectiveOffset.copy(this.perspectiveCamera.position).sub(this.orbit.controls.target)
+      if (this.perspectiveOffset.lengthSq() < 1) {
+        this.perspectiveOffset.set(60, 85, 60)
+      }
+      this.mode = 'orbit'
+      this.viewMode = 'flat'
+      this.applyFogForViewMode()
+      this.flatCamera.position.set(target.x, target.y + FLAT_CAMERA_HEIGHT, target.z)
+      this.flatCamera.lookAt(target)
+      this.flatOrbit.controls.target.copy(target)
+      this.flatOrbit.controls.update()
+    }
+    else {
+      const target = this.flatOrbit.controls.target
+      this.viewMode = 'perspective'
+      this.applyFogForViewMode()
+      this.orbit.controls.target.copy(target)
+      this.perspectiveCamera.position.copy(target).add(this.perspectiveOffset)
+      this.perspectiveCamera.lookAt(target)
+      this.orbit.controls.update()
+    }
+    this.syncControllerActivation()
+    this.requestRender()
+  }
+
+  getViewMode(): MapViewMode {
+    return this.viewMode
+  }
+
   /** t ∈ [0,1]，0 = 午夜，0.5 = 正午 */
   setTimeOfDay(t: number): void {
     this.timeOfDay = THREE.MathUtils.clamp(t, 0, 1)
@@ -179,17 +235,25 @@ export class MapViewer {
   }
 
   /** 读取当前视角（相机位置 + 当前控制器目标点） */
-  getView(): { position: THREE.Vector3, target: THREE.Vector3 } {
-    const controller = this.mode === 'orbit' ? this.orbit : this.fly
-    return { position: this.camera.position.clone(), target: controller.target.clone() }
+  getView(): { position: THREE.Vector3, target: THREE.Vector3, zoom?: number } {
+    return {
+      position: this.camera.position.clone(),
+      target: this.currentTarget(),
+      zoom: this.viewMode === 'flat' ? this.flatCamera.zoom : undefined,
+    }
   }
 
   /** 恢复指定视角（用于 URL 视角分享还原） */
-  setView(position: { x: number, y: number, z: number }, target: { x: number, y: number, z: number }): void {
+  setView(position: { x: number, y: number, z: number }, target: { x: number, y: number, z: number }, zoom?: number): void {
     this.camera.position.set(position.x, position.y, position.z)
-    this.orbit.controls.target.set(target.x, target.y, target.z)
+    const controls = this.viewMode === 'flat' ? this.flatOrbit.controls : this.orbit.controls
+    controls.target.set(target.x, target.y, target.z)
+    if (this.viewMode === 'flat' && zoom && Number.isFinite(zoom)) {
+      this.flatCamera.zoom = THREE.MathUtils.clamp(zoom, this.flatOrbit.controls.minZoom, this.flatOrbit.controls.maxZoom)
+      this.flatCamera.updateProjectionMatrix()
+    }
     this.camera.lookAt(target.x, target.y, target.z)
-    this.orbit.controls.update()
+    controls.update()
     this.requestRender()
   }
 
@@ -265,7 +329,7 @@ export class MapViewer {
     const dt = Math.min((now - this.lastTime) / 1000, 0.1)
     this.lastTime = now
 
-    const controller = this.mode === 'orbit' ? this.orbit : this.fly
+    const controller = this.controller
     const controllerMoving = controller.update(dt)
     if (this.blueMapMaterials) stepBlueMapAnimations(this.blueMapMaterials, dt * 1000)
     this.tileManager?.update(this.camera, controller.target)
@@ -287,8 +351,15 @@ export class MapViewer {
     if (!width || !height) {
       return
     }
-    this.camera.aspect = width / height
-    this.camera.updateProjectionMatrix()
+    this.perspectiveCamera.aspect = width / height
+    this.perspectiveCamera.updateProjectionMatrix()
+    const halfHeight = FLAT_VIEW_HEIGHT * 0.5
+    const halfWidth = halfHeight * (width / height)
+    this.flatCamera.left = -halfWidth
+    this.flatCamera.right = halfWidth
+    this.flatCamera.top = halfHeight
+    this.flatCamera.bottom = -halfHeight
+    this.flatCamera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
     this.requestRender()
   }
@@ -305,7 +376,9 @@ export class MapViewer {
     this.resizeObserver.disconnect()
     this.renderer.domElement.removeEventListener('click', this.onCanvasClick)
     this.orbit.controls.removeEventListener('change', this.requestRender)
+    this.flatOrbit.controls.removeEventListener('change', this.requestRender)
     this.orbit.dispose()
+    this.flatOrbit.dispose()
     this.fly.dispose()
     this.tileManager?.dispose()
     this.markerLayer.dispose()
@@ -315,5 +388,40 @@ export class MapViewer {
     this.atlas?.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
+  }
+
+  private get camera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
+    return this.viewMode === 'flat' ? this.flatCamera : this.perspectiveCamera
+  }
+
+  private get controller(): FlyController | OrbitController {
+    if (this.viewMode === 'flat') {
+      return this.flatOrbit
+    }
+    return this.mode === 'orbit' ? this.orbit : this.fly
+  }
+
+  private currentTarget(): THREE.Vector3 {
+    if (this.viewMode === 'flat') {
+      return this.flatOrbit.controls.target.clone()
+    }
+    if (this.mode === 'orbit') {
+      return this.orbit.controls.target.clone()
+    }
+    const direction = new THREE.Vector3()
+    this.perspectiveCamera.getWorldDirection(direction)
+    return this.perspectiveCamera.position.clone().addScaledVector(direction, 60)
+  }
+
+  private syncControllerActivation(): void {
+    this.orbit.setActive(this.viewMode === 'perspective' && this.mode === 'orbit')
+    this.flatOrbit.setActive(this.viewMode === 'flat')
+    this.fly.setActive(this.viewMode === 'perspective' && this.mode === 'fly')
+  }
+
+  private applyFogForViewMode(): void {
+    const fog = fogForViewMode(this.viewMode)
+    this.fog.near = fog.near
+    this.fog.far = fog.far
   }
 }

@@ -17,6 +17,7 @@ const {
   loading,
   error,
   cameraMode,
+  viewMode,
   timeOfDay,
   cameraPos,
   markerSets,
@@ -32,6 +33,16 @@ const {
 
 function toggleCameraMode() {
   cameraMode.value = cameraMode.value === 'orbit' ? 'fly' : 'orbit'
+}
+
+function toggleViewMode() {
+  if (viewMode.value === 'perspective') {
+    cameraMode.value = 'orbit'
+    viewMode.value = 'flat'
+  }
+  else {
+    viewMode.value = 'perspective'
+  }
 }
 
 function setContainer(el: unknown) {
@@ -68,6 +79,16 @@ function setContainer(el: unknown) {
       <FaButton
         size="sm"
         variant="outline"
+        :title="viewMode === 'perspective' ? '切换到俯视地图' : '切换到三维视图'"
+        @click="toggleViewMode"
+      >
+        <FaIcon :name="viewMode === 'perspective' ? 'i-mdi:map' : 'i-mdi:cube-outline'" />
+      </FaButton>
+
+      <FaButton
+        size="sm"
+        variant="outline"
+        :disabled="viewMode === 'flat'"
         :title="cameraMode === 'orbit' ? '切换到飞行模式' : '切换到轨道模式'"
         @click="toggleCameraMode"
       >
@@ -113,6 +134,9 @@ function setContainer(el: unknown) {
 
     <div v-if="loading" class="world-map-overlay">地图加载中……</div>
     <div v-else-if="error" class="world-map-overlay">{{ error }}</div>
+    <div v-else-if="viewMode === 'flat'" class="world-map-hint">
+      拖拽平移，滚轮或双指缩放
+    </div>
     <div v-else-if="cameraMode === 'fly'" class="world-map-hint">
       点击画面锁定鼠标，WASD 移动，Space/Q 升降，Shift 加速，Esc 退出
     </div>

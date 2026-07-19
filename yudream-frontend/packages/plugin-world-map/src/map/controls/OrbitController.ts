@@ -6,7 +6,7 @@ import type { CameraController } from './CameraController'
 export class OrbitController implements CameraController {
   readonly controls: OrbitControls
 
-  constructor(camera: THREE.PerspectiveCamera, dom: HTMLElement) {
+  constructor(camera: THREE.Camera, dom: HTMLElement) {
     this.controls = new OrbitControls(camera, dom)
     this.controls.enableDamping = true
     this.controls.dampingFactor = 0.08

@@ -160,7 +160,7 @@
   }
 
   .world-map-toolbar-slider {
-    width: min(120px, 31vw);
+    width: min(100px, 26vw);
   }
 
   .world-map-toolbar-coords {

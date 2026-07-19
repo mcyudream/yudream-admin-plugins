@@ -21,3 +21,6 @@ export interface WorldMapSource {
 }
 
 export type CameraMode = 'orbit' | 'fly'
+
+/** Perspective keeps full 3D terrain; flat is the orthographic navigation view used for overview. */
+export type MapViewMode = 'perspective' | 'flat'

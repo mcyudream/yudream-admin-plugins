@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createHttpMapSource, createWorldMapApi } from '../api/world-map-api'
 import { MapViewer } from '../map/MapViewer'
 import { createMockMapSource } from '../map/mock'
-import type { CameraMode } from '../map/types'
+import type { CameraMode, MapViewMode } from '../map/types'
 import type { MapMarker, MapMarkerSet, MapSummary } from '../types'
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
@@ -15,6 +15,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   const loading = ref(true)
   const error = ref('')
   const cameraMode = ref<CameraMode>('orbit')
+  const viewMode = ref<MapViewMode>('perspective')
   /** 昼夜滑杆，0..1000 映射 0..1（500 = 正午） */
   const timeOfDay = ref<number[]>([500])
   const cameraPos = ref({ x: 0, y: 0, z: 0 })
@@ -62,7 +63,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
       const view = viewer.getView()
       const p = view.position
       const t = view.target
-      const hash = `#map=${currentMapId.value}&pos=${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}&target=${t.x.toFixed(1)},${t.y.toFixed(1)},${t.z.toFixed(1)}`
+      const zoom = view.zoom ? `&zoom=${view.zoom.toFixed(3)}` : ''
+      const hash = `#map=${currentMapId.value}&view=${viewMode.value}&pos=${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}&target=${t.x.toFixed(1)},${t.y.toFixed(1)},${t.z.toFixed(1)}${zoom}`
       history.replaceState(null, '', hash)
     }, 400)
   }
@@ -76,10 +78,17 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     if (params.get('map') && params.get('map') !== currentMapId.value) {
       return
     }
+    if (params.get('view') === 'flat') {
+      viewMode.value = 'flat'
+      cameraMode.value = 'orbit'
+      viewer.setViewMode('flat')
+    }
     const pos = (params.get('pos') || '').split(',').map(Number)
     const target = (params.get('target') || '').split(',').map(Number)
     if (pos.length === 3 && target.length === 3 && [...pos, ...target].every(Number.isFinite)) {
-      viewer.setView({ x: pos[0]!, y: pos[1]!, z: pos[2]! }, { x: target[0]!, y: target[1]!, z: target[2]! })
+      const zoom = Number(params.get('zoom'))
+      viewer.setView({ x: pos[0]!, y: pos[1]!, z: pos[2]! }, { x: target[0]!, y: target[1]!, z: target[2]! },
+        Number.isFinite(zoom) ? zoom : undefined)
     }
   }
 
@@ -196,6 +205,10 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     }
   })
   watch(cameraMode, mode => viewer?.setCameraMode(mode))
+  watch(viewMode, mode => {
+    viewer?.setViewMode(mode)
+    scheduleHashWrite()
+  })
   watch(timeOfDay, value => viewer?.setTimeOfDay((value[0] ?? 500) / 1000))
 
   onMounted(() => void boot())
@@ -222,6 +235,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     loading,
     error,
     cameraMode,
+    viewMode,
     timeOfDay,
     cameraPos,
     markerSets,
