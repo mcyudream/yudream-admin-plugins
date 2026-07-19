@@ -128,3 +128,46 @@
   font-size: 12px;
   pointer-events: none;
 }
+
+@media (max-width: 640px) {
+  .world-map-viewer {
+    min-height: 75vh;
+  }
+
+  .world-map-toolbar {
+    top: 8px;
+    width: calc(100% - 16px);
+    max-width: 374px;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+    white-space: normal;
+  }
+
+  .world-map-toolbar-select {
+    min-width: min(150px, 46vw);
+  }
+
+  .world-map-toolbar-slider {
+    width: min(120px, 31vw);
+  }
+
+  .world-map-toolbar-coords {
+    display: none;
+  }
+
+  .world-map-layers {
+    top: 112px;
+    right: 8px;
+  }
+
+  .world-map-marker-popup {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .world-map-hint {
+    width: calc(100% - 24px);
+    text-align: center;
+  }
+}
