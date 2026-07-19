@@ -35,9 +35,10 @@ public final class BlueMapRenderEngineAdapter {
         BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(config.javaExecutable(), cli, config.configTemplate(),
                 config.maxHeapMiB(), config.timeout());
         Path storageParent = resolveStorageParent(workDir, config.storageRoot());
-        worker.render(workDir, blueMapMapId, config.minecraftVersion(), job.worldDir(), job.dimension(),
+        String workerMapId = BlueMapCliRenderEngine.blueMapMapId(blueMapMapId);
+        worker.render(workDir, workerMapId, config.minecraftVersion(), job.worldDir(), job.clientJar(), job.dimension(),
                 storageParent);
-        Path storageRoot = requireStorageRoot(workDir, storageParent, blueMapMapId);
+        Path storageRoot = requireStorageRoot(workDir, storageParent, workerMapId);
         if (progress != null) {
             progress.phase(online.yudream.plugin.worldmap.domain.enumerate.RenderPhase.LOWRES, "Importing BlueMap output");
         }

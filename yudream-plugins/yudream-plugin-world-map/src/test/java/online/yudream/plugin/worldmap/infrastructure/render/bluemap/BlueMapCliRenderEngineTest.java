@@ -7,8 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,7 +37,7 @@ class BlueMapCliRenderEngineTest {
         BlueMapCliRenderEngine engine = new BlueMapCliRenderEngine(
                 Path.of("java21"), cli, config, 768, Duration.ofMinutes(45));
 
-        List<String> command = engine.commandFor(work, "overworld", "1.21.4");
+        List<String> command = engine.commandFor(work, "smoke-map", "1.21.4");
 
         assertEquals("java21", command.getFirst());
         assertTrue(command.contains("-Xmx768m"));
@@ -43,7 +46,7 @@ class BlueMapCliRenderEngineTest {
         assertTrue(command.contains(work.resolve("config").toAbsolutePath().toString()));
         assertTrue(command.contains("-f"));
         assertTrue(command.contains("-m"));
-        assertTrue(command.contains("overworld"));
+        assertTrue(command.contains("smoke_map"));
         assertTrue(command.contains("-v"));
         assertTrue(command.contains("1.21.4"));
     }
@@ -65,17 +68,41 @@ class BlueMapCliRenderEngineTest {
         Path config = Files.createDirectories(temp.resolve("config"));
         Path maps = Files.createDirectories(config.resolve("maps"));
         Path storages = Files.createDirectories(config.resolve("storages"));
+        Files.writeString(config.resolve("core.conf"), "accept-download: true\ndata: \"${data}\"\n");
         Files.writeString(maps.resolve("template.conf"), "world: \"${world}\"\ndimension: \"${dimension}\"\nname: \"${name}\"\nstorage: \"file\"\n");
         Files.writeString(storages.resolve("file.conf"), "storage-type: file\nroot: \"${root}\"\n");
         Path world = Files.createDirectories(temp.resolve("world"));
+        Path client = clientJar("1.21.4");
         Path output = temp.resolve("output");
 
-        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, "nether", output);
+        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, client, "1.21.4", "nether", output);
 
-        String map = Files.readString(maps.resolve("map-1.conf"));
+        String map = Files.readString(maps.resolve("map_1.conf"));
         assertTrue(map.contains("minecraft:the_nether"));
+        assertTrue(map.contains("name: \"map_1\""));
         assertTrue(map.contains(world.toAbsolutePath().toString().replace('\\', '/')));
         assertTrue(Files.notExists(maps.resolve("template.conf")));
         assertTrue(Files.readString(storages.resolve("file.conf")).contains(output.toAbsolutePath().toString().replace('\\', '/')));
+        assertTrue(Files.readString(config.resolve("core.conf")).contains("accept-download: false"));
+        assertTrue(Files.readString(config.resolve("core.conf")).contains(config.resolve("data").toAbsolutePath().toString().replace('\\', '/')));
+        assertArrayEquals(Files.readAllBytes(client), Files.readAllBytes(config.resolve("data/minecraft-client-1.21.4.jar")));
+    }
+
+    @Test
+    void rejectsClientJarWithTheWrongMinecraftVersion() throws Exception {
+        var error = assertThrows(java.io.IOException.class,
+                () -> BlueMapCliRenderEngine.validateClientVersion(clientJar("1.21.1"), "1.21.4"));
+
+        assertTrue(error.getMessage().contains("does not match"));
+    }
+
+    private Path clientJar(String version) throws Exception {
+        Path jar = temp.resolve("client-" + version + ".jar");
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(jar))) {
+            zip.putNextEntry(new ZipEntry("version.json"));
+            zip.write(("{\"id\":\"" + version + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return jar;
     }
 }

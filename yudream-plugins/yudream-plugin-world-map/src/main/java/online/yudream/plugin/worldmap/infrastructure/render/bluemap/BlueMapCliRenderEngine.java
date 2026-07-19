@@ -1,5 +1,7 @@
 package online.yudream.plugin.worldmap.infrastructure.render.bluemap;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,12 +11,15 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import java.util.zip.ZipFile;
 
 /**
  * Isolated BlueMap v5.16 CLI launcher. The caller supplies a preconfigured template whose
  * configuration is copied into the task work directory, so no render shares BlueMap state.
  */
 public final class BlueMapCliRenderEngine {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final Path javaExecutable;
     private final Path cliJar;
@@ -41,15 +46,16 @@ public final class BlueMapCliRenderEngine {
     }
 
     /** Runs one forced render and returns the task-local log file. */
-    public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir,
+    public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir, Path clientJar,
                        String dimension, Path storageRoot) throws IOException {
+        String blueMapMapId = blueMapMapId(mapId);
         Path normalizedWorkDir = workDir.toAbsolutePath().normalize();
         Files.createDirectories(normalizedWorkDir);
         Path configDir = normalizedWorkDir.resolve("config");
         copyConfiguration(configTemplate, configDir);
-        prepareTaskConfiguration(configDir, mapId, worldDir, dimension, storageRoot);
+        prepareTaskConfiguration(configDir, blueMapMapId, worldDir, clientJar, minecraftVersion, dimension, storageRoot);
         Path logFile = normalizedWorkDir.resolve("bluemap.log");
-        Process process = new ProcessBuilder(commandFor(normalizedWorkDir, mapId, minecraftVersion))
+        Process process = new ProcessBuilder(commandFor(normalizedWorkDir, blueMapMapId, minecraftVersion))
                 .directory(normalizedWorkDir.toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile())
@@ -75,32 +81,69 @@ public final class BlueMapCliRenderEngine {
      * The file storage appends the map id to its root, so {@code root} deliberately names the
      * parent output directory rather than the final map directory.
      */
-    static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir,
-                                         String dimension, Path storageRoot) throws IOException {
-        if (mapId == null || !mapId.matches("[A-Za-z0-9_-]+")) {
-            throw new IOException("BlueMap map id contains unsupported characters");
+    static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir, Path clientJar,
+                                         String minecraftVersion, String dimension, Path storageRoot) throws IOException {
+        String blueMapMapId = blueMapMapId(mapId);
+        if (worldDir == null || !Files.isDirectory(worldDir) || clientJar == null || !Files.isRegularFile(clientJar)
+                || minecraftVersion == null || minecraftVersion.isBlank() || storageRoot == null) {
+            throw new IOException("BlueMap task world, client JAR, version and storage root are required");
         }
-        if (worldDir == null || !Files.isDirectory(worldDir) || storageRoot == null) {
-            throw new IOException("BlueMap task world and storage root must be directories");
-        }
+        validateClientVersion(clientJar, minecraftVersion.trim());
         Path template = configDir.resolve("maps/template.conf");
         Path storage = configDir.resolve("storages/file.conf");
-        if (!Files.isRegularFile(template) || !Files.isRegularFile(storage)) {
-            throw new IOException("BlueMap template must contain maps/template.conf and storages/file.conf");
+        Path core = configDir.resolve("core.conf");
+        if (!Files.isRegularFile(template) || !Files.isRegularFile(storage) || !Files.isRegularFile(core)) {
+            throw new IOException("BlueMap template must contain core.conf, maps/template.conf and storages/file.conf");
         }
         String templateText = Files.readString(template);
         String storageText = Files.readString(storage);
+        String coreText = Files.readString(core);
         requireToken(templateText, "${world}", template);
         requireToken(templateText, "${dimension}", template);
         requireToken(storageText, "${root}", storage);
+        requireToken(coreText, "${data}", core);
         String mapText = replace(templateText, "${world}", configPath(worldDir));
         mapText = replace(mapText, "${dimension}", dimensionKey(dimension));
-        mapText = replace(mapText, "${name}", mapId);
-        Files.writeString(configDir.resolve("maps").resolve(mapId + ".conf"), mapText,
+        mapText = replace(mapText, "${name}", blueMapMapId);
+        Files.writeString(configDir.resolve("maps").resolve(blueMapMapId + ".conf"), mapText,
                 java.nio.file.StandardOpenOption.CREATE_NEW);
         Files.delete(template);
         Files.writeString(storage, replace(storageText, "${root}", configPath(storageRoot)),
                 java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+        Path data = configDir.resolve("data");
+        Files.createDirectories(data);
+        Files.copy(clientJar, data.resolve("minecraft-client-" + minecraftVersion.trim() + ".jar"),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        coreText = replace(coreText, "${data}", configPath(data));
+        // Do not let a task-local worker contact Mojang or mutate shared resource state.
+        coreText = coreText.replaceAll("(?m)^\\s*accept-download\\s*:\\s*.*$", "accept-download: false");
+        if (!coreText.matches("(?s).*?\\baccept-download\\s*:.*")) {
+            coreText += System.lineSeparator() + "accept-download: false" + System.lineSeparator();
+        }
+        Files.writeString(core, coreText, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    static void validateClientVersion(Path clientJar, String expectedVersion) throws IOException {
+        try (ZipFile zip = new ZipFile(clientJar.toFile())) {
+            var entry = zip.getEntry("version.json");
+            if (entry == null) throw new IOException("Minecraft client JAR does not contain version.json");
+            try (var input = zip.getInputStream(entry)) {
+                JsonNode root = JSON.readTree(input);
+                String actualVersion = root == null ? null : root.path("id").asText(null);
+                if (!expectedVersion.equals(actualVersion)) {
+                    throw new IOException("Minecraft client JAR version " + actualVersion
+                            + " does not match BlueMap worker version " + expectedVersion);
+                }
+            }
+        }
+    }
+
+    /** Mirrors BlueMap v5.16's config filename-to-map-id normalization. */
+    static String blueMapMapId(String mapId) throws IOException {
+        if (mapId == null || mapId.isBlank() || !mapId.matches("[A-Za-z0-9_-]+")) {
+            throw new IOException("BlueMap map id contains unsupported characters");
+        }
+        return mapId.replaceAll("\\W", "_");
     }
 
     private static void requireToken(String text, String token, Path file) throws IOException {
@@ -125,8 +168,11 @@ public final class BlueMapCliRenderEngine {
     }
 
     List<String> commandFor(Path workDir, String mapId, String minecraftVersion) {
-        if (mapId == null || mapId.isBlank()) {
-            throw new IllegalArgumentException("BlueMap map id is required");
+        final String blueMapMapId;
+        try {
+            blueMapMapId = blueMapMapId(mapId);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException(exception.getMessage(), exception);
         }
         Path configDir = workDir.toAbsolutePath().normalize().resolve("config");
         List<String> command = new ArrayList<>();
@@ -138,7 +184,7 @@ public final class BlueMapCliRenderEngine {
         command.add(configDir.toString());
         command.add("-f");
         command.add("-m");
-        command.add(mapId);
+        command.add(blueMapMapId);
         if (minecraftVersion != null && !minecraftVersion.isBlank()) {
             command.add("-v");
             command.add(minecraftVersion);
