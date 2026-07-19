@@ -6,6 +6,7 @@ import { MapViewer } from '../map/MapViewer'
 import { createMockMapSource } from '../map/mock'
 import type { CameraMode, MapViewMode } from '../map/types'
 import type { MapMarker, MapMarkerSet, MapSummary } from '../types'
+import { layerVisibilityFromHash, mapIdFromHash, viewerHash } from '../map/viewerHash'
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
 export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded) {
@@ -62,11 +63,14 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
         return
       }
       const view = viewer.getView()
-      const p = view.position
-      const t = view.target
-      const zoom = view.zoom ? `&zoom=${view.zoom.toFixed(3)}` : ''
-      const hash = `#map=${currentMapId.value}&view=${viewMode.value}&pos=${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}&target=${t.x.toFixed(1)},${t.y.toFixed(1)},${t.z.toFixed(1)}${zoom}`
-      history.replaceState(null, '', hash)
+      history.replaceState(null, '', viewerHash({
+        mapId: currentMapId.value,
+        viewMode: viewMode.value,
+        position: view.position,
+        target: view.target,
+        zoom: view.zoom,
+        layerVisibility: layerVisibility.value,
+      }))
     }, 400)
   }
 
@@ -117,6 +121,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   function setLayerVisible(setId: string, visible: boolean): void {
     layerVisibility.value = { ...layerVisibility.value, [setId]: visible }
     viewer?.setLayerVisible(setId, visible)
+    scheduleHashWrite()
   }
 
   function focusSelectedMarker(): void {
@@ -165,7 +170,11 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
       },
       onMarkerSetsChanged: sets => {
         markerSets.value = [...sets]
-        layerVisibility.value = Object.fromEntries(sets.map(set => [set.id ?? '', set.defaultVisible !== false]))
+        const visibility = layerVisibilityFromHash(window.location.hash, sets)
+        layerVisibility.value = visibility
+        for (const [setId, visible] of Object.entries(visibility)) {
+          viewer?.setLayerVisible(setId, visible)
+        }
       },
       onMarkerSelected: result => {
         selectedMarker.value = result?.marker ?? null
@@ -195,8 +204,11 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
         loading.value = false
         return
       }
-      // 单地图直接加载；多地图默认第一张，由下拉切换
-      currentMapId.value = maps.value[0]!.id
+      // A shared link wins over the default map when it names one currently published map.
+      const sharedMapId = mapIdFromHash(window.location.hash)
+      currentMapId.value = maps.value.some(map => map.id === sharedMapId)
+        ? sharedMapId!
+        : maps.value[0]!.id
       await loadCurrentMap()
     }
     catch (e) {

@@ -13,6 +13,7 @@ import { TileManager } from './TileManager'
 import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
+import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 
 export interface MapViewerOptions {
   /** 相机位置变化回调（节流至约 10Hz），用于坐标显示 */
@@ -85,6 +86,8 @@ export class MapViewer {
     this.flatOrbit = new OrbitController(this.flatCamera, this.renderer.domElement)
     this.flatOrbit.controls.enableRotate = false
     this.flatOrbit.controls.screenSpacePanning = true
+    this.flatOrbit.controls.minDistance = FLAT_VIEW_MIN_DISTANCE
+    this.flatOrbit.controls.maxDistance = FLAT_VIEW_MAX_DISTANCE
     this.flatOrbit.controls.minZoom = 0.25
     this.flatOrbit.controls.maxZoom = 8
     this.flatOrbit.controls.addEventListener('change', this.requestRender)
@@ -248,15 +251,19 @@ export class MapViewer {
 
   /** 恢复指定视角（用于 URL 视角分享还原） */
   setView(position: { x: number, y: number, z: number }, target: { x: number, y: number, z: number }, zoom?: number): void {
-    this.camera.position.set(position.x, position.y, position.z)
     const controls = this.viewMode === 'flat' ? this.flatOrbit.controls : this.orbit.controls
     controls.target.set(target.x, target.y, target.z)
     if (this.viewMode === 'flat' && zoom && Number.isFinite(zoom)) {
       this.flatCamera.zoom = THREE.MathUtils.clamp(zoom, this.flatOrbit.controls.minZoom, this.flatOrbit.controls.maxZoom)
       this.flatCamera.updateProjectionMatrix()
     }
+    this.camera.position.set(position.x, position.y, position.z)
     this.camera.lookAt(target.x, target.y, target.z)
-    controls.update()
+    // OrbitControls internally recomputes spherical state on update. In orthographic overview
+    // mode that previously clamped a shared 2 km camera height to the perspective 1.5 km limit.
+    if (this.viewMode !== 'flat') {
+      controls.update()
+    }
     this.requestRender()
   }
 
