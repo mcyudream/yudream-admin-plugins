@@ -35,12 +35,21 @@ public final class WorldMapLayerService implements PluginWorldMapService {
                     try {
                         List<PluginWorldMapMarkerSet> sets = provider.markerSets(mapId);
                         if (sets != null) {
-                            result.addAll(sets.stream().filter(set -> set != null && set.id() != null && !set.id().isBlank()).toList());
+                            sets.stream()
+                                    .filter(set -> set != null && set.id() != null && !set.id().isBlank())
+                                    .map(set -> scopedSet(provider.id(), set))
+                                    .forEach(result::add);
                         }
                     } catch (RuntimeException ignored) {
                         // Optional integration failures must not make the public map unavailable.
                     }
                 });
         return List.copyOf(result);
+    }
+
+    /** Length-prefixing is unambiguous even when a provider or a layer ID contains separators. */
+    private static PluginWorldMapMarkerSet scopedSet(String providerId, PluginWorldMapMarkerSet set) {
+        String id = providerId.length() + ":" + providerId + ":" + set.id();
+        return new PluginWorldMapMarkerSet(id, set.label(), set.defaultVisible(), set.markers());
     }
 }

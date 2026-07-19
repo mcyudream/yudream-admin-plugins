@@ -7,5 +7,6 @@ public interface PluginWorldMapService {
 
     AutoCloseable registerLayer(PluginWorldMapLayerProvider provider);
 
+    /** Returns layer IDs scoped to their provider so independently developed extensions cannot collide. */
     List<PluginWorldMapMarkerSet> markerSets(String mapId);
 }
