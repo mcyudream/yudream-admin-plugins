@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
+import { ensureBlueMapMaterialTextures } from '../bluemap-adapter/BlueMapMaterials'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -276,6 +277,10 @@ export class TileManager {
         geometry.dispose()
         throw new Error(`PRBM tile references unavailable material ${invalidGroup.materialIndex ?? 'unknown'}`)
       }
+      void ensureBlueMapMaterialTextures(material as THREE.ShaderMaterial[], geometry).then(
+        () => this.options.onChanged?.(),
+        () => this.options.onChanged?.(),
+      )
     }
     const mesh = new THREE.Mesh(geometry, material)
     mesh.matrixAutoUpdate = false

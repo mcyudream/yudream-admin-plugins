@@ -3,6 +3,7 @@ import { FlyController } from './controls/FlyController'
 import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
 import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
+import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
 import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
 import type { MapMarkerSet } from '../types'
@@ -298,38 +299,4 @@ export class MapViewer {
     this.renderer.dispose()
     this.renderer.domElement.remove()
   }
-}
-
-function applyBlueMapSettings(settings: import('../types').MapSettings, metadata: unknown): void {
-  if (!metadata || typeof metadata !== 'object') throw new Error('Invalid BlueMap settings metadata')
-  const root = metadata as { hires?: { tileSize?: { x?: unknown, y?: unknown }, translate?: { x?: unknown, y?: unknown } }, lowres?: { tileSize?: { x?: unknown, y?: unknown }, lodCount?: unknown, lodFactor?: unknown } }
-  const hires = positiveInt(root.hires?.tileSize?.x, 'hires.tileSize.x')
-  const lowres = positiveInt(root.lowres?.tileSize?.x, 'lowres.tileSize.x')
-  const lodCount = positiveInt(root.lowres?.lodCount, 'lowres.lodCount')
-  const lodFactor = positiveInt(root.lowres?.lodFactor, 'lowres.lodFactor')
-  if (root.hires?.tileSize?.y !== undefined && positiveInt(root.hires.tileSize.y, 'hires.tileSize.y') !== hires) throw new Error('BlueMap hires tiles must be square')
-  if (root.lowres?.tileSize?.y !== undefined && positiveInt(root.lowres.tileSize.y, 'lowres.tileSize.y') !== lowres) throw new Error('BlueMap lowres tiles must be square')
-  settings.hiresTileSize = hires
-  settings.hiresTileOffset = {
-    x: boundedInt(root.hires?.translate?.x, 'hires.translate.x'),
-    z: boundedInt(root.hires?.translate?.y, 'hires.translate.y'),
-  }
-  settings.lowresTileSize = lowres
-  settings.lowresMaxLod = lodCount
-  settings.lowresLodFactor = lodFactor
-  settings.lowresMinLod = 1
-}
-
-function positiveInt(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 4096) {
-    throw new Error(`Invalid BlueMap ${field}`)
-  }
-  return value
-}
-
-function boundedInt(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < -4096 || value > 4096) {
-    throw new Error(`Invalid BlueMap ${field}`)
-  }
-  return value
 }

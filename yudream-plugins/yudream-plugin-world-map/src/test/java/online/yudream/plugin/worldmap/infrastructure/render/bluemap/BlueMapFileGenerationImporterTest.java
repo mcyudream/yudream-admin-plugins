@@ -36,7 +36,8 @@ class BlueMapFileGenerationImporterTest {
         Files.write(lowres.resolve("x0z-1.png"), new byte[]{1, 2, 3});
         byte[] textures = "[{\"color\":[1,1,1,1],\"texture\":\"data:image/png;base64,AA==\"}]".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Files.write(output.resolve("textures.json"), textures);
-        byte[] settings = "{\"hires\":{\"tileSize\":{\"x\":32,\"y\":32}},\"lowres\":{\"tileSize\":{\"x\":500,\"y\":500},\"lodCount\":3,\"lodFactor\":5}}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // BlueMap v5 serializes Vector2i values as JSON arrays, not { x, y } objects.
+        byte[] settings = "{\"hires\":{\"tileSize\":[32,32],\"translate\":[2,2]},\"lowres\":{\"tileSize\":[500,500],\"lodCount\":3,\"lodFactor\":5}}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Files.write(output.resolve("settings.json"), settings);
 
         InMemoryFileStore store = new InMemoryFileStore();

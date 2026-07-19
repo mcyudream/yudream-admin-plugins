@@ -7,18 +7,31 @@ interface BlueMapTexture {
 }
 
 const MAX_MATERIALS = 4096
+const textureSources = new WeakMap<THREE.ShaderMaterial, string>()
+const textureLoads = new WeakMap<THREE.ShaderMaterial, Promise<void>>()
 
 /** Builds the same material-indexed texture set used by BlueMap PRBM groups. */
 export async function createBlueMapMaterials(payload: unknown): Promise<THREE.ShaderMaterial[]> {
   if (!Array.isArray(payload) || payload.length === 0 || payload.length > MAX_MATERIALS) {
     throw new Error('Invalid BlueMap textures metadata')
   }
-  return Promise.all(payload.map(async (entry) => createMaterial(entry as BlueMapTexture)))
+  // BlueMap stores every texture as an embedded data URL. Decoding the whole material table before
+  // the first frame can take seconds and blocks useful rendering, so textures are loaded on demand.
+  return payload.map(entry => createMaterial(entry as BlueMapTexture))
 }
 
-async function createMaterial(entry: BlueMapTexture): Promise<THREE.ShaderMaterial> {
+/** Starts texture loads only for material groups referenced by a visible PRBM tile. */
+export function ensureBlueMapMaterialTextures(materials: readonly THREE.ShaderMaterial[], geometry: THREE.BufferGeometry): Promise<void> {
+  const indexes = new Set(geometry.groups.map(group => group.materialIndex).filter((index): index is number => index !== undefined))
+  return Promise.all([...indexes].map(index => {
+    const material = materials[index]
+    return material ? loadMaterialTexture(material) : Promise.resolve()
+  })).then(() => undefined)
+}
+
+function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
   const color = Array.isArray(entry.color) && entry.color.length >= 4 ? entry.color : [1, 0, 1, 1]
-  const texture = await loadTexture(entry.texture, color)
+  const texture = colorTexture(color)
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
     {
@@ -27,7 +40,7 @@ async function createMaterial(entry: BlueMapTexture): Promise<THREE.ShaderMateri
       ambientLight: { value: 0.25 },
     },
   ])
-  return new THREE.ShaderMaterial({
+  const material = new THREE.ShaderMaterial({
     uniforms,
     vertexColors: true,
     fog: true,
@@ -70,23 +83,36 @@ async function createMaterial(entry: BlueMapTexture): Promise<THREE.ShaderMateri
       }
     `,
   })
+  if (entry.texture) textureSources.set(material, entry.texture)
+  return material
 }
 
-async function loadTexture(source: string | undefined, color: number[]): Promise<THREE.Texture> {
-  if (source) {
-    const texture = await new THREE.TextureLoader().loadAsync(source)
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestMipMapLinearFilter
-    texture.generateMipmaps = true
-    texture.flipY = false
-    return texture
-  }
+function colorTexture(color: number[]): THREE.DataTexture {
   const data = new Uint8Array(color.slice(0, 4).map(value => Math.round(Math.min(1, Math.max(0, value)) * 255)))
   const texture = new THREE.DataTexture(data, 1, 1)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.needsUpdate = true
   return texture
+}
+
+function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
+  const existing = textureLoads.get(material)
+  if (existing) return existing
+  const source = textureSources.get(material)
+  if (!source) return Promise.resolve()
+  const load = new THREE.TextureLoader().loadAsync(source).then(texture => {
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.magFilter = THREE.NearestFilter
+    texture.minFilter = THREE.NearestMipMapLinearFilter
+    texture.generateMipmaps = true
+    texture.flipY = false
+    const fallback = material.uniforms.textureImage.value as THREE.Texture | null
+    material.uniforms.textureImage.value = texture
+    fallback?.dispose()
+    material.needsUpdate = true
+  })
+  textureLoads.set(material, load)
+  return load
 }
 
 export function applyBlueMapDayFactor(materials: readonly THREE.ShaderMaterial[], dayFactor: number): void {
@@ -100,6 +126,8 @@ export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial
   for (const material of materials) {
     const texture = material.uniforms.textureImage.value as THREE.Texture | null
     texture?.dispose()
+    textureSources.delete(material)
+    textureLoads.delete(material)
     material.dispose()
   }
 }

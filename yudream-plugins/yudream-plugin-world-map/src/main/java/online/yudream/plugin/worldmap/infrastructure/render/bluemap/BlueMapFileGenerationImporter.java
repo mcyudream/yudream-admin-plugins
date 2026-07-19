@@ -77,15 +77,25 @@ public final class BlueMapFileGenerationImporter {
     private void validateSettings(byte[] data) throws IOException {
         JsonNode root = JSON.readTree(data);
         if (root == null || !root.isObject()) throw new IOException("BlueMap settings.json must be an object");
-        int hiresX = positive(root, "hires", "tileSize", "x");
-        int hiresY = positive(root, "hires", "tileSize", "y");
-        int lowresX = positive(root, "lowres", "tileSize", "x");
-        int lowresY = positive(root, "lowres", "tileSize", "y");
+        int hiresX = vectorComponent(root, "hires", "tileSize", 0, "x");
+        int hiresY = vectorComponent(root, "hires", "tileSize", 1, "y");
+        int lowresX = vectorComponent(root, "lowres", "tileSize", 0, "x");
+        int lowresY = vectorComponent(root, "lowres", "tileSize", 1, "y");
         if (hiresX != hiresY || lowresX != lowresY) {
             throw new IOException("BlueMap settings tiles must be square");
         }
         positive(root, "lowres", "lodCount");
         positive(root, "lowres", "lodFactor");
+    }
+
+    /** BlueMap v5 serializes Vector2i as [x, y]; object support keeps older imported output readable. */
+    private int vectorComponent(JsonNode root, String section, String field, int index, String objectField) throws IOException {
+        JsonNode vector = root.path(section).path(field);
+        JsonNode value = vector.isArray() ? vector.path(index) : vector.path(objectField);
+        if (!value.canConvertToInt() || value.intValue() < 1 || value.intValue() > 4096) {
+            throw new IOException("Invalid BlueMap settings value: " + section + "." + field + "." + objectField);
+        }
+        return value.intValue();
     }
 
     private int positive(JsonNode root, String... path) throws IOException {
