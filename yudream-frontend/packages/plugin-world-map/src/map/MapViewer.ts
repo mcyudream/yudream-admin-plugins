@@ -14,6 +14,7 @@ import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
 import { renderPixelRatio } from './renderPixelRatio'
+import { releaseLowresImage } from './lowresImageDecode'
 import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
 
@@ -107,6 +108,7 @@ export class MapViewer {
 
   /** 切换地图数据源：加载 settings + atlas，重建 tile 调度，相机定位到 spawn 上方斜视 45° */
   async setSource(source: WorldMapSource): Promise<void> {
+    this.source?.dispose?.()
     this.source = source
     this.tileManager?.dispose()
     this.tileManager = null
@@ -116,8 +118,7 @@ export class MapViewer {
     this.translucentMaterial = null
     if (this.blueMapMaterials) disposeBlueMapMaterials(this.blueMapMaterials)
     this.blueMapMaterials = null
-    this.atlas?.dispose()
-    this.atlas = null
+    this.disposeAtlas()
 
     const settings = await source.loadSettings()
     if (this.disposed || this.source !== source) {
@@ -125,12 +126,19 @@ export class MapViewer {
     }
     if (settings.renderer === 'BLUEMAP') {
       if (!source.loadBlueMapTextures || !source.loadBlueMapSettings) throw new Error('BlueMap generation metadata is not available from this source')
-      const blueMapSettings = await source.loadBlueMapSettings()
-      applyBlueMapSettings(settings, blueMapSettings)
-      if (source.loadBlueMapLowresIndex) {
-        settings.lowresTileIndex = parseBlueMapLowresIndex(await source.loadBlueMapLowresIndex())
+      const [blueMapSettings, lowresIndexPayload, texturePayload] = await Promise.all([
+        source.loadBlueMapSettings(),
+        source.loadBlueMapLowresIndex ? source.loadBlueMapLowresIndex() : Promise.resolve(null),
+        source.loadBlueMapTextures(),
+      ])
+      if (this.disposed || this.source !== source) {
+        return
       }
-      const materials = await createBlueMapMaterials(await source.loadBlueMapTextures())
+      applyBlueMapSettings(settings, blueMapSettings)
+      if (lowresIndexPayload !== null) {
+        settings.lowresTileIndex = parseBlueMapLowresIndex(lowresIndexPayload)
+      }
+      const materials = await createBlueMapMaterials(texturePayload)
       if (this.disposed || this.source !== source) {
         disposeBlueMapMaterials(materials)
         return
@@ -139,7 +147,7 @@ export class MapViewer {
     } else {
       const atlas = await source.loadAtlas()
       if (this.disposed || this.source !== source) {
-        atlas.dispose()
+        this.disposeAtlasTexture(atlas)
         return
       }
       this.atlas = atlas
@@ -349,6 +357,18 @@ export class MapViewer {
     this.tileManager?.setDayFactor(dayFactor)
   }
 
+  private disposeAtlas(): void {
+    if (this.atlas) {
+      this.disposeAtlasTexture(this.atlas)
+      this.atlas = null
+    }
+  }
+
+  private disposeAtlasTexture(texture: THREE.Texture): void {
+    releaseLowresImage(texture.image as ImageBitmap | HTMLImageElement | null)
+    texture.dispose()
+  }
+
   private requestRender = (): void => {
     if (this.backgroundRenderTimer !== null) {
       window.clearTimeout(this.backgroundRenderTimer)
@@ -490,11 +510,12 @@ export class MapViewer {
     this.flatOrbit.dispose()
     this.fly.dispose()
     this.tileManager?.dispose()
+    this.source?.dispose?.()
     this.markerLayer.dispose()
     this.material?.dispose()
     this.translucentMaterial?.dispose()
     if (this.blueMapMaterials) disposeBlueMapMaterials(this.blueMapMaterials)
-    this.atlas?.dispose()
+    this.disposeAtlas()
     this.renderer.dispose()
     this.renderer.domElement.remove()
   }

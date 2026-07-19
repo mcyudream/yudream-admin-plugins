@@ -18,6 +18,8 @@ export interface WorldMapSource {
   /** 返回 null 表示数据源不提供 lowres（如 mock） */
   lowresTileUrl: (lod: number, tx: number, tz: number) => string | null
   fetchMarkers: () => Promise<MapMarkersResponse>
+  /** Cancels metadata and texture work when another map source supersedes this one. */
+  dispose?: () => void
 }
 
 export type CameraMode = 'orbit' | 'fly'
