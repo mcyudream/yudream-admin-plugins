@@ -55,6 +55,9 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       if (!res.ok) {
         throw new Error(`hires tile ${tx},${tz}: HTTP ${res.status}`)
       }
+      if (res.headers.get('Content-Type')?.includes('application/octet-stream')) {
+        return res.arrayBuffer()
+      }
       return (await res.json()) as HiresTile
     },
     lowresTileUrl: (lod, tx, tz) => generationId ? api.lowresTileUrl(mapId, generationId, lod, tx, tz) : null,

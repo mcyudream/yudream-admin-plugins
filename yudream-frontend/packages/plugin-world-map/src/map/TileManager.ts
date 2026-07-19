@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
+import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -154,14 +155,16 @@ export class TileManager {
           if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
             return
           }
-          if (!tile || tile.positions.length === 0) {
+          if (!tile || (!(tile instanceof ArrayBuffer) && tile.positions.length === 0)) {
             this.hires.set(key, { mesh: null, lastUsed: this.frame })
             this.failureCounts.delete(key)
             this.options.onChanged?.()
             return
           }
-          const mesh = this.buildMesh(tile, this.material)
-          const translucentMesh = tile.translucent && tile.translucent.positions.length > 0
+          const mesh = tile instanceof ArrayBuffer
+            ? this.buildPrbmMesh(tile, this.material)
+            : this.buildMesh(tile, this.material)
+          const translucentMesh = !(tile instanceof ArrayBuffer) && tile.translucent && tile.translucent.positions.length > 0
             ? this.buildMesh(tile.translucent, this.translucentMaterial)
             : null
           this.hires.set(key, { mesh, translucentMesh, lastUsed: this.frame })
@@ -256,6 +259,12 @@ export class TileManager {
     geometry.computeBoundingSphere()
     const mesh = new THREE.Mesh(geometry, material)
     // 顶点为世界绝对坐标，mesh 保持单位变换
+    mesh.matrixAutoUpdate = false
+    return mesh
+  }
+
+  private buildPrbmMesh(data: ArrayBuffer, material: THREE.ShaderMaterial): THREE.Mesh {
+    const mesh = new THREE.Mesh(decodePrbm(data), material)
     mesh.matrixAutoUpdate = false
     return mesh
   }

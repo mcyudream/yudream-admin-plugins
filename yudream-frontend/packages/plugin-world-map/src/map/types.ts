@@ -10,7 +10,7 @@ export interface WorldMapSource {
   /** 加载贴图集（调用方负责 dispose） */
   loadAtlas: () => Promise<Texture>
   /** tile 不存在（404 / 空）时返回 null */
-  fetchHiresTile: (tx: number, tz: number, signal?: AbortSignal) => Promise<HiresTile | null>
+  fetchHiresTile: (tx: number, tz: number, signal?: AbortSignal) => Promise<HiresTile | ArrayBuffer | null>
   /** 返回 null 表示数据源不提供 lowres（如 mock） */
   lowresTileUrl: (lod: number, tx: number, tz: number) => string | null
   fetchMarkers: () => Promise<MapMarkersResponse>

@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "vite build",
+    "test": "vitest run",
     "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "@vue/tsconfig": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
+    "vitest": "^4.0.8",
     "vue-tsc": "catalog:"
   }
 }
