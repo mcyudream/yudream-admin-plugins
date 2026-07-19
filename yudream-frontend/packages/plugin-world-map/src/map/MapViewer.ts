@@ -4,6 +4,7 @@ import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
 import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
 import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
+import { canvasPointerToNdc } from './canvasCoordinates'
 import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
 import type { MapMarkerSet } from '../types'
@@ -16,6 +17,7 @@ export interface MapViewerOptions {
   hiresRadius?: number
   maxConcurrent?: number
   onMarkerSetsChanged?: (sets: readonly MapMarkerSet[]) => void
+  onMarkerSelected?: (result: MarkerPickResult | null) => void
 }
 
 const DAY_SKY = new THREE.Color(0x87a9d6)
@@ -72,6 +74,7 @@ export class MapViewer {
     this.setCameraMode('orbit')
 
     this.markerLayer = new MarkerLayer(this.scene)
+    this.renderer.domElement.addEventListener('click', this.onCanvasClick)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
@@ -241,6 +244,14 @@ export class MapViewer {
     }
   }
 
+  private onCanvasClick = (event: MouseEvent): void => {
+    if (this.mode !== 'orbit' || !this.options.onMarkerSelected) return
+    const bounds = this.renderer.domElement.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return
+    const ndc = canvasPointerToNdc(event.clientX, event.clientY, bounds)
+    this.options.onMarkerSelected(this.pickMarker(ndc.x, ndc.y))
+  }
+
   private renderFrame = (): void => {
     if (this.disposed) {
       return
@@ -287,6 +298,7 @@ export class MapViewer {
       this.rafId = null
     }
     this.resizeObserver.disconnect()
+    this.renderer.domElement.removeEventListener('click', this.onCanvasClick)
     this.orbit.controls.removeEventListener('change', this.requestRender)
     this.orbit.dispose()
     this.fly.dispose()

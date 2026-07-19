@@ -5,7 +5,7 @@ import { createHttpMapSource, createWorldMapApi } from '../api/world-map-api'
 import { MapViewer } from '../map/MapViewer'
 import { createMockMapSource } from '../map/mock'
 import type { CameraMode } from '../map/types'
-import type { MapMarkerSet, MapSummary } from '../types'
+import type { MapMarker, MapMarkerSet, MapSummary } from '../types'
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
 export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded) {
@@ -20,6 +20,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   const cameraPos = ref({ x: 0, y: 0, z: 0 })
   const markerSets = ref<MapMarkerSet[]>([])
   const layerVisibility = ref<Record<string, boolean>>({})
+  const selectedMarker = ref<MapMarker | null>(null)
 
   /** URL query mock=1 启用内置假数据（无后端渲染自查） */
   const mock = computed(() => {
@@ -112,6 +113,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     const seq = ++loadSeq
     loading.value = true
     error.value = ''
+    selectedMarker.value = null
     const source = mock.value
       ? createMockMapSource()
       : createHttpMapSource(sdk, currentMapId.value)
@@ -148,6 +150,9 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
       onMarkerSetsChanged: sets => {
         markerSets.value = [...sets]
         layerVisibility.value = Object.fromEntries(sets.map(set => [set.id ?? '', set.defaultVisible !== false]))
+      },
+      onMarkerSelected: result => {
+        selectedMarker.value = result?.marker ?? null
       },
     })
     viewer.setTimeOfDay((timeOfDay.value[0] ?? 500) / 1000)
@@ -221,6 +226,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     cameraPos,
     markerSets,
     layerVisibility,
+    selectedMarker,
     mock,
     pendingTiles,
     isFullscreen,

@@ -86,6 +86,27 @@
   backdrop-filter: blur(6px);
 }
 
+.world-map-marker-popup {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+  display: grid;
+  gap: 2px;
+  max-width: min(280px, calc(100% - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 24, 0.82);
+  color: #dce4f5;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(6px);
+}
+
+.world-map-marker-popup span {
+  color: #9fb0d0;
+}
+
 .world-map-overlay {
   position: absolute;
   inset: 0;

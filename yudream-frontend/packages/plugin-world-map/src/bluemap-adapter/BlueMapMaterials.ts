@@ -49,7 +49,9 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
     vertexColors: true,
     fog: true,
     transparent: Boolean(entry.halfTransparent),
-    depthWrite: !entry.halfTransparent,
+    // BlueMap keeps depth writes for its half-transparent PRBM materials so foliage and
+    // cutout-style blocks do not reveal geometry behind them through unstable sorting.
+    depthWrite: true,
     vertexShader: /* glsl */ `
       attribute float ao;
       attribute float sunlight;

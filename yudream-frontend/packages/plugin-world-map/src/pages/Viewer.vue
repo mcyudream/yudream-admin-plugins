@@ -21,6 +21,7 @@ const {
   cameraPos,
   markerSets,
   layerVisibility,
+  selectedMarker,
   mock,
   pendingTiles,
   isFullscreen,
@@ -96,6 +97,13 @@ function setContainer(el: unknown) {
       >
         {{ set.label || set.id }}
       </FaCheckbox>
+    </div>
+
+    <div v-if="selectedMarker" class="world-map-marker-popup">
+      <strong>{{ selectedMarker.label || selectedMarker.id || '标注' }}</strong>
+      <span v-if="selectedMarker.position">
+        {{ Math.round(selectedMarker.position.x) }} / {{ Math.round(selectedMarker.position.y) }} / {{ Math.round(selectedMarker.position.z) }}
+      </span>
     </div>
 
     <div v-if="loading" class="world-map-overlay">地图加载中……</div>
