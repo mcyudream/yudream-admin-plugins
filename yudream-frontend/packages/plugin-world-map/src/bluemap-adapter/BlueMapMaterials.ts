@@ -18,6 +18,7 @@ const textureLoadControllers = new WeakMap<THREE.ShaderMaterial, AbortController
 const disposedMaterials = new WeakSet<THREE.ShaderMaterial>()
 const animations = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationDefinition>()
 const animationStates = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationState>()
+const textureUsesMipmaps = new WeakMap<THREE.ShaderMaterial, boolean>()
 const queuedTextureLoads: Array<() => void> = []
 let activeTextureLoads = 0
 
@@ -42,6 +43,7 @@ export function ensureBlueMapMaterialTextures(materials: readonly THREE.ShaderMa
 
 function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
   const color = Array.isArray(entry.color) && entry.color.length >= 4 ? entry.color : [1, 0, 1, 1]
+  const useMipmaps = blueMapTextureUsesMipmaps(color[3], Boolean(entry.halfTransparent))
   const texture = colorTexture(color)
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
@@ -112,8 +114,14 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
     `,
   })
   if (entry.texture) textureSources.set(material, entry.texture)
+  textureUsesMipmaps.set(material, useMipmaps)
   if (entry.animation) animations.set(material, entry.animation)
   return material
+}
+
+/** Matches BlueMap's non-mipmapped path for partially transparent texture sheets. */
+export function blueMapTextureUsesMipmaps(alpha: number | undefined, halfTransparent: boolean): boolean {
+  return alpha === 1 || halfTransparent
 }
 
 function colorTexture(color: number[]): THREE.DataTexture {
@@ -141,8 +149,10 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
     }
     texture.colorSpace = THREE.SRGBColorSpace
     texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestMipMapLinearFilter
-    texture.generateMipmaps = true
+    texture.generateMipmaps = textureUsesMipmaps.get(material) ?? true
+    texture.minFilter = texture.generateMipmaps ? THREE.NearestMipMapLinearFilter : THREE.NearestFilter
+    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapT = THREE.ClampToEdgeWrapping
     texture.flipY = false
     const fallback = material.uniforms.textureImage.value as THREE.Texture | null
     material.uniforms.textureImage.value = texture
@@ -222,6 +232,7 @@ export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial
     const texture = material.uniforms.textureImage.value as THREE.Texture | null
     if (texture) disposeTexture(texture)
     textureSources.delete(material)
+    textureUsesMipmaps.delete(material)
     textureLoads.delete(material)
     animations.delete(material)
     animationStates.delete(material)

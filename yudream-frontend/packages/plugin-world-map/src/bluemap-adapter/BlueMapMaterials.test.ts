@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBlueMapMaterials, disposeBlueMapMaterials, ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from './BlueMapMaterials'
+import { blueMapTextureUsesMipmaps, createBlueMapMaterials, disposeBlueMapMaterials, ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from './BlueMapMaterials'
 import * as THREE from 'three'
 
 describe('createBlueMapMaterials', () => {
@@ -16,6 +16,12 @@ describe('createBlueMapMaterials', () => {
     const materials = await createBlueMapMaterials([{ animation: { frames: [0, 1], frametime: 1 } }])
     expect(hasActiveBlueMapAnimations(materials)).toBe(false)
     disposeBlueMapMaterials(materials)
+  })
+
+  it('matches BlueMap mipmap policy for transparent texture sheets', () => {
+    expect(blueMapTextureUsesMipmaps(1, false)).toBe(true)
+    expect(blueMapTextureUsesMipmaps(0.5, true)).toBe(true)
+    expect(blueMapTextureUsesMipmaps(0.5, false)).toBe(false)
   })
 
   it('aborts an in-flight material texture when its map generation is disposed', async () => {

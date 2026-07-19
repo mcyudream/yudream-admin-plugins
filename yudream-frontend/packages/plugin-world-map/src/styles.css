@@ -132,6 +132,37 @@
   backdrop-filter: blur(6px);
 }
 
+.world-map-layer-search {
+  min-width: 0;
+}
+
+.world-map-marker-results {
+  display: grid;
+  max-height: 192px;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.world-map-marker-result {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
+.world-map-marker-result span,
+.world-map-marker-result small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-map-marker-result small {
+  color: #9fb0d0;
+  font-size: 11px;
+}
+
 .world-map-marker-popup {
   position: absolute;
   right: 12px;
@@ -251,6 +282,8 @@
   .world-map-layers {
     top: 124px;
     right: 8px;
+    max-height: min(46vh, 360px);
+    overflow-y: auto;
   }
 
   .world-map-render-settings {

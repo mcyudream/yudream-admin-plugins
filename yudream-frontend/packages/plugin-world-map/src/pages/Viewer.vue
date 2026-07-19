@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { FaButton, FaCheckbox, FaIcon, FaInput, FaSelect, FaSlider } from '@yudream/components'
 import { useWorldMapViewer } from '../composables/useWorldMapViewer'
+import { findMarkers } from '../map/markerSearch'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -33,6 +34,7 @@ const {
   toggleFullscreen,
   setLayerVisible,
   focusSelectedMarker,
+  focusMarker,
   focusCoordinates,
   resetToSpawn,
   retryCurrentMap,
@@ -41,6 +43,8 @@ const {
 const coordinateX = ref('')
 const coordinateZ = ref('')
 const renderSettingsOpen = ref(false)
+const markerQuery = ref('')
+const markerMatches = computed(() => findMarkers(markerSets.value, markerQuery.value))
 
 function toggleCameraMode() {
   cameraMode.value = cameraMode.value === 'orbit' ? 'fly' : 'orbit'
@@ -172,6 +176,23 @@ function focusCoordinateInput() {
     </div>
 
     <div v-if="markerSets.length" class="world-map-layers">
+      <div class="world-map-layer-search">
+        <FaInput v-model="markerQuery" aria-label="搜索标注" placeholder="搜索标注" />
+      </div>
+      <div v-if="markerMatches.length" class="world-map-marker-results">
+        <FaButton
+          v-for="match in markerMatches"
+          :key="`${match.setId}:${match.marker.id ?? match.label}`"
+          size="sm"
+          variant="outline"
+          class="world-map-marker-result"
+          :title="`定位到 ${match.label}`"
+          @click="focusMarker(match.marker)"
+        >
+          <span>{{ match.label }}</span>
+          <small>{{ match.setLabel }}</small>
+        </FaButton>
+      </div>
       <FaCheckbox
         v-for="set in markerSets"
         :key="set.id"

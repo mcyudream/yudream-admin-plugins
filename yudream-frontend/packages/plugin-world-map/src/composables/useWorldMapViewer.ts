@@ -159,6 +159,13 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     }
   }
 
+  function focusMarker(marker: MapMarker): void {
+    if (viewer?.focusMarker(marker)) {
+      selectedMarker.value = marker
+      scheduleHashWrite()
+    }
+  }
+
   function resetToSpawn(): void {
     if (viewer?.resetView()) scheduleHashWrite()
   }
@@ -329,6 +336,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     toggleFullscreen,
     setLayerVisible,
     focusSelectedMarker,
+    focusMarker,
     focusCoordinates,
     resetToSpawn,
     retryCurrentMap,
