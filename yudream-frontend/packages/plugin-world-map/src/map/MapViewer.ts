@@ -75,6 +75,8 @@ export class MapViewer {
     // here as well so distant lowres terrain and nearby PRBM geometry do not fight for depth.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' })
     this.renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1))
+    this.renderer.domElement.tabIndex = 0
+    this.renderer.domElement.setAttribute('aria-label', 'World map canvas')
     container.appendChild(this.renderer.domElement)
 
     this.perspectiveCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 10_000)
@@ -100,6 +102,7 @@ export class MapViewer {
 
     this.markerLayer = new MarkerLayer(this.scene)
     this.renderer.domElement.addEventListener('click', this.onCanvasClick)
+    this.renderer.domElement.addEventListener('pointerdown', this.focusCanvas)
     document.addEventListener('visibilitychange', this.onVisibilityChange)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
@@ -457,6 +460,11 @@ export class MapViewer {
     this.options.onMarkerSelected(this.pickMarker(ndc.x, ndc.y))
   }
 
+  /** Canvas-scoped keyboard navigation activates only after direct map interaction. */
+  private focusCanvas = (): void => {
+    this.renderer.domElement.focus({ preventScroll: true })
+  }
+
   private renderFrame = (): void => {
     if (this.disposed) {
       return
@@ -525,6 +533,7 @@ export class MapViewer {
     }
     this.resizeObserver.disconnect()
     this.renderer.domElement.removeEventListener('click', this.onCanvasClick)
+    this.renderer.domElement.removeEventListener('pointerdown', this.focusCanvas)
     document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.orbit.controls.removeEventListener('change', this.requestRender)
     this.flatOrbit.controls.removeEventListener('change', this.requestRender)

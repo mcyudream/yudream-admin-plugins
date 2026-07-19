@@ -16,6 +16,7 @@ export class OrbitController implements CameraController {
     this.controls.maxPolarAngle = Math.PI * 0.55
     // 滚轮朝光标位置缩放（BlueMap 同款手感）
     this.controls.zoomToCursor = true
+    this.controls.listenToKeyEvents(dom)
     this.controls.enabled = false
   }
 
@@ -32,6 +33,7 @@ export class OrbitController implements CameraController {
   }
 
   dispose(): void {
+    this.controls.stopListenToKeyEvents()
     this.controls.dispose()
   }
 }
