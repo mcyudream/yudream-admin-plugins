@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
-import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
+import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
@@ -12,12 +12,15 @@ import { shouldMarkLowresLoadFailed, shouldRetainLowresTexture } from './lowresT
 import { enqueueLowresRequest } from './lowresRequestQueue'
 import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
 import { decodeLowresImage, releaseLowresImage } from './lowresImageDecode'
+import { BlueMapVisibleMaterials } from './blueMapVisibleMaterials'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
   mesh: THREE.Mesh | null
   /** 半透明段 mesh（水面等），可空 */
   translucentMesh?: THREE.Mesh | null
+  /** BlueMap PRBM materials retained by this visible tile. */
+  blueMapMaterials?: readonly THREE.ShaderMaterial[]
   lastUsed: number
 }
 
@@ -74,6 +77,8 @@ export class TileManager {
   private readonly lowresDesired = new Set<string>()
   private readonly failedUntil = new Map<string, number>()
   private readonly failureCounts = new Map<string, number>()
+  /** Reference counts keep animation work proportional to visible terrain, not the global material table. */
+  private readonly visibleBlueMapMaterials = new BlueMapVisibleMaterials()
   private inFlight = 0
   private lowresInFlight = 0
   private frame = 0
@@ -150,10 +155,7 @@ export class TileManager {
     }
     stale.sort((a, b) => a[1].lastUsed - b[1].lastUsed)
     for (const [key, record] of stale) {
-      record.mesh?.geometry.dispose()
-      record.mesh?.removeFromParent()
-      record.translucentMesh?.geometry.dispose()
-      record.translucentMesh?.removeFromParent()
+      this.disposeHiresRecord(record)
       this.hires.delete(key)
     }
 
@@ -193,7 +195,10 @@ export class TileManager {
           const translucentMesh = !(tile instanceof ArrayBuffer) && tile.translucent && tile.translucent.positions.length > 0
             ? this.buildMesh(tile.translucent, this.translucentMaterial)
             : null
-          this.hires.set(key, { mesh, translucentMesh, lastUsed: this.frame })
+          const blueMapMaterials = tile instanceof ArrayBuffer
+            ? this.retainBlueMapMaterials(mesh.geometry)
+            : undefined
+          this.hires.set(key, { mesh, translucentMesh, blueMapMaterials, lastUsed: this.frame })
           this.group.add(mesh)
           if (translucentMesh) {
             this.group.add(translucentMesh)
@@ -313,6 +318,31 @@ export class TileManager {
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
     return mesh
+  }
+
+  private retainBlueMapMaterials(geometry: THREE.BufferGeometry): readonly THREE.ShaderMaterial[] | undefined {
+    if (!Array.isArray(this.material)) {
+      return undefined
+    }
+    const materials = new Set<THREE.ShaderMaterial>()
+    for (const group of geometry.groups) {
+      const index = group.materialIndex
+      const material = index === undefined ? undefined : this.material[index]
+      if (material instanceof THREE.ShaderMaterial) {
+        materials.add(material)
+      }
+    }
+    const retained = [...materials]
+    this.visibleBlueMapMaterials.retain(retained)
+    return retained
+  }
+
+  private disposeHiresRecord(record: HiresRecord): void {
+    this.visibleBlueMapMaterials.release(record.blueMapMaterials ?? [])
+    record.mesh?.geometry.dispose()
+    record.mesh?.removeFromParent()
+    record.translucentMesh?.geometry.dispose()
+    record.translucentMesh?.removeFromParent()
   }
 
   /** lowres 金字塔平面：按相机距离选 lod，覆盖视野范围，作为 hires 的兜底 */
@@ -532,26 +562,12 @@ export class TileManager {
 
   /** Whether a currently visible PRBM mesh references a decoded animated material. */
   get hasActiveAnimations(): boolean {
-    if (!Array.isArray(this.material)) {
-      return false
-    }
-    const visibleMaterials = new Set<THREE.ShaderMaterial>()
-    for (const record of this.hires.values()) {
-      const mesh = record.mesh
-      if (!mesh?.visible) {
-        continue
-      }
-      for (const group of mesh.geometry.groups) {
-        if (group.materialIndex === undefined) {
-          continue
-        }
-        const material = this.material[group.materialIndex]
-        if (material) {
-          visibleMaterials.add(material as THREE.ShaderMaterial)
-        }
-      }
-    }
-    return hasActiveBlueMapAnimations([...visibleMaterials])
+    return hasActiveBlueMapAnimations(this.visibleBlueMapMaterials.values)
+  }
+
+  /** Advances only the material subset currently referenced by visible PRBM terrain. */
+  stepVisibleBlueMapAnimations(deltaMs: number): void {
+    stepBlueMapAnimations(this.visibleBlueMapMaterials.values, deltaMs)
   }
 
   setDayFactor(dayFactor: number): void {
@@ -577,12 +593,10 @@ export class TileManager {
     this.failedUntil.clear()
     this.failureCounts.clear()
     for (const record of this.hires.values()) {
-      record.mesh?.geometry.dispose()
-      record.mesh?.removeFromParent()
-      record.translucentMesh?.geometry.dispose()
-      record.translucentMesh?.removeFromParent()
+      this.disposeHiresRecord(record)
     }
     this.hires.clear()
+    this.visibleBlueMapMaterials.clear()
     for (const record of this.lowres.values()) {
       this.disposeLowres(record)
     }

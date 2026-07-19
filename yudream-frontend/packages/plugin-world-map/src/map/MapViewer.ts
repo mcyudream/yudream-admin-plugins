@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { FlyController } from './controls/FlyController'
 import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
-import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
+import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
 import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
 import { parseBlueMapLowresIndex } from '../bluemap-adapter/BlueMapLowresIndex'
 import { canvasPointerToNdc } from './canvasCoordinates'
@@ -426,7 +426,8 @@ export class MapViewer {
 
     const controller = this.controller
     const controllerMoving = controller.update(dt)
-    if (this.blueMapMaterials) stepBlueMapAnimations(this.blueMapMaterials, dt * 1000)
+    // A generation can declare thousands of materials; only visible PRBM groups need animation work.
+    this.tileManager?.stepVisibleBlueMapAnimations(dt * 1000)
     this.tileManager?.update(this.camera, controller.target)
     this.renderer.render(this.scene, this.camera)
 
