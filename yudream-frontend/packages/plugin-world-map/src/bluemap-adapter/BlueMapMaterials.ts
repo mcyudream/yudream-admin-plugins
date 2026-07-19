@@ -1,9 +1,12 @@
 import * as THREE from 'three'
+import { createBlueMapAnimationState, stepBlueMapAnimation } from './BlueMapAnimation'
+import type { BlueMapAnimationDefinition, BlueMapAnimationState } from './BlueMapAnimation'
 
 interface BlueMapTexture {
   color?: number[]
   halfTransparent?: boolean
   texture?: string
+  animation?: BlueMapAnimationDefinition
 }
 
 const MAX_MATERIALS = 4096
@@ -11,6 +14,8 @@ const MAX_CONCURRENT_TEXTURE_LOADS = 8
 const textureSources = new WeakMap<THREE.ShaderMaterial, string>()
 const textureLoads = new WeakMap<THREE.ShaderMaterial, Promise<void>>()
 const disposedMaterials = new WeakSet<THREE.ShaderMaterial>()
+const animations = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationDefinition>()
+const animationStates = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationState>()
 const queuedTextureLoads: Array<() => void> = []
 let activeTextureLoads = 0
 
@@ -42,6 +47,10 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
       textureImage: { value: texture },
       sunlightStrength: { value: 1 },
       ambientLight: { value: 0.25 },
+      animationFrameHeight: { value: 1 },
+      animationFrameIndex: { value: 0 },
+      animationNextFrameIndex: { value: 0 },
+      animationInterpolation: { value: 0 },
     },
   ])
   const material = new THREE.ShaderMaterial({
@@ -80,7 +89,12 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
       varying float vBlocklight;
       #include <fog_pars_fragment>
       void main() {
-        vec4 color = texture2D(textureImage, vUv);
+        vec2 frameUv = vec2(vUv.x, animationFrameHeight * (vUv.y + animationFrameIndex));
+        vec4 color = texture2D(textureImage, frameUv);
+        if (animationInterpolation > 0.0) {
+          vec2 nextFrameUv = vec2(vUv.x, animationFrameHeight * (vUv.y + animationNextFrameIndex));
+          color = mix(color, texture2D(textureImage, nextFrameUv), animationInterpolation);
+        }
         if (color.a <= 0.01) discard;
         float light = mix(vBlocklight, max(vSunlight, vBlocklight), sunlightStrength);
         color.rgb *= vColor * vAo * mix(ambientLight, 1.0, light / 15.0);
@@ -90,6 +104,7 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
     `,
   })
   if (entry.texture) textureSources.set(material, entry.texture)
+  if (entry.animation) animations.set(material, entry.animation)
   return material
 }
 
@@ -121,6 +136,14 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
     texture.flipY = false
     const fallback = material.uniforms.textureImage.value as THREE.Texture | null
     material.uniforms.textureImage.value = texture
+    const animation = animations.get(material)
+    if (animation && texture.image) {
+      const width = Number(texture.image.width) || 1
+      const height = Number(texture.image.height) || width
+      const state = createBlueMapAnimationState(animation, Math.max(1, Math.round(height / width)))
+      animationStates.set(material, state)
+      material.uniforms.animationFrameHeight.value = 1 / state.frameCount
+    }
     fallback?.dispose()
     material.needsUpdate = true
   }).catch(error => {
@@ -153,6 +176,18 @@ export function applyBlueMapDayFactor(materials: readonly THREE.ShaderMaterial[]
   }
 }
 
+/** Advances only loaded animated textures, matching BlueMap's 20 ticks per second animation timing. */
+export function stepBlueMapAnimations(materials: readonly THREE.ShaderMaterial[], deltaMs: number): void {
+  for (const material of materials) {
+    const state = animationStates.get(material)
+    if (!state) continue
+    const frame = stepBlueMapAnimation(state, deltaMs)
+    material.uniforms.animationFrameIndex.value = frame.current
+    material.uniforms.animationNextFrameIndex.value = frame.next
+    material.uniforms.animationInterpolation.value = frame.interpolation
+  }
+}
+
 export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial[]): void {
   for (const material of materials) {
     disposedMaterials.add(material)
@@ -160,6 +195,8 @@ export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial
     texture?.dispose()
     textureSources.delete(material)
     textureLoads.delete(material)
+    animations.delete(material)
+    animationStates.delete(material)
     material.dispose()
   }
 }

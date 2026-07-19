@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { FlyController } from './controls/FlyController'
 import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
-import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
+import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
 import { canvasPointerToNdc } from './canvasCoordinates'
 import { MarkerLayer } from './MarkerLayer'
@@ -263,6 +263,7 @@ export class MapViewer {
 
     const controller = this.mode === 'orbit' ? this.orbit : this.fly
     const controllerMoving = controller.update(dt)
+    if (this.blueMapMaterials) stepBlueMapAnimations(this.blueMapMaterials, dt * 1000)
     this.tileManager?.update(this.camera, controller.target)
     this.renderer.render(this.scene, this.camera)
 
