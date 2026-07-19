@@ -237,6 +237,7 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
   const activeTask = computed(() => tasks.value.find(task => task.state === 'PENDING' || task.state === 'RUNNING') ?? null)
 
   let pollTimer: ReturnType<typeof setTimeout> | null = null
+  let taskEvents: EventSource | null = null
 
   function stopPolling(): void {
     if (pollTimer !== null) {
@@ -247,6 +248,7 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
 
   function schedulePolling(): void {
     stopPolling()
+    if (taskEvents) return
     const active = map.value?.state === 'RENDERING'
       || tasks.value.some(t => t.state === 'PENDING' || t.state === 'RUNNING')
     if (active) {
@@ -284,6 +286,39 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
       }
       schedulePolling()
     }
+  }
+
+  function connectTaskEvents(): void {
+    if (typeof EventSource === 'undefined' || taskEvents || !mapId.value) return
+    const source = new EventSource(api.taskEventsUrl())
+    taskEvents = source
+    source.addEventListener('task', event => {
+      try {
+        const task = JSON.parse((event as MessageEvent<string>).data) as RenderTask
+        if (task.mapId !== mapId.value) return
+        const index = tasks.value.findIndex(item => item.id === task.id)
+        tasks.value = index < 0
+          ? [task, ...tasks.value]
+          : tasks.value.map(item => item.id === task.id ? task : item)
+        if (task.state === 'SUCCESS' || task.state === 'FAILED' || task.state === 'CANCELLED') {
+          void load(true)
+        }
+      }
+      catch {
+        // Ignore a malformed event and retain the polling fallback for a later refresh.
+      }
+    })
+    source.addEventListener('error', () => {
+      if (taskEvents !== source) return
+      source.close()
+      taskEvents = null
+      schedulePolling()
+    })
+  }
+
+  function disconnectTaskEvents(): void {
+    taskEvents?.close()
+    taskEvents = null
   }
 
   function taskProgress(task: RenderTask): number {
@@ -327,8 +362,14 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
     }
   }
 
-  onMounted(() => void load())
-  onBeforeUnmount(stopPolling)
+  onMounted(() => {
+    connectTaskEvents()
+    void load()
+  })
+  onBeforeUnmount(() => {
+    disconnectTaskEvents()
+    stopPolling()
+  })
 
   return {
     mapId,

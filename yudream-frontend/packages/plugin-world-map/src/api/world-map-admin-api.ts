@@ -10,5 +10,6 @@ export function createWorldMapAdminApi(sdk: YuDreamPluginSdk) {
     cancelTask: (taskId: string) => sdk.http.post<{ canceled: boolean }>(`/admin/tasks/${encodeURIComponent(taskId)}/cancel`),
     deleteMap: (mapId: string) => sdk.http.request(`/admin/maps/${encodeURIComponent(mapId)}`, { method: 'DELETE' }),
     tasks: () => sdk.http.get<{ tasks: RenderTask[] }>('/admin/tasks'),
+    taskEventsUrl: () => sdk.http.url('/admin/tasks/events'),
   }
 }
