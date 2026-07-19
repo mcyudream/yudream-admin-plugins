@@ -90,6 +90,32 @@
   font-size: 11px;
 }
 
+.world-map-render-settings {
+  position: absolute;
+  top: 64px;
+  left: 12px;
+  z-index: 10;
+  display: grid;
+  width: 224px;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 24, 0.82);
+  color: #dce4f5;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+
+.world-map-render-settings label {
+  display: grid;
+  gap: 4px;
+}
+
+.world-map-render-settings span {
+  color: #b9c8e3;
+  font-variant-numeric: tabular-nums;
+}
+
 .world-map-layers {
   position: absolute;
   top: 64px;
@@ -225,6 +251,12 @@
   .world-map-layers {
     top: 124px;
     right: 8px;
+  }
+
+  .world-map-render-settings {
+    top: 124px;
+    left: 8px;
+    width: min(208px, calc(100% - 16px));
   }
 
   .world-map-marker-popup {

@@ -9,6 +9,29 @@ import type { MapMarker, MapMarkerSet, MapSummary } from '../types'
 import { layerVisibilityFromHash, mapIdFromHash, viewerHash } from '../map/viewerHash'
 import { EMPTY_TILE_LOAD_STATUS, tileLoadMessage } from '../map/tileLoadStatus'
 import type { TileLoadStatus } from '../map/tileLoadStatus'
+import { DEFAULT_HIRES_RADIUS, DEFAULT_LOWRES_COVERAGE, normalizeHiresRadius, normalizeLowresCoverage } from '../map/renderDistancePolicy'
+
+const HIRES_RADIUS_STORAGE_KEY = 'yudream.world-map.hires-radius'
+const LOWRES_COVERAGE_STORAGE_KEY = 'yudream.world-map.lowres-coverage'
+
+function storedNumber(key: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback
+  try {
+    return Number(window.localStorage.getItem(key))
+  }
+  catch {
+    return fallback
+  }
+}
+
+function persistNumber(key: string, value: number): void {
+  try {
+    window.localStorage.setItem(key, String(value))
+  }
+  catch {
+    // Private browsing or host storage policies must not block map navigation.
+  }
+}
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
 export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded) {
@@ -25,6 +48,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   const markerSets = ref<MapMarkerSet[]>([])
   const layerVisibility = ref<Record<string, boolean>>({})
   const selectedMarker = ref<MapMarker | null>(null)
+  const hiresRadius = ref<number[]>([normalizeHiresRadius(storedNumber(HIRES_RADIUS_STORAGE_KEY, DEFAULT_HIRES_RADIUS))])
+  const lowresCoverage = ref<number[]>([normalizeLowresCoverage(storedNumber(LOWRES_COVERAGE_STORAGE_KEY, DEFAULT_LOWRES_COVERAGE))])
 
   /** URL query mock=1 启用内置假数据（无后端渲染自查） */
   const mock = computed(() => {
@@ -181,6 +206,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
       return
     }
     viewer = new MapViewer(container.value, {
+      hiresRadius: hiresRadius.value[0],
+      lowresCoverage: lowresCoverage.value[0],
       onCameraChanged: (position) => {
         cameraPos.value = {
           x: Math.round(position.x),
@@ -251,6 +278,16 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     scheduleHashWrite()
   })
   watch(timeOfDay, value => viewer?.setTimeOfDay((value[0] ?? 500) / 1000))
+  watch(hiresRadius, value => {
+    const radius = normalizeHiresRadius(value[0])
+    viewer?.setHiresRadius(radius)
+    persistNumber(HIRES_RADIUS_STORAGE_KEY, radius)
+  })
+  watch(lowresCoverage, value => {
+    const coverage = normalizeLowresCoverage(value[0])
+    viewer?.setLowresCoverage(coverage)
+    persistNumber(LOWRES_COVERAGE_STORAGE_KEY, coverage)
+  })
 
   onMounted(() => void boot())
   onBeforeUnmount(() => {
@@ -282,6 +319,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     markerSets,
     layerVisibility,
     selectedMarker,
+    hiresRadius,
+    lowresCoverage,
     mock,
     pendingTiles,
     tileLoadingMessage,

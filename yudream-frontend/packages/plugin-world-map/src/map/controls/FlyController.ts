@@ -16,6 +16,7 @@ export class FlyController implements CameraController {
   private readonly forward = new THREE.Vector3()
   private readonly right = new THREE.Vector3()
   private readonly move = new THREE.Vector3()
+  private speedScale = 1
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -46,6 +47,10 @@ export class FlyController implements CameraController {
     this.euler.setFromQuaternion(this.camera.quaternion, 'YXZ')
     this.yaw = this.euler.y
     this.pitch = this.euler.x
+  }
+
+  setSpeedScale(scale: number): void {
+    this.speedScale = Number.isFinite(scale) ? THREE.MathUtils.clamp(scale, 1, 4) : 1
   }
 
   private get locked(): boolean {
@@ -100,7 +105,7 @@ export class FlyController implements CameraController {
       return false
     }
     const boost = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')
-    const speed = (boost ? BOOST_SPEED : BASE_SPEED) * dt
+    const speed = (boost ? BOOST_SPEED : BASE_SPEED) * this.speedScale * dt
     this.camera.getWorldDirection(this.forward)
     this.right.crossVectors(this.forward, this.camera.up).normalize()
     this.move.set(0, 0, 0)

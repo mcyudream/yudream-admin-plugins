@@ -24,6 +24,8 @@ const {
   markerSets,
   layerVisibility,
   selectedMarker,
+  hiresRadius,
+  lowresCoverage,
   mock,
   tileLoadingMessage,
   isFullscreen,
@@ -38,6 +40,7 @@ const {
 
 const coordinateX = ref('')
 const coordinateZ = ref('')
+const renderSettingsOpen = ref(false)
 
 function toggleCameraMode() {
   cameraMode.value = cameraMode.value === 'orbit' ? 'fly' : 'orbit'
@@ -127,6 +130,15 @@ function focusCoordinateInput() {
         <FaButton size="sm" variant="outline" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
           <FaIcon :name="isFullscreen ? 'i-mdi:fullscreen-exit' : 'i-mdi:fullscreen'" />
         </FaButton>
+        <FaButton
+          size="sm"
+          variant="outline"
+          title="渲染距离"
+          :aria-pressed="renderSettingsOpen"
+          @click="renderSettingsOpen = !renderSettingsOpen"
+        >
+          <FaIcon name="i-mdi:tune-variant" />
+        </FaButton>
       </div>
 
       <div class="world-map-toolbar-status">
@@ -146,6 +158,17 @@ function focusCoordinateInput() {
         </form>
         <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
       </div>
+    </div>
+
+    <div v-if="renderSettingsOpen" class="world-map-render-settings">
+      <label>
+        <span>地形细节 {{ hiresRadius[0] }}</span>
+        <FaSlider v-model="hiresRadius" :min="2" :max="6" :step="1" :tooltip="false" />
+      </label>
+      <label>
+        <span>概览范围 {{ lowresCoverage[0]?.toFixed(1) }}x</span>
+        <FaSlider v-model="lowresCoverage" :min="1" :max="2.5" :step="0.25" :tooltip="false" />
+      </label>
     </div>
 
     <div v-if="markerSets.length" class="world-map-layers">

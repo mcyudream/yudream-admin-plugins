@@ -19,11 +19,14 @@ import { EMPTY_TILE_LOAD_STATUS } from './tileLoadStatus'
 import type { TileLoadStatus } from './tileLoadStatus'
 import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
+import { flySpeedScale } from './controls/flySpeedPolicy'
+import { normalizeHiresRadius, normalizeLowresCoverage } from './renderDistancePolicy'
 
 export interface MapViewerOptions {
   /** 相机位置变化回调（节流至约 10Hz），用于坐标显示 */
   onCameraChanged?: (position: THREE.Vector3, target: THREE.Vector3) => void
   hiresRadius?: number
+  lowresCoverage?: number
   maxConcurrent?: number
   onMarkerSetsChanged?: (sets: readonly MapMarkerSet[]) => void
   onMarkerSelected?: (result: MarkerPickResult | null) => void
@@ -66,12 +69,16 @@ export class MapViewer {
   private lastTime = performance.now()
   private frameCounter = 0
   private timeOfDay = 0.5
+  private hiresRadius: number
+  private lowresCoverage: number
   private disposed = false
 
   constructor(
     private readonly container: HTMLElement,
     private readonly options: MapViewerOptions = {},
   ) {
+    this.hiresRadius = normalizeHiresRadius(options.hiresRadius)
+    this.lowresCoverage = normalizeLowresCoverage(options.lowresCoverage)
     // BlueMap enables logarithmic depth because its overview spans kilometres. Keep that precision
     // here as well so distant lowres terrain and nearby PRBM geometry do not fight for depth.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' })
@@ -166,7 +173,8 @@ export class MapViewer {
     this.applyTimeOfDay()
     this.tileManager = new TileManager(source, settings, this.blueMapMaterials ?? this.material!,
       this.translucentMaterial ?? this.blueMapMaterials![0]!, this.scene, {
-      hiresRadius: this.options.hiresRadius,
+      hiresRadius: this.hiresRadius,
+      lowresCoverage: this.lowresCoverage,
       maxConcurrent: this.options.maxConcurrent,
       onChanged: this.requestRender,
     })
@@ -311,6 +319,18 @@ export class MapViewer {
 
   get tileLoadStatus(): TileLoadStatus {
     return this.tileManager?.loadStatus ?? EMPTY_TILE_LOAD_STATUS
+  }
+
+  setHiresRadius(radius: number): void {
+    this.hiresRadius = normalizeHiresRadius(radius)
+    this.tileManager?.setHiresRadius(this.hiresRadius)
+    this.requestRender()
+  }
+
+  setLowresCoverage(coverage: number): void {
+    this.lowresCoverage = normalizeLowresCoverage(coverage)
+    this.tileManager?.setLowresCoverage(this.lowresCoverage)
+    this.requestRender()
   }
 
   /** 截取当前画面并下载 PNG */
@@ -497,6 +517,9 @@ export class MapViewer {
     this.lastTime = now
 
     const controller = this.controller
+    if (controller === this.fly) {
+      this.fly.setSpeedScale(flySpeedScale(this.perspectiveCamera.position.y - (this.spawn?.y ?? 64)))
+    }
     const controllerMoving = controller.update(dt)
     // A generation can declare thousands of materials; only visible PRBM groups need animation work.
     this.tileManager?.stepVisibleBlueMapAnimations(dt * 1000)

@@ -17,6 +17,7 @@ import { BlueMapVisibleMaterials } from './blueMapVisibleMaterials'
 import { tileRequestPriority } from './tileRequestPriority'
 import { shouldRetainHiresTile } from './hiresTileLifecycle'
 import type { TileLoadStatus } from './tileLoadStatus'
+import { normalizeHiresRadius, normalizeLowresCoverage } from './renderDistancePolicy'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -55,6 +56,8 @@ interface LowresRequestValue {
 export interface TileManagerOptions {
   /** hires 加载半径（单位：tile，默认 4 ≈ 128 方块） */
   hiresRadius?: number
+  /** Lowres coverage radius multiplier used for the overview fallback. */
+  lowresCoverage?: number
   /** 最大并发 tile 请求数（默认 6） */
   maxConcurrent?: number
   /** 有界队列容量，避免快速跳转时积压旧视野请求 */
@@ -94,6 +97,8 @@ export class TileManager {
   private desired = new Set<string>()
   private dayFactor = 1
   private blueMapHiresEnabled = true
+  private hiresRadius: number
+  private lowresCoverage: number
   private readonly cameraDirection = new THREE.Vector3()
   private disposed = false
 
@@ -107,6 +112,8 @@ export class TileManager {
     parent: THREE.Object3D,
     private readonly options: TileManagerOptions = {},
   ) {
+    this.hiresRadius = normalizeHiresRadius(options.hiresRadius)
+    this.lowresCoverage = normalizeLowresCoverage(options.lowresCoverage)
     this.group.name = 'world-map-hires'
     this.lowresGroup.name = 'world-map-lowres'
     parent.add(this.lowresGroup, this.group)
@@ -119,7 +126,7 @@ export class TileManager {
     this.frame += 1
     camera.getWorldDirection(this.cameraDirection)
     const tileSize = this.settings.hiresTileSize
-    const radius = this.options.hiresRadius ?? 4
+    const radius = this.hiresRadius
     const offset = this.settings.hiresTileOffset ?? { x: 0, z: 0 }
     const nextCenterTx = Math.floor((target.x - offset.x) / tileSize)
     const nextCenterTz = Math.floor((target.z - offset.z) / tileSize)
@@ -177,10 +184,20 @@ export class TileManager {
     this.pumpLowres()
   }
 
+  /** Applies a bounded terrain distance without recreating the map or decoded tiles. */
+  setHiresRadius(radius: number): void {
+    this.hiresRadius = normalizeHiresRadius(radius)
+  }
+
+  /** Applies a bounded overview distance while preserving tiles that remain in range. */
+  setLowresCoverage(coverage: number): void {
+    this.lowresCoverage = normalizeLowresCoverage(coverage)
+  }
+
   /** 按并发上限驱动加载队列 */
   private pump(): void {
     const maxConcurrent = this.options.maxConcurrent ?? 6
-    const evictRadius = (this.options.hiresRadius ?? 4) + 1.5
+    const evictRadius = this.hiresRadius + 1.5
     while (this.inFlight < maxConcurrent && this.queue.length > 0) {
       const request = this.queue.shift()!
       this.queued.delete(request.key)
@@ -399,7 +416,7 @@ export class TileManager {
       return // 数据源不提供 lowres（如 mock）
     }
 
-    const coverRadius = Math.max(tileSize * 1.5, distance * 1.2)
+    const coverRadius = Math.max(tileSize * this.lowresCoverage, distance * this.lowresCoverage)
     const range = Math.ceil(coverRadius / tileSize)
     const wanted = new Set<string>()
     for (let dx = -range; dx <= range; dx += 1) {
