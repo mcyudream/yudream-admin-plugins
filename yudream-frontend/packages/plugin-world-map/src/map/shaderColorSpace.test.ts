@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createTerrainMaterial } from './material'
 import { createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
 import * as THREE from 'three'
+import { createBlueMapLowresMaterial } from './TileManager'
 
 describe('map shader color space', () => {
   it('decodes sRGB terrain texels before lighting and encodes the final output', () => {
@@ -20,5 +21,12 @@ describe('map shader color space', () => {
     expect(materials[0]!.fragmentShader).toContain('sRGBTransferEOTF(color)')
     expect(materials[0]!.fragmentShader).toContain('#include <colorspace_fragment>')
     disposeBlueMapMaterials(materials)
+  })
+
+  it('defines lowres metadata decoding in the fragment shader that uses it', () => {
+    const material = createBlueMapLowresMaterial()
+    expect(material.fragmentShader).toContain('float heightFromMeta(vec4 meta)')
+    expect(material.fragmentShader).toContain('sRGBTransferEOTF(color)')
+    material.dispose()
   })
 })

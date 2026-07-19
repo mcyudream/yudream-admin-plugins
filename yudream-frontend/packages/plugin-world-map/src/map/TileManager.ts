@@ -18,6 +18,8 @@ import { tileRequestPriority } from './tileRequestPriority'
 import { shouldRetainHiresTile } from './hiresTileLifecycle'
 import type { TileLoadStatus } from './tileLoadStatus'
 import { normalizeHiresRadius, normalizeLowresCoverage } from './renderDistancePolicy'
+import { createBlueMapLowresHeightSampler } from './blueMapLowresHeight'
+import type { BlueMapLowresHeightSampler } from './blueMapLowresHeight'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -32,6 +34,7 @@ interface HiresRecord {
 interface LowresRecord {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.Material>
   texture: THREE.Texture | null
+  heightSampler: BlueMapLowresHeightSampler | null
   request: AbortController | null
   disposed: boolean
   /** 纹理加载失败（404 等）时保留底色平面 */
@@ -505,7 +508,7 @@ export class TileManager {
     }
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
-    const record: LowresRecord = { mesh, texture: null, request: null, disposed: false, failed: false, lastUsed: this.frame }
+    const record: LowresRecord = { mesh, texture: null, heightSampler: null, request: null, disposed: false, failed: false, lastUsed: this.frame }
     return record
   }
 
@@ -550,6 +553,15 @@ export class TileManager {
             texture.flipY = true
           }
           record.texture = texture
+          try {
+            record.heightSampler = this.settings.renderer === 'BLUEMAP'
+              ? createBlueMapLowresHeightSampler(texture.image as ImageBitmap | HTMLImageElement)
+              : null
+          }
+          catch {
+            // A browser can reject a temporary 2D canvas while WebGL remains healthy.
+            record.heightSampler = null
+          }
           const material = record.mesh.material
           if (material instanceof THREE.ShaderMaterial) {
             material.uniforms.textureImage.value = texture
@@ -599,6 +611,7 @@ export class TileManager {
     record.request = null
     if (record.texture) disposeLowresTexture(record.texture)
     record.texture = null
+    record.heightSampler = null
     if (record.mesh.material instanceof THREE.ShaderMaterial) {
       record.mesh.material.uniforms.textureImage.value = null
     } else if (record.mesh.material instanceof THREE.MeshBasicMaterial) {
@@ -648,7 +661,32 @@ export class TileManager {
   /** Raycasts only currently loaded terrain; this is intentionally user-gesture driven, never per frame. */
   raycastTerrain(raycaster: THREE.Raycaster): THREE.Intersection<THREE.Object3D> | null {
     const intersections = raycaster.intersectObjects([this.group, this.lowresGroup], true)
-    return intersections.find(intersection => intersection.object.visible) ?? null
+    const hit = intersections.find(intersection => intersection.object.visible) ?? null
+    if (!hit) return null
+    const lowresRecord = [...this.lowres.values()].find(record => record.mesh === hit.object)
+    if (lowresRecord?.heightSampler) {
+      this.correctLowresHit(raycaster.ray, hit, lowresRecord)
+    }
+    return hit
+  }
+
+  /** Corrects a base-plane ray hit to the GPU-displaced BlueMap lowres terrain surface. */
+  private correctLowresHit(ray: THREE.Ray, hit: THREE.Intersection<THREE.Object3D>, record: LowresRecord): void {
+    let point = hit.point.clone()
+    const normal = new THREE.Vector3(0, 1, 0).transformDirection(record.mesh.matrixWorld).normalize()
+    const denominator = ray.direction.dot(normal)
+    if (Math.abs(denominator) < 0.000_001) return
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const local = record.mesh.worldToLocal(point.clone())
+      const height = record.heightSampler?.(local.x, local.z)
+      if (height === null || height === undefined) return
+      const terrainPoint = new THREE.Vector3(local.x, height, local.z).applyMatrix4(record.mesh.matrixWorld)
+      const distance = terrainPoint.clone().sub(ray.origin).dot(normal) / denominator
+      if (!Number.isFinite(distance) || distance < 0) return
+      point = ray.at(distance, new THREE.Vector3())
+    }
+    hit.point.copy(point)
+    hit.distance = ray.origin.distanceTo(point)
   }
 
   /** Advances only the material subset currently referenced by visible PRBM terrain. */
@@ -700,7 +738,7 @@ function disposeLowresTexture(texture: THREE.Texture): void {
 }
 
 /** BlueMap lowres PNGs pack color in the top half and height/light metadata below it. */
-function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
+export function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
     {
@@ -750,6 +788,10 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
       uniform vec3 voidColor;
       varying vec2 vLocal;
       varying float vLight;
+      float heightFromMeta(vec4 meta) {
+        float unsignedHeight = meta.g * 65280.0 + meta.b * 255.0;
+        return unsignedHeight >= 32768.0 ? -(65535.0 - unsignedHeight) : unsignedHeight;
+      }
       #include <fog_pars_fragment>
       void main() {
         vec2 colorUv = vec2(vLocal.x / textureSize.x, min(vLocal.y, tileSize.y) / textureSize.y);

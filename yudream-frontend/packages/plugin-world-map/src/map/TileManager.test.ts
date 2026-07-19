@@ -86,4 +86,25 @@ describe('TileManager', () => {
     expect(hit?.point.toArray()).toEqual([0.25, 64, 0.25])
     manager.dispose()
   })
+
+  it('corrects a BlueMap overview hit to its metadata terrain height', () => {
+    const source: WorldMapSource = {
+      loadSettings: async () => settings,
+      loadAtlas: async () => new THREE.Texture(),
+      fetchHiresTile: async () => null,
+      lowresTileUrl: () => null,
+      fetchMarkers: async () => ({ markerSets: [] }),
+    }
+    const parent = new THREE.Group()
+    const manager = new TileManager(source, { ...settings, renderer: 'BLUEMAP' }, new THREE.MeshBasicMaterial(), new THREE.ShaderMaterial(), parent)
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
+    parent.getObjectByName('world-map-lowres')?.add(mesh)
+    const records = (manager as unknown as { lowres: Map<string, unknown> }).lowres
+    records.set('0,0,0', { mesh, heightSampler: () => 70 })
+    parent.updateMatrixWorld(true)
+
+    const hit = manager.raycastTerrain(new THREE.Raycaster(new THREE.Vector3(0, 200, 0), new THREE.Vector3(0, -1, 0)))
+    expect(hit?.point.toArray()).toEqual([0, 70, 0])
+    manager.dispose()
+  })
 })
