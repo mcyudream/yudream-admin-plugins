@@ -14,6 +14,7 @@ import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
 import { decodeLowresImage, releaseLowresImage } from './lowresImageDecode'
 import { BlueMapVisibleMaterials } from './blueMapVisibleMaterials'
 import { tileRequestPriority } from './tileRequestPriority'
+import type { TileLoadStatus } from './tileLoadStatus'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -589,6 +590,22 @@ export class TileManager {
   /** 排队中 + 加载中的 hires tile 数 */
   get pendingCount(): number {
     return this.queue.length + this.inFlight + this.lowresQueue.length + this.lowresInFlight
+  }
+
+  /** Breakdown for UI feedback; retrying entries are temporarily backed off after a transport failure. */
+  get loadStatus(): TileLoadStatus {
+    const now = performance.now()
+    let retrying = 0
+    for (const until of this.failedUntil.values()) {
+      if (until > now) retrying += 1
+    }
+    return {
+      hiresQueued: this.queue.length,
+      hiresLoading: this.inFlight,
+      lowresQueued: this.lowresQueue.length,
+      lowresLoading: this.lowresInFlight,
+      retrying,
+    }
   }
 
   /** Whether a currently visible PRBM mesh references a decoded animated material. */

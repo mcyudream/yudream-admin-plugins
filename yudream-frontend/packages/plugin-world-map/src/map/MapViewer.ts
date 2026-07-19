@@ -15,6 +15,8 @@ import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
 import { renderPixelRatio } from './renderPixelRatio'
 import { releaseLowresImage } from './lowresImageDecode'
+import { EMPTY_TILE_LOAD_STATUS } from './tileLoadStatus'
+import type { TileLoadStatus } from './tileLoadStatus'
 import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
 
@@ -265,6 +267,10 @@ export class MapViewer {
   /** 正在加载/排队中的 hires tile 数（加载进度指示用） */
   get pendingTiles(): number {
     return this.tileManager?.pendingCount ?? 0
+  }
+
+  get tileLoadStatus(): TileLoadStatus {
+    return this.tileManager?.loadStatus ?? EMPTY_TILE_LOAD_STATUS
   }
 
   /** 截取当前画面并下载 PNG */

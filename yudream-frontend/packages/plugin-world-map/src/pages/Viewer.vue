@@ -24,13 +24,14 @@ const {
   layerVisibility,
   selectedMarker,
   mock,
-  pendingTiles,
+  tileLoadingMessage,
   isFullscreen,
   screenshot,
   toggleFullscreen,
   setLayerVisible,
   focusSelectedMarker,
   resetToSpawn,
+  retryCurrentMap,
 } = useWorldMapViewer(props.sdk, props.route)
 
 function toggleCameraMode() {
@@ -115,8 +116,8 @@ function setContainer(el: unknown) {
       </div>
 
       <div class="world-map-toolbar-status">
-        <span v-if="pendingTiles > 0" class="world-map-toolbar-pending">
-          瓦片加载中 {{ pendingTiles }}
+        <span v-if="tileLoadingMessage" class="world-map-toolbar-pending">
+          {{ tileLoadingMessage }}
         </span>
 
         <span class="world-map-toolbar-coords">
@@ -150,7 +151,10 @@ function setContainer(el: unknown) {
     </div>
 
     <div v-if="loading" class="world-map-overlay">地图加载中……</div>
-    <div v-else-if="error" class="world-map-overlay">{{ error }}</div>
+    <div v-else-if="error" class="world-map-overlay world-map-error">
+      <span>{{ error }}</span>
+      <FaButton size="sm" variant="outline" @click="retryCurrentMap">重试</FaButton>
+    </div>
     <div v-else-if="viewMode === 'flat'" class="world-map-hint">
       拖拽平移，滚轮或双指缩放
     </div>

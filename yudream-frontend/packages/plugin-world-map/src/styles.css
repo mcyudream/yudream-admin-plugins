@@ -133,6 +133,14 @@
   pointer-events: none;
 }
 
+.world-map-error {
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  pointer-events: auto;
+}
+
 .world-map-hint {
   position: absolute;
   bottom: 12px;

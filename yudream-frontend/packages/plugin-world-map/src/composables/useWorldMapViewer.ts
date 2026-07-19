@@ -7,6 +7,8 @@ import { createMockMapSource } from '../map/mock'
 import type { CameraMode, MapViewMode } from '../map/types'
 import type { MapMarker, MapMarkerSet, MapSummary } from '../types'
 import { layerVisibilityFromHash, mapIdFromHash, viewerHash } from '../map/viewerHash'
+import { EMPTY_TILE_LOAD_STATUS, tileLoadMessage } from '../map/tileLoadStatus'
+import type { TileLoadStatus } from '../map/tileLoadStatus'
 
 /** Viewer 页编排：引擎生命周期 + 地图列表 + 工具条状态 */
 export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded) {
@@ -43,6 +45,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   let viewer: MapViewer | null = null
   let loadSeq = 0
   const pendingTiles = ref(0)
+  const currentTileLoadStatus = ref<TileLoadStatus>(EMPTY_TILE_LOAD_STATUS)
+  const tileLoadingMessage = computed(() => tileLoadMessage(currentTileLoadStatus.value))
   const isFullscreen = ref(false)
   let pendingTimer: ReturnType<typeof setInterval> | null = null
   let hashWriteTimer: ReturnType<typeof setTimeout> | null = null
@@ -159,6 +163,12 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     }
   }
 
+  function retryCurrentMap(): void {
+    if (currentMapId.value) {
+      void loadCurrentMap()
+    }
+  }
+
   async function boot(): Promise<void> {
     if (!container.value) {
       return
@@ -189,6 +199,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     // 轮询 tile 加载进度（轻量，500ms）
     pendingTimer = setInterval(() => {
       pendingTiles.value = viewer?.pendingTiles ?? 0
+      currentTileLoadStatus.value = viewer?.tileLoadStatus ?? EMPTY_TILE_LOAD_STATUS
     }, 500)
     document.addEventListener('fullscreenchange', onFullscreenChange)
 
@@ -266,11 +277,13 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     selectedMarker,
     mock,
     pendingTiles,
+    tileLoadingMessage,
     isFullscreen,
     screenshot,
     toggleFullscreen,
     setLayerVisible,
     focusSelectedMarker,
     resetToSpawn,
+    retryCurrentMap,
   }
 }
