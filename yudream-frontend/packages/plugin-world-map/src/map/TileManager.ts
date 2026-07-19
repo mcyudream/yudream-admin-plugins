@@ -15,6 +15,7 @@ import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
 import { decodeLowresImage, releaseLowresImage } from './lowresImageDecode'
 import { BlueMapVisibleMaterials } from './blueMapVisibleMaterials'
 import { tileRequestPriority } from './tileRequestPriority'
+import { shouldRetainHiresTile } from './hiresTileLifecycle'
 import type { TileLoadStatus } from './tileLoadStatus'
 
 interface HiresRecord {
@@ -41,7 +42,6 @@ interface TileRequest {
   key: string
   tx: number
   tz: number
-  epoch: number
   priority: number
 }
 
@@ -91,7 +91,6 @@ export class TileManager {
   private frame = 0
   private centerTx = 0
   private centerTz = 0
-  private viewEpoch = 0
   private desired = new Set<string>()
   private dayFactor = 1
   private blueMapHiresEnabled = true
@@ -127,7 +126,6 @@ export class TileManager {
     if (nextCenterTx !== this.centerTx || nextCenterTz !== this.centerTz) {
       this.centerTx = nextCenterTx
       this.centerTz = nextCenterTz
-      this.viewEpoch += 1
     }
     const desired = new Set<string>()
 
@@ -195,7 +193,9 @@ export class TileManager {
       this.inFlight += 1
       this.source.fetchHiresTile(tx, tz, controller.signal)
         .then(async (tile) => {
-          if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
+          // A move may change the center tile while this request remains inside the new visible
+          // disk. Retain that useful work instead of making every tile stale by view generation.
+          if (!shouldRetainHiresTile(this.disposed, this.desired.has(key))) {
             return
           }
           if (!tile || (!(tile instanceof ArrayBuffer) && tile.positions.length === 0)) {
@@ -207,7 +207,7 @@ export class TileManager {
           const mesh = tile instanceof ArrayBuffer
             ? await this.buildPrbmMesh(tile, this.material, tx, tz)
             : this.buildMesh(tile, this.material)
-          if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
+          if (!shouldRetainHiresTile(this.disposed, this.desired.has(key))) {
             mesh.geometry.dispose()
             return
           }
@@ -261,7 +261,7 @@ export class TileManager {
       this.queue.splice(worst, 1)
     }
     this.queued.add(key)
-    this.queue.push({ key, tx, tz, epoch: this.viewEpoch, priority })
+    this.queue.push({ key, tx, tz, priority })
     this.queue.sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
   }
 
