@@ -13,6 +13,8 @@ export function createWorldMapApi(sdk: YuDreamPluginSdk) {
       sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/tiles/hires/${tx}/${tz}`),
     lowresTileUrl: (mapId: string, generationId: string, lod: number, tx: number, tz: number) =>
       sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/tiles/lowres/${lod}/${tx}/${tz}`),
+    blueMapTexturesUrl: (mapId: string, generationId: string) =>
+      sdk.http.url(`/maps/${encodeURIComponent(mapId)}/generations/${encodeURIComponent(generationId)}/textures.json`),
   }
 }
 
@@ -44,6 +46,15 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       texture.anisotropy = 8
       texture.colorSpace = THREE.SRGBColorSpace
       return texture
+    },
+    async loadBlueMapTextures() {
+      const settings = await loadSettings()
+      if (settings.renderer !== 'BLUEMAP' || !settings.blueMapTexturesUrl) {
+        throw new Error('Map generation does not use BlueMap textures')
+      }
+      const response = await fetch(api.blueMapTexturesUrl(mapId, generationId))
+      if (!response.ok) throw new Error(`BlueMap textures: HTTP ${response.status}`)
+      return response.json()
     },
     async fetchHiresTile(tx, tz, signal) {
       // gzip JSON：浏览器 fetch 自动处理 Content-Encoding: gzip

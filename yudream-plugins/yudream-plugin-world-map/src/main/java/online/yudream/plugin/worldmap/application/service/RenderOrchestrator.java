@@ -19,6 +19,9 @@ import online.yudream.plugin.worldmap.infrastructure.render.WorldMapRenderer;
 import online.yudream.plugin.worldmap.infrastructure.storage.TileStorage;
 import online.yudream.plugin.worldmap.infrastructure.world.WorldArchive;
 import online.yudream.plugin.worldmap.infrastructure.world.WorldTileManifest;
+import online.yudream.plugin.worldmap.infrastructure.render.bluemap.BlueMapRenderConfiguration;
+import online.yudream.plugin.worldmap.infrastructure.render.bluemap.BlueMapRenderConfigurationResolver;
+import online.yudream.plugin.worldmap.infrastructure.render.bluemap.BlueMapRenderEngineAdapter;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,6 +57,8 @@ public class RenderOrchestrator implements AutoCloseable {
     private final WorldMapRenderer renderer;
     private final WorldMapEventStream eventStream;
     private final GenerationPublisher generationPublisher;
+    private final BlueMapRenderConfigurationResolver blueMapConfigurationResolver;
+    private final BlueMapRenderEngineAdapter blueMapRenderer;
     private final WorldMapAppAssembler assembler = new WorldMapAppAssembler();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "world-map-render");
@@ -86,6 +91,8 @@ public class RenderOrchestrator implements AutoCloseable {
         this.renderer = renderer;
         this.eventStream = eventStream;
         this.generationPublisher = generationPublisher;
+        this.blueMapConfigurationResolver = new BlueMapRenderConfigurationResolver();
+        this.blueMapRenderer = new BlueMapRenderEngineAdapter();
         recoverStaleTasks();
     }
 
@@ -180,7 +187,8 @@ public class RenderOrchestrator implements AutoCloseable {
                     map.isStripNetherCeiling(), manifest
             );
             ThrottledProgress throttledProgress = new ThrottledProgress(task);
-            RenderSummary summary = renderer.render(job, new StorageTileSink(generation), throttledProgress);
+            java.util.Optional<BlueMapRenderConfiguration> blueMap = blueMapConfigurationResolver.resolve(framework);
+            RenderSummary summary = render(job, map, workDir, generation, blueMap, throttledProgress);
             throttledProgress.flush();
 
             if (isCancelled(task.getId()) || Thread.currentThread().isInterrupted()) {
@@ -196,7 +204,7 @@ public class RenderOrchestrator implements AutoCloseable {
                 }
                 task.advance(summary.hiresTiles(), summary.hiresTiles(), "渲染完成");
                 updatePhase(task, RenderPhase.PUBLISH, 0, "Publishing render output");
-                generationPublisher.publish(map, generation);
+                generationPublisher.publish(map, generation, blueMap.isPresent() ? "BLUEMAP" : "YUDREAM");
                 map.markReady(summary.hiresTiles(), summary.lowresTiles());
                 mapRepo.save(map);
                 updatePhase(task, RenderPhase.PUBLISH, 100, "Render output published");
@@ -287,6 +295,14 @@ public class RenderOrchestrator implements AutoCloseable {
         task.advancePhase(phase, percent, message);
         taskRepo.save(task);
         publish(task);
+    }
+
+    private RenderSummary render(RenderJob job, MapInstance map, Path workDir, MapGeneration generation,
+                                 java.util.Optional<BlueMapRenderConfiguration> blueMap, ThrottledProgress progress) throws IOException {
+        if (blueMap.isPresent()) {
+            return blueMapRenderer.render(job, map.getId(), workDir, generation, generationPublisher, blueMap.get(), progress);
+        }
+        return renderer.render(job, new StorageTileSink(generation), progress);
     }
 
     private void discard(MapGeneration generation) {

@@ -51,6 +51,21 @@ class GenerationPublisherTest {
         assertTrue(store.files.containsKey(TileStorage.atlasKey(map.getId(), staging.id())));
     }
 
+    @Test
+    void blueMapGenerationRequiresTexturesMetadataInsteadOfAnAtlas() {
+        InMemoryFileStore store = new InMemoryFileStore();
+        GenerationPublisher publisher = new GenerationPublisher(new TileStorage(store));
+        MapInstance map = new MapInstance("map-1", "Example", "overworld");
+        MapGeneration staging = publisher.stage(map.getId());
+
+        assertThrows(IllegalStateException.class, () -> publisher.publish(map, staging, "BLUEMAP"));
+        publisher.saveBlueMapTextures(staging, "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        publisher.publish(map, staging, "BLUEMAP");
+
+        assertEquals("BLUEMAP", map.getActiveRenderer());
+        assertEquals(staging.id(), map.getActiveGenerationId());
+    }
+
     private static final class InMemoryFileStore implements PluginFileStore {
         private final Map<String, byte[]> files = new HashMap<>();
 

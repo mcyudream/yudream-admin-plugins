@@ -26,6 +26,8 @@ public class MapInstance {
     private String worldZipKey;
     private String clientJarKey;
     private String activeGenerationId;
+    /** Renderer format of the active generation. Kept with the map pointer so old generations remain readable. */
+    private String activeRenderer = "YUDREAM";
     private long createdAt;
     private long renderedAt;
     private String message;
@@ -102,6 +104,8 @@ public class MapInstance {
     public void setClientJarKey(String clientJarKey) { this.clientJarKey = clientJarKey; }
     public String getActiveGenerationId() { return activeGenerationId; }
     public void setActiveGenerationId(String activeGenerationId) { this.activeGenerationId = activeGenerationId; }
+    public String getActiveRenderer() { return activeRenderer; }
+    public void setActiveRenderer(String activeRenderer) { this.activeRenderer = activeRenderer == null || activeRenderer.isBlank() ? "YUDREAM" : activeRenderer; }
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
     public long getRenderedAt() { return renderedAt; }

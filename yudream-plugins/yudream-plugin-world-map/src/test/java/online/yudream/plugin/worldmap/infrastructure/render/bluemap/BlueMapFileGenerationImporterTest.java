@@ -18,6 +18,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BlueMapFileGenerationImporterTest {
 
@@ -33,6 +34,8 @@ class BlueMapFileGenerationImporterTest {
         }
         Path lowres = Files.createDirectories(output.resolve("tiles/2/x0/z-1"));
         Files.write(lowres.resolve("x0z-1.png"), new byte[]{1, 2, 3});
+        byte[] textures = "[{\"color\":[1,1,1,1],\"texture\":\"data:image/png;base64,AA==\"}]".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(output.resolve("textures.json"), textures);
 
         InMemoryFileStore store = new InMemoryFileStore();
         GenerationPublisher publisher = new GenerationPublisher(new TileStorage(store));
@@ -43,6 +46,17 @@ class BlueMapFileGenerationImporterTest {
         assertEquals(1, summary.lowresTiles());
         assertArrayEquals(prbm, store.files.get(TileStorage.blueMapHiresKey("map-1", generation.id(), -1, 2)));
         assertArrayEquals(new byte[]{1, 2, 3}, store.files.get(TileStorage.lowresKey("map-1", generation.id(), 2, 0, -1)));
+        assertArrayEquals(textures, store.files.get(TileStorage.blueMapTexturesKey("map-1", generation.id())));
+    }
+
+    @Test
+    void rejectsOutputWithoutTheMaterialMetadataRequiredByPrbmGroups() throws Exception {
+        Path hires = Files.createDirectories(output.resolve("tiles/0/x0/z0"));
+        Files.write(hires.resolve("x0z0.prbm"), new byte[]{1, 7, 0, 0, 0, 0, 0, 0});
+        GenerationPublisher publisher = new GenerationPublisher(new TileStorage(new InMemoryFileStore()));
+
+        assertThrows(java.io.IOException.class,
+                () -> new BlueMapFileGenerationImporter().importStorage(output, publisher.stage("map-1"), publisher));
     }
 
     private static final class InMemoryFileStore implements PluginFileStore {

@@ -15,6 +15,8 @@ public record MapSettingsDTO(
         int lowresMaxLod,
         String generationId,
         String atlasUrl,
+        String renderer,
+        String blueMapTexturesUrl,
         long renderedAt
 ) {
     public record Spawn(int x, int y, int z) {

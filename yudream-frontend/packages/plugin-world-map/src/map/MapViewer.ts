@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { FlyController } from './controls/FlyController'
 import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
+import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials } from '../bluemap-adapter/BlueMapMaterials'
 import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
 import type { MapMarkerSet } from '../types'
@@ -40,6 +41,7 @@ export class MapViewer {
   private tileManager: TileManager | null = null
   private material: THREE.ShaderMaterial | null = null
   private translucentMaterial: THREE.ShaderMaterial | null = null
+  private blueMapMaterials: THREE.ShaderMaterial[] | null = null
   private atlas: THREE.Texture | null = null
   private source: WorldMapSource | null = null
   private rafId: number | null = null
@@ -87,6 +89,8 @@ export class MapViewer {
     this.material = null
     this.translucentMaterial?.dispose()
     this.translucentMaterial = null
+    if (this.blueMapMaterials) disposeBlueMapMaterials(this.blueMapMaterials)
+    this.blueMapMaterials = null
     this.atlas?.dispose()
     this.atlas = null
 
@@ -94,16 +98,27 @@ export class MapViewer {
     if (this.disposed || this.source !== source) {
       return
     }
-    const atlas = await source.loadAtlas()
-    if (this.disposed || this.source !== source) {
-      atlas.dispose()
-      return
+    if (settings.renderer === 'BLUEMAP') {
+      if (!source.loadBlueMapTextures) throw new Error('BlueMap textures are not available from this source')
+      const materials = await createBlueMapMaterials(await source.loadBlueMapTextures())
+      if (this.disposed || this.source !== source) {
+        disposeBlueMapMaterials(materials)
+        return
+      }
+      this.blueMapMaterials = materials
+    } else {
+      const atlas = await source.loadAtlas()
+      if (this.disposed || this.source !== source) {
+        atlas.dispose()
+        return
+      }
+      this.atlas = atlas
+      this.material = createTerrainMaterial(atlas)
+      this.translucentMaterial = createTranslucentTerrainMaterial(atlas)
     }
-    this.atlas = atlas
-    this.material = createTerrainMaterial(atlas)
-    this.translucentMaterial = createTranslucentTerrainMaterial(atlas)
     this.applyTimeOfDay()
-    this.tileManager = new TileManager(source, settings, this.material, this.translucentMaterial, this.scene, {
+    this.tileManager = new TileManager(source, settings, this.blueMapMaterials ?? this.material!,
+      this.translucentMaterial ?? this.blueMapMaterials![0]!, this.scene, {
       hiresRadius: this.options.hiresRadius,
       maxConcurrent: this.options.maxConcurrent,
       onChanged: this.requestRender,
@@ -211,6 +226,9 @@ export class MapViewer {
     if (this.translucentMaterial) {
       applyDayFactor(this.translucentMaterial, dayFactor)
     }
+    if (this.blueMapMaterials) {
+      applyBlueMapDayFactor(this.blueMapMaterials, dayFactor)
+    }
   }
 
   private requestRender = (): void => {
@@ -272,6 +290,7 @@ export class MapViewer {
     this.markerLayer.dispose()
     this.material?.dispose()
     this.translucentMaterial?.dispose()
+    if (this.blueMapMaterials) disposeBlueMapMaterials(this.blueMapMaterials)
     this.atlas?.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()

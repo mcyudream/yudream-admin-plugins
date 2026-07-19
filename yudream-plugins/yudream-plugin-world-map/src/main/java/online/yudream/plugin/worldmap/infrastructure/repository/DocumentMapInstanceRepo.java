@@ -65,6 +65,7 @@ public class DocumentMapInstanceRepo implements MapInstanceRepo {
         doc.put("worldZipKey", map.getWorldZipKey());
         doc.put("clientJarKey", map.getClientJarKey());
         doc.put("activeGenerationId", map.getActiveGenerationId());
+        doc.put("activeRenderer", map.getActiveRenderer());
         doc.put("createdAt", map.getCreatedAt());
         doc.put("renderedAt", map.getRenderedAt());
         doc.put("message", map.getMessage());
@@ -94,6 +95,7 @@ public class DocumentMapInstanceRepo implements MapInstanceRepo {
         map.setWorldZipKey(stringValue(doc.get("worldZipKey"), null));
         map.setClientJarKey(stringValue(doc.get("clientJarKey"), null));
         map.setActiveGenerationId(stringValue(doc.get("activeGenerationId"), null));
+        map.setActiveRenderer(stringValue(doc.get("activeRenderer"), "YUDREAM"));
         map.setCreatedAt(longValue(doc.get("createdAt")));
         map.setRenderedAt(longValue(doc.get("renderedAt")));
         map.setMessage(stringValue(doc.get("message"), null));

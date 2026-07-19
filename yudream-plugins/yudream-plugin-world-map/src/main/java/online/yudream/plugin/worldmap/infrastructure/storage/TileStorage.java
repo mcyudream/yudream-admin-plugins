@@ -86,6 +86,10 @@ public final class TileStorage {
         return Optional.ofNullable(store.get(atlasKey(mapId, generationId)));
     }
 
+    public Optional<PluginStoredFile> blueMapTextures(String mapId, String generationId) {
+        return Optional.ofNullable(store.get(blueMapTexturesKey(mapId, generationId)));
+    }
+
     // ---------- 透传（供上层按自有 key 存取） ----------
 
     /** 按完整 key 写入。 */
@@ -146,6 +150,10 @@ public final class TileStorage {
 
     public static String atlasKey(String mapId, String generationId) {
         return generationPrefix(mapId, generationId) + "/textures/atlas.png";
+    }
+
+    public static String blueMapTexturesKey(String mapId, String generationId) {
+        return generationPrefix(mapId, generationId) + "/textures.json";
     }
 
     private static String generationPrefix(String mapId, String generationId) {

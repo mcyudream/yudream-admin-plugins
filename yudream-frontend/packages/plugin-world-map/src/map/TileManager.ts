@@ -67,7 +67,7 @@ export class TileManager {
     private readonly source: WorldMapSource,
     private readonly settings: MapSettings,
     /** 共享地形材质，由 MapViewer 持有与释放，这里不 dispose */
-    private readonly material: THREE.ShaderMaterial,
+    private readonly material: THREE.Material | THREE.Material[],
     /** 共享半透明地形材质（水面等），同样由 MapViewer 持有与释放 */
     private readonly translucentMaterial: THREE.ShaderMaterial,
     parent: THREE.Object3D,
@@ -246,7 +246,7 @@ export class TileManager {
     return Math.min(30_000, 1_000 * 2 ** Math.min(failures - 1, 5))
   }
 
-  private buildMesh(tile: HiresTileGeometry, material: THREE.ShaderMaterial): THREE.Mesh {
+  private buildMesh(tile: HiresTileGeometry, material: THREE.Material | THREE.Material[]): THREE.Mesh {
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(tile.positions, 3))
     // 顶点数可能超过 65535，setIndex(number[]) 会自动选用 Uint32
@@ -263,7 +263,7 @@ export class TileManager {
     return mesh
   }
 
-  private buildPrbmMesh(data: ArrayBuffer, material: THREE.ShaderMaterial): THREE.Mesh {
+  private buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[]): THREE.Mesh {
     const mesh = new THREE.Mesh(decodePrbm(data), material)
     mesh.matrixAutoUpdate = false
     return mesh

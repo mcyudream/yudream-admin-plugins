@@ -28,6 +28,10 @@ export interface MapSettings {
   generationId: string
   /** 相对 /maps/{id}/ 的 atlas 路径，如 textures/atlas.png */
   atlasUrl: string
+  /** Active generation geometry and texture contract. Older generations omit this and use YUDREAM. */
+  renderer?: 'YUDREAM' | 'BLUEMAP'
+  /** BlueMap v5 textures.json, set only for BLUEMAP generations. */
+  blueMapTexturesUrl?: string | null
   renderedAt?: number
 }
 

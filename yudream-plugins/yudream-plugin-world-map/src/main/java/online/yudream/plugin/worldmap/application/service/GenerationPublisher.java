@@ -49,14 +49,27 @@ public final class GenerationPublisher {
         track(generation, key);
     }
 
+    public void saveBlueMapTextures(MapGeneration generation, byte[] data) {
+        String key = TileStorage.blueMapTexturesKey(generation.mapId(), generation.id());
+        storage.put(key, data, "application/json");
+        track(generation, key);
+    }
+
     public void publish(MapInstance map, MapGeneration generation) {
+        publish(map, generation, "YUDREAM");
+    }
+
+    public void publish(MapInstance map, MapGeneration generation, String renderer) {
         if (!map.getId().equals(generation.mapId())) {
             throw new IllegalArgumentException("Generation does not belong to the map");
         }
-        if (storage.atlas(generation.mapId(), generation.id()).isEmpty()) {
-            throw new IllegalStateException("Render generation is missing its atlas");
+        boolean blueMap = "BLUEMAP".equals(renderer);
+        if (blueMap ? storage.blueMapTextures(generation.mapId(), generation.id()).isEmpty()
+                : storage.atlas(generation.mapId(), generation.id()).isEmpty()) {
+            throw new IllegalStateException("Render generation is missing its renderer textures");
         }
         map.setActiveGenerationId(generation.id());
+        map.setActiveRenderer(blueMap ? "BLUEMAP" : "YUDREAM");
         stagedKeys.remove(generation.id());
     }
 

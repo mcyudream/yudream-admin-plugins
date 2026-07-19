@@ -93,6 +93,13 @@ public class PublicMapController {
         return tileResponse(tileStorage.atlas(segments[2], segments[4]), "image/png", false);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/textures.json")
+    public PluginHttpResponse generationBlueMapTextures(PluginHttpRequest request) {
+        requireGet(request);
+        String[] segments = request.path().split("/");
+        return tileResponse(tileStorage.blueMapTextures(segments[2], segments[4]), "application/json", false);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/markers")
     public PluginHttpResponse markers(PluginHttpRequest request) {
         requireGet(request);

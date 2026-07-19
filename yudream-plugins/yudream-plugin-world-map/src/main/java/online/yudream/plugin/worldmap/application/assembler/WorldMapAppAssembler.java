@@ -35,6 +35,9 @@ public class WorldMapAppAssembler {
                 4,
                 map.getActiveGenerationId(),
                 "generations/" + map.getActiveGenerationId() + "/textures/atlas.png",
+                map.getActiveRenderer(),
+                "BLUEMAP".equals(map.getActiveRenderer())
+                        ? "generations/" + map.getActiveGenerationId() + "/textures.json" : null,
                 map.getRenderedAt()
         );
     }

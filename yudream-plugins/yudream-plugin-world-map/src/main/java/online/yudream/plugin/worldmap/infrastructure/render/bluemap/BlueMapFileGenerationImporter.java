@@ -28,6 +28,7 @@ public final class BlueMapFileGenerationImporter {
             throw new IOException("BlueMap output does not contain a tile storage directory");
         }
         int hires = importHires(tiles.resolve("0"), generation, publisher);
+        publisher.saveBlueMapTextures(generation, readTextures(root));
         int lowres = 0;
         try (Stream<Path> levels = Files.list(tiles)) {
             for (Path level : levels.filter(Files::isDirectory).toList()) {
@@ -45,6 +46,18 @@ public final class BlueMapFileGenerationImporter {
             }
         }
         return new BlueMapImportSummary(hires, lowres);
+    }
+
+    private byte[] readTextures(Path root) throws IOException {
+        Path plain = root.resolve("textures.json");
+        Path gzip = root.resolve("textures.json.gz");
+        if (Files.isRegularFile(plain)) return readLimited(Files.newInputStream(plain));
+        if (Files.isRegularFile(gzip)) {
+            try (InputStream input = new GZIPInputStream(Files.newInputStream(gzip))) {
+                return readLimited(input);
+            }
+        }
+        throw new IOException("BlueMap output does not contain textures.json");
     }
 
     private int importHires(Path root, MapGeneration generation, GenerationPublisher publisher) throws IOException {
