@@ -12,6 +12,7 @@ import type { MapMarker, MapMarkerSet } from '../types'
 import { TileManager } from './TileManager'
 import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
+import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
 
 export interface MapViewerOptions {
   /** 相机位置变化回调（节流至约 10Hz），用于坐标显示 */
@@ -56,6 +57,7 @@ export class MapViewer {
   private atlas: THREE.Texture | null = null
   private source: WorldMapSource | null = null
   private rafId: number | null = null
+  private backgroundRenderTimer: number | null = null
   private lastTime = performance.now()
   private frameCounter = 0
   private timeOfDay = 0.5
@@ -91,13 +93,14 @@ export class MapViewer {
 
     this.markerLayer = new MarkerLayer(this.scene)
     this.renderer.domElement.addEventListener('click', this.onCanvasClick)
+    document.addEventListener('visibilitychange', this.onVisibilityChange)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
     this.resize()
 
     this.applyTimeOfDay()
-    this.requestRender()
+    this.forceRender()
   }
 
   /** 切换地图数据源：加载 settings + atlas，重建 tile 调度，相机定位到 spawn 上方斜视 45° */
@@ -170,7 +173,7 @@ export class MapViewer {
     this.flatCamera.lookAt(x, y, z)
     this.flatOrbit.controls.target.set(x, y, z)
     this.flatOrbit.controls.update()
-    this.requestRender()
+    this.forceRender()
   }
 
   setCameraMode(mode: CameraMode): void {
@@ -333,9 +336,61 @@ export class MapViewer {
   }
 
   private requestRender = (): void => {
+    if (this.backgroundRenderTimer !== null) {
+      window.clearTimeout(this.backgroundRenderTimer)
+      this.backgroundRenderTimer = null
+    }
+    if (!this.disposed && this.isPageVisible && this.rafId === null) {
+      this.rafId = requestAnimationFrame(this.renderFrame)
+    }
+  }
+
+  /** Source initialization must draw once even if a browser has temporarily hidden this tab. */
+  private forceRender(): void {
+    if (this.backgroundRenderTimer !== null) {
+      window.clearTimeout(this.backgroundRenderTimer)
+      this.backgroundRenderTimer = null
+    }
+    if (this.disposed || this.rafId !== null) {
+      return
+    }
+    if (!this.isPageVisible) {
+      // Browsers may suppress RAF entirely for a newly-created background tab. Run the one
+      // initialization frame synchronously so tile requests are not stranded until activation.
+      this.renderFrame()
+      return
+    }
     if (!this.disposed && this.rafId === null) {
       this.rafId = requestAnimationFrame(this.renderFrame)
     }
+  }
+
+  /** Keeps background work at Minecraft's 20 TPS while input-driven camera changes remain immediate. */
+  private scheduleBackgroundRender(): void {
+    if (this.disposed || !this.isPageVisible || this.rafId !== null || this.backgroundRenderTimer !== null) {
+      return
+    }
+    this.backgroundRenderTimer = window.setTimeout(() => {
+      this.backgroundRenderTimer = null
+      this.requestRender()
+    }, BACKGROUND_FRAME_INTERVAL_MS)
+  }
+
+  private onVisibilityChange = (): void => {
+    if (!this.isPageVisible) {
+      if (this.rafId !== null) {
+        cancelAnimationFrame(this.rafId)
+        this.rafId = null
+      }
+      if (this.backgroundRenderTimer !== null) {
+        window.clearTimeout(this.backgroundRenderTimer)
+        this.backgroundRenderTimer = null
+      }
+      return
+    }
+    // Do not apply a long background-tab delta to fly movement or texture interpolation.
+    this.lastTime = performance.now()
+    this.forceRender()
   }
 
   private onCanvasClick = (event: MouseEvent): void => {
@@ -361,8 +416,15 @@ export class MapViewer {
     this.tileManager?.update(this.camera, controller.target)
     this.renderer.render(this.scene, this.camera)
 
-    if (controllerMoving || this.tileManager?.pendingCount || this.tileManager?.hasActiveAnimations) {
+    if (controllerMoving) {
       this.requestRender()
+    }
+    else if (needsBackgroundRender({
+      pendingTiles: this.tileManager?.pendingCount ?? 0,
+      animatedMaterials: this.tileManager?.hasActiveAnimations ?? false,
+      pageVisible: this.isPageVisible,
+    })) {
+      this.scheduleBackgroundRender()
     }
 
     this.frameCounter += 1
@@ -399,8 +461,13 @@ export class MapViewer {
       cancelAnimationFrame(this.rafId)
       this.rafId = null
     }
+    if (this.backgroundRenderTimer !== null) {
+      window.clearTimeout(this.backgroundRenderTimer)
+      this.backgroundRenderTimer = null
+    }
     this.resizeObserver.disconnect()
     this.renderer.domElement.removeEventListener('click', this.onCanvasClick)
+    document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.orbit.controls.removeEventListener('change', this.requestRender)
     this.flatOrbit.controls.removeEventListener('change', this.requestRender)
     this.orbit.dispose()
@@ -418,6 +485,10 @@ export class MapViewer {
 
   private get camera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
     return this.viewMode === 'flat' ? this.flatCamera : this.perspectiveCamera
+  }
+
+  private get isPageVisible(): boolean {
+    return document.visibilityState !== 'hidden'
   }
 
   private get controller(): FlyController | OrbitController {

@@ -6,6 +6,7 @@ import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from '../bl
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
+import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -384,11 +385,15 @@ export class TileManager {
             texture.dispose()
             return
           }
-          texture.colorSpace = THREE.SRGBColorSpace
-          texture.magFilter = this.settings.renderer === 'BLUEMAP' ? THREE.NearestFilter : THREE.LinearFilter
-          texture.minFilter = this.settings.renderer === 'BLUEMAP' ? THREE.NearestFilter : THREE.LinearFilter
-          texture.generateMipmaps = false
-          texture.flipY = this.settings.renderer !== 'BLUEMAP'
+          if (this.settings.renderer === 'BLUEMAP') {
+            configureBlueMapLowresTexture(texture)
+          } else {
+            texture.colorSpace = THREE.SRGBColorSpace
+            texture.magFilter = THREE.LinearFilter
+            texture.minFilter = THREE.LinearFilter
+            texture.generateMipmaps = false
+            texture.flipY = true
+          }
           record.texture = texture
           if (material instanceof THREE.ShaderMaterial) {
             material.uniforms.textureImage.value = texture
