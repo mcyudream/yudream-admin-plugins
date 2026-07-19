@@ -50,6 +50,7 @@ export class MapViewer {
   private readonly fly: FlyController
   private readonly markerLayer: MarkerLayer
   private readonly resizeObserver: ResizeObserver
+  private readonly terrainRaycaster = new THREE.Raycaster()
   private mode: CameraMode = 'orbit'
   private viewMode: MapViewMode = 'perspective'
   private readonly perspectiveOffset = new THREE.Vector3(60, 85, 60)
@@ -102,6 +103,7 @@ export class MapViewer {
 
     this.markerLayer = new MarkerLayer(this.scene)
     this.renderer.domElement.addEventListener('click', this.onCanvasClick)
+    this.renderer.domElement.addEventListener('dblclick', this.onCanvasDoubleClick)
     this.renderer.domElement.addEventListener('pointerdown', this.focusCanvas)
     document.addEventListener('visibilitychange', this.onVisibilityChange)
 
@@ -270,7 +272,7 @@ export class MapViewer {
   }
 
   /** Centers the active view on a world coordinate while retaining its current orientation and scale. */
-  focusPosition(position: { x: number, y?: number, z: number }, minimumOrbitDistance = 0): boolean {
+  focusPosition(position: { x: number, y?: number, z: number }, minimumOrbitDistance = 0, orbitDistance?: number): boolean {
     if (!Number.isFinite(position.x) || !Number.isFinite(position.z)) {
       return false
     }
@@ -284,8 +286,10 @@ export class MapViewer {
     }
     else if (this.mode === 'orbit') {
       const offset = this.perspectiveCamera.position.clone().sub(this.orbit.controls.target)
-      if (minimumOrbitDistance > 0 && offset.length() < minimumOrbitDistance) {
-        offset.normalize().multiplyScalar(minimumOrbitDistance)
+      const desiredDistance = orbitDistance ?? Math.max(offset.length(), minimumOrbitDistance)
+      if (desiredDistance > 0 && Math.abs(offset.length() - desiredDistance) > 0.001) {
+        if (offset.lengthSq() < 0.0001) offset.copy(this.perspectiveOffset)
+        offset.normalize().multiplyScalar(desiredDistance)
       }
       this.orbit.controls.target.copy(target)
       this.perspectiveCamera.position.copy(target).add(offset)
@@ -460,6 +464,24 @@ export class MapViewer {
     this.options.onMarkerSelected(this.pickMarker(ndc.x, ndc.y))
   }
 
+  /** Matches BlueMap's double-click navigation without turning terrain hit testing into frame work. */
+  private onCanvasDoubleClick = (event: MouseEvent): void => {
+    if (this.mode !== 'orbit' || !this.tileManager) return
+    const bounds = this.renderer.domElement.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return
+    const ndc = canvasPointerToNdc(event.clientX, event.clientY, bounds)
+    this.terrainRaycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), this.camera)
+    const hit = this.tileManager.raycastTerrain(this.terrainRaycaster)
+    if (!hit) return
+    event.preventDefault()
+    if (this.viewMode === 'perspective') {
+      const distance = this.perspectiveCamera.position.distanceTo(this.orbit.controls.target)
+      this.focusPosition(hit.point, 12, Math.max(distance * 0.25, 12))
+      return
+    }
+    this.focusPosition(hit.point)
+  }
+
   /** Canvas-scoped keyboard navigation activates only after direct map interaction. */
   private focusCanvas = (): void => {
     this.renderer.domElement.focus({ preventScroll: true })
@@ -533,6 +555,7 @@ export class MapViewer {
     }
     this.resizeObserver.disconnect()
     this.renderer.domElement.removeEventListener('click', this.onCanvasClick)
+    this.renderer.domElement.removeEventListener('dblclick', this.onCanvasDoubleClick)
     this.renderer.domElement.removeEventListener('pointerdown', this.focusCanvas)
     document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.orbit.controls.removeEventListener('change', this.requestRender)

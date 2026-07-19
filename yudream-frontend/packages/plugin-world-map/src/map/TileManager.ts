@@ -628,6 +628,12 @@ export class TileManager {
     return hasActiveBlueMapAnimations(this.visibleBlueMapMaterials.values)
   }
 
+  /** Raycasts only currently loaded terrain; this is intentionally user-gesture driven, never per frame. */
+  raycastTerrain(raycaster: THREE.Raycaster): THREE.Intersection<THREE.Object3D> | null {
+    const intersections = raycaster.intersectObjects([this.group, this.lowresGroup], true)
+    return intersections.find(intersection => intersection.object.visible) ?? null
+  }
+
   /** Advances only the material subset currently referenced by visible PRBM terrain. */
   stepVisibleBlueMapAnimations(deltaMs: number): void {
     stepBlueMapAnimations(this.visibleBlueMapMaterials.values, deltaMs)

@@ -61,4 +61,29 @@ describe('TileManager', () => {
     expect(parent.getObjectByName('world-map-hires')?.children).toHaveLength(1)
     manager.dispose()
   })
+
+  it('raycasts only loaded terrain for direct map navigation', async () => {
+    const source: WorldMapSource = {
+      loadSettings: async () => settings,
+      loadAtlas: async () => new THREE.Texture(),
+      fetchHiresTile: async () => tile,
+      lowresTileUrl: () => null,
+      fetchMarkers: async () => ({ markerSets: [] }),
+    }
+    const parent = new THREE.Group()
+    const manager = new TileManager(source, settings, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), new THREE.ShaderMaterial(), parent, {
+      hiresRadius: 1,
+      maxConcurrent: 1,
+    })
+    const camera = new THREE.PerspectiveCamera()
+    camera.position.set(0, 80, 0)
+    manager.update(camera, new THREE.Vector3(0, 64, 0))
+    await Promise.resolve()
+    await Promise.resolve()
+    parent.updateMatrixWorld(true)
+
+    const hit = manager.raycastTerrain(new THREE.Raycaster(new THREE.Vector3(0.25, 80, 0.25), new THREE.Vector3(0, -1, 0)))
+    expect(hit?.point.toArray()).toEqual([0.25, 64, 0.25])
+    manager.dispose()
+  })
 })
