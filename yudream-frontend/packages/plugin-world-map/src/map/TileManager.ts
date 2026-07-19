@@ -8,6 +8,7 @@ import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolic
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
 import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
+import { shouldRetainLowresTexture } from './lowresTextureLifecycle'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -20,6 +21,7 @@ interface HiresRecord {
 interface LowresRecord {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.Material>
   texture: THREE.Texture | null
+  disposed: boolean
   /** 纹理加载失败（404 等）时保留底色平面 */
   failed: boolean
   lastUsed: number
@@ -390,13 +392,13 @@ export class TileManager {
     }
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
-    const record: LowresRecord = { mesh, texture: null, failed: false, lastUsed: this.frame }
+    const record: LowresRecord = { mesh, texture: null, disposed: false, failed: false, lastUsed: this.frame }
     const rawUrl = this.source.lowresTileUrl(lod, tx, tz)
     const url = rawUrl
     if (url) {
       this.loader.loadAsync(url)
         .then((texture) => {
-          if (this.disposed) {
+          if (!shouldRetainLowresTexture(this.disposed, record.disposed)) {
             texture.dispose()
             return
           }
@@ -449,7 +451,15 @@ export class TileManager {
   }
 
   private disposeLowres(record: LowresRecord): void {
+    if (record.disposed) return
+    record.disposed = true
     record.texture?.dispose()
+    record.texture = null
+    if (record.mesh.material instanceof THREE.ShaderMaterial) {
+      record.mesh.material.uniforms.textureImage.value = null
+    } else if (record.mesh.material instanceof THREE.MeshBasicMaterial) {
+      record.mesh.material.map = null
+    }
     record.mesh.geometry.dispose()
     record.mesh.material.dispose()
     record.mesh.removeFromParent()
