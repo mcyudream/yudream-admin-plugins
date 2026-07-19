@@ -55,6 +55,10 @@
   gap: 6px;
 }
 
+.world-map-toolbar-coordinate-action {
+  display: none;
+}
+
 .world-map-coordinate-form {
   display: flex;
   align-items: center;
@@ -114,6 +118,17 @@
 .world-map-render-settings span {
   color: #b9c8e3;
   font-variant-numeric: tabular-nums;
+}
+
+.world-map-coordinate-panel {
+  position: absolute;
+  top: 64px;
+  left: 12px;
+  z-index: 10;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(10, 14, 24, 0.82);
+  backdrop-filter: blur(6px);
 }
 
 .world-map-layers {
@@ -271,6 +286,10 @@
     flex-wrap: nowrap;
   }
 
+  .world-map-toolbar-coordinate-action {
+    display: inline-flex;
+  }
+
   .world-map-toolbar-status {
     display: none;
   }
@@ -290,6 +309,11 @@
     top: 124px;
     left: 8px;
     width: min(208px, calc(100% - 16px));
+  }
+
+  .world-map-coordinate-panel {
+    top: 124px;
+    left: 8px;
   }
 
   .world-map-marker-popup {

@@ -43,6 +43,7 @@ const {
 const coordinateX = ref('')
 const coordinateZ = ref('')
 const renderSettingsOpen = ref(false)
+const coordinatePanelOpen = ref(false)
 const markerQuery = ref('')
 const markerMatches = computed(() => findMarkers(markerSets.value, markerQuery.value))
 
@@ -70,6 +71,21 @@ function focusCoordinateInput() {
   if (Number.isFinite(x) && Number.isFinite(z) && focusCoordinates(x, z)) {
     coordinateX.value = String(Math.round(x))
     coordinateZ.value = String(Math.round(z))
+    coordinatePanelOpen.value = false
+  }
+}
+
+function toggleCoordinatePanel() {
+  coordinatePanelOpen.value = !coordinatePanelOpen.value
+  if (coordinatePanelOpen.value) {
+    renderSettingsOpen.value = false
+  }
+}
+
+function toggleRenderSettings() {
+  renderSettingsOpen.value = !renderSettingsOpen.value
+  if (renderSettingsOpen.value) {
+    coordinatePanelOpen.value = false
   }
 }
 </script>
@@ -139,9 +155,19 @@ function focusCoordinateInput() {
           variant="outline"
           title="渲染距离"
           :aria-pressed="renderSettingsOpen"
-          @click="renderSettingsOpen = !renderSettingsOpen"
+          @click="toggleRenderSettings"
         >
           <FaIcon name="i-mdi:tune-variant" />
+        </FaButton>
+        <FaButton
+          size="sm"
+          variant="outline"
+          class="world-map-toolbar-coordinate-action"
+          title="坐标定位"
+          :aria-pressed="coordinatePanelOpen"
+          @click="toggleCoordinatePanel"
+        >
+          <FaIcon name="i-mdi:crosshairs-gps" />
         </FaButton>
       </div>
 
@@ -173,6 +199,16 @@ function focusCoordinateInput() {
         <span>概览范围 {{ lowresCoverage[0]?.toFixed(1) }}x</span>
         <FaSlider v-model="lowresCoverage" :min="1" :max="2.5" :step="0.25" :tooltip="false" />
       </label>
+    </div>
+
+    <div v-if="coordinatePanelOpen" class="world-map-coordinate-panel">
+      <form class="world-map-coordinate-form" @submit.prevent="focusCoordinateInput">
+        <FaInput v-model="coordinateX" aria-label="X coordinate" inputmode="decimal" placeholder="X" />
+        <FaInput v-model="coordinateZ" aria-label="Z coordinate" inputmode="decimal" placeholder="Z" />
+        <FaButton size="sm" variant="outline" title="定位到坐标" type="submit">
+          <FaIcon name="i-mdi:crosshairs-gps" />
+        </FaButton>
+      </form>
     </div>
 
     <div v-if="markerSets.length" class="world-map-layers">
