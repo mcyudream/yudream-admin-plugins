@@ -4,7 +4,7 @@ import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
 import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
-import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
+import { blueMapLodForDistance, nextBlueMapHiresEnabled } from './blueMapLodPolicy'
 import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 import { configureBlueMapLowresTexture } from './blueMapLowresTexture'
 import { createBlueMapLowresGeometry } from './blueMapLowresGeometry'
@@ -87,6 +87,7 @@ export class TileManager {
   private viewEpoch = 0
   private desired = new Set<string>()
   private dayFactor = 1
+  private blueMapHiresEnabled = true
   private disposed = false
 
   constructor(
@@ -122,7 +123,11 @@ export class TileManager {
     const desired = new Set<string>()
 
     // 1. BlueMap stops requesting expensive PRBM tiles when the camera is in distant overview mode.
-    const loadHires = this.settings.renderer !== 'BLUEMAP' || shouldLoadBlueMapHires(camera.position.distanceTo(target))
+    const distance = camera.position.distanceTo(target)
+    if (this.settings.renderer === 'BLUEMAP') {
+      this.blueMapHiresEnabled = nextBlueMapHiresEnabled(this.blueMapHiresEnabled, distance)
+    }
+    const loadHires = this.settings.renderer !== 'BLUEMAP' || this.blueMapHiresEnabled
     if (loadHires) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         for (let dz = -radius; dz <= radius; dz += 1) {

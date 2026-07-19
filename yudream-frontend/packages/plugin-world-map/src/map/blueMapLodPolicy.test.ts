@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
+import { blueMapLodForDistance, nextBlueMapHiresEnabled, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 
 describe('BlueMap LOD policy', () => {
   it('uses the BlueMap lodFactor for distant LOD selection', () => {
@@ -11,5 +11,12 @@ describe('BlueMap LOD policy', () => {
   it('avoids hires requests beyond the BlueMap detail distance', () => {
     expect(shouldLoadBlueMapHires(999)).toBe(true)
     expect(shouldLoadBlueMapHires(1_000)).toBe(false)
+  })
+
+  it('does not churn PRBM tiles while damping moves through the detail boundary', () => {
+    expect(nextBlueMapHiresEnabled(true, 1_050)).toBe(true)
+    expect(nextBlueMapHiresEnabled(true, 1_100)).toBe(false)
+    expect(nextBlueMapHiresEnabled(false, 950)).toBe(false)
+    expect(nextBlueMapHiresEnabled(false, 899)).toBe(true)
   })
 })
