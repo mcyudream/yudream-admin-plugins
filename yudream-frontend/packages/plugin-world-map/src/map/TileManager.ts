@@ -3,6 +3,7 @@ import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
 import { ensureBlueMapMaterialTextures } from '../bluemap-adapter/BlueMapMaterials'
+import { blueMapTilePosition } from './blueMapTilePosition'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -165,7 +166,7 @@ export class TileManager {
             return
           }
           const mesh = tile instanceof ArrayBuffer
-            ? this.buildPrbmMesh(tile, this.material)
+            ? this.buildPrbmMesh(tile, this.material, tx, tz)
             : this.buildMesh(tile, this.material)
           const translucentMesh = !(tile instanceof ArrayBuffer) && tile.translucent && tile.translucent.positions.length > 0
             ? this.buildMesh(tile.translucent, this.translucentMaterial)
@@ -266,7 +267,7 @@ export class TileManager {
     return mesh
   }
 
-  private buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[]): THREE.Mesh {
+  private buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[], tx: number, tz: number): THREE.Mesh {
     const geometry = decodePrbm(data)
     if (Array.isArray(material)) {
       const invalidGroup = geometry.groups.find(group => {
@@ -283,7 +284,12 @@ export class TileManager {
       )
     }
     const mesh = new THREE.Mesh(geometry, material)
+    // BlueMap PRBM vertices are tile-local. Its viewer translates every tile by
+    // tile coordinate * grid size + the grid's configured translate vector.
+    const position = blueMapTilePosition(this.settings, tx, tz)
+    mesh.position.set(position.x, 0, position.z)
     mesh.matrixAutoUpdate = false
+    mesh.updateMatrix()
     return mesh
   }
 
