@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
 import { PrbmDecodePool } from '../bluemap-adapter/PrbmDecodePool'
+import { shouldCreatePrbmDecoder } from '../bluemap-adapter/prbmDecodePolicy'
 import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, nextBlueMapHiresEnabled } from './blueMapLodPolicy'
@@ -83,7 +84,8 @@ export class TileManager {
   private readonly failureCounts = new Map<string, number>()
   /** Reference counts keep animation work proportional to visible terrain, not the global material table. */
   private readonly visibleBlueMapMaterials = new BlueMapVisibleMaterials()
-  private readonly prbmDecoder = new PrbmDecodePool()
+  /** Created only when the first BlueMap PRBM tile actually needs decoding. */
+  private prbmDecoder: PrbmDecodePool | null = null
   private inFlight = 0
   private lowresInFlight = 0
   private frame = 0
@@ -324,7 +326,7 @@ export class TileManager {
   }
 
   private async buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[], tx: number, tz: number): Promise<THREE.Mesh> {
-    const geometry = await this.prbmDecoder.decode(data)
+    const geometry = await this.decoderForPrbm().decode(data)
     if (Array.isArray(material)) {
       const invalidGroup = geometry.groups.find(group => {
         const materialIndex = group.materialIndex
@@ -347,6 +349,14 @@ export class TileManager {
     mesh.matrixAutoUpdate = false
     mesh.updateMatrix()
     return mesh
+  }
+
+  private decoderForPrbm(): PrbmDecodePool {
+    if (!shouldCreatePrbmDecoder(this.settings.renderer)) {
+      throw new Error('PRBM terrain is only supported by the BlueMap renderer')
+    }
+    this.prbmDecoder ??= new PrbmDecodePool()
+    return this.prbmDecoder
   }
 
   private retainBlueMapMaterials(geometry: THREE.BufferGeometry): readonly THREE.ShaderMaterial[] | undefined {
@@ -650,7 +660,8 @@ export class TileManager {
     }
     this.hires.clear()
     this.visibleBlueMapMaterials.clear()
-    this.prbmDecoder.dispose()
+    this.prbmDecoder?.dispose()
+    this.prbmDecoder = null
     for (const record of this.lowres.values()) {
       this.disposeLowres(record)
     }
