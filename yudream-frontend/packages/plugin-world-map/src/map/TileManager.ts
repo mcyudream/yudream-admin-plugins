@@ -4,6 +4,7 @@ import type { WorldMapSource } from './types'
 import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
 import { ensureBlueMapMaterialTextures } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
+import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -98,21 +99,24 @@ export class TileManager {
     }
     const desired = new Set<string>()
 
-    // 1. 收集半径内的 hires tile，未加载的入队
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      for (let dz = -radius; dz <= radius; dz += 1) {
-        if (dx * dx + dz * dz > radius * radius) {
-          continue
-        }
-        const key = `${this.centerTx + dx},${this.centerTz + dz}`
-        desired.add(key)
-        const record = this.hires.get(key)
-        if (record) {
-          record.lastUsed = this.frame
-          continue
-        }
-        if (!this.queued.has(key) && !this.inFlightRequests.has(key) && !this.isInBackoff(key)) {
-          this.enqueue(key, this.centerTx + dx, this.centerTz + dz, dx * dx + dz * dz)
+    // 1. BlueMap stops requesting expensive PRBM tiles when the camera is in distant overview mode.
+    const loadHires = this.settings.renderer !== 'BLUEMAP' || shouldLoadBlueMapHires(camera.position.distanceTo(target))
+    if (loadHires) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        for (let dz = -radius; dz <= radius; dz += 1) {
+          if (dx * dx + dz * dz > radius * radius) {
+            continue
+          }
+          const key = `${this.centerTx + dx},${this.centerTz + dz}`
+          desired.add(key)
+          const record = this.hires.get(key)
+          if (record) {
+            record.lastUsed = this.frame
+            continue
+          }
+          if (!this.queued.has(key) && !this.inFlightRequests.has(key) && !this.isInBackoff(key)) {
+            this.enqueue(key, this.centerTx + dx, this.centerTz + dz, dx * dx + dz * dz)
+          }
         }
       }
     }
@@ -298,7 +302,9 @@ export class TileManager {
     const minLod = this.settings.lowresMinLod ?? 0
     const maxLod = this.settings.lowresMaxLod
     const distance = camera.position.distanceTo(target)
-    const lod = THREE.MathUtils.clamp(Math.floor(Math.log2(Math.max(distance, 1) / 256)), minLod, maxLod)
+    const lod = this.settings.renderer === 'BLUEMAP'
+      ? blueMapLodForDistance(distance, minLod, maxLod, this.settings.lowresLodFactor ?? 5)
+      : THREE.MathUtils.clamp(Math.floor(Math.log2(Math.max(distance, 1) / 256)), minLod, maxLod)
     const tileSize = this.settings.lowresTileSize * (this.settings.lowresLodFactor ?? 2) ** (lod - minLod)
     const centerTx = Math.floor(target.x / tileSize)
     const centerTz = Math.floor(target.z / tileSize)
