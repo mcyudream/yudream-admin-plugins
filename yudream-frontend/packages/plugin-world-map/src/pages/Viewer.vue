@@ -57,13 +57,15 @@ function setContainer(el: unknown) {
     <div :ref="setContainer" class="world-map-canvas" />
 
     <div class="world-map-toolbar">
-      <FaSelect
-        v-if="mapOptions.length > 1"
-        v-model="currentMapId"
-        :options="mapOptions"
-        class="world-map-toolbar-select"
-      />
-      <span v-else class="world-map-toolbar-title">{{ maps[0]?.name || '世界地图' }}</span>
+      <div class="world-map-toolbar-map">
+        <FaSelect
+          v-if="mapOptions.length > 1"
+          v-model="currentMapId"
+          :options="mapOptions"
+          class="world-map-toolbar-select"
+        />
+        <span v-else class="world-map-toolbar-title">{{ maps[0]?.name || '世界地图' }}</span>
+      </div>
 
       <div class="world-map-toolbar-sun">
         <FaIcon name="i-mdi:weather-night" />
@@ -78,46 +80,50 @@ function setContainer(el: unknown) {
         <FaIcon name="i-mdi:weather-sunny" />
       </div>
 
-      <FaButton
-        size="sm"
-        variant="outline"
-        :title="viewMode === 'perspective' ? '切换到俯视地图' : '切换到三维视图'"
-        @click="toggleViewMode"
-      >
-        <FaIcon :name="viewMode === 'perspective' ? 'i-mdi:map' : 'i-mdi:cube-outline'" />
-      </FaButton>
+      <div class="world-map-toolbar-actions">
+        <FaButton
+          size="sm"
+          variant="outline"
+          :title="viewMode === 'perspective' ? '切换到俯视地图' : '切换到三维视图'"
+          @click="toggleViewMode"
+        >
+          <FaIcon :name="viewMode === 'perspective' ? 'i-mdi:map' : 'i-mdi:cube-outline'" />
+        </FaButton>
 
-      <FaButton
-        size="sm"
-        variant="outline"
-        :disabled="viewMode === 'flat'"
-        :title="cameraMode === 'orbit' ? '切换到飞行模式' : '切换到轨道模式'"
-        @click="toggleCameraMode"
-      >
-        <FaIcon :name="cameraMode === 'orbit' ? 'i-mdi:airplane' : 'i-mdi:orbit'" />
-        <span class="world-map-toolbar-mode-label">{{ cameraMode === 'orbit' ? '飞行' : '轨道' }}</span>
-      </FaButton>
+        <FaButton
+          size="sm"
+          variant="outline"
+          :disabled="viewMode === 'flat'"
+          :title="cameraMode === 'orbit' ? '切换到飞行模式' : '切换到轨道模式'"
+          @click="toggleCameraMode"
+        >
+          <FaIcon :name="cameraMode === 'orbit' ? 'i-mdi:airplane' : 'i-mdi:orbit'" />
+          <span class="world-map-toolbar-mode-label">{{ cameraMode === 'orbit' ? '飞行' : '轨道' }}</span>
+        </FaButton>
 
-      <FaButton size="sm" variant="outline" title="重置到出生点" @click="resetToSpawn">
-        <FaIcon name="i-mdi:home-map-marker" />
-      </FaButton>
+        <FaButton size="sm" variant="outline" title="重置到出生点" @click="resetToSpawn">
+          <FaIcon name="i-mdi:home-map-marker" />
+        </FaButton>
 
-      <FaButton size="sm" variant="outline" title="截图下载" @click="screenshot">
-        <FaIcon name="i-mdi:camera" />
-      </FaButton>
+        <FaButton size="sm" variant="outline" title="截图下载" @click="screenshot">
+          <FaIcon name="i-mdi:camera" />
+        </FaButton>
 
-      <FaButton size="sm" variant="outline" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
-        <FaIcon :name="isFullscreen ? 'i-mdi:fullscreen-exit' : 'i-mdi:fullscreen'" />
-      </FaButton>
+        <FaButton size="sm" variant="outline" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
+          <FaIcon :name="isFullscreen ? 'i-mdi:fullscreen-exit' : 'i-mdi:fullscreen'" />
+        </FaButton>
+      </div>
 
-      <span v-if="pendingTiles > 0" class="world-map-toolbar-pending">
-        瓦片加载中 {{ pendingTiles }}
-      </span>
+      <div class="world-map-toolbar-status">
+        <span v-if="pendingTiles > 0" class="world-map-toolbar-pending">
+          瓦片加载中 {{ pendingTiles }}
+        </span>
 
-      <span class="world-map-toolbar-coords">
-        XYZ: {{ cameraPos.x }} / {{ cameraPos.y }} / {{ cameraPos.z }}
-      </span>
-      <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
+        <span class="world-map-toolbar-coords">
+          XYZ: {{ cameraPos.x }} / {{ cameraPos.y }} / {{ cameraPos.z }}
+        </span>
+        <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
+      </div>
     </div>
 
     <div v-if="markerSets.length" class="world-map-layers">
