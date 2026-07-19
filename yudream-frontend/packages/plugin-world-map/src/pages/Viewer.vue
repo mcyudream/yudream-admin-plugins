@@ -30,6 +30,7 @@ const {
   toggleFullscreen,
   setLayerVisible,
   focusSelectedMarker,
+  resetToSpawn,
 } = useWorldMapViewer(props.sdk, props.route)
 
 function toggleCameraMode() {
@@ -95,6 +96,10 @@ function setContainer(el: unknown) {
       >
         <FaIcon :name="cameraMode === 'orbit' ? 'i-mdi:airplane' : 'i-mdi:orbit'" />
         <span class="world-map-toolbar-mode-label">{{ cameraMode === 'orbit' ? '飞行' : '轨道' }}</span>
+      </FaButton>
+
+      <FaButton size="sm" variant="outline" title="重置到出生点" @click="resetToSpawn">
+        <FaIcon name="i-mdi:home-map-marker" />
       </FaButton>
 
       <FaButton size="sm" variant="outline" title="截图下载" @click="screenshot">

@@ -130,6 +130,10 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     }
   }
 
+  function resetToSpawn(): void {
+    if (viewer?.resetView()) scheduleHashWrite()
+  }
+
   async function loadCurrentMap(): Promise<void> {
     const seq = ++loadSeq
     loading.value = true
@@ -267,5 +271,6 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     toggleFullscreen,
     setLayerVisible,
     focusSelectedMarker,
+    resetToSpawn,
   }
 }

@@ -14,6 +14,7 @@ import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
 import { BACKGROUND_FRAME_INTERVAL_MS, needsBackgroundRender } from './renderCadence'
 import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
+import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
 
 export interface MapViewerOptions {
   /** 相机位置变化回调（节流至约 10Hz），用于坐标显示 */
@@ -26,9 +27,6 @@ export interface MapViewerOptions {
 
 const DAY_SKY = new THREE.Color(0x87a9d6)
 const NIGHT_SKY = new THREE.Color(0x070a12)
-/** 初始相机到 spawn 的水平距离 */
-const SPAWN_VIEW_DISTANCE = 120
-const FLAT_CAMERA_HEIGHT = 2_000
 const FLAT_VIEW_HEIGHT = 1_200
 
 /**
@@ -57,6 +55,7 @@ export class MapViewer {
   private blueMapMaterials: THREE.ShaderMaterial[] | null = null
   private atlas: THREE.Texture | null = null
   private source: WorldMapSource | null = null
+  private spawn: THREE.Vector3 | null = null
   private rafId: number | null = null
   private backgroundRenderTimer: number | null = null
   private lastTime = performance.now()
@@ -161,21 +160,9 @@ export class MapViewer {
       }
     })
 
-    // 初始相机：spawn 上方，方位 45°、俯仰 45° 斜视
     const { x, y, z } = settings.spawn
-    const horizontal = SPAWN_VIEW_DISTANCE * Math.cos(Math.PI / 4)
-    this.perspectiveCamera.position.set(
-      x + horizontal * Math.sin(Math.PI / 4),
-      y + SPAWN_VIEW_DISTANCE * Math.sin(Math.PI / 4),
-      z + horizontal * Math.cos(Math.PI / 4),
-    )
-    this.perspectiveCamera.lookAt(x, y, z)
-    this.orbit.controls.target.set(x, y, z)
-    this.orbit.controls.update()
-    this.flatCamera.position.set(x, y + FLAT_CAMERA_HEIGHT, z)
-    this.flatCamera.lookAt(x, y, z)
-    this.flatOrbit.controls.target.set(x, y, z)
-    this.flatOrbit.controls.update()
+    this.spawn = new THREE.Vector3(x, y, z)
+    this.resetView()
     this.forceRender()
   }
 
@@ -320,6 +307,26 @@ export class MapViewer {
       this.perspectiveCamera.lookAt(anchor)
       this.orbit.controls.update()
     }
+    this.requestRender()
+    return true
+  }
+
+  /** Returns the active map view to its published spawn without reloading map assets. */
+  resetView(): boolean {
+    if (!this.spawn) return false
+    const spawn = this.spawn
+    const perspective = perspectiveSpawnPosition(spawn)
+    const flat = flatSpawnPosition(spawn)
+    this.perspectiveCamera.position.set(perspective.x, perspective.y, perspective.z)
+    this.perspectiveCamera.lookAt(spawn)
+    this.orbit.controls.target.copy(spawn)
+    if (this.mode === 'orbit' && this.viewMode === 'perspective') this.orbit.controls.update()
+    this.flatCamera.position.set(flat.x, flat.y, flat.z)
+    this.flatCamera.zoom = 1
+    this.flatCamera.updateProjectionMatrix()
+    this.flatCamera.lookAt(spawn)
+    this.flatOrbit.controls.target.copy(spawn)
+    if (this.viewMode === 'flat') this.flatOrbit.controls.update()
     this.requestRender()
     return true
   }
