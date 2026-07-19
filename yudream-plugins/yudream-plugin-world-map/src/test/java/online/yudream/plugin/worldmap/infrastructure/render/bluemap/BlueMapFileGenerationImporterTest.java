@@ -51,6 +51,9 @@ class BlueMapFileGenerationImporterTest {
         assertArrayEquals(new byte[]{1, 2, 3}, store.files.get(TileStorage.lowresKey("map-1", generation.id(), 2, 0, -1)));
         assertArrayEquals(textures, store.files.get(TileStorage.blueMapTexturesKey("map-1", generation.id())));
         assertArrayEquals(settings, store.files.get(TileStorage.blueMapSettingsKey("map-1", generation.id())));
+        String index = new String(store.files.get(TileStorage.blueMapLowresIndexKey("map-1", generation.id())),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals("{\"levels\":{\"2\":[[-1,[[0,0]]]]}}", index);
     }
 
     @Test

@@ -61,6 +61,12 @@ public final class GenerationPublisher {
         track(generation, key);
     }
 
+    public void saveBlueMapLowresIndex(MapGeneration generation, byte[] data) {
+        String key = TileStorage.blueMapLowresIndexKey(generation.mapId(), generation.id());
+        storage.put(key, data, "application/json");
+        track(generation, key);
+    }
+
     public void publish(MapInstance map, MapGeneration generation) {
         publish(map, generation, "YUDREAM");
     }

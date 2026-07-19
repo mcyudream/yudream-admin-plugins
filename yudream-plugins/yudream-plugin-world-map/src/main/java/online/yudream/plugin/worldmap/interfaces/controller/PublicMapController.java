@@ -107,6 +107,13 @@ public class PublicMapController {
         return tileResponse(tileStorage.blueMapSettings(segments[2], segments[4]), "application/json", false);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/lowres-index.json")
+    public PluginHttpResponse generationBlueMapLowresIndex(PluginHttpRequest request) {
+        requireGet(request);
+        String[] segments = request.path().split("/");
+        return tileResponse(tileStorage.blueMapLowresIndex(segments[2], segments[4]), "application/json", false);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/markers")
     public PluginHttpResponse markers(PluginHttpRequest request) {
         requireGet(request);

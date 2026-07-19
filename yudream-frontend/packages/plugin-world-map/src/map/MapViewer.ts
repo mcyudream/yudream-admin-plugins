@@ -4,6 +4,7 @@ import { OrbitController } from './controls/OrbitController'
 import { applyDayFactor, computeDayFactor, createTerrainMaterial, createTranslucentTerrainMaterial } from './material'
 import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
+import { parseBlueMapLowresIndex } from '../bluemap-adapter/BlueMapLowresIndex'
 import { canvasPointerToNdc } from './canvasCoordinates'
 import { MarkerLayer } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
@@ -106,6 +107,9 @@ export class MapViewer {
       if (!source.loadBlueMapTextures || !source.loadBlueMapSettings) throw new Error('BlueMap generation metadata is not available from this source')
       const blueMapSettings = await source.loadBlueMapSettings()
       applyBlueMapSettings(settings, blueMapSettings)
+      if (source.loadBlueMapLowresIndex) {
+        settings.lowresTileIndex = parseBlueMapLowresIndex(await source.loadBlueMapLowresIndex())
+      }
       const materials = await createBlueMapMaterials(await source.loadBlueMapTextures())
       if (this.disposed || this.source !== source) {
         disposeBlueMapMaterials(materials)

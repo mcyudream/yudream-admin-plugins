@@ -9,6 +9,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -33,6 +38,7 @@ public final class BlueMapFileGenerationImporter {
         int hires = importHires(tiles.resolve("0"), generation, publisher);
         publisher.saveBlueMapTextures(generation, readTextures(root));
         publisher.saveBlueMapSettings(generation, readSettings(root));
+        Map<Integer, List<TileCoordinate>> lowresIndex = new HashMap<>();
         int lowres = 0;
         try (Stream<Path> levels = Files.list(tiles)) {
             for (Path level : levels.filter(Files::isDirectory).toList()) {
@@ -45,10 +51,13 @@ public final class BlueMapFileGenerationImporter {
                     continue;
                 }
                 if (lod < 1 || lod > 16) continue;
-                lowres += importLowres(level, lod, generation, publisher);
+                List<TileCoordinate> imported = importLowres(level, lod, generation, publisher);
+                lowres += imported.size();
+                lowresIndex.put(lod, imported);
                 assertTileLimit(hires + lowres);
             }
         }
+        publisher.saveBlueMapLowresIndex(generation, JSON.writeValueAsBytes(lowresIndex(lowresIndex)));
         return new BlueMapImportSummary(hires, lowres);
     }
 
@@ -125,18 +134,54 @@ public final class BlueMapFileGenerationImporter {
         return count;
     }
 
-    private int importLowres(Path root, int lod, MapGeneration generation, GenerationPublisher publisher) throws IOException {
-        int count = 0;
+    private List<TileCoordinate> importLowres(Path root, int lod, MapGeneration generation, GenerationPublisher publisher) throws IOException {
+        List<TileCoordinate> imported = new ArrayList<>();
         try (Stream<Path> files = Files.walk(root)) {
             for (Path path : files.filter(Files::isRegularFile).toList()) {
                 Matcher matcher = LOWRES.matcher(path.getFileName().toString());
                 if (!matcher.matches()) continue;
-                publisher.saveLowres(generation, lod, Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)),
+                int x = Integer.parseInt(matcher.group(1));
+                int z = Integer.parseInt(matcher.group(2));
+                publisher.saveLowres(generation, lod, x, z,
                         readLimited(Files.newInputStream(path)));
-                assertTileLimit(++count);
+                imported.add(new TileCoordinate(x, z));
+                assertTileLimit(imported.size());
             }
         }
-        return count;
+        return imported;
+    }
+
+    /** Encodes sparse BlueMap tile coverage as contiguous x-ranges per z row. */
+    private Map<String, Object> lowresIndex(Map<Integer, List<TileCoordinate>> levels) {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<Integer, List<TileCoordinate>> level : levels.entrySet()) {
+            Map<Integer, List<Integer>> rows = new HashMap<>();
+            for (TileCoordinate tile : level.getValue()) {
+                rows.computeIfAbsent(tile.z(), ignored -> new ArrayList<>()).add(tile.x());
+            }
+            List<List<Object>> encodedRows = new ArrayList<>();
+            rows.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(row -> {
+                List<Integer> xs = row.getValue().stream().distinct().sorted().toList();
+                List<List<Integer>> ranges = new ArrayList<>();
+                int start = xs.getFirst();
+                int previous = start;
+                for (int index = 1; index < xs.size(); index++) {
+                    int value = xs.get(index);
+                    if (value != previous + 1) {
+                        ranges.add(List.of(start, previous));
+                        start = value;
+                    }
+                    previous = value;
+                }
+                ranges.add(List.of(start, previous));
+                encodedRows.add(List.of(row.getKey(), ranges));
+            });
+            result.put(Integer.toString(level.getKey()), encodedRows);
+        }
+        return Map.of("levels", result);
+    }
+
+    private record TileCoordinate(int x, int z) {
     }
 
     private byte[] readHires(Path path) throws IOException {

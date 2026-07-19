@@ -54,7 +54,9 @@ public class MapAppService {
 
     public MapSettingsDTO settings(String mapId) {
         MapInstance map = requireReady(mapId);
-        return assembler.toSettings(map);
+        boolean hasBlueMapLowresIndex = "BLUEMAP".equals(map.getActiveRenderer())
+                && tileStorage.blueMapLowresIndex(map.getId(), map.getActiveGenerationId()).isPresent();
+        return assembler.toSettings(map, hasBlueMapLowresIndex);
     }
 
     public List<MapAdminDTO> listAdmin() {

@@ -11,6 +11,8 @@ export interface WorldMapSource {
   loadAtlas: () => Promise<Texture>
   loadBlueMapTextures?: () => Promise<unknown>
   loadBlueMapSettings?: () => Promise<unknown>
+  /** Optional sparse tile metadata emitted by newer BlueMap generations. */
+  loadBlueMapLowresIndex?: () => Promise<unknown | null>
   /** tile 不存在（404 / 空）时返回 null */
   fetchHiresTile: (tx: number, tz: number, signal?: AbortSignal) => Promise<HiresTile | ArrayBuffer | null>
   /** 返回 null 表示数据源不提供 lowres（如 mock） */

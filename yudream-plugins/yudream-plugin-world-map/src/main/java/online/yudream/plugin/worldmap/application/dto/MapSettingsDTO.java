@@ -18,6 +18,7 @@ public record MapSettingsDTO(
         String renderer,
         String blueMapTexturesUrl,
         String blueMapSettingsUrl,
+        String blueMapLowresIndexUrl,
         long renderedAt
 ) {
     public record Spawn(int x, int y, int z) {

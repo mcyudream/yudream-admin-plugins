@@ -94,6 +94,10 @@ public final class TileStorage {
         return Optional.ofNullable(store.get(blueMapSettingsKey(mapId, generationId)));
     }
 
+    public Optional<PluginStoredFile> blueMapLowresIndex(String mapId, String generationId) {
+        return Optional.ofNullable(store.get(blueMapLowresIndexKey(mapId, generationId)));
+    }
+
     // ---------- 透传（供上层按自有 key 存取） ----------
 
     /** 按完整 key 写入。 */
@@ -162,6 +166,10 @@ public final class TileStorage {
 
     public static String blueMapSettingsKey(String mapId, String generationId) {
         return generationPrefix(mapId, generationId) + "/settings.json";
+    }
+
+    public static String blueMapLowresIndexKey(String mapId, String generationId) {
+        return generationPrefix(mapId, generationId) + "/lowres-index.json";
     }
 
     private static String generationPrefix(String mapId, String generationId) {

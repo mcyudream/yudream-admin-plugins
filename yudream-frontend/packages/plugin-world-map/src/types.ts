@@ -36,12 +36,19 @@ export interface MapSettings {
   blueMapTexturesUrl?: string | null
   /** BlueMap v5 settings.json, set only for BLUEMAP generations. */
   blueMapSettingsUrl?: string | null
+  /** Sparse lowres coverage metadata for BlueMap generations. Older generations omit it. */
+  blueMapLowresIndexUrl?: string | null
   /** BlueMap lowres hierarchy multiplier. Legacy generations use 2. */
   lowresLodFactor?: number
   /** First lowres directory level. BlueMap starts at 1; legacy generations start at 0. */
   lowresMinLod?: number
+  /** Decoded sparse lowres coverage. Undefined retains the legacy optimistic request behavior. */
+  lowresTileIndex?: BlueMapLowresTileIndex
   renderedAt?: number
 }
+
+/** Per LOD and z row, each tuple describes one inclusive x range with a published lowres PNG. */
+export type BlueMapLowresTileIndex = ReadonlyMap<number, ReadonlyMap<number, ReadonlyArray<readonly [number, number]>>>
 
 /** §4 hires tile 几何段（不透明/半透明共用结构） */
 export interface HiresTileGeometry {

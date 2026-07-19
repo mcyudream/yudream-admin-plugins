@@ -5,6 +5,7 @@ import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
 import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, shouldLoadBlueMapHires } from './blueMapLodPolicy'
+import { hasBlueMapLowresTile } from '../bluemap-adapter/BlueMapLowresIndex'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -319,6 +320,10 @@ export class TileManager {
       for (let dz = -range; dz <= range; dz += 1) {
         const tx = centerTx + dx
         const tz = centerTz + dz
+        if (this.settings.renderer === 'BLUEMAP'
+          && !hasBlueMapLowresTile(this.settings.lowresTileIndex, lod, tx, tz)) {
+          continue
+        }
         const key = `${lod},${tx},${tz}`
         wanted.add(key)
         let record = this.lowres.get(key)

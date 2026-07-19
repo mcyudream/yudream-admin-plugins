@@ -23,6 +23,10 @@ public class WorldMapAppAssembler {
     }
 
     public MapSettingsDTO toSettings(MapInstance map) {
+        return toSettings(map, false);
+    }
+
+    public MapSettingsDTO toSettings(MapInstance map, boolean hasBlueMapLowresIndex) {
         return new MapSettingsDTO(
                 map.getId(),
                 map.getName(),
@@ -40,6 +44,8 @@ public class WorldMapAppAssembler {
                         ? "generations/" + map.getActiveGenerationId() + "/textures.json" : null,
                 "BLUEMAP".equals(map.getActiveRenderer())
                         ? "generations/" + map.getActiveGenerationId() + "/settings.json" : null,
+                "BLUEMAP".equals(map.getActiveRenderer()) && hasBlueMapLowresIndex
+                        ? "generations/" + map.getActiveGenerationId() + "/lowres-index.json" : null,
                 map.getRenderedAt()
         );
     }
