@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { HiresTileGeometry, MapSettings } from '../types'
 import type { WorldMapSource } from './types'
-import { decodePrbm } from '../bluemap-adapter/PrbmDecoder'
+import { PrbmDecodePool } from '../bluemap-adapter/PrbmDecodePool'
 import { ensureBlueMapMaterialTextures, hasActiveBlueMapAnimations, stepBlueMapAnimations } from '../bluemap-adapter/BlueMapMaterials'
 import { blueMapTilePosition } from './blueMapTilePosition'
 import { blueMapLodForDistance, nextBlueMapHiresEnabled } from './blueMapLodPolicy'
@@ -83,6 +83,7 @@ export class TileManager {
   private readonly failureCounts = new Map<string, number>()
   /** Reference counts keep animation work proportional to visible terrain, not the global material table. */
   private readonly visibleBlueMapMaterials = new BlueMapVisibleMaterials()
+  private readonly prbmDecoder = new PrbmDecodePool()
   private inFlight = 0
   private lowresInFlight = 0
   private frame = 0
@@ -191,7 +192,7 @@ export class TileManager {
       this.inFlightRequests.set(key, controller)
       this.inFlight += 1
       this.source.fetchHiresTile(tx, tz, controller.signal)
-        .then((tile) => {
+        .then(async (tile) => {
           if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
             return
           }
@@ -202,8 +203,12 @@ export class TileManager {
             return
           }
           const mesh = tile instanceof ArrayBuffer
-            ? this.buildPrbmMesh(tile, this.material, tx, tz)
+            ? await this.buildPrbmMesh(tile, this.material, tx, tz)
             : this.buildMesh(tile, this.material)
+          if (this.disposed || request.epoch !== this.viewEpoch || !this.desired.has(key)) {
+            mesh.geometry.dispose()
+            return
+          }
           const translucentMesh = !(tile instanceof ArrayBuffer) && tile.translucent && tile.translucent.positions.length > 0
             ? this.buildMesh(tile.translucent, this.translucentMaterial)
             : null
@@ -318,8 +323,8 @@ export class TileManager {
     return mesh
   }
 
-  private buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[], tx: number, tz: number): THREE.Mesh {
-    const geometry = decodePrbm(data)
+  private async buildPrbmMesh(data: ArrayBuffer, material: THREE.Material | THREE.Material[], tx: number, tz: number): Promise<THREE.Mesh> {
+    const geometry = await this.prbmDecoder.decode(data)
     if (Array.isArray(material)) {
       const invalidGroup = geometry.groups.find(group => {
         const materialIndex = group.materialIndex
@@ -645,6 +650,7 @@ export class TileManager {
     }
     this.hires.clear()
     this.visibleBlueMapMaterials.clear()
+    this.prbmDecoder.dispose()
     for (const record of this.lowres.values()) {
       this.disposeLowres(record)
     }

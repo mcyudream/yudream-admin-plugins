@@ -19,7 +19,30 @@ const methodNames: Record<string, keyof DataView> = {
   Uint16Array: 'getUint16', Uint32Array: 'getUint32', Int16Array: 'getInt16', Int32Array: 'getInt32', Float32Array: 'getFloat32',
 }
 
-export function decodePrbm(buffer: ArrayBuffer): THREE.BufferGeometry {
+export interface PrbmAttributeData {
+  name: string
+  encoding: number
+  cardinality: number
+  normalized: boolean
+  buffer: ArrayBuffer
+  byteOffset: number
+  length: number
+}
+
+export interface PrbmGroupData {
+  start: number
+  count: number
+  material: number
+}
+
+export interface PrbmGeometryData {
+  attributes: PrbmAttributeData[]
+  index: Omit<PrbmAttributeData, 'name' | 'cardinality' | 'normalized'> | null
+  groups: PrbmGroupData[]
+}
+
+/** Parses the PRBM binary payload without touching Three.js, so it can run in a Worker. */
+export function decodePrbmData(buffer: ArrayBuffer): PrbmGeometryData {
   const bytes = new Uint8Array(buffer)
   if (bytes.byteLength < 8 || bytes[0] !== 1) {
     throw new Error('Unsupported PRBM tile format')
@@ -39,7 +62,7 @@ export function decodePrbm(buffer: ArrayBuffer): THREE.BufferGeometry {
   }
 
   let offset = 8
-  const geometry = new THREE.BufferGeometry()
+  const attributes: PrbmAttributeData[] = []
   for (let attributeIndex = 0; attributeIndex < attributeCount; attributeIndex += 1) {
     const nameEnd = bytes.indexOf(0, offset)
     if (nameEnd < offset || nameEnd === -1) throw new Error('Malformed PRBM attribute name')
@@ -54,16 +77,31 @@ export function decodePrbm(buffer: ArrayBuffer): THREE.BufferGeometry {
     const length = cardinality * values
     const typed = readArray(buffer, Type, offset, length, bigEndian)
     offset += typed.byteLength
-    geometry.setAttribute(name, new THREE.BufferAttribute(typed as never, cardinality, Boolean(attributeFlags & 0x40)))
+    attributes.push({
+      name,
+      encoding,
+      cardinality,
+      normalized: Boolean(attributeFlags & 0x40),
+      buffer: typed.buffer as ArrayBuffer,
+      byteOffset: typed.byteOffset,
+      length,
+    })
   }
+  let index: PrbmGeometryData['index'] = null
   if (indexed) {
     offset = align4(offset)
     const Type: PrbmArrayType = index32 ? Uint32Array : Uint16Array
     const typed = readArray(buffer, Type, offset, indices, bigEndian)
     offset += typed.byteLength
-    geometry.setIndex(new THREE.BufferAttribute(typed as never, 1))
+    index = {
+      encoding: index32 ? 10 : 8,
+      buffer: typed.buffer as ArrayBuffer,
+      byteOffset: typed.byteOffset,
+      length: indices,
+    }
   }
   offset = align4(offset)
+  const groups: PrbmGroupData[] = []
   while (offset + 4 <= bytes.byteLength) {
     const material = new DataView(buffer, offset, 4).getInt32(0, true)
     offset += 4
@@ -73,13 +111,37 @@ export function decodePrbm(buffer: ArrayBuffer): THREE.BufferGeometry {
     const count = new DataView(buffer, offset + 4, 4).getInt32(0, true)
     offset += 8
     if (start < 0 || count < 0) throw new Error('Malformed PRBM group range')
-    geometry.addGroup(start, count, material)
+    groups.push({ start, count, material })
   }
-  if (!geometry.getAttribute('position') || !geometry.getAttribute('uv')) {
+  if (!attributes.some(attribute => attribute.name === 'position') || !attributes.some(attribute => attribute.name === 'uv')) {
     throw new Error('PRBM tile is missing required geometry attributes')
+  }
+  return { attributes, index, groups }
+}
+
+/** Rehydrates a worker-decoded payload into the BufferGeometry required by Three.js rendering. */
+export function createPrbmGeometry(data: PrbmGeometryData): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry()
+  for (const attribute of data.attributes) {
+    const Type = arrayTypes[attribute.encoding]
+    if (!Type) throw new Error(`Unsupported PRBM encoding ${attribute.encoding}`)
+    const typed = new Type(attribute.buffer, attribute.byteOffset, attribute.length)
+    geometry.setAttribute(attribute.name, new THREE.BufferAttribute(typed as never, attribute.cardinality, attribute.normalized))
+  }
+  if (data.index) {
+    const Type = arrayTypes[data.index.encoding]
+    if (!Type) throw new Error(`Unsupported PRBM encoding ${data.index.encoding}`)
+    geometry.setIndex(new THREE.BufferAttribute(new Type(data.index.buffer, data.index.byteOffset, data.index.length) as never, 1))
+  }
+  for (const group of data.groups) {
+    geometry.addGroup(group.start, group.count, group.material)
   }
   geometry.computeBoundingSphere()
   return geometry
+}
+
+export function decodePrbm(buffer: ArrayBuffer): THREE.BufferGeometry {
+  return createPrbmGeometry(decodePrbmData(buffer))
 }
 
 function align4(value: number): number { return Math.ceil(value / 4) * 4 }

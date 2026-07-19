@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodePrbm } from './PrbmDecoder'
+import { createPrbmGeometry, decodePrbm, decodePrbmData } from './PrbmDecoder'
 
 function tileFixture(): ArrayBuffer {
   const bytes: number[] = [1, 0b00000010, 3, 0, 0, 0, 0, 0]
@@ -28,5 +28,15 @@ describe('decodePrbm', () => {
 
   it('rejects an unsupported format version', () => {
     expect(() => decodePrbm(new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0]).buffer)).toThrow('Unsupported PRBM')
+  })
+
+  it('rehydrates worker-transferable geometry data without changing attributes or groups', () => {
+    const data = decodePrbmData(tileFixture())
+    const geometry = createPrbmGeometry(data)
+
+    expect(geometry.getAttribute('position').count).toBe(3)
+    expect(geometry.getAttribute('uv').count).toBe(3)
+    expect(geometry.groups).toEqual([])
+    geometry.dispose()
   })
 })
