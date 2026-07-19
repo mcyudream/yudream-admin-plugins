@@ -7,8 +7,12 @@ interface BlueMapTexture {
 }
 
 const MAX_MATERIALS = 4096
+const MAX_CONCURRENT_TEXTURE_LOADS = 8
 const textureSources = new WeakMap<THREE.ShaderMaterial, string>()
 const textureLoads = new WeakMap<THREE.ShaderMaterial, Promise<void>>()
+const disposedMaterials = new WeakSet<THREE.ShaderMaterial>()
+const queuedTextureLoads: Array<() => void> = []
+let activeTextureLoads = 0
 
 /** Builds the same material-indexed texture set used by BlueMap PRBM groups. */
 export async function createBlueMapMaterials(payload: unknown): Promise<THREE.ShaderMaterial[]> {
@@ -99,8 +103,15 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
   const existing = textureLoads.get(material)
   if (existing) return existing
   const source = textureSources.get(material)
-  if (!source) return Promise.resolve()
-  const load = new THREE.TextureLoader().loadAsync(source).then(texture => {
+  if (!source || disposedMaterials.has(material)) return Promise.resolve()
+  const load = scheduleTextureLoad(async () => {
+    if (disposedMaterials.has(material)) throw new Error('BlueMap material was disposed')
+    return new THREE.TextureLoader().loadAsync(source)
+  }).then(texture => {
+    if (disposedMaterials.has(material)) {
+      texture.dispose()
+      return
+    }
     texture.colorSpace = THREE.SRGBColorSpace
     texture.magFilter = THREE.NearestFilter
     texture.minFilter = THREE.NearestMipMapLinearFilter
@@ -110,9 +121,27 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
     material.uniforms.textureImage.value = texture
     fallback?.dispose()
     material.needsUpdate = true
+  }).catch(error => {
+    textureLoads.delete(material)
+    throw error
   })
   textureLoads.set(material, load)
   return load
+}
+
+/** Keeps data-URL image decode bounded while the tile loader moves through a dense world. */
+function scheduleTextureLoad(load: () => Promise<THREE.Texture>): Promise<THREE.Texture> {
+  return new Promise((resolve, reject) => {
+    const start = () => {
+      activeTextureLoads += 1
+      void load().then(resolve, reject).finally(() => {
+        activeTextureLoads -= 1
+        queuedTextureLoads.shift()?.()
+      })
+    }
+    if (activeTextureLoads < MAX_CONCURRENT_TEXTURE_LOADS) start()
+    else queuedTextureLoads.push(start)
+  })
 }
 
 export function applyBlueMapDayFactor(materials: readonly THREE.ShaderMaterial[], dayFactor: number): void {
@@ -124,6 +153,7 @@ export function applyBlueMapDayFactor(materials: readonly THREE.ShaderMaterial[]
 
 export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial[]): void {
   for (const material of materials) {
+    disposedMaterials.add(material)
     const texture = material.uniforms.textureImage.value as THREE.Texture | null
     texture?.dispose()
     textureSources.delete(material)
