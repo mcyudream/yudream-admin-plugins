@@ -55,10 +55,20 @@ function backToList() {
       <FaButton
         v-if="model.map.value"
         size="sm"
-        :disabled="model.map.value.state === 'RENDERING'"
+        :disabled="model.map.value.state === 'RENDERING' || Boolean(model.activeTask.value)"
         @click="model.triggerRender"
       >
         触发渲染
+      </FaButton>
+      <FaButton
+        v-if="model.activeTask.value"
+        size="sm"
+        variant="destructive"
+        :loading="model.cancellingTaskId.value === model.activeTask.value.id"
+        @click="model.cancelActiveTask"
+      >
+        <FaIcon name="i-mdi:stop" />
+        取消渲染
       </FaButton>
     </div>
   </FaPageHeader>

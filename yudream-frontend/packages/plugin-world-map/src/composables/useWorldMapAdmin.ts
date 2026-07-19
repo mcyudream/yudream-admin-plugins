@@ -233,6 +233,8 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
   const tasks = ref<RenderTask[]>([])
   const loading = ref(false)
   const error = ref('')
+  const cancellingTaskId = ref('')
+  const activeTask = computed(() => tasks.value.find(task => task.state === 'PENDING' || task.state === 'RUNNING') ?? null)
 
   let pollTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -308,6 +310,23 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
     }
   }
 
+  async function cancelActiveTask(): Promise<void> {
+    const task = activeTask.value
+    if (!task || cancellingTaskId.value) return
+    cancellingTaskId.value = task.id
+    try {
+      await api.cancelTask(task.id)
+      toast.success('已请求取消渲染任务')
+      await load(true)
+    }
+    catch (e) {
+      toast.error(formatError(e, '取消渲染任务失败'))
+    }
+    finally {
+      cancellingTaskId.value = ''
+    }
+  }
+
   onMounted(() => void load())
   onBeforeUnmount(stopPolling)
 
@@ -315,10 +334,13 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
     mapId,
     map,
     tasks,
+    activeTask,
     loading,
     error,
+    cancellingTaskId,
     load,
     taskProgress,
     triggerRender,
+    cancelActiveTask,
   }
 }
