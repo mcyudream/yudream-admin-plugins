@@ -102,10 +102,12 @@ function createMaterial(entry: BlueMapTexture): THREE.ShaderMaterial {
           color = mix(color, texture2D(textureImage, nextFrameUv), animationInterpolation);
         }
         if (color.a <= 0.01) discard;
+        color = sRGBTransferEOTF(color);
         float light = mix(vBlocklight, max(vSunlight, vBlocklight), sunlightStrength);
         color.rgb *= vColor * vAo * mix(ambientLight, 1.0, light / 15.0);
         gl_FragColor = color;
         #include <fog_fragment>
+        #include <colorspace_fragment>
       }
     `,
   })

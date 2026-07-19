@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaCheckbox, FaIcon, FaSelect, FaSlider } from '@yudream/components'
+import { ref } from 'vue'
+import { FaButton, FaCheckbox, FaIcon, FaInput, FaSelect, FaSlider } from '@yudream/components'
 import { useWorldMapViewer } from '../composables/useWorldMapViewer'
 
 const props = defineProps<{
@@ -30,9 +31,13 @@ const {
   toggleFullscreen,
   setLayerVisible,
   focusSelectedMarker,
+  focusCoordinates,
   resetToSpawn,
   retryCurrentMap,
 } = useWorldMapViewer(props.sdk, props.route)
+
+const coordinateX = ref('')
+const coordinateZ = ref('')
 
 function toggleCameraMode() {
   cameraMode.value = cameraMode.value === 'orbit' ? 'fly' : 'orbit'
@@ -50,6 +55,15 @@ function toggleViewMode() {
 
 function setContainer(el: unknown) {
   container.value = el instanceof HTMLElement ? el : null
+}
+
+function focusCoordinateInput() {
+  const x = Number(coordinateX.value)
+  const z = Number(coordinateZ.value)
+  if (Number.isFinite(x) && Number.isFinite(z) && focusCoordinates(x, z)) {
+    coordinateX.value = String(Math.round(x))
+    coordinateZ.value = String(Math.round(z))
+  }
 }
 </script>
 
@@ -123,6 +137,13 @@ function setContainer(el: unknown) {
         <span class="world-map-toolbar-coords">
           XYZ: {{ cameraPos.x }} / {{ cameraPos.y }} / {{ cameraPos.z }}
         </span>
+        <form class="world-map-coordinate-form" @submit.prevent="focusCoordinateInput">
+          <FaInput v-model="coordinateX" aria-label="X coordinate" inputmode="decimal" placeholder="X" />
+          <FaInput v-model="coordinateZ" aria-label="Z coordinate" inputmode="decimal" placeholder="Z" />
+          <FaButton size="sm" variant="outline" title="定位到坐标" type="submit">
+            <FaIcon name="i-mdi:crosshairs-gps" />
+          </FaButton>
+        </form>
         <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
       </div>
     </div>

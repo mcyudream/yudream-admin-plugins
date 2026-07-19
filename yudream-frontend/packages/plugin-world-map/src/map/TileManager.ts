@@ -732,6 +732,7 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
         vec2 colorUv = vec2(vLocal.x / textureSize.x, min(vLocal.y, tileSize.y) / textureSize.y);
         vec2 metaUv = vec2(vLocal.x / textureSize.x, vLocal.y / textureSize.y + 0.5);
         vec4 color = texture2D(textureImage, colorUv);
+        color = sRGBTransferEOTF(color);
         float height = heightFromMeta(texture2D(textureImage, metaUv));
         float heightX = heightFromMeta(texture2D(textureImage, metaUv + vec2(1.0 / textureSize.x, 0.0)));
         float heightZ = heightFromMeta(texture2D(textureImage, metaUv + vec2(0.0, 1.0 / textureSize.y)));
@@ -742,6 +743,7 @@ function createBlueMapLowresMaterial(): THREE.ShaderMaterial {
         color.rgb = mix(voidColor, color.rgb, color.a);
         gl_FragColor = vec4(color.rgb, 1.0);
         #include <fog_fragment>
+        #include <colorspace_fragment>
       }
     `,
   })

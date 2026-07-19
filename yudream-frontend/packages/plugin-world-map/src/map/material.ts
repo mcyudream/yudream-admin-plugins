@@ -63,8 +63,10 @@ export function createTerrainMaterial(atlas: THREE.Texture): THREE.ShaderMateria
           1.0
         );
         if ( texel.a < 0.1 ) discard;
+        texel = sRGBTransferEOTF(texel);
         gl_FragColor = vec4( texel.rgb * vColor * vAo * light, 1.0 );
         #include <fog_fragment>
+        #include <colorspace_fragment>
       }
     `,
   })

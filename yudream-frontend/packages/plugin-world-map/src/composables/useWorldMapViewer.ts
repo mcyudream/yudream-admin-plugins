@@ -138,6 +138,13 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     if (viewer?.resetView()) scheduleHashWrite()
   }
 
+  function focusCoordinates(x: number, z: number): boolean {
+    const current = viewer?.getView().target
+    const focused = viewer?.focusPosition({ x, y: current?.y, z }) ?? false
+    if (focused) scheduleHashWrite()
+    return focused
+  }
+
   async function loadCurrentMap(): Promise<void> {
     const seq = ++loadSeq
     loading.value = true
@@ -283,6 +290,7 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     toggleFullscreen,
     setLayerVisible,
     focusSelectedMarker,
+    focusCoordinates,
     resetToSpawn,
     retryCurrentMap,
   }

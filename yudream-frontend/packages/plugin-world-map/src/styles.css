@@ -55,6 +55,18 @@
   gap: 6px;
 }
 
+.world-map-coordinate-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.world-map-coordinate-form :is(input, .fa-input) {
+  width: 58px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .world-map-toolbar-slider {
   width: 140px;
 }

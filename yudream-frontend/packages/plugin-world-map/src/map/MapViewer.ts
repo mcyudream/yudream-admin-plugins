@@ -71,11 +71,13 @@ export class MapViewer {
     private readonly container: HTMLElement,
     private readonly options: MapViewerOptions = {},
   ) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+    // BlueMap enables logarithmic depth because its overview spans kilometres. Keep that precision
+    // here as well so distant lowres terrain and nearby PRBM geometry do not fight for depth.
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' })
     this.renderer.setSize(Math.max(container.clientWidth, 1), Math.max(container.clientHeight, 1))
     container.appendChild(this.renderer.domElement)
 
-    this.perspectiveCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 4000)
+    this.perspectiveCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 10_000)
     this.perspectiveCamera.position.set(0, 200, 0)
     this.flatCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 8_000)
     this.flatCamera.up.set(0, 0, -1)
@@ -264,6 +266,37 @@ export class MapViewer {
     this.requestRender()
   }
 
+  /** Centers the active view on a world coordinate while retaining its current orientation and scale. */
+  focusPosition(position: { x: number, y?: number, z: number }, minimumOrbitDistance = 0): boolean {
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.z)) {
+      return false
+    }
+    const target = new THREE.Vector3(position.x, Number.isFinite(position.y) ? position.y! : this.currentTarget().y, position.z)
+    if (this.viewMode === 'flat') {
+      const height = this.flatCamera.position.y - this.flatOrbit.controls.target.y
+      this.flatOrbit.controls.target.copy(target)
+      this.flatCamera.position.set(target.x, target.y + height, target.z)
+      this.flatCamera.lookAt(target)
+      this.flatOrbit.controls.update()
+    }
+    else if (this.mode === 'orbit') {
+      const offset = this.perspectiveCamera.position.clone().sub(this.orbit.controls.target)
+      if (minimumOrbitDistance > 0 && offset.length() < minimumOrbitDistance) {
+        offset.normalize().multiplyScalar(minimumOrbitDistance)
+      }
+      this.orbit.controls.target.copy(target)
+      this.perspectiveCamera.position.copy(target).add(offset)
+      this.perspectiveCamera.lookAt(target)
+      this.orbit.controls.update()
+    }
+    else {
+      const offset = target.clone().sub(this.currentTarget())
+      this.perspectiveCamera.position.add(offset)
+    }
+    this.requestRender()
+    return true
+  }
+
   /** 正在加载/排队中的 hires tile 数（加载进度指示用） */
   get pendingTiles(): number {
     return this.tileManager?.pendingCount ?? 0
@@ -305,24 +338,7 @@ export class MapViewer {
     if (!anchor) {
       return false
     }
-    if (this.viewMode === 'flat') {
-      const height = this.flatCamera.position.y - this.flatOrbit.controls.target.y
-      this.flatOrbit.controls.target.copy(anchor)
-      this.flatCamera.position.set(anchor.x, anchor.y + height, anchor.z)
-      this.flatCamera.lookAt(anchor)
-      this.flatOrbit.controls.update()
-    }
-    else {
-      const offset = this.perspectiveCamera.position.clone().sub(this.orbit.controls.target)
-      const distance = Math.max(offset.length(), 72)
-      offset.normalize().multiplyScalar(distance)
-      this.orbit.controls.target.copy(anchor)
-      this.perspectiveCamera.position.copy(anchor).add(offset)
-      this.perspectiveCamera.lookAt(anchor)
-      this.orbit.controls.update()
-    }
-    this.requestRender()
-    return true
+    return this.focusPosition(anchor, 72)
   }
 
   /** Returns the active map view to its published spawn without reloading map assets. */
