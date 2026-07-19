@@ -13,6 +13,7 @@ import { enqueueLowresRequest } from './lowresRequestQueue'
 import type { LowresRequest as QueuedLowresRequest } from './lowresRequestQueue'
 import { decodeLowresImage, releaseLowresImage } from './lowresImageDecode'
 import { BlueMapVisibleMaterials } from './blueMapVisibleMaterials'
+import { tileRequestPriority } from './tileRequestPriority'
 
 interface HiresRecord {
   /** null 表示已请求但 tile 为空（404），缓存负结果避免重复请求 */
@@ -45,6 +46,8 @@ interface TileRequest {
 interface LowresRequestValue {
   record: LowresRecord
   url: string
+  tx: number
+  tz: number
 }
 
 export interface TileManagerOptions {
@@ -88,6 +91,7 @@ export class TileManager {
   private desired = new Set<string>()
   private dayFactor = 1
   private blueMapHiresEnabled = true
+  private readonly cameraDirection = new THREE.Vector3()
   private disposed = false
 
   constructor(
@@ -110,6 +114,7 @@ export class TileManager {
       return
     }
     this.frame += 1
+    camera.getWorldDirection(this.cameraDirection)
     const tileSize = this.settings.hiresTileSize
     const radius = this.options.hiresRadius ?? 4
     const offset = this.settings.hiresTileOffset ?? { x: 0, z: 0 }
@@ -142,12 +147,13 @@ export class TileManager {
             continue
           }
           if (!this.queued.has(key) && !this.inFlightRequests.has(key) && !this.isInBackoff(key)) {
-            this.enqueue(key, this.centerTx + dx, this.centerTz + dz, dx * dx + dz * dz)
+            this.enqueue(key, this.centerTx + dx, this.centerTz + dz, this.priorityForOffset(dx, dz))
           }
         }
       }
     }
     this.replaceDesired(desired)
+    this.reprioritizeHires()
 
     // 2. 卸载超半径 tile（LRU：最旧未使用的先卸）
     const evictRadius = radius + 1.5
@@ -249,6 +255,18 @@ export class TileManager {
     this.queued.add(key)
     this.queue.push({ key, tx, tz, epoch: this.viewEpoch, priority })
     this.queue.sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
+  }
+
+  /** Re-ranks outstanding requests after a camera turn without aborting useful in-flight work. */
+  private reprioritizeHires(): void {
+    for (const request of this.queue) {
+      request.priority = this.priorityForOffset(request.tx - this.centerTx, request.tz - this.centerTz)
+    }
+    this.queue.sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
+  }
+
+  private priorityForOffset(dx: number, dz: number): number {
+    return tileRequestPriority(dx, dz, this.cameraDirection.x, this.cameraDirection.z)
   }
 
   private replaceDesired(desired: Set<string>): void {
@@ -386,7 +404,7 @@ export class TileManager {
         }
         const url = this.source.lowresTileUrl(lod, tx, tz)
         if (url && !record.texture && !record.request && !record.failed && !this.lowresQueued.has(key)) {
-          this.enqueueLowres(key, record, url, dx * dx + dz * dz)
+          this.enqueueLowres(key, record, url, tx, tz, this.priorityForOffset(dx, dz))
         }
         record.lastUsed = this.frame
         // 该区域 hires 已全部就位时隐藏低清平面，避免平面切入山体
@@ -402,6 +420,7 @@ export class TileManager {
         this.lowresQueue.splice(index, 1)
       }
     }
+    this.reprioritizeLowres(centerTx, centerTz)
 
     for (const [key, record] of this.lowres) {
       if (!wanted.has(key)) {
@@ -457,11 +476,18 @@ export class TileManager {
     return record
   }
 
-  private enqueueLowres(key: string, record: LowresRecord, url: string, priority: number): void {
-    const request = { key, priority, value: { record, url } }
+  private enqueueLowres(key: string, record: LowresRecord, url: string, tx: number, tz: number, priority: number): void {
+    const request = { key, priority, value: { record, url, tx, tz } }
     if (enqueueLowresRequest(this.lowresQueue, request, 48)) {
       this.lowresQueued.add(key)
     }
+  }
+
+  private reprioritizeLowres(centerTx: number, centerTz: number): void {
+    for (const request of this.lowresQueue) {
+      request.priority = this.priorityForOffset(request.value.tx - centerTx, request.value.tz - centerTz)
+    }
+    this.lowresQueue.sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
   }
 
   /** Lowres raster work gets its own small budget so it cannot starve nearby PRBM detail tiles. */
