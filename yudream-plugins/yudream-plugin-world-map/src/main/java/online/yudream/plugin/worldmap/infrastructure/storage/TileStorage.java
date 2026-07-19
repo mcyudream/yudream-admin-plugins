@@ -124,6 +124,14 @@ public final class TileStorage {
         return generationPrefix(mapId, generationId) + "/tiles/hires/" + tx + "/" + tz + ".json.gz";
     }
 
+    public static String blueMapHiresKey(String mapId, String generationId, int tx, int tz) {
+        return generationPrefix(mapId, generationId) + "/tiles/hires/" + tx + "/" + tz + ".prbm";
+    }
+
+    public Optional<PluginStoredFile> blueMapHires(String mapId, String generationId, int tx, int tz) {
+        return Optional.ofNullable(store.get(blueMapHiresKey(mapId, generationId, tx, tz)));
+    }
+
     public static String lowresKey(String mapId, int lod, int tx, int tz) {
         return MAPS_PREFIX + mapId + "/tiles/lowres/" + lod + "/" + tx + "/" + tz + ".png";
     }

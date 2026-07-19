@@ -47,4 +47,16 @@ class BlueMapCliRenderEngineTest {
         assertTrue(command.contains("-v"));
         assertTrue(command.contains("1.21.4"));
     }
+
+    @Test
+    void adapterRejectsStorageOutsideTheTaskDirectory() throws Exception {
+        BlueMapRenderEngineAdapter adapter = new BlueMapRenderEngineAdapter();
+        var method = BlueMapRenderEngineAdapter.class.getDeclaredMethod("resolveStorageRoot", Path.class, Path.class);
+        method.setAccessible(true);
+
+        var error = assertThrows(java.lang.reflect.InvocationTargetException.class,
+                () -> method.invoke(adapter, temp.resolve("work"), temp.resolve("outside")));
+
+        assertTrue(error.getCause() instanceof java.io.IOException);
+    }
 }

@@ -31,6 +31,12 @@ public final class GenerationPublisher {
         track(generation, key);
     }
 
+    public void saveBlueMapHires(MapGeneration generation, int tx, int tz, byte[] data) {
+        String key = TileStorage.blueMapHiresKey(generation.mapId(), generation.id(), tx, tz);
+        storage.put(key, data, "application/octet-stream");
+        track(generation, key);
+    }
+
     public void saveLowres(MapGeneration generation, int lod, int tx, int tz, byte[] data) {
         String key = TileStorage.lowresKey(generation.mapId(), generation.id(), lod, tx, tz);
         storage.put(key, data, "image/png");

@@ -49,7 +49,7 @@ public class PublicMapController {
         String mapId = segments[2];
         int tx = Integer.parseInt(segments[5]);
         int tz = Integer.parseInt(segments[6]);
-        return tileResponse(tileStorage.hires(mapId, activeGeneration(mapId), tx, tz), "application/json", true);
+        return hiresResponse(mapId, activeGeneration(mapId), tx, tz);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/tiles/lowres/{lod}/{tx}/{tz}")
@@ -75,8 +75,7 @@ public class PublicMapController {
     public PluginHttpResponse generationHiresTile(PluginHttpRequest request) {
         requireGet(request);
         String[] segments = request.path().split("/");
-        return tileResponse(tileStorage.hires(segments[2], segments[4], Integer.parseInt(segments[7]), Integer.parseInt(segments[8])),
-                "application/json", true);
+        return hiresResponse(segments[2], segments[4], Integer.parseInt(segments[7]), Integer.parseInt(segments[8]));
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/maps/{mapId}/generations/{generationId}/tiles/lowres/{lod}/{tx}/{tz}")
@@ -114,6 +113,14 @@ public class PublicMapController {
         } catch (Exception e) {
             return PluginHttpResponse.rawJson(500, Map.of("message", "tile 读取失败"));
         }
+    }
+
+    private PluginHttpResponse hiresResponse(String mapId, String generationId, int tx, int tz) {
+        Optional<online.yudream.base.plugin.spi.system.storage.PluginStoredFile> binary = tileStorage.blueMapHires(mapId, generationId, tx, tz);
+        if (binary.isPresent()) {
+            return tileResponse(binary, "application/octet-stream", false);
+        }
+        return tileResponse(tileStorage.hires(mapId, generationId, tx, tz), "application/json", true);
     }
 
     private void requireGet(PluginHttpRequest request) {
