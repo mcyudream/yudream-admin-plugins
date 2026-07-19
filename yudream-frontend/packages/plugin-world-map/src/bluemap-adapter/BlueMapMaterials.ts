@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createBlueMapAnimationState, stepBlueMapAnimation } from './BlueMapAnimation'
 import type { BlueMapAnimationDefinition, BlueMapAnimationState } from './BlueMapAnimation'
+import { decodeLowresImage, releaseLowresImage } from '../map/lowresImageDecode'
 
 interface BlueMapTexture {
   color?: number[]
@@ -13,6 +14,7 @@ const MAX_MATERIALS = 4096
 const MAX_CONCURRENT_TEXTURE_LOADS = 8
 const textureSources = new WeakMap<THREE.ShaderMaterial, string>()
 const textureLoads = new WeakMap<THREE.ShaderMaterial, Promise<void>>()
+const textureLoadControllers = new WeakMap<THREE.ShaderMaterial, AbortController>()
 const disposedMaterials = new WeakSet<THREE.ShaderMaterial>()
 const animations = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationDefinition>()
 const animationStates = new WeakMap<THREE.ShaderMaterial, BlueMapAnimationState>()
@@ -125,12 +127,14 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
   if (existing) return existing
   const source = textureSources.get(material)
   if (!source || disposedMaterials.has(material)) return Promise.resolve()
+  const controller = new AbortController()
+  textureLoadControllers.set(material, controller)
   const load = scheduleTextureLoad(async () => {
     if (disposedMaterials.has(material)) throw new Error('BlueMap material was disposed')
-    return new THREE.TextureLoader().loadAsync(source)
+    return loadTexture(source, controller.signal)
   }).then(texture => {
     if (disposedMaterials.has(material)) {
-      texture.dispose()
+      disposeTexture(texture)
       return
     }
     texture.colorSpace = THREE.SRGBColorSpace
@@ -148,14 +152,25 @@ function loadMaterialTexture(material: THREE.ShaderMaterial): Promise<void> {
       animationStates.set(material, state)
       material.uniforms.animationFrameHeight.value = 1 / state.frameCount
     }
-    fallback?.dispose()
+    if (fallback) disposeTexture(fallback)
     material.needsUpdate = true
   }).catch(error => {
     textureLoads.delete(material)
+    textureLoadControllers.delete(material)
     throw error
   })
   textureLoads.set(material, load)
   return load
+}
+
+/** Data URLs are fetched explicitly so map switches can cancel image decode instead of waiting for TextureLoader. */
+async function loadTexture(source: string, signal: AbortSignal): Promise<THREE.Texture> {
+  const response = await fetch(source, { signal })
+  if (!response.ok) throw new Error(`BlueMap texture: HTTP ${response.status}`)
+  const image = await decodeLowresImage(await response.blob())
+  const texture = new THREE.Texture(image)
+  texture.needsUpdate = true
+  return texture
 }
 
 /** Keeps data-URL image decode bounded while the tile loader moves through a dense world. */
@@ -200,12 +215,19 @@ export function hasActiveBlueMapAnimations(materials: readonly THREE.ShaderMater
 export function disposeBlueMapMaterials(materials: readonly THREE.ShaderMaterial[]): void {
   for (const material of materials) {
     disposedMaterials.add(material)
+    textureLoadControllers.get(material)?.abort()
+    textureLoadControllers.delete(material)
     const texture = material.uniforms.textureImage.value as THREE.Texture | null
-    texture?.dispose()
+    if (texture) disposeTexture(texture)
     textureSources.delete(material)
     textureLoads.delete(material)
     animations.delete(material)
     animationStates.delete(material)
     material.dispose()
   }
+}
+
+function disposeTexture(texture: THREE.Texture): void {
+  releaseLowresImage(texture.image as ImageBitmap | HTMLImageElement | null)
+  texture.dispose()
 }
