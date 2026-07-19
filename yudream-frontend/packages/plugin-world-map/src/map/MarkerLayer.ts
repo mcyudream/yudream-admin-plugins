@@ -7,6 +7,22 @@ export interface MarkerPickResult {
   marker: MapMarker
 }
 
+/** Returns a stable navigation point for point, line, and region annotations. */
+export function markerAnchor(marker: MapMarker): THREE.Vector3 | null {
+  if (marker.position && finitePosition(marker.position)) {
+    return new THREE.Vector3(marker.position.x, marker.position.y, marker.position.z)
+  }
+  const points = (marker.points ?? []).filter(finitePosition)
+  if (points.length === 0) {
+    return null
+  }
+  const anchor = new THREE.Vector3()
+  for (const point of points) {
+    anchor.add(new THREE.Vector3(point.x, point.y, point.z))
+  }
+  return anchor.multiplyScalar(1 / points.length)
+}
+
 /**
  * 标注层：消费插件公开 API 的纯 marker DTO，不依赖任何具体渲染引擎类型。
  */
@@ -125,4 +141,8 @@ export class MarkerLayer {
     this.clear()
     this.group.removeFromParent()
   }
+}
+
+function finitePosition(value: { x: number, y: number, z: number }): boolean {
+  return Number.isFinite(value.x) && Number.isFinite(value.y) && Number.isFinite(value.z)
 }

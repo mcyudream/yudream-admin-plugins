@@ -6,9 +6,9 @@ import { applyBlueMapDayFactor, createBlueMapMaterials, disposeBlueMapMaterials,
 import { applyBlueMapSettings } from '../bluemap-adapter/BlueMapSettings'
 import { parseBlueMapLowresIndex } from '../bluemap-adapter/BlueMapLowresIndex'
 import { canvasPointerToNdc } from './canvasCoordinates'
-import { MarkerLayer } from './MarkerLayer'
+import { MarkerLayer, markerAnchor } from './MarkerLayer'
 import type { MarkerPickResult } from './MarkerLayer'
-import type { MapMarkerSet } from '../types'
+import type { MapMarker, MapMarkerSet } from '../types'
 import { TileManager } from './TileManager'
 import type { CameraMode, MapViewMode, WorldMapSource } from './types'
 import { fogForViewMode, PERSPECTIVE_FOG } from './viewMode'
@@ -286,6 +286,32 @@ export class MapViewer {
   setLayerVisible(setId: string, visible: boolean): void {
     this.markerLayer.setVisible(setId, visible)
     this.requestRender()
+  }
+
+  /** Moves the active camera to a marker's point or geometry center. */
+  focusMarker(marker: MapMarker): boolean {
+    const anchor = markerAnchor(marker)
+    if (!anchor) {
+      return false
+    }
+    if (this.viewMode === 'flat') {
+      const height = this.flatCamera.position.y - this.flatOrbit.controls.target.y
+      this.flatOrbit.controls.target.copy(anchor)
+      this.flatCamera.position.set(anchor.x, anchor.y + height, anchor.z)
+      this.flatCamera.lookAt(anchor)
+      this.flatOrbit.controls.update()
+    }
+    else {
+      const offset = this.perspectiveCamera.position.clone().sub(this.orbit.controls.target)
+      const distance = Math.max(offset.length(), 72)
+      offset.normalize().multiplyScalar(distance)
+      this.orbit.controls.target.copy(anchor)
+      this.perspectiveCamera.position.copy(anchor).add(offset)
+      this.perspectiveCamera.lookAt(anchor)
+      this.orbit.controls.update()
+    }
+    this.requestRender()
+    return true
   }
 
   private applyTimeOfDay(): void {

@@ -29,6 +29,7 @@ const {
   screenshot,
   toggleFullscreen,
   setLayerVisible,
+  focusSelectedMarker,
 } = useWorldMapViewer(props.sdk, props.route)
 
 function toggleCameraMode() {
@@ -126,7 +127,12 @@ function setContainer(el: unknown) {
     </div>
 
     <div v-if="selectedMarker" class="world-map-marker-popup">
-      <strong>{{ selectedMarker.label || selectedMarker.id || '标注' }}</strong>
+      <div class="world-map-marker-popup-title">
+        <strong>{{ selectedMarker.label || selectedMarker.id || '标注' }}</strong>
+        <FaButton size="sm" variant="outline" title="定位到标注" @click="focusSelectedMarker">
+          <FaIcon name="i-mdi:crosshairs-gps" />
+        </FaButton>
+      </div>
       <span v-if="selectedMarker.position">
         {{ Math.round(selectedMarker.position.x) }} / {{ Math.round(selectedMarker.position.y) }} / {{ Math.round(selectedMarker.position.z) }}
       </span>

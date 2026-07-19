@@ -48,15 +48,16 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   /** 首次加载完成前禁止回写 hash，避免覆盖待还原的分享视角 */
   let hashLocked = true
 
-  /** 把当前视角写入 URL hash（可分享的视角链接），带去抖 */
+  /** 把当前视角写入 URL hash（可分享的视角链接），最多每 400ms 一次。 */
   function scheduleHashWrite(): void {
     if (!viewer || typeof window === 'undefined' || hashLocked) {
       return
     }
     if (hashWriteTimer) {
-      clearTimeout(hashWriteTimer)
+      return
     }
     hashWriteTimer = setTimeout(() => {
+      hashWriteTimer = null
       if (!viewer) {
         return
       }
@@ -116,6 +117,12 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   function setLayerVisible(setId: string, visible: boolean): void {
     layerVisibility.value = { ...layerVisibility.value, [setId]: visible }
     viewer?.setLayerVisible(setId, visible)
+  }
+
+  function focusSelectedMarker(): void {
+    if (selectedMarker.value && viewer?.focusMarker(selectedMarker.value)) {
+      scheduleHashWrite()
+    }
   }
 
   async function loadCurrentMap(): Promise<void> {
@@ -247,5 +254,6 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     screenshot,
     toggleFullscreen,
     setLayerVisible,
+    focusSelectedMarker,
   }
 }
