@@ -1,0 +1,35 @@
+{
+  "name": "@yudream/plugin-world-map",
+  "version": "1.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"
+  },
+  "dependencies": {
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "three": "^0.180.0",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "^4.0.8",
+    "vue-tsc": "catalog:"
+  }
+}

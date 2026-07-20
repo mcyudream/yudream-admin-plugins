@@ -1,0 +1,7 @@
+name: world-map
+displayName: 世界地图
+main: online.yudream.plugin.worldmap.bootstrap.WorldMapPlugin
+version: 1.0.0
+description: Minecraft 世界存档 3D 地图渲染与浏览（对标 BlueMap），支持原版资产渲染、前端标注与地点介绍扩展。
+softdepend:
+  - minecraft-server
