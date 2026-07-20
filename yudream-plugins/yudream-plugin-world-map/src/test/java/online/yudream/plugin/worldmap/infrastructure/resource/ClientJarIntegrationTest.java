@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
+import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -44,7 +45,7 @@ class ClientJarIntegrationTest {
     /** 下载（带缓存）客户端 jar，失败返回 null。 */
     private static Path ensureClientJar() {
         try {
-            if (Files.exists(CACHE) && Files.size(CACHE) > 1_000_000) {
+            if (isReadableClientJar(CACHE)) {
                 return CACHE;
             }
             Files.createDirectories(CACHE.getParent());
@@ -58,7 +59,7 @@ class ClientJarIntegrationTest {
                     .build();
             HttpResponse<Path> response = client.send(request,
                     HttpResponse.BodyHandlers.ofFile(CACHE));
-            if (response.statusCode() == 200 && Files.size(CACHE) > 1_000_000) {
+            if (response.statusCode() == 200 && isReadableClientJar(CACHE)) {
                 return CACHE;
             }
             System.err.println("[ClientJarIntegrationTest] 下载状态异常: " + response.statusCode());
@@ -66,6 +67,15 @@ class ClientJarIntegrationTest {
         } catch (IOException | InterruptedException | IllegalArgumentException e) {
             System.err.println("[ClientJarIntegrationTest] 下载失败: " + e);
             return null;
+        }
+    }
+
+    private static boolean isReadableClientJar(Path jar) {
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            return Files.size(jar) > 1_000_000
+                    && zip.getEntry("assets/minecraft/blockstates/stone.json") != null;
+        } catch (IOException | IllegalArgumentException ignored) {
+            return false;
         }
     }
 

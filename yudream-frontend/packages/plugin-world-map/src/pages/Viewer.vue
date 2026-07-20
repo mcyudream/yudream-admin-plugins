@@ -29,6 +29,8 @@ const {
   lowresCoverage,
   mock,
   tileLoadingMessage,
+  fps,
+  compassYaw,
   isFullscreen,
   screenshot,
   toggleFullscreen,
@@ -179,13 +181,7 @@ function toggleRenderSettings() {
         <span class="world-map-toolbar-coords">
           XYZ: {{ cameraPos.x }} / {{ cameraPos.y }} / {{ cameraPos.z }}
         </span>
-        <form class="world-map-coordinate-form" @submit.prevent="focusCoordinateInput">
-          <FaInput v-model="coordinateX" aria-label="X coordinate" inputmode="decimal" placeholder="X" />
-          <FaInput v-model="coordinateZ" aria-label="Z coordinate" inputmode="decimal" placeholder="Z" />
-          <FaButton size="sm" variant="outline" title="定位到坐标" type="submit">
-            <FaIcon name="i-mdi:crosshairs-gps" />
-          </FaButton>
-        </form>
+        <span class="world-map-toolbar-fps">{{ fps }} FPS</span>
         <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
       </div>
     </div>
@@ -261,6 +257,12 @@ function toggleRenderSettings() {
     </div>
     <div v-else-if="cameraMode === 'fly'" class="world-map-hint">
       点击画面锁定鼠标，WASD 移动，Space/Q 升降，Shift 加速，Esc 退出
+    </div>
+
+    <div class="world-map-compass" aria-hidden="true">
+      <div class="world-map-compass-dial" :style="{ transform: `rotate(${-compassYaw}deg)` }">
+        <span class="world-map-compass-n">N</span>
+      </div>
     </div>
   </div>
 </template>

@@ -44,6 +44,7 @@ class BlueMapCliRenderEngineTest {
         assertTrue(command.contains(cli.toAbsolutePath().toString()));
         assertTrue(command.contains("-c"));
         assertTrue(command.contains(work.resolve("config").toAbsolutePath().toString()));
+        assertTrue(command.contains("-r"));
         assertTrue(command.contains("-f"));
         assertTrue(command.contains("-m"));
         assertTrue(command.contains("smoke_map"));
@@ -68,14 +69,17 @@ class BlueMapCliRenderEngineTest {
         Path config = Files.createDirectories(temp.resolve("config"));
         Path maps = Files.createDirectories(config.resolve("maps"));
         Path storages = Files.createDirectories(config.resolve("storages"));
+        Files.writeString(config.resolve("webserver.conf"), "webroot: C:/another-volume/web");
+        Files.writeString(config.resolve("webapp.conf"), "webroot: C:/another-volume/web");
         Files.writeString(config.resolve("core.conf"), "accept-download: true\ndata: \"${data}\"\n");
         Files.writeString(maps.resolve("template.conf"), "world: \"${world}\"\ndimension: \"${dimension}\"\nname: \"${name}\"\nstorage: \"file\"\n");
         Files.writeString(storages.resolve("file.conf"), "storage-type: file\nroot: \"${root}\"\n");
         Path world = Files.createDirectories(temp.resolve("world"));
         Path client = clientJar("1.21.4");
         Path output = temp.resolve("output");
+        Path resources = temp.resolve("resources/1.21.4");
 
-        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, client, "1.21.4", "nether", output);
+        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, client, "1.21.4", "nether", output, resources);
 
         String map = Files.readString(maps.resolve("map_1.conf"));
         assertTrue(map.contains("minecraft:the_nether"));
@@ -83,9 +87,11 @@ class BlueMapCliRenderEngineTest {
         assertTrue(map.contains(world.toAbsolutePath().toString().replace('\\', '/')));
         assertTrue(Files.notExists(maps.resolve("template.conf")));
         assertTrue(Files.readString(storages.resolve("file.conf")).contains(output.toAbsolutePath().toString().replace('\\', '/')));
-        assertTrue(Files.readString(config.resolve("core.conf")).contains("accept-download: false"));
-        assertTrue(Files.readString(config.resolve("core.conf")).contains(config.resolve("data").toAbsolutePath().toString().replace('\\', '/')));
-        assertArrayEquals(Files.readAllBytes(client), Files.readAllBytes(config.resolve("data/minecraft-client-1.21.4.jar")));
+        assertTrue(Files.readString(config.resolve("core.conf")).contains("accept-download: true"));
+        assertTrue(Files.readString(config.resolve("core.conf")).contains(resources.toAbsolutePath().toString().replace('\\', '/')));
+        assertArrayEquals(Files.readAllBytes(client), Files.readAllBytes(resources.resolve("minecraft-client-1.21.4.jar")));
+        assertTrue(Files.readString(config.resolve("webserver.conf")).contains("enabled: false"));
+        assertTrue(Files.readString(config.resolve("webapp.conf")).contains("enabled: false"));
     }
 
     @Test
@@ -102,6 +108,17 @@ class BlueMapCliRenderEngineTest {
                 Path.of("java21"), temp.resolve("cli.jar"), temp.resolve("template"), 768, Duration.ofMinutes(1));
 
         engine.cancel();
+    }
+
+    @Test
+    void retainsOnlyTheActionableTailOfAWorkerFailureLog() throws Exception {
+        Path log = temp.resolve("worker.log");
+        Files.writeString(log, "prefix\n" + "x".repeat(4_100) + "\nBlueMap missing resources");
+
+        String tail = BlueMapCliRenderEngine.logTail(log);
+
+        assertTrue(tail.endsWith("BlueMap missing resources"));
+        assertTrue(tail.length() <= 4_000);
     }
 
     private Path clientJar(String version) throws Exception {

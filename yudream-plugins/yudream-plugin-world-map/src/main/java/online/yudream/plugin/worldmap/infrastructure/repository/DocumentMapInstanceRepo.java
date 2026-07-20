@@ -65,6 +65,7 @@ public class DocumentMapInstanceRepo implements MapInstanceRepo {
         doc.put("worldZipKey", map.getWorldZipKey());
         doc.put("clientJarKey", map.getClientJarKey());
         doc.put("activeGenerationId", map.getActiveGenerationId());
+        doc.put("publishedGenerationIds", map.getPublishedGenerationIds());
         doc.put("activeRenderer", map.getActiveRenderer());
         doc.put("createdAt", map.getCreatedAt());
         doc.put("renderedAt", map.getRenderedAt());
@@ -95,6 +96,11 @@ public class DocumentMapInstanceRepo implements MapInstanceRepo {
         map.setWorldZipKey(stringValue(doc.get("worldZipKey"), null));
         map.setClientJarKey(stringValue(doc.get("clientJarKey"), null));
         map.setActiveGenerationId(stringValue(doc.get("activeGenerationId"), null));
+        map.setPublishedGenerationIds(stringList(doc.get("publishedGenerationIds")));
+        if (map.getPublishedGenerationIds().isEmpty() && map.getActiveGenerationId() != null) {
+            // Migrate existing records lazily so their active immutable generation can be deleted.
+            map.addPublishedGenerationId(map.getActiveGenerationId());
+        }
         map.setActiveRenderer(stringValue(doc.get("activeRenderer"), "YUDREAM"));
         map.setCreatedAt(longValue(doc.get("createdAt")));
         map.setRenderedAt(longValue(doc.get("renderedAt")));
@@ -116,5 +122,10 @@ public class DocumentMapInstanceRepo implements MapInstanceRepo {
 
     static long longValue(Object value) {
         return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private static List<String> stringList(Object value) {
+        if (!(value instanceof List<?> values)) return List.of();
+        return values.stream().filter(String.class::isInstance).map(String.class::cast).toList();
     }
 }

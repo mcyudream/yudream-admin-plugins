@@ -5,6 +5,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
   FaButton,
   FaCard,
+  FaDrawer,
   FaIcon,
   FaPageHeader,
   FaPageMain,
@@ -12,6 +13,7 @@ import {
   FaTable,
   FaTag,
 } from '@yudream/components'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   dimensionLabel,
@@ -30,6 +32,8 @@ const props = defineProps<{
 
 const router = useRouter()
 const model = useWorldMapMapDetail(props.sdk, props.route)
+const errorDrawerOpen = ref(false)
+const selectedTaskError = ref<RenderTask | null>(null)
 
 const columns: TableColumn<RenderTask>[] = [
   { id: 'id', header: '任务 ID', width: 200, fixed: 'left' },
@@ -42,6 +46,20 @@ const columns: TableColumn<RenderTask>[] = [
 
 function backToList() {
   void router.push('/world-map/admin/maps')
+}
+
+function taskError(task: RenderTask): string {
+  return task.error || task.message || '渲染失败'
+}
+
+function errorSummary(task: RenderTask): string {
+  const message = taskError(task).replace(/\s+/g, ' ').trim()
+  return message.length > 160 ? `${message.slice(0, 160)}...` : message
+}
+
+function openErrorDetail(task: RenderTask) {
+  selectedTaskError.value = task
+  errorDrawerOpen.value = true
 }
 </script>
 
@@ -146,9 +164,20 @@ function backToList() {
               <template v-if="row.original.message">· {{ row.original.message }}</template>
             </span>
           </div>
-          <span v-else-if="row.original.state === 'FAILED' || row.original.state === 'CANCELLED'" class="text-xs text-destructive">
-            {{ row.original.error || row.original.message || '渲染失败' }}
-          </span>
+          <div v-else-if="row.original.state === 'FAILED' || row.original.state === 'CANCELLED'" class="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
+            <span class="min-w-0 flex-1 truncate" :title="taskError(row.original)">
+              {{ errorSummary(row.original) }}
+            </span>
+            <FaButton
+              size="sm"
+              variant="ghost"
+              title="查看失败详情"
+              aria-label="查看失败详情"
+              @click="openErrorDetail(row.original)"
+            >
+              <FaIcon name="i-mdi:text-box-search-outline" />
+            </FaButton>
+          </div>
           <span v-else class="text-sm text-muted-foreground">
             {{ model.taskProgress(row.original) }}% · {{ row.original.doneTiles }} / {{ row.original.totalTiles }}
           </span>
@@ -163,6 +192,22 @@ function backToList() {
           <span class="text-muted-foreground">暂无渲染任务，点击右上角「触发渲染」开始</span>
         </template>
       </FaTable>
+
+      <FaDrawer
+        v-model="errorDrawerOpen"
+        title="渲染失败详情"
+        side="right"
+        :show-confirm-button="false"
+        :footer="false"
+        content-class="w-[min(720px,calc(100vw-24px))]"
+      >
+        <div class="grid gap-3">
+          <div v-if="selectedTaskError" class="text-sm text-muted-foreground">
+            {{ formatTime(selectedTaskError.finishedAt || selectedTaskError.createdAt) }}
+          </div>
+          <pre class="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-5 text-foreground">{{ selectedTaskError ? taskError(selectedTaskError) : '' }}</pre>
+        </div>
+      </FaDrawer>
     </template>
   </FaPageMain>
 </template>

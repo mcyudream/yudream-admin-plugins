@@ -10,6 +10,7 @@
     "./remote": "./dist/remoteEntry.js"
   },
   "scripts": {
+    "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"

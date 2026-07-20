@@ -28,12 +28,12 @@ class BlueMapFileGenerationImporterTest {
     @Test
     void importsGzipPrbmAndLowresPngFromBlueMapFileStorage() throws Exception {
         byte[] prbm = {1, 7, 0, 0, 0, 0, 0, 0};
-        Path hires = Files.createDirectories(output.resolve("tiles/0/x-1/z2"));
-        try (var gzip = new GZIPOutputStream(Files.newOutputStream(hires.resolve("x-1z2.prbm.gz")))) {
+        Path hires = Files.createDirectories(output.resolve("tiles/0/x-1"));
+        try (var gzip = new GZIPOutputStream(Files.newOutputStream(hires.resolve("z2.prbm.gz")))) {
             gzip.write(prbm);
         }
-        Path lowres = Files.createDirectories(output.resolve("tiles/2/x0/z-1"));
-        Files.write(lowres.resolve("x0z-1.png"), new byte[]{1, 2, 3});
+        Path lowres = Files.createDirectories(output.resolve("tiles/2/x0"));
+        Files.write(lowres.resolve("z-1.png"), new byte[]{1, 2, 3});
         byte[] textures = "[{\"color\":[1,1,1,1],\"texture\":\"data:image/png;base64,AA==\"}]".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         Files.write(output.resolve("textures.json"), textures);
         // BlueMap v5 serializes Vector2i values as JSON arrays, not { x, y } objects.

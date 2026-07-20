@@ -44,7 +44,7 @@ const FACES: MockFace[] = [
   { corners: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], ao: 0.9, skylight: 13 }, // -Z
 ]
 
-/** 构造一块假 hires tile：8×8 根随机高度、随机染色的方块柱（含少量"火把"柱） */
+/** Constructs a full visible hires tile with varied block columns for development preview. */
 function buildMockTile(): HiresTile {
   const positions: number[] = []
   const indices: number[] = []
@@ -61,8 +61,8 @@ function buildMockTile(): HiresTile {
   }
 
   const baseY = 64
-  for (let x = 0; x < 8; x += 1) {
-    for (let z = 0; z < 8; z += 1) {
+  for (let x = 0; x < 32; x += 1) {
+    for (let z = 0; z < 32; z += 1) {
       const height = 1 + Math.floor(rand() * 5)
       const r = 0.25 + rand() * 0.75
       const g = 0.25 + rand() * 0.75

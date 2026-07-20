@@ -10,6 +10,7 @@ describe('map shader color space', () => {
     const material = createTerrainMaterial(atlas)
 
     expect(material.fragmentShader).toContain('sRGBTransferEOTF(texel)')
+    expect(material.fragmentShader).not.toContain('#include <colorspace_pars_fragment>')
     expect(material.fragmentShader).toContain('#include <colorspace_fragment>')
     material.dispose()
     atlas.dispose()
@@ -19,6 +20,7 @@ describe('map shader color space', () => {
     const materials = await createBlueMapMaterials([{ color: [1, 1, 1, 1] }])
 
     expect(materials[0]!.fragmentShader).toContain('sRGBTransferEOTF(color)')
+    expect(materials[0]!.fragmentShader).not.toContain('#include <colorspace_pars_fragment>')
     expect(materials[0]!.fragmentShader).toContain('#include <colorspace_fragment>')
     disposeBlueMapMaterials(materials)
   })
@@ -27,6 +29,7 @@ describe('map shader color space', () => {
     const material = createBlueMapLowresMaterial()
     expect(material.fragmentShader).toContain('float heightFromMeta(vec4 meta)')
     expect(material.fragmentShader).toContain('sRGBTransferEOTF(color)')
+    expect(material.fragmentShader).not.toContain('#include <colorspace_pars_fragment>')
     material.dispose()
   })
 })

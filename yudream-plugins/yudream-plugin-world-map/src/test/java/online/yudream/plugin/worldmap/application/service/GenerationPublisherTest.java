@@ -68,6 +68,25 @@ class GenerationPublisherTest {
         assertEquals(staging.id(), map.getActiveGenerationId());
     }
 
+    @Test
+    void publishedManifestDeletesOnlyKnownGenerationAssets() {
+        InMemoryFileStore store = new InMemoryFileStore();
+        GenerationPublisher publisher = new GenerationPublisher(new TileStorage(store));
+        MapInstance map = new MapInstance("map-1", "Example", "overworld");
+        MapGeneration generation = publisher.stage(map.getId());
+        publisher.saveAtlas(generation, new byte[]{2});
+        publisher.saveLowres(generation, 0, 1, 2, new byte[]{3});
+        publisher.publish(map, generation);
+        store.put("maps/map-1/generations/other/untracked.bin", new ByteArrayInputStream(new byte[]{4}), 1, "application/octet-stream");
+
+        publisher.deletePublished(map);
+
+        assertFalse(store.files.containsKey(TileStorage.atlasKey("map-1", generation.id())));
+        assertFalse(store.files.containsKey(TileStorage.lowresKey("map-1", generation.id(), 0, 1, 2)));
+        assertFalse(store.files.containsKey(TileStorage.generationManifestKey("map-1", generation.id())));
+        assertTrue(store.files.containsKey("maps/map-1/generations/other/untracked.bin"));
+    }
+
     private static final class InMemoryFileStore implements PluginFileStore {
         private final Map<String, byte[]> files = new HashMap<>();
 

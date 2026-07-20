@@ -31,6 +31,7 @@ public class MapAppService {
     private final TileStorage tileStorage;
     private final FrameworkServices framework;
     private final RenderOrchestrator orchestrator;
+    private final GenerationPublisher generationPublisher;
     private final WorldMapAppAssembler assembler = new WorldMapAppAssembler();
 
     public MapAppService(MapInstanceRepo mapRepo,
@@ -43,6 +44,7 @@ public class MapAppService {
         this.tileStorage = tileStorage;
         this.framework = framework;
         this.orchestrator = orchestrator;
+        this.generationPublisher = new GenerationPublisher(tileStorage);
     }
 
     public List<MapSummaryDTO> listPublic() {
@@ -100,7 +102,8 @@ public class MapAppService {
     public void delete(String mapId) {
         MapInstance map = mapRepo.findById(mapId)
                 .orElseThrow(() -> new IllegalArgumentException("地图不存在：" + mapId));
-        deleteTiles(map);
+        generationPublisher.deletePublished(map);
+        tileStorage.deleteMap(map.getId());
         deleteObject(map.getWorldZipKey());
         deleteObject(map.getClientJarKey());
         taskRepo.deleteByMapId(mapId);
@@ -146,27 +149,6 @@ public class MapAppService {
         } catch (IOException e) {
             throw new IllegalStateException("读取平台文件失败：" + e.getMessage(), e);
         }
-    }
-
-    private void deleteTiles(MapInstance map) {
-        for (int tx = map.getMinTileX(); tx <= map.getMaxTileX(); tx++) {
-            for (int tz = map.getMinTileZ(); tz <= map.getMaxTileZ(); tz++) {
-                tileStorage.delete("maps/" + map.getId() + "/tiles/hires/" + tx + "/" + tz + ".json.gz");
-            }
-        }
-        for (int lod = 0; lod <= 4; lod++) {
-            int scale = 1 << lod;
-            int minTx = Math.floorDiv(map.getMinTileX() * 32, 512 * scale);
-            int minTz = Math.floorDiv(map.getMinTileZ() * 32, 512 * scale);
-            int maxTx = Math.floorDiv(map.getMaxTileX() * 32 + 31, 512 * scale);
-            int maxTz = Math.floorDiv(map.getMaxTileZ() * 32 + 31, 512 * scale);
-            for (int tx = minTx; tx <= maxTx; tx++) {
-                for (int tz = minTz; tz <= maxTz; tz++) {
-                    tileStorage.delete("maps/" + map.getId() + "/tiles/lowres/" + lod + "/" + tx + "/" + tz + ".png");
-                }
-            }
-        }
-        tileStorage.delete("maps/" + map.getId() + "/textures/atlas.png");
     }
 
     private void deleteObject(String key) {

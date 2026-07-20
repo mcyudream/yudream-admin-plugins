@@ -13,6 +13,7 @@ import { DEFAULT_HIRES_RADIUS, DEFAULT_LOWRES_COVERAGE, normalizeHiresRadius, no
 
 const HIRES_RADIUS_STORAGE_KEY = 'yudream.world-map.hires-radius'
 const LOWRES_COVERAGE_STORAGE_KEY = 'yudream.world-map.lowres-coverage'
+export const INITIAL_CAMERA_MODE: CameraMode = 'orbit'
 
 function storedNumber(key: string, fallback: number): number {
   if (typeof window === 'undefined') return fallback
@@ -40,7 +41,9 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   const currentMapId = ref('')
   const loading = ref(true)
   const error = ref('')
-  const cameraMode = ref<CameraMode>('orbit')
+  // Start in a terrain-facing orbit view. Flight remains available on demand, but an initial
+  // free-flight heading can point above the world and make a fully loaded map look blank.
+  const cameraMode = ref<CameraMode>(INITIAL_CAMERA_MODE)
   const viewMode = ref<MapViewMode>('perspective')
   /** 昼夜滑杆，0..1000 映射 0..1（500 = 正午） */
   const timeOfDay = ref<number[]>([500])
@@ -70,6 +73,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   let viewer: MapViewer | null = null
   let loadSeq = 0
   const pendingTiles = ref(0)
+  const fps = ref(0)
+  const compassYaw = ref(0)
   const currentTileLoadStatus = ref<TileLoadStatus>(EMPTY_TILE_LOAD_STATUS)
   const tileLoadingMessage = computed(() => tileLoadMessage(currentTileLoadStatus.value))
   const isFullscreen = ref(false)
@@ -240,6 +245,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     // 轮询 tile 加载进度（轻量，500ms）
     pendingTimer = setInterval(() => {
       pendingTiles.value = viewer?.pendingTiles ?? 0
+      fps.value = viewer?.fps ?? 0
+      compassYaw.value = viewer?.compassYaw ?? 0
       currentTileLoadStatus.value = viewer?.tileLoadStatus ?? EMPTY_TILE_LOAD_STATUS
     }, 500)
     document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -330,6 +337,8 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     lowresCoverage,
     mock,
     pendingTiles,
+    fps,
+    compassYaw,
     tileLoadingMessage,
     isFullscreen,
     screenshot,

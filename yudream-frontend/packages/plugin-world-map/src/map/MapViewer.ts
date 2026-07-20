@@ -17,7 +17,7 @@ import { renderPixelRatio } from './renderPixelRatio'
 import { releaseLowresImage } from './lowresImageDecode'
 import { EMPTY_TILE_LOAD_STATUS } from './tileLoadStatus'
 import type { TileLoadStatus } from './tileLoadStatus'
-import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
+import { FLAT_VIEW_DEFAULT_ZOOM, FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 import { FLAT_CAMERA_HEIGHT, flatSpawnPosition, perspectiveSpawnPosition } from './spawnView'
 import { flySpeedScale } from './controls/flySpeedPolicy'
 import { normalizeHiresRadius, normalizeLowresCoverage } from './renderDistancePolicy'
@@ -67,6 +67,7 @@ export class MapViewer {
   private rafId: number | null = null
   private backgroundRenderTimer: number | null = null
   private lastTime = performance.now()
+  private fpsValue = 0
   private frameCounter = 0
   private timeOfDay = 0.5
   private hiresRadius: number
@@ -253,6 +254,18 @@ export class MapViewer {
   }
 
   /** 读取当前视角（相机位置 + 当前控制器目标点） */
+  /** 平滑后的实时帧率 */
+  get fps(): number {
+    return Math.round(this.fpsValue)
+  }
+
+  /** 相机朝向的罗盘方位角（度，0 = 北 -Z，顺时针） */
+  get compassYaw(): number {
+    const direction = new THREE.Vector3()
+    this.camera.getWorldDirection(direction)
+    return (Math.atan2(-direction.x, -direction.z) * 180) / Math.PI
+  }
+
   getView(): { position: THREE.Vector3, target: THREE.Vector3, zoom?: number } {
     return {
       position: this.camera.position.clone(),
@@ -379,7 +392,7 @@ export class MapViewer {
     this.orbit.controls.target.copy(spawn)
     if (this.mode === 'orbit' && this.viewMode === 'perspective') this.orbit.controls.update()
     this.flatCamera.position.set(flat.x, flat.y, flat.z)
-    this.flatCamera.zoom = 1
+    this.flatCamera.zoom = FLAT_VIEW_DEFAULT_ZOOM
     this.flatCamera.updateProjectionMatrix()
     this.flatCamera.lookAt(spawn)
     this.flatOrbit.controls.target.copy(spawn)
@@ -515,6 +528,9 @@ export class MapViewer {
     const now = performance.now()
     const dt = Math.min((now - this.lastTime) / 1000, 0.1)
     this.lastTime = now
+    if (dt > 0) {
+      this.fpsValue = this.fpsValue === 0 ? 1 / dt : this.fpsValue * 0.9 + (1 / dt) * 0.1
+    }
 
     const controller = this.controller
     if (controller === this.fly) {

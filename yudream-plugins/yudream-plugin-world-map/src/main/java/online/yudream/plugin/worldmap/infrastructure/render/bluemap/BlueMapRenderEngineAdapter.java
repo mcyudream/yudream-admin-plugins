@@ -37,10 +37,11 @@ public final class BlueMapRenderEngineAdapter {
                 config.maxHeapMiB(), config.timeout());
         activeWorker = worker;
         Path storageParent = resolveStorageParent(workDir, config.storageRoot());
+        Path resourceDataRoot = resolveResourceDataRoot(workDir, config.resourceCacheRoot(), config.minecraftVersion());
         String workerMapId = BlueMapCliRenderEngine.blueMapMapId(blueMapMapId);
         try {
             worker.render(workDir, workerMapId, config.minecraftVersion(), job.worldDir(), job.clientJar(), job.dimension(),
-                    storageParent);
+                    storageParent, resourceDataRoot);
         } finally {
             activeWorker = null;
         }
@@ -72,5 +73,28 @@ public final class BlueMapRenderEngineAdapter {
             throw new IOException("BlueMap storage root is not a task-local map directory: " + mapRoot);
         }
         return mapRoot;
+    }
+
+    /**
+     * A configured cache is the only state shared between render jobs. It contains BlueMap's
+     * downloaded renderer resources, while worlds, output, logs and configuration remain task-local.
+     */
+    private Path resolveResourceDataRoot(Path workDir, Path configured, String minecraftVersion) throws IOException {
+        if (configured == null) {
+            return workDir.resolve("data");
+        }
+        Path root = configured.toAbsolutePath().normalize();
+        if (!Files.isDirectory(root) && !Files.exists(root)) {
+            Files.createDirectories(root);
+        }
+        if (!Files.isDirectory(root)) {
+            throw new IOException("BlueMap resource cache root is not a directory: " + root);
+        }
+        Path versionRoot = root.resolve(minecraftVersion).normalize();
+        if (!versionRoot.startsWith(root)) {
+            throw new IOException("BlueMap resource cache version path is invalid");
+        }
+        Files.createDirectories(versionRoot);
+        return versionRoot;
     }
 }

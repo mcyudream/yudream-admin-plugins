@@ -20,6 +20,7 @@ import java.util.zip.ZipFile;
 public final class BlueMapCliRenderEngine {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final int MAX_FAILURE_LOG_CHARS = 4_000;
 
     private final Path javaExecutable;
     private final Path cliJar;
@@ -48,13 +49,14 @@ public final class BlueMapCliRenderEngine {
 
     /** Runs one forced render and returns the task-local log file. */
     public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir, Path clientJar,
-                       String dimension, Path storageRoot) throws IOException {
+                       String dimension, Path storageRoot, Path resourceDataRoot) throws IOException {
         String blueMapMapId = blueMapMapId(mapId);
         Path normalizedWorkDir = workDir.toAbsolutePath().normalize();
         Files.createDirectories(normalizedWorkDir);
         Path configDir = normalizedWorkDir.resolve("config");
         copyConfiguration(configTemplate, configDir);
-        prepareTaskConfiguration(configDir, blueMapMapId, worldDir, clientJar, minecraftVersion, dimension, storageRoot);
+        prepareTaskConfiguration(configDir, blueMapMapId, worldDir, clientJar, minecraftVersion, dimension,
+                storageRoot, resourceDataRoot);
         Path logFile = normalizedWorkDir.resolve("bluemap.log");
         Process process = new ProcessBuilder(commandFor(normalizedWorkDir, blueMapMapId, minecraftVersion))
                 .directory(normalizedWorkDir.toFile())
@@ -75,7 +77,7 @@ public final class BlueMapCliRenderEngine {
             activeProcess = null;
         }
         if (process.exitValue() != 0) {
-            throw new IOException("BlueMap CLI failed with exit code " + process.exitValue() + "; see " + logFile);
+            throw new IOException("BlueMap CLI failed with exit code " + process.exitValue() + ": " + logTail(logFile));
         }
         return logFile;
     }
@@ -92,13 +94,17 @@ public final class BlueMapCliRenderEngine {
      * parent output directory rather than the final map directory.
      */
     static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir, Path clientJar,
-                                         String minecraftVersion, String dimension, Path storageRoot) throws IOException {
+                                         String minecraftVersion, String dimension, Path storageRoot,
+                                         Path resourceDataRoot) throws IOException {
         String blueMapMapId = blueMapMapId(mapId);
         if (worldDir == null || !Files.isDirectory(worldDir) || clientJar == null || !Files.isRegularFile(clientJar)
-                || minecraftVersion == null || minecraftVersion.isBlank() || storageRoot == null) {
+                || minecraftVersion == null || minecraftVersion.isBlank() || storageRoot == null || resourceDataRoot == null) {
             throw new IOException("BlueMap task world, client JAR, version and storage root are required");
         }
         validateClientVersion(clientJar, minecraftVersion.trim());
+        // The worker only renders map assets. BlueMap generates web configs again when they are
+        // absent, so replace template-provided configs with harmless task-local disabled ones.
+        disableWebServices(configDir);
         Path template = configDir.resolve("maps/template.conf");
         Path storage = configDir.resolve("storages/file.conf");
         Path core = configDir.resolve("core.conf");
@@ -120,17 +126,26 @@ public final class BlueMapCliRenderEngine {
         Files.delete(template);
         Files.writeString(storage, replace(storageText, "${root}", configPath(storageRoot)),
                 java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
-        Path data = configDir.resolve("data");
+        Path data = resourceDataRoot.toAbsolutePath().normalize();
         Files.createDirectories(data);
         Files.copy(clientJar, data.resolve("minecraft-client-" + minecraftVersion.trim() + ".jar"),
                 java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         coreText = replace(coreText, "${data}", configPath(data));
-        // Do not let a task-local worker contact Mojang or mutate shared resource state.
-        coreText = coreText.replaceAll("(?m)^\\s*accept-download\\s*:\\s*.*$", "accept-download: false");
+        // BlueMap cannot prepare its renderer resources in a fresh task directory unless this is
+        // accepted. The worker has an isolated data directory, so it cannot mutate host state.
+        coreText = coreText.replaceAll("(?m)^\\s*accept-download\\s*:\\s*.*$", "accept-download: true");
         if (!coreText.matches("(?s).*?\\baccept-download\\s*:.*")) {
-            coreText += System.lineSeparator() + "accept-download: false" + System.lineSeparator();
+            coreText += System.lineSeparator() + "accept-download: true" + System.lineSeparator();
         }
         Files.writeString(core, coreText, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    private static void disableWebServices(Path configDir) throws IOException {
+        String disabled = "enabled: false" + System.lineSeparator() + "webroot: \"web\"" + System.lineSeparator();
+        Files.writeString(configDir.resolve("webserver.conf"), disabled,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+        Files.writeString(configDir.resolve("webapp.conf"), disabled,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     static void validateClientVersion(Path clientJar, String expectedVersion) throws IOException {
@@ -192,6 +207,7 @@ public final class BlueMapCliRenderEngine {
         command.add(cliJar.toAbsolutePath().normalize().toString());
         command.add("-c");
         command.add(configDir.toString());
+        command.add("-r");
         command.add("-f");
         command.add("-m");
         command.add(blueMapMapId);
@@ -230,6 +246,17 @@ public final class BlueMapCliRenderEngine {
         } catch (InterruptedException exception) {
             process.destroyForcibly();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Keeps the actionable worker failure after the task directory and full log are removed. */
+    static String logTail(Path logFile) {
+        try {
+            String content = Files.readString(logFile).replace('\u0000', ' ').trim();
+            if (content.length() <= MAX_FAILURE_LOG_CHARS) return content.isEmpty() ? "no worker output" : content;
+            return content.substring(content.length() - MAX_FAILURE_LOG_CHARS);
+        } catch (IOException ignored) {
+            return "worker log unavailable";
         }
     }
 }

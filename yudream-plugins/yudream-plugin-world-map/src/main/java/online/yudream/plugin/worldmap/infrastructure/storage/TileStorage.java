@@ -98,6 +98,10 @@ public final class TileStorage {
         return Optional.ofNullable(store.get(blueMapLowresIndexKey(mapId, generationId)));
     }
 
+    public Optional<PluginStoredFile> generationManifest(String mapId, String generationId) {
+        return Optional.ofNullable(store.get(generationManifestKey(mapId, generationId)));
+    }
+
     // ---------- 透传（供上层按自有 key 存取） ----------
 
     /** 按完整 key 写入。 */
@@ -170,6 +174,11 @@ public final class TileStorage {
 
     public static String blueMapLowresIndexKey(String mapId, String generationId) {
         return generationPrefix(mapId, generationId) + "/lowres-index.json";
+    }
+
+    /** Private deletion manifest; it is never exposed by a public map endpoint. */
+    public static String generationManifestKey(String mapId, String generationId) {
+        return generationPrefix(mapId, generationId) + "/generation-manifest.txt";
     }
 
     private static String generationPrefix(String mapId, String generationId) {

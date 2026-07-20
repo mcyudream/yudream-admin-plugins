@@ -23,12 +23,17 @@ class BlueMapRenderConfigurationResolverTest {
                 BlueMapRenderConfigurationResolver.JAVA_PATH, "C:/java/bin/java.exe",
                 BlueMapRenderConfigurationResolver.CLI_PATH, "C:/bluemap/bluemap-cli.jar",
                 BlueMapRenderConfigurationResolver.CONFIG_TEMPLATE, "C:/bluemap/config",
-                BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world"
+                BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world",
+                BlueMapRenderConfigurationResolver.RESOURCE_CACHE_ROOT, "C:/world-map/bluemap-cache"
         );
         BlueMapRenderConfiguration config = new BlueMapRenderConfigurationResolver().resolve(framework(settings)).orElseThrow();
         assertEquals("output\\maps\\world", config.storageRoot().toString());
+        assertEquals("C:\\world-map\\bluemap-cache", config.resourceCacheRoot().toString());
         Map<String, String> invalidSettings = new java.util.HashMap<>(settings);
         invalidSettings.put(BlueMapRenderConfigurationResolver.STORAGE_ROOT, "../outside");
+        assertThrows(IllegalStateException.class, () -> new BlueMapRenderConfigurationResolver().resolve(framework(invalidSettings)));
+        invalidSettings.put(BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world");
+        invalidSettings.put(BlueMapRenderConfigurationResolver.RESOURCE_CACHE_ROOT, "relative-cache");
         assertThrows(IllegalStateException.class, () -> new BlueMapRenderConfigurationResolver().resolve(framework(invalidSettings)));
     }
 

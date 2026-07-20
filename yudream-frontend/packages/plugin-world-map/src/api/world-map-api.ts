@@ -60,7 +60,7 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       }
       const response = await fetch(api.blueMapTexturesUrl(mapId, generationId), { signal: controller.signal })
       if (!response.ok) throw new Error(`BlueMap textures: HTTP ${response.status}`)
-      return response.json()
+      return requireRawJsonPayload(await response.json(), 'BlueMap textures')
     },
     async loadBlueMapSettings() {
       const settings = await loadSettings()
@@ -69,7 +69,7 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       }
       const response = await fetch(api.blueMapSettingsUrl(mapId, generationId), { signal: controller.signal })
       if (!response.ok) throw new Error(`BlueMap settings: HTTP ${response.status}`)
-      return response.json()
+      return requireRawJsonPayload(await response.json(), 'BlueMap settings')
     },
     async loadBlueMapLowresIndex() {
       const settings = await loadSettings()
@@ -81,7 +81,7 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
         return null
       }
       if (!response.ok) throw new Error(`BlueMap lowres index: HTTP ${response.status}`)
-      return response.json()
+      return optionalRawJsonPayload(await response.json(), 'BlueMap lowres index')
     },
     async fetchHiresTile(tx, tz, signal) {
       // gzip JSON：浏览器 fetch 自动处理 Content-Encoding: gzip
@@ -96,7 +96,7 @@ export function createHttpMapSource(sdk: YuDreamPluginSdk, mapId: string): World
       if (res.headers.get('Content-Type')?.includes('application/octet-stream')) {
         return res.arrayBuffer()
       }
-      return (await res.json()) as HiresTile
+      return toHiresTile(optionalRawJsonPayload(await res.json(), `hires tile ${tx},${tz}`))
     },
     lowresTileUrl: (lod, tx, tz) => generationId ? api.lowresTileUrl(mapId, generationId, lod, tx, tz) : null,
     fetchMarkers: () => api.markers(mapId),
@@ -122,4 +122,56 @@ function combinedSignal(source: AbortSignal, request?: AbortSignal): AbortSignal
   source.addEventListener('abort', abort, { once: true })
   request.addEventListener('abort', abort, { once: true })
   return controller.signal
+}
+
+type PluginResponseEnvelope = {
+  code: number
+  data?: unknown
+  message?: unknown
+}
+
+/**
+ * The host wraps regular JSON PluginHttpResponse bodies, while streamed binary endpoints bypass
+ * that wrapper. Keep raw fetches compatible with both response shapes.
+ */
+function unwrapPluginEnvelope(payload: unknown): { wrapped: boolean, data: unknown, message: string } {
+  if (!payload || typeof payload !== 'object' || !('code' in payload) || typeof payload.code !== 'number') {
+    return { wrapped: false, data: payload, message: '' }
+  }
+  const envelope = payload as PluginResponseEnvelope
+  return {
+    wrapped: true,
+    data: envelope.data,
+    message: typeof envelope.message === 'string' ? envelope.message : `code ${envelope.code}`,
+  }
+}
+
+function requireRawJsonPayload(payload: unknown, resource: string): unknown {
+  const result = unwrapPluginEnvelope(payload)
+  if (!result.wrapped) return result.data
+  if (result.data === null || result.data === undefined) {
+    throw new Error(`${resource}: ${result.message}`)
+  }
+  return result.data
+}
+
+/** Missing optional tile/index records arrive as a host business envelope with HTTP 200. */
+function optionalRawJsonPayload(payload: unknown, resource: string): unknown | null {
+  const result = unwrapPluginEnvelope(payload)
+  if (!result.wrapped) return result.data
+  if (result.data === null || result.data === undefined) {
+    void resource
+    return null
+  }
+  return result.data
+}
+
+function toHiresTile(payload: unknown): HiresTile | null {
+  if (payload === null || payload === undefined) return null
+  if (!payload || typeof payload !== 'object'
+    || !Array.isArray((payload as HiresTile).positions)
+    || !Array.isArray((payload as HiresTile).indices)) {
+    throw new Error('hires tile: invalid geometry payload')
+  }
+  return payload as HiresTile
 }

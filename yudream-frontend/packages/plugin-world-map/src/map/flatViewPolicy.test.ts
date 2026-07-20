@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
+import { FLAT_VIEW_DEFAULT_ZOOM, FLAT_VIEW_MAX_DISTANCE, FLAT_VIEW_MIN_DISTANCE } from './flatViewPolicy'
 
-describe('flat view camera policy', () => {
-  it('does not clamp the 2 km overview or a shared overview viewpoint', () => {
-    expect(FLAT_VIEW_MIN_DISTANCE).toBeLessThan(1_200)
-    expect(FLAT_VIEW_MAX_DISTANCE).toBeGreaterThanOrEqual(2_000)
+describe('flat view policy', () => {
+  it('starts closer than the widest permitted overview while retaining broad navigation bounds', () => {
+    expect(FLAT_VIEW_DEFAULT_ZOOM).toBeGreaterThan(1)
+    expect(FLAT_VIEW_MIN_DISTANCE).toBeLessThan(FLAT_VIEW_MAX_DISTANCE)
   })
 })

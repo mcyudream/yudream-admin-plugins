@@ -22,8 +22,10 @@ import java.util.zip.GZIPInputStream;
 /** Imports only validated file-storage tiles from a task-local BlueMap worker output. */
 public final class BlueMapFileGenerationImporter {
 
-    private static final Pattern TILE = Pattern.compile("x(-?\\d+)z(-?\\d+)\\.prbm(?:\\.gz)?");
-    private static final Pattern LOWRES = Pattern.compile("x(-?\\d+)z(-?\\d+)\\.png");
+    /** BlueMap file storage uses {@code tiles/<lod>/x<tx>/z<tz>.<format>}. */
+    private static final Pattern X_DIRECTORY = Pattern.compile("x(-?\\d+)");
+    private static final Pattern HIRES_FILE = Pattern.compile("z(-?\\d+)\\.prbm(?:\\.gz)?");
+    private static final Pattern LOWRES_FILE = Pattern.compile("z(-?\\d+)\\.png");
     private static final int MAX_TILES = 1_000_000;
     private static final int MAX_ASSET_BYTES = 128 * 1024 * 1024;
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -121,13 +123,13 @@ public final class BlueMapFileGenerationImporter {
         int count = 0;
         try (Stream<Path> files = Files.walk(root)) {
             for (Path path : files.filter(Files::isRegularFile).toList()) {
-                Matcher matcher = TILE.matcher(path.getFileName().toString());
-                if (!matcher.matches()) continue;
+                TileCoordinate coordinate = coordinate(path, HIRES_FILE);
+                if (coordinate == null) continue;
                 byte[] prbm = readHires(path);
                 if (prbm.length < 8 || prbm[0] != 1) {
                     throw new IOException("Unsupported BlueMap PRBM tile: " + path.getFileName());
                 }
-                publisher.saveBlueMapHires(generation, Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)), prbm);
+                publisher.saveBlueMapHires(generation, coordinate.x(), coordinate.z(), prbm);
                 assertTileLimit(++count);
             }
         }
@@ -138,17 +140,24 @@ public final class BlueMapFileGenerationImporter {
         List<TileCoordinate> imported = new ArrayList<>();
         try (Stream<Path> files = Files.walk(root)) {
             for (Path path : files.filter(Files::isRegularFile).toList()) {
-                Matcher matcher = LOWRES.matcher(path.getFileName().toString());
-                if (!matcher.matches()) continue;
-                int x = Integer.parseInt(matcher.group(1));
-                int z = Integer.parseInt(matcher.group(2));
-                publisher.saveLowres(generation, lod, x, z,
+                TileCoordinate coordinate = coordinate(path, LOWRES_FILE);
+                if (coordinate == null) continue;
+                publisher.saveLowres(generation, lod, coordinate.x(), coordinate.z(),
                         readLimited(Files.newInputStream(path)));
-                imported.add(new TileCoordinate(x, z));
+                imported.add(coordinate);
                 assertTileLimit(imported.size());
             }
         }
         return imported;
+    }
+
+    private TileCoordinate coordinate(Path path, Pattern filePattern) {
+        Matcher file = filePattern.matcher(path.getFileName().toString());
+        Path parent = path.getParent();
+        if (!file.matches() || parent == null || parent.getFileName() == null) return null;
+        Matcher x = X_DIRECTORY.matcher(parent.getFileName().toString());
+        if (!x.matches()) return null;
+        return new TileCoordinate(Integer.parseInt(x.group(1)), Integer.parseInt(file.group(1)));
     }
 
     /** Encodes sparse BlueMap tile coverage as contiguous x-ranges per z row. */

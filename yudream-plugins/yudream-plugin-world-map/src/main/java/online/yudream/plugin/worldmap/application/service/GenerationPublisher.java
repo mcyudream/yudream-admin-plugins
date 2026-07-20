@@ -7,6 +7,9 @@ import online.yudream.plugin.worldmap.infrastructure.storage.TileStorage;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.util.LinkedHashSet;
 
 /** Writes render output into an isolated namespace and publishes it atomically through the map pointer. */
 public final class GenerationPublisher {
@@ -81,8 +84,10 @@ public final class GenerationPublisher {
                 : storage.atlas(generation.mapId(), generation.id()).isEmpty()) {
             throw new IllegalStateException("Render generation is missing its renderer textures");
         }
+        saveManifest(generation);
         map.setActiveGenerationId(generation.id());
         map.setActiveRenderer(blueMap ? "BLUEMAP" : "YUDREAM");
+        map.addPublishedGenerationId(generation.id());
         stagedKeys.remove(generation.id());
     }
 
@@ -91,6 +96,38 @@ public final class GenerationPublisher {
         if (keys != null) {
             keys.forEach(storage::delete);
         }
+    }
+
+    /** Deletes only files listed by a published generation's own manifest. */
+    public void deletePublished(MapInstance map) {
+        Set<String> generationIds = new LinkedHashSet<>(map.getPublishedGenerationIds());
+        if (map.getActiveGenerationId() != null && !map.getActiveGenerationId().isBlank()) {
+            generationIds.add(map.getActiveGenerationId());
+        }
+        for (String generationId : generationIds) {
+            String prefix = "maps/" + map.getId() + "/generations/" + generationId + "/";
+            storage.generationManifest(map.getId(), generationId).ifPresent(file -> {
+                try (var input = file.inputStream()) {
+                    String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                    for (String key : text.lines().toList()) {
+                        if (key.startsWith(prefix)) storage.delete(key);
+                    }
+                } catch (IOException ignored) {
+                    // A partial cleanup must not prevent deleting the map record and its source files.
+                }
+            });
+            storage.delete(TileStorage.generationManifestKey(map.getId(), generationId));
+        }
+    }
+
+    private void saveManifest(MapGeneration generation) {
+        Set<String> keys = stagedKeys.get(generation.id());
+        if (keys == null || keys.isEmpty()) {
+            throw new IllegalStateException("Render generation has no tracked assets");
+        }
+        String key = TileStorage.generationManifestKey(generation.mapId(), generation.id());
+        storage.put(key, String.join("\n", keys).getBytes(StandardCharsets.UTF_8), "text/plain");
+        track(generation, key);
     }
 
     private void track(MapGeneration generation, String key) {

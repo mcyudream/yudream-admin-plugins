@@ -2,6 +2,9 @@ package online.yudream.plugin.worldmap.domain.aggregate;
 
 import online.yudream.plugin.worldmap.domain.enumerate.MapState;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 地图实例聚合根：一个维度的存档渲染产物。
  */
@@ -26,6 +29,8 @@ public class MapInstance {
     private String worldZipKey;
     private String clientJarKey;
     private String activeGenerationId;
+    /** Published immutable generations, used for explicit map deletion and generation retention policies. */
+    private final List<String> publishedGenerationIds = new ArrayList<>();
     /** Renderer format of the active generation. Kept with the map pointer so old generations remain readable. */
     private String activeRenderer = "YUDREAM";
     private long createdAt;
@@ -104,6 +109,17 @@ public class MapInstance {
     public void setClientJarKey(String clientJarKey) { this.clientJarKey = clientJarKey; }
     public String getActiveGenerationId() { return activeGenerationId; }
     public void setActiveGenerationId(String activeGenerationId) { this.activeGenerationId = activeGenerationId; }
+    public List<String> getPublishedGenerationIds() { return List.copyOf(publishedGenerationIds); }
+    public void setPublishedGenerationIds(List<String> generationIds) {
+        publishedGenerationIds.clear();
+        if (generationIds == null) return;
+        generationIds.stream().filter(id -> id != null && !id.isBlank()).distinct().forEach(publishedGenerationIds::add);
+    }
+    public void addPublishedGenerationId(String generationId) {
+        if (generationId != null && !generationId.isBlank() && !publishedGenerationIds.contains(generationId)) {
+            publishedGenerationIds.add(generationId);
+        }
+    }
     public String getActiveRenderer() { return activeRenderer; }
     public void setActiveRenderer(String activeRenderer) { this.activeRenderer = activeRenderer == null || activeRenderer.isBlank() ? "YUDREAM" : activeRenderer; }
     public long getCreatedAt() { return createdAt; }

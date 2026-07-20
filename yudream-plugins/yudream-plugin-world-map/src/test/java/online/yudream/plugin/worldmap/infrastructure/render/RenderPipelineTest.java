@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -307,7 +308,7 @@ class RenderPipelineTest {
     /** 下载（带缓存）客户端 jar，失败返回 null。 */
     private static Path ensureClientJar() {
         try {
-            if (Files.exists(CACHE) && Files.size(CACHE) > 1_000_000) {
+            if (isReadableClientJar(CACHE)) {
                 return CACHE;
             }
             Files.createDirectories(CACHE.getParent());
@@ -320,7 +321,7 @@ class RenderPipelineTest {
                     .GET()
                     .build();
             HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(CACHE));
-            if (response.statusCode() == 200 && Files.size(CACHE) > 1_000_000) {
+            if (response.statusCode() == 200 && isReadableClientJar(CACHE)) {
                 return CACHE;
             }
             System.err.println("[RenderPipelineTest] 下载状态异常: " + response.statusCode());
@@ -328,6 +329,15 @@ class RenderPipelineTest {
         } catch (IOException | InterruptedException | IllegalArgumentException e) {
             System.err.println("[RenderPipelineTest] 下载失败: " + e);
             return null;
+        }
+    }
+
+    private static boolean isReadableClientJar(Path jar) {
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            return Files.size(jar) > 1_000_000
+                    && zip.getEntry("assets/minecraft/blockstates/stone.json") != null;
+        } catch (IOException | IllegalArgumentException ignored) {
+            return false;
         }
     }
 }
