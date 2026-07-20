@@ -140,16 +140,16 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     if (!el) {
       return
     }
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement === el) {
       await document.exitFullscreen()
     }
-    else {
+    else if (!document.fullscreenElement) {
       await el.requestFullscreen()
     }
   }
 
   function onFullscreenChange(): void {
-    isFullscreen.value = Boolean(document.fullscreenElement)
+    isFullscreen.value = document.fullscreenElement === container.value
   }
 
   function setLayerVisible(setId: string, visible: boolean): void {

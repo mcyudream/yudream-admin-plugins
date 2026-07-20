@@ -4,6 +4,7 @@ import { useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { createWorldMapAdminApi } from '../api/world-map-admin-api'
 import type { MapAdmin, MapAdminState, MapDimension, RenderPhase, RenderTask } from '../types'
+import { renderTaskProgress } from './renderTaskProgress'
 
 const POLL_INTERVAL = 2500
 
@@ -65,6 +66,7 @@ export function useWorldMapAdmin(sdk: YuDreamPluginSdk) {
   const toast = useFaToast()
 
   const maps = ref<MapAdmin[]>([])
+  const tasks = ref<RenderTask[]>([])
   const loading = ref(false)
   const operating = ref('')
 
@@ -81,6 +83,17 @@ export function useWorldMapAdmin(sdk: YuDreamPluginSdk) {
   const createStep = ref('')
 
   const createValid = computed(() => createForm.name.trim().length > 0 && worldFile.value !== null)
+  const activeTasksByMapId = computed(() => {
+    const byMap = new Map<string, RenderTask>()
+    for (const task of tasks.value) {
+      if (task.state !== 'PENDING' && task.state !== 'RUNNING') continue
+      const existing = byMap.get(task.mapId)
+      if (!existing || (task.createdAt ?? 0) > (existing.createdAt ?? 0)) {
+        byMap.set(task.mapId, task)
+      }
+    }
+    return byMap
+  })
 
   let pollTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -103,8 +116,9 @@ export function useWorldMapAdmin(sdk: YuDreamPluginSdk) {
       loading.value = true
     }
     try {
-      const res = await api.maps()
-      maps.value = res.maps ?? []
+      const [mapsRes, tasksRes] = await Promise.all([api.maps(), api.tasks()])
+      maps.value = mapsRes.maps ?? []
+      tasks.value = tasksRes.tasks ?? []
     }
     catch (e) {
       if (!silent) {
@@ -206,6 +220,7 @@ export function useWorldMapAdmin(sdk: YuDreamPluginSdk) {
 
   return {
     maps,
+    activeTasksByMapId,
     loading,
     operating,
     createOpen,
@@ -220,6 +235,7 @@ export function useWorldMapAdmin(sdk: YuDreamPluginSdk) {
     submitCreate,
     triggerRender,
     removeMap,
+    renderTaskProgress,
   }
 }
 
@@ -322,13 +338,7 @@ export function useWorldMapMapDetail(sdk: YuDreamPluginSdk, route?: RouteLocatio
   }
 
   function taskProgress(task: RenderTask): number {
-    if (typeof task.progressPercent === 'number') {
-      return Math.min(100, Math.max(0, task.progressPercent))
-    }
-    if (!task.totalTiles) {
-      return task.state === 'SUCCESS' ? 100 : 0
-    }
-    return Math.min(100, Math.round((task.doneTiles / task.totalTiles) * 100))
+    return renderTaskProgress(task)
   }
 
   async function triggerRender(): Promise<void> {

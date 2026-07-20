@@ -9,6 +9,7 @@ import {
   FaModal,
   FaPageHeader,
   FaPageMain,
+  FaProgress,
   FaSelect,
   FaSwitch,
   FaTable,
@@ -22,6 +23,7 @@ import {
   dimensionLabel,
   formatTime,
   MAP_STATE_META,
+  RENDER_PHASE_LABEL,
   useWorldMapAdmin,
 } from '../../composables/useWorldMapAdmin'
 import type { MapAdmin } from '../../types'
@@ -71,6 +73,10 @@ function openDetail(map: MapAdmin) {
   void router.push({ path: '/world-map/admin/map-detail', query: { id: map.id } })
 }
 
+function activeTaskFor(mapId: string) {
+  return model.activeTasksByMapId.value.get(mapId)
+}
+
 function confirmDelete(map: MapAdmin) {
   modal.confirm({
     title: '删除地图',
@@ -107,12 +113,26 @@ function confirmDelete(map: MapAdmin) {
         {{ dimensionLabel(row.original.dimension) }}
       </template>
       <template #cell-state="{ row }">
-        <FaTag :variant="MAP_STATE_META[row.original.state].variant">
-          {{ MAP_STATE_META[row.original.state].label }}
-        </FaTag>
-        <span v-if="row.original.state === 'FAILED' && row.original.message" class="ml-2 text-xs text-muted-foreground">
-          {{ row.original.message }}
-        </span>
+        <div class="grid min-w-[180px] gap-1">
+          <div class="flex items-center gap-2">
+            <FaTag :variant="MAP_STATE_META[row.original.state].variant">
+              {{ MAP_STATE_META[row.original.state].label }}
+            </FaTag>
+            <span v-if="row.original.state === 'FAILED' && row.original.message" class="min-w-0 truncate text-xs text-muted-foreground" :title="row.original.message">
+              {{ row.original.message }}
+            </span>
+          </div>
+          <template v-if="activeTaskFor(row.original.id)">
+            <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>{{ RENDER_PHASE_LABEL[activeTaskFor(row.original.id)!.phase || 'IMPORT'] }}</span>
+              <span>{{ model.renderTaskProgress(activeTaskFor(row.original.id)!) }}%</span>
+            </div>
+            <FaProgress :model-value="model.renderTaskProgress(activeTaskFor(row.original.id)!)" />
+            <span class="truncate text-xs text-muted-foreground" :title="activeTaskFor(row.original.id)!.message">
+              {{ activeTaskFor(row.original.id)!.doneTiles }} / {{ activeTaskFor(row.original.id)!.totalTiles }}<template v-if="activeTaskFor(row.original.id)!.message"> · {{ activeTaskFor(row.original.id)!.message }}</template>
+            </span>
+          </template>
+        </div>
       </template>
       <template #cell-tiles="{ row }">
         <span class="text-sm text-muted-foreground">

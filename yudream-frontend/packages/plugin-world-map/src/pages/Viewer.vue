@@ -149,7 +149,13 @@ function toggleRenderSettings() {
           <FaIcon name="i-mdi:camera" />
         </FaButton>
 
-        <FaButton size="sm" variant="outline" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
+        <FaButton
+          size="sm"
+          variant="outline"
+          :title="isFullscreen ? '退出地图全屏' : '地图全屏（会隐藏宿主侧栏）'"
+          :aria-label="isFullscreen ? '退出地图全屏' : '地图全屏（会隐藏宿主侧栏）'"
+          @click="toggleFullscreen"
+        >
           <FaIcon :name="isFullscreen ? 'i-mdi:fullscreen-exit' : 'i-mdi:fullscreen'" />
         </FaButton>
         <FaButton
