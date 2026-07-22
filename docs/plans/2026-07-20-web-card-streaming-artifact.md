@@ -13,8 +13,8 @@
 ### Task 1: Host Agent streaming SPI
 
 **Files:**
-- Modify: `D:/code/yudream-admim/yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/ai/PluginAiService.java`
-- Modify: `D:/code/yudream-admim/yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/PluginAiFrameworkService.java`
+- Modify: `<host-repository>/yudream-plugins/yudream-plugin-spi/src/main/java/online/yudream/base/plugin/spi/system/ai/PluginAiService.java`
+- Modify: `<host-repository>/yudream-infrastructure/src/main/java/online/yudream/base/infra/platform/plugin/service/PluginAiFrameworkService.java`
 - Test: matching host infrastructure test
 
 Add a failing test proving deltas are forwarded by code, add the compatible SPI method, override it with `debugByCode`, and run targeted host tests.

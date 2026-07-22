@@ -12,7 +12,7 @@
 先跑本地审计：
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-readiness.sh
+sh ci/verify-plugin-repo-readiness.sh
 ```
 
 然后确认：

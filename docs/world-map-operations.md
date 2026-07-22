@@ -48,11 +48,11 @@ render host with these explicit system properties:
 mvn -pl yudream-plugins/yudream-plugin-world-map -am `
   -Dtest=BlueMapCliEndToEndTest `
   -Dyudream.world-map.e2e.enabled=true `
-  -Dyudream.world-map.e2e.java-path=C:/path/to/java `
-  -Dyudream.world-map.e2e.cli-path=C:/path/to/bluemap-cli.jar `
-  -Dyudream.world-map.e2e.world-dir=C:/path/to/world `
-  -Dyudream.world-map.e2e.client-jar=C:/path/to/client.jar `
-  -Dyudream.world-map.e2e.resource-data-root=C:/path/to/bluemap-data `
+  -Dyudream.world-map.e2e.java-path=<path-to-java> `
+  -Dyudream.world-map.e2e.cli-path=<path-to-bluemap-cli.jar> `
+  -Dyudream.world-map.e2e.world-dir=<path-to-world> `
+  -Dyudream.world-map.e2e.client-jar=<path-to-client.jar> `
+  -Dyudream.world-map.e2e.resource-data-root=<path-to-bluemap-data> `
   test
 ```
 

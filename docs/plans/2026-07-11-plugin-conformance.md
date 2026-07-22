@@ -77,12 +77,12 @@
 **Commands:**
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-development-conformance.sh
+sh ci/verify-plugin-development-conformance.sh
 cd yudream-frontend
 pnpm -r --filter=@yudream/plugin-* run build
 cd ..
 mvn -s settings.xml clean package -DskipTests
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-readiness.sh
+sh ci/verify-plugin-repo-readiness.sh
 ```
 
 Confirm every package emits `remoteEntry.js`, every plugin JAR embeds it, all conformance checks pass, and pre-existing user changes remain present.

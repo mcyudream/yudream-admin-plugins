@@ -93,7 +93,7 @@ pnpm --config.engine-strict=false --config.verifyDepsBeforeRun=false -r --filter
 ### 3. 打包整个插件仓
 
 ```powershell
-$env:JAVA_HOME='C:/path/to/your/jdk-21'
+$env:JAVA_HOME='<path-to-your-jdk-21>'
 $env:Path="$env:JAVA_HOME/bin;$env:Path"
 mvn -f pom.xml -DskipTests package -B -e
 ```

@@ -273,7 +273,7 @@ Set-Location yudream-frontend
 pnpm --filter @yudream/plugin-qqbot-automation run build
 Set-Location ..
 mvn -pl yudream-plugins/yudream-plugin-qqbot-automation -am package -DskipTests
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-jar-assets.sh
+sh ci/verify-plugin-jar-assets.sh
 ```
 
 Expected: PASS; the final JAR includes `META-INF/yudream-plugin/frontend/qqbot-automation/remoteEntry.js`.
@@ -281,8 +281,8 @@ Expected: PASS; the final JAR includes `META-INF/yudream-plugin/frontend/qqbot-a
 **Step 3: Run repository boundary checks**
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-maven-boundary.sh
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-doc-independence.sh
+sh ci/verify-plugin-maven-boundary.sh
+sh ci/verify-doc-independence.sh
 ```
 
 Expected: PASS.

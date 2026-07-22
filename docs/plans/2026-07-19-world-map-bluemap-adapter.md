@@ -30,7 +30,7 @@ Cover independent `GET /admin/tasks` and `POST /admin/tasks/{id}/cancel` annotat
 Command:
 
 ```powershell
-$env:JAVA_HOME='C:\Users\SiberianHusky\.jdks\ms-21.0.10'
+$env:JAVA_HOME='<path-to-your-jdk-21>'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 mvn -pl yudream-plugins/yudream-plugin-world-map -am -Dtest=RenderOrchestratorTest,AdminMapControllerTest test
 ```
@@ -375,13 +375,13 @@ git commit -m "feat: expose extensible world map layers"
 **Step 1: Run all validation**
 
 ```powershell
-$env:JAVA_HOME='C:\Users\SiberianHusky\.jdks\ms-21.0.10'
+$env:JAVA_HOME='<path-to-your-jdk-21>'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 mvn -pl yudream-plugins/yudream-plugin-world-map -am test
 pnpm --filter @yudream/plugin-world-map run typecheck
 pnpm --filter @yudream/plugin-world-map run build
 mvn -pl yudream-plugins/yudream-plugin-world-map -am package -DskipTests
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-readiness.sh
+sh ci/verify-plugin-repo-readiness.sh
 ```
 
 **Step 2: Run rendered checks**

@@ -54,13 +54,13 @@ git add yudream-plugins/yudream-plugin-*
 先跑插件仓一键审计：
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-readiness.sh
+sh ci/verify-plugin-repo-readiness.sh
 ```
 
 只看拆仓相关改动时，可以先缩小 `git status` 视野：
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/show-plugin-repo-status.sh
+sh ci/show-plugin-repo-status.sh
 ```
 
 如果准备验证远端发布，再补这些环境：
@@ -80,13 +80,13 @@ git diff --cached
 如果你想先只暂存“仓库骨架 / CI / 文档”这一组，可以直接用：
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/stage-plugin-repo-foundation.sh --dry-run
-& 'C:/Program Files/Git/bin/sh.exe' ci/stage-plugin-repo-foundation.sh
+sh ci/stage-plugin-repo-foundation.sh --dry-run
+sh ci/stage-plugin-repo-foundation.sh
 ```
 
 如果你想再单独暂存“迁入的业务插件源码”这一组，可以用：
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/stage-plugin-source-migration.sh --dry-run
-& 'C:/Program Files/Git/bin/sh.exe' ci/stage-plugin-source-migration.sh
+sh ci/stage-plugin-source-migration.sh --dry-run
+sh ci/stage-plugin-source-migration.sh
 ```

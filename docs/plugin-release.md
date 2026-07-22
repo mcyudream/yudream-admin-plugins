@@ -101,16 +101,16 @@ GitLab tag 流水线默认只依赖：
 ```powershell
 $env:CI_COMMIT_TAG='v0.0.0-dryrun'
 $env:DRY_RUN='1'
-& 'C:/Program Files/Git/bin/sh.exe' ci/publish-plugin-jars.sh
+sh ci/publish-plugin-jars.sh
 ```
 
 ## 常用校验
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-independence.sh
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-maven-boundary.sh
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-core-npm-contracts.sh
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-jar-assets.sh
+sh ci/verify-plugin-repo-independence.sh
+sh ci/verify-plugin-maven-boundary.sh
+sh ci/verify-core-npm-contracts.sh
+sh ci/verify-plugin-jar-assets.sh
 ```
 
 本地也可以先做一次发布后校验的 dry-run：
@@ -118,5 +118,5 @@ $env:DRY_RUN='1'
 ```powershell
 $env:CI_COMMIT_TAG='v0.0.0-dryrun'
 $env:DRY_RUN='1'
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-published-plugin-jars.sh
+sh ci/verify-published-plugin-jars.sh
 ```

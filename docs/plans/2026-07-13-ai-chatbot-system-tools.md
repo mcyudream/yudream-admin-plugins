@@ -436,7 +436,7 @@ plugin dependency.
 **Step 4: Run repository readiness.**
 
 ```powershell
-& 'C:/Program Files/Git/bin/sh.exe' ci/verify-plugin-repo-readiness.sh
+sh ci/verify-plugin-repo-readiness.sh
 ```
 
 Expected: readiness validation passes; investigate and fix only relevant
