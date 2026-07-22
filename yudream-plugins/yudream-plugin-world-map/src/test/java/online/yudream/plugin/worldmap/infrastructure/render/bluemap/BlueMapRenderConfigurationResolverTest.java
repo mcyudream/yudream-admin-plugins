@@ -7,14 +7,21 @@ import java.lang.reflect.Proxy;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlueMapRenderConfigurationResolverTest {
 
     @Test
-    void remainsDisabledUntilAllRequiredSettingsExist() {
-        assertFalse(new BlueMapRenderConfigurationResolver().resolve(framework(Map.of())).isPresent());
+    void usesTheBundledRuntimeWithoutLegacySettings() {
+        BlueMapRenderConfiguration config = new BlueMapRenderConfigurationResolver().resolve(framework(Map.of())).orElseThrow();
+
+        assertTrue(config.bundledRuntime());
+        assertEquals("output", config.storageRoot().toString());
+        assertNull(config.minecraftVersion());
+        assertEquals(BlueMapRenderConfigurationResolver.defaultRenderThreadCount(
+                Runtime.getRuntime().availableProcessors()), config.renderThreadCount());
     }
 
     @Test
@@ -24,6 +31,7 @@ class BlueMapRenderConfigurationResolverTest {
                 BlueMapRenderConfigurationResolver.CLI_PATH, "C:/bluemap/bluemap-cli.jar",
                 BlueMapRenderConfigurationResolver.CONFIG_TEMPLATE, "C:/bluemap/config",
                 BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world",
+                BlueMapRenderConfigurationResolver.EXTERNAL_RUNTIME_ENABLED, "true",
                 BlueMapRenderConfigurationResolver.RESOURCE_CACHE_ROOT, "C:/world-map/bluemap-cache"
         );
         BlueMapRenderConfiguration config = new BlueMapRenderConfigurationResolver().resolve(framework(settings)).orElseThrow();
@@ -35,6 +43,42 @@ class BlueMapRenderConfigurationResolverTest {
         invalidSettings.put(BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world");
         invalidSettings.put(BlueMapRenderConfigurationResolver.RESOURCE_CACHE_ROOT, "relative-cache");
         assertThrows(IllegalStateException.class, () -> new BlueMapRenderConfigurationResolver().resolve(framework(invalidSettings)));
+    }
+
+    @Test
+    void usesExternalPathsOnlyWhenExplicitlyEnabled() {
+        Map<String, String> settings = Map.of(
+                BlueMapRenderConfigurationResolver.JAVA_PATH, "C:/java/bin/java.exe",
+                BlueMapRenderConfigurationResolver.CLI_PATH, "C:/bluemap/bluemap-cli.jar",
+                BlueMapRenderConfigurationResolver.CONFIG_TEMPLATE, "C:/bluemap/config",
+                BlueMapRenderConfigurationResolver.STORAGE_ROOT, "output/maps/world"
+        );
+
+        assertTrue(new BlueMapRenderConfigurationResolver().resolve(framework(settings)).orElseThrow().bundledRuntime());
+
+        Map<String, String> external = new java.util.HashMap<>(settings);
+        external.put(BlueMapRenderConfigurationResolver.EXTERNAL_RUNTIME_ENABLED, "true");
+        assertTrue(!new BlueMapRenderConfigurationResolver().resolve(framework(external)).orElseThrow().bundledRuntime());
+    }
+
+    @Test
+    void acceptsAnExplicitDetailedTileThreadCount() {
+        BlueMapRenderConfiguration config = new BlueMapRenderConfigurationResolver()
+                .resolve(framework(Map.of(BlueMapRenderConfigurationResolver.RENDER_THREAD_COUNT, "12")))
+                .orElseThrow();
+
+        assertEquals(12, config.renderThreadCount());
+        assertEquals(1, BlueMapRenderConfigurationResolver.defaultRenderThreadCount(1));
+        assertEquals(6, BlueMapRenderConfigurationResolver.defaultRenderThreadCount(8));
+        assertEquals(16, BlueMapRenderConfigurationResolver.defaultRenderThreadCount(64));
+    }
+
+    @Test
+    void rejectsAnUnsafeDetailedTileThreadCount() {
+        assertThrows(IllegalStateException.class, () -> new BlueMapRenderConfigurationResolver()
+                .resolve(framework(Map.of(BlueMapRenderConfigurationResolver.RENDER_THREAD_COUNT, "0"))));
+        assertThrows(IllegalStateException.class, () -> new BlueMapRenderConfigurationResolver()
+                .resolve(framework(Map.of(BlueMapRenderConfigurationResolver.RENDER_THREAD_COUNT, "65"))));
     }
 
     private static FrameworkServices framework(Map<String, String> settings) {

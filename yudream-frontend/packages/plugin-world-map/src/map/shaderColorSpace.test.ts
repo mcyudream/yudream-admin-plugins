@@ -29,6 +29,7 @@ describe('map shader color space', () => {
     const material = createBlueMapLowresMaterial()
     expect(material.fragmentShader).toContain('float heightFromMeta(vec4 meta)')
     expect(material.fragmentShader).toContain('sRGBTransferEOTF(color)')
+    expect(material.fragmentShader).not.toContain('detailRadius')
     expect(material.fragmentShader).not.toContain('#include <colorspace_pars_fragment>')
     material.dispose()
   })

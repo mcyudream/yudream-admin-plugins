@@ -50,6 +50,8 @@ public class MapInstance {
 
     public void markRendering() {
         this.state = MapState.RENDERING;
+        // A new request must not display the previous task's terminal failure as its own status.
+        this.message = null;
     }
 
     public void markReady(int hiresTiles, int lowresTiles) {

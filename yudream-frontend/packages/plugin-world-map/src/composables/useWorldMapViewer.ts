@@ -15,6 +15,13 @@ const HIRES_RADIUS_STORAGE_KEY = 'yudream.world-map.hires-radius'
 const LOWRES_COVERAGE_STORAGE_KEY = 'yudream.world-map.lowres-coverage'
 export const INITIAL_CAMERA_MODE: CameraMode = 'orbit'
 
+interface InitialMapView {
+  viewMode: MapViewMode
+  position: { x: number, y: number, z: number }
+  target: { x: number, y: number, z: number }
+  zoom?: number
+}
+
 function storedNumber(key: string, fallback: number): number {
   if (typeof window === 'undefined') return fallback
   try {
@@ -74,7 +81,6 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
   let loadSeq = 0
   const pendingTiles = ref(0)
   const fps = ref(0)
-  const compassYaw = ref(0)
   const currentTileLoadStatus = ref<TileLoadStatus>(EMPTY_TILE_LOAD_STATUS)
   const tileLoadingMessage = computed(() => tileLoadMessage(currentTileLoadStatus.value))
   const isFullscreen = ref(false)
@@ -108,26 +114,24 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     }, 400)
   }
 
-  /** 从 URL hash 还原视角（setSource 完成后调用） */
-  function restoreViewFromHash(): void {
+  /** Reads a shared view before source initialization so its center receives the first tiles. */
+  function initialViewFromHash(): InitialMapView | null {
     if (!viewer || typeof window === 'undefined') {
-      return
+      return null
     }
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     if (params.get('map') && params.get('map') !== currentMapId.value) {
-      return
-    }
-    if (params.get('view') === 'flat') {
-      viewMode.value = 'flat'
-      cameraMode.value = 'orbit'
-      viewer.setViewMode('flat')
+      return null
     }
     const pos = (params.get('pos') || '').split(',').map(Number)
     const target = (params.get('target') || '').split(',').map(Number)
-    if (pos.length === 3 && target.length === 3 && [...pos, ...target].every(Number.isFinite)) {
-      const zoom = Number(params.get('zoom'))
-      viewer.setView({ x: pos[0]!, y: pos[1]!, z: pos[2]! }, { x: target[0]!, y: target[1]!, z: target[2]! },
-        Number.isFinite(zoom) ? zoom : undefined)
+    if (pos.length !== 3 || target.length !== 3 || ![...pos, ...target].every(Number.isFinite)) return null
+    const zoom = Number(params.get('zoom'))
+    return {
+      viewMode: params.get('view') === 'flat' ? 'flat' : 'perspective',
+      position: { x: pos[0]!, y: pos[1]!, z: pos[2]! },
+      target: { x: target[0]!, y: target[1]!, z: target[2]! },
+      zoom: Number.isFinite(zoom) ? zoom : undefined,
     }
   }
 
@@ -191,8 +195,13 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
       ? createMockMapSource()
       : createHttpMapSource(sdk, currentMapId.value)
     try {
-      await viewer?.setSource(source)
-      restoreViewFromHash()
+      const initialView = initialViewFromHash()
+      if (initialView) {
+        viewMode.value = initialView.viewMode
+        if (initialView.viewMode === 'flat') cameraMode.value = 'orbit'
+        viewer?.setViewMode(initialView.viewMode)
+      }
+      await viewer?.setSource(source, initialView ?? undefined)
       hashLocked = false
     }
     catch (e) {
@@ -246,7 +255,6 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     pendingTimer = setInterval(() => {
       pendingTiles.value = viewer?.pendingTiles ?? 0
       fps.value = viewer?.fps ?? 0
-      compassYaw.value = viewer?.compassYaw ?? 0
       currentTileLoadStatus.value = viewer?.tileLoadStatus ?? EMPTY_TILE_LOAD_STATUS
     }, 500)
     document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -338,7 +346,6 @@ export function useWorldMapViewer(sdk: YuDreamPluginSdk, route?: RouteLocationNo
     mock,
     pendingTiles,
     fps,
-    compassYaw,
     tileLoadingMessage,
     isFullscreen,
     screenshot,

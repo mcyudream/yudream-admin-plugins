@@ -2,17 +2,24 @@
 
 ## BlueMap Worker
 
-The world-map plugin uses the built-in renderer by default. To use the BlueMap v5.16 worker,
-configure every setting below through the host framework settings service:
+The world-map plugin uses the bundled BlueMap v5.16 worker by default. It runs with the JVM that
+loaded the plugin, extracts its pinned CLI and template into each task work directory, and writes
+task output below `output`. No path setting is required for normal operation.
+
+For a custom BlueMap distribution, first set
+`yudream.world-map.bluemap.external-runtime-enabled=true`, then configure every setting below
+through the host framework settings service:
 
 | Setting | Required | Purpose |
 | --- | --- | --- |
+| `yudream.world-map.bluemap.external-runtime-enabled` | yes | Explicitly opt in to the custom external runtime. |
 | `yudream.world-map.bluemap.java-path` | yes | Absolute path to a Java 21 executable. |
 | `yudream.world-map.bluemap.cli-path` | yes | Absolute path to the pinned BlueMap v5.16 CLI JAR. Its SHA-256 is verified before every launch. |
-| `yudream.world-map.bluemap.config-template` | yes | Absolute path to a resolved BlueMap configuration template containing `core.conf`, `maps/template.conf`, and `storages/file.conf`. |
+| `yudream.world-map.bluemap.config-template` | yes | Absolute path to a template containing `core.conf`, `maps/template.conf`, and `storages/file.conf`. |
 | `yudream.world-map.bluemap.storage-root` | yes | Relative output directory below each render task work directory. |
-| `yudream.world-map.bluemap.minecraft-version` | no | Minecraft client version, default `1.21.4`. |
+| `yudream.world-map.bluemap.minecraft-version` | no | Optional explicit Minecraft version. By default the worker reads the uploaded client JAR's `version.json`. |
 | `yudream.world-map.bluemap.heap-mib` | no | Worker heap limit in MiB, default `1024`. |
+| `yudream.world-map.bluemap.render-thread-count` | no | Detailed-tile render worker count. Default is available CPU cores minus `2`, clamped to `1..16`; an explicit value may be `1..64`. |
 | `yudream.world-map.bluemap.timeout-minutes` | no | Per-render worker timeout, default `60`. |
 | `yudream.world-map.bluemap.resource-cache-root` | no | Absolute directory for reusable BlueMap resources. A version-specific child directory is used automatically. |
 
@@ -21,9 +28,9 @@ uses a task-local world archive, output directory, log and configuration. When
 `resource-cache-root` is set, only downloaded BlueMap resources and the matching Minecraft client
 JAR persist between renders; this avoids repeating first-run resource initialization for every map.
 
-`maps/template.conf` must be a render-ready map configuration and include the `${world}`, `${dimension}`
-and `${name}` placeholders. Resolve any other placeholders from BlueMap's distribution template before
-using it here. The worker replaces `webserver.conf` and `webapp.conf` with disabled task-local files,
+An external `core.conf` must contain `${data}`. `maps/template.conf` must include `${world}`, `${dimension}`
+and `${name}`, while `storages/file.conf` must include `${root}`. The worker replaces `webserver.conf`
+and `webapp.conf` with disabled task-local files,
 because public web serving and webapp generation are handled by the YuDream plugin rather than the CLI.
 
 Do not use the world archive upload directory or the public map asset directory as the resource

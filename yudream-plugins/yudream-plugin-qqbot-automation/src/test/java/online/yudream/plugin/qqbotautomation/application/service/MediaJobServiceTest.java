@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,7 @@ class MediaJobServiceTest {
     void manualTestCompletesAndSendsToTheSelectedGroup() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         AtomicReference<String> requestUri = new AtomicReference<>();
@@ -48,7 +51,7 @@ class MediaJobServiceTest {
             int port = server.getAddress().getPort();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + port, false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "抖音分享文本 https://v.douyin.com/example 复制打开抖音"));
 
@@ -59,12 +62,11 @@ class MediaJobServiceTest {
             assertEquals("http://localhost:" + port + "/api/download?url=https%3A%2F%2Fv.douyin.com%2Fexample&prefix=false&with_watermark=false", result.get("downloadUrl"));
             assertEquals(result, service.find(jobId));
             assertEquals(1, sentMessages.get());
-            assertEquals("connection-a", sentRequest.get().connectionId());
-            assertEquals("milky", sentRequest.get().platform());
-            assertEquals("self-a", sentRequest.get().userId());
-            assertEquals("group-a", sentRequest.get().channelId());
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, sentRequest.get().content().type());
-            assertEquals("file:///media/douyin_video/douyin_7663032596767428986.mp4", sentRequest.get().content().content());
+            assertEquals("group-a", forwardedPayload.get().get("group_id"));
+            List<?> message = (List<?>) forwardedPayload.get().get("message");
+            Map<?, ?> forward = (Map<?, ?>) ((Map<?, ?>) message.getFirst()).get("data");
+            Map<?, ?> media = (Map<?, ?>) ((List<?>) forward.get("messages")).getFirst();
+            assertEquals("video", ((Map<?, ?>) ((List<?>) media.get("segments")).getFirst()).get("type"));
             assertEquals("/api/download?url=https%3A%2F%2Fv.douyin.com%2Fexample&prefix=false&with_watermark=false", requestUri.get());
         } finally {
             server.stop(0);
@@ -122,18 +124,19 @@ class MediaJobServiceTest {
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
-            await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, requests.get(0).content().type());
+            await(() -> sentMessages.get() == 1 && "COMPLETED".equals(job(documents, jobId).get("status")));
             Map<String, Object> forward = forwardedPayload.get();
             assertEquals("group-a", forward.get("group_id"));
             List<?> message = (List<?>) forward.get("message");
             Map<?, ?> segment = (Map<?, ?>) message.getFirst();
             assertEquals("forward", segment.get("type"));
             Map<?, ?> data = (Map<?, ?>) segment.get("data");
-            assertEquals("抖音评论", data.get("title"));
+            assertEquals("Douyin media and comments", data.get("title"));
             List<?> nodes = (List<?>) data.get("messages");
-            assertEquals(3, nodes.size());
-            Map<?, ?> textNode = (Map<?, ?>) nodes.get(2);
+            assertEquals(4, nodes.size());
+            Map<?, ?> mediaNode = (Map<?, ?>) nodes.getFirst();
+            assertEquals("video", ((Map<?, ?>) ((List<?>) mediaNode.get("segments")).getFirst()).get("type"));
+            Map<?, ?> textNode = (Map<?, ?>) nodes.get(3);
             assertEquals("评论用户", textNode.get("sender_name"));
             assertEquals(10001L, textNode.get("user_id"));
             Map<?, ?> textSegment = (Map<?, ?>) ((List<?>) textNode.get("segments")).getFirst();
@@ -166,6 +169,40 @@ class MediaJobServiceTest {
     }
 
     @Test
+    void sendsDouyinAudioAsASeparateRecordAfterTheMergedForward() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        HttpServer server = douyinServer(200, "{\"data\":{\"comments\":[]}}");
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        String hostDirectoryPrevious = System.getProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY");
+        String containerDirectoryPrevious = System.getProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY");
+        try {
+            System.setProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", mediaDirectory.toString());
+            System.setProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", "/milky-media");
+            server.start();
+            policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("forward", ((Map<?, ?>) ((List<?>) forwardedPayload.get().get("message")).getFirst()).get("type"));
+            assertEquals(1, requests.size());
+            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.AUDIO, requests.getFirst().content().type());
+            assertTrue(requests.getFirst().content().content().startsWith("file:///milky-media/douyin_audio/"));
+        } finally {
+            restoreProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", hostDirectoryPrevious);
+            restoreProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", containerDirectoryPrevious);
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
     void pagesNewestJobsFirstAndClearsAllJobs() {
         InMemoryDocuments documents = new InMemoryDocuments();
         MediaJobService service = new MediaJobService(new AutomationPolicyService(documents), documents, framework(new AtomicInteger()));
@@ -180,7 +217,7 @@ class MediaJobServiceTest {
     }
 
     @Test
-    void sendsDouyinImagePostAudioAsASeparateRecord() throws Exception {
+    void sendsDouyinImagePostAsOneForwardMessage() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
         AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
@@ -195,11 +232,10 @@ class MediaJobServiceTest {
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/image-post"));
 
-            await(() -> sentMessages.get() == 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
+            await(() -> sentMessages.get() == 1 && "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals("forward", ((Map<?, ?>) ((List<?>) forwardedPayload.get().get("message")).getFirst()).get("type"));
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.AUDIO,
-                    requests.getFirst().content().type());
-            assertEquals("https://audio.example.test/post.mp3", requests.getFirst().content().content());
+            Map<?, ?> forward = (Map<?, ?>) ((Map<?, ?>) ((List<?>) forwardedPayload.get().get("message")).getFirst()).get("data");
+            assertEquals(2, ((List<?>) forward.get("messages")).size());
         } finally {
             server.stop(0);
         }
@@ -286,9 +322,42 @@ class MediaJobServiceTest {
     }
 
     @Test
+    void retriesTransientAwemeIdFetcherFailures() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            if (attempts.incrementAndGet() == 1) {
+                writeJson(exchange, 200, "{\"code\":400,\"message\":\"AwemeIdFetcher temporary failure\"}");
+                return;
+            }
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, 200, "{\"data\":{\"comments\":[]}}"));
+        try {
+            server.start();
+            policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals(2, attempts.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void sendsParsedVideoToTheOriginatingGroup() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        AtomicReference<Map<String, Object>> forwardedPayload = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         AtomicReference<String> requestUri = new AtomicReference<>();
@@ -297,18 +366,18 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
+            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
             PluginEvent event = new PluginEvent("", "message_receive", "milky", "user-a", "group-a", "https://v.douyin.com/example",
                     "", "", Map.of(), "", null, "connection-a", "self-a", "message-a");
 
             service.handle(event);
 
             await(() -> sentMessages.get() == 1);
-            PluginMessageRequest request = sentRequest.get();
-            assertEquals("connection-a", request.connectionId());
-            assertEquals("group-a", request.channelId());
-            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, request.content().type());
-            assertEquals("file:///media/douyin_video/douyin_7663032596767428986.mp4", request.content().content());
+            assertEquals("group-a", forwardedPayload.get().get("group_id"));
+            List<?> message = (List<?>) forwardedPayload.get().get("message");
+            Map<?, ?> forward = (Map<?, ?>) ((Map<?, ?>) message.getFirst()).get("data");
+            Map<?, ?> media = (Map<?, ?>) ((List<?>) forward.get("messages")).getFirst();
+            assertEquals("video", ((Map<?, ?>) ((List<?>) media.get("segments")).getFirst()).get("type"));
         } finally {
             server.stop(0);
         }
@@ -344,8 +413,17 @@ class MediaJobServiceTest {
             exchange.sendResponseHeaders(200, 0);
             exchange.close();
         });
-        server.createContext("/api/hybrid/video_data", exchange -> writeJson(exchange, 200, "{\"data\":{\"aweme_id\":\"aweme-123\"}}"));
+        server.createContext("/api/hybrid/video_data", exchange -> writeJson(exchange, 200,
+                "{\"data\":{\"aweme_id\":\"aweme-123\",\"music\":{\"play_url\":{\"url_list\":[\"http://localhost:"
+                        + server.getAddress().getPort() + "/audio.mp3\"]}}}}"));
         server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, commentsStatus, commentsBody));
+        server.createContext("/audio.mp3", exchange -> {
+            byte[] audio = "audio-content".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.sendResponseHeaders(200, audio.length);
+            exchange.getResponseBody().write(audio);
+            exchange.close();
+        });
         return server;
     }
 
@@ -438,6 +516,17 @@ class MediaJobServiceTest {
             Thread.sleep(25);
         }
         assertTrue(condition.getAsBoolean(), "Timed out waiting for media job completion");
+    }
+
+    private void restoreProperty(String name, String previous) {
+        if (previous == null) System.clearProperty(name);
+        else System.setProperty(name, previous);
+    }
+
+    private void deleteTree(Path root) throws IOException {
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+        }
     }
 
     private static final class InMemoryDocuments implements PluginDocumentStore {

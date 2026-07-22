@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 public class MinecraftStatusScheduler implements AutoCloseable {
 
     private static final long INITIAL_DELAY_SECONDS = 30;
-    private static final long REFRESH_INTERVAL_MINUTES = 10;
+    private static final long REFRESH_INTERVAL_MINUTES = 1;
 
     private final MinecraftServerAppService appService;
     private ScheduledExecutorService executor;

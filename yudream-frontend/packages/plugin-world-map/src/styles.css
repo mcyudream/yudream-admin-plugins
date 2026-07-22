@@ -35,16 +35,19 @@
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
-.world-map-toolbar {
+.world-map-control-stack {
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 10;
+  width: min(760px, calc(100% - 32px));
+}
+
+.world-map-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  max-width: min(760px, calc(100% - 32px));
   padding: 8px 10px;
   font-size: 13px;
 }
@@ -72,8 +75,8 @@
 }
 
 .world-map-coordinate-form {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 4px;
 }
 
@@ -146,10 +149,6 @@
 }
 
 .world-map-render-settings {
-  position: absolute;
-  top: 72px;
-  left: 16px;
-  z-index: 10;
   display: grid;
   width: 224px;
   gap: 10px;
@@ -168,11 +167,12 @@
 }
 
 .world-map-coordinate-panel {
-  position: absolute;
-  top: 72px;
-  left: 16px;
-  z-index: 10;
+  width: 224px;
   padding: 8px;
+}
+
+.world-map-toolbar-panel {
+  margin-top: 8px;
 }
 
 .world-map-layers {
@@ -355,15 +355,15 @@
     overflow-y: auto;
   }
 
-  .world-map-render-settings {
-    top: 132px;
+  .world-map-control-stack {
+    top: 8px;
     left: 8px;
-    width: min(208px, calc(100% - 16px));
+    width: calc(100% - 16px);
   }
 
+  .world-map-render-settings,
   .world-map-coordinate-panel {
-    top: 132px;
-    left: 8px;
+    width: min(224px, 100%);
   }
 
   .world-map-marker-popup {

@@ -10,7 +10,7 @@ public record MinecraftPlayerActivityEvent(
         Type type,
         long occurredAt
 ) {
-    public enum Type { JOIN, QUIT, AFK_START, AFK_END }
+    public enum Type { JOIN, QUIT, AFK_START, AFK_END, SERVER_OFFLINE, SERVER_SNAPSHOT }
 
     public MinecraftPlayerActivityEvent {
         id = id == null || id.isBlank() ? UUID.randomUUID().toString() : id.trim();

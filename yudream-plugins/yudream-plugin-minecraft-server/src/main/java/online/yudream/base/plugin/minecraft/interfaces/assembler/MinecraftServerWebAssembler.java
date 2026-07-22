@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.minecraft.interfaces.assembler;
 
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
+import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerSnapshotCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftEconomyRecordDTO;
@@ -13,6 +14,7 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerStatusDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSnapshotRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerSaveRequest;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftEconomyRecordRes;
@@ -54,6 +56,17 @@ public class MinecraftServerWebAssembler {
                 textOr(request.playerId(), request.uuid()),
                 textOr(request.playerName(), request.name()),
                 request.eventAt()
+        );
+    }
+
+    public MinecraftPlayerSnapshotCmd toCmd(MinecraftPlayerSnapshotRequest request) {
+        return new MinecraftPlayerSnapshotCmd(
+                request.observedAt(),
+                request.players() == null ? java.util.List.of() : request.players().stream()
+                        .map(player -> new MinecraftPlayerSnapshotCmd.Player(
+                                textOr(player.playerId(), player.uuid()),
+                                textOr(player.playerName(), player.name())))
+                        .toList()
         );
     }
 

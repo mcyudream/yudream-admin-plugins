@@ -30,7 +30,6 @@ const {
   mock,
   tileLoadingMessage,
   fps,
-  compassYaw,
   isFullscreen,
   screenshot,
   toggleFullscreen,
@@ -96,7 +95,8 @@ function toggleRenderSettings() {
   <div class="world-map-viewer">
     <div :ref="setContainer" class="world-map-canvas" />
 
-    <div class="world-map-toolbar">
+    <div class="world-map-control-stack">
+      <div class="world-map-toolbar">
       <div class="world-map-toolbar-map">
         <FaSelect
           v-if="mapOptions.length > 1"
@@ -190,27 +190,30 @@ function toggleRenderSettings() {
         <span class="world-map-toolbar-fps">{{ fps }} FPS</span>
         <span v-if="mock" class="world-map-toolbar-mock">MOCK</span>
       </div>
-    </div>
+      </div>
 
-    <div v-if="renderSettingsOpen" class="world-map-render-settings">
-      <label>
-        <span>地形细节 {{ hiresRadius[0] }}</span>
-        <FaSlider v-model="hiresRadius" :min="2" :max="6" :step="1" :tooltip="false" />
-      </label>
-      <label>
-        <span>概览范围 {{ lowresCoverage[0]?.toFixed(1) }}x</span>
-        <FaSlider v-model="lowresCoverage" :min="1" :max="2.5" :step="0.25" :tooltip="false" />
-      </label>
-    </div>
+      <div v-if="renderSettingsOpen || coordinatePanelOpen" class="world-map-toolbar-panel">
+        <div v-if="renderSettingsOpen" class="world-map-render-settings">
+          <label>
+            <span>地形细节 {{ hiresRadius[0] }}</span>
+            <FaSlider v-model="hiresRadius" :min="2" :max="6" :step="1" :tooltip="false" />
+          </label>
+          <label>
+            <span>概览范围 {{ lowresCoverage[0]?.toFixed(1) }}x</span>
+            <FaSlider v-model="lowresCoverage" :min="1" :max="2.5" :step="0.25" :tooltip="false" />
+          </label>
+        </div>
 
-    <div v-if="coordinatePanelOpen" class="world-map-coordinate-panel">
-      <form class="world-map-coordinate-form" @submit.prevent="focusCoordinateInput">
-        <FaInput v-model="coordinateX" aria-label="X coordinate" inputmode="decimal" placeholder="X" />
-        <FaInput v-model="coordinateZ" aria-label="Z coordinate" inputmode="decimal" placeholder="Z" />
-        <FaButton size="sm" variant="outline" title="定位到坐标" type="submit">
-          <FaIcon name="i-mdi:crosshairs-gps" />
-        </FaButton>
-      </form>
+        <div v-else class="world-map-coordinate-panel">
+          <form class="world-map-coordinate-form" @submit.prevent="focusCoordinateInput">
+            <FaInput v-model="coordinateX" aria-label="X coordinate" inputmode="decimal" placeholder="X" />
+            <FaInput v-model="coordinateZ" aria-label="Z coordinate" inputmode="decimal" placeholder="Z" />
+            <FaButton size="sm" variant="outline" title="定位到坐标" type="submit">
+              <FaIcon name="i-mdi:crosshairs-gps" />
+            </FaButton>
+          </form>
+        </div>
+      </div>
     </div>
 
     <div v-if="markerSets.length" class="world-map-layers">
@@ -265,10 +268,5 @@ function toggleRenderSettings() {
       点击画面锁定鼠标，WASD 移动，Space/Q 升降，Shift 加速，Esc 退出
     </div>
 
-    <div class="world-map-compass" aria-hidden="true">
-      <div class="world-map-compass-dial" :style="{ transform: `rotate(${-compassYaw}deg)` }">
-        <span class="world-map-compass-n">N</span>
-      </div>
-    </div>
   </div>
 </template>

@@ -87,6 +87,82 @@ describe('TileManager', () => {
     manager.dispose()
   })
 
+  it('cancels terrain requests outside a teleported view so its center loads first', () => {
+    let signal: AbortSignal | undefined
+    const source: WorldMapSource = {
+      loadSettings: async () => settings,
+      loadAtlas: async () => new THREE.Texture(),
+      fetchHiresTile: (_tx, _tz, requestSignal) => {
+        signal = requestSignal
+        return new Promise<HiresTile>(() => {})
+      },
+      lowresTileUrl: () => null,
+      fetchMarkers: async () => ({ markerSets: [] }),
+    }
+    const parent = new THREE.Group()
+    const manager = new TileManager(source, settings, new THREE.MeshBasicMaterial(), new THREE.ShaderMaterial(), parent, {
+      hiresRadius: 0,
+      maxConcurrent: 1,
+    })
+    const camera = new THREE.PerspectiveCamera()
+    camera.position.set(0, 80, 0)
+
+    manager.update(camera, new THREE.Vector3(0, 64, 0))
+    expect(signal?.aborted).toBe(false)
+
+    manager.update(camera, new THREE.Vector3(320, 64, 0))
+    expect(signal?.aborted).toBe(true)
+    manager.dispose()
+  })
+
+  it('keeps loaded BlueMap detail visible after switching to distant overview LOD', async () => {
+    const source: WorldMapSource = {
+      loadSettings: async () => settings,
+      loadAtlas: async () => new THREE.Texture(),
+      fetchHiresTile: async () => tile,
+      lowresTileUrl: () => null,
+      fetchMarkers: async () => ({ markerSets: [] }),
+    }
+    const parent = new THREE.Group()
+    const manager = new TileManager(source, { ...settings, renderer: 'BLUEMAP' }, new THREE.MeshBasicMaterial(), new THREE.ShaderMaterial(), parent, {
+      hiresRadius: 1,
+      maxConcurrent: 1,
+    })
+    const camera = new THREE.PerspectiveCamera()
+    const target = new THREE.Vector3(0, 64, 0)
+    camera.position.set(0, 80, 0)
+    manager.update(camera, target)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(parent.getObjectByName('world-map-hires')?.children.length).toBeGreaterThan(0)
+
+    camera.position.set(0, 2_064, 0)
+    manager.update(camera, target)
+    expect(parent.getObjectByName('world-map-hires')?.children.length).toBeGreaterThan(0)
+    manager.dispose()
+  })
+
+  it('does not show BlueMap lowres terrain in a perspective view', () => {
+    const source: WorldMapSource = {
+      loadSettings: async () => settings,
+      loadAtlas: async () => new THREE.Texture(),
+      fetchHiresTile: async () => null,
+      lowresTileUrl: () => null,
+      fetchMarkers: async () => ({ markerSets: [] }),
+    }
+    const parent = new THREE.Group()
+    const manager = new TileManager(source, { ...settings, renderer: 'BLUEMAP' }, new THREE.MeshBasicMaterial(), new THREE.ShaderMaterial(), parent)
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial())
+    const records = (manager as unknown as { lowres: Map<string, { mesh: THREE.Mesh }> }).lowres
+    records.set('1,0,0', { mesh })
+
+    const camera = new THREE.PerspectiveCamera()
+    camera.position.set(0, 100, 0)
+    manager.update(camera, new THREE.Vector3(0, 64, 0))
+    expect(mesh.visible).toBe(false)
+    manager.dispose()
+  })
+
   it('corrects a BlueMap overview hit to its metadata terrain height', () => {
     const source: WorldMapSource = {
       loadSettings: async () => settings,

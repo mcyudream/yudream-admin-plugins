@@ -1,4 +1,4 @@
-/** A loaded PRBM tile remains useful after a small camera move when it is still in the desired disk. */
-export function shouldRetainHiresTile(viewerDisposed: boolean, stillDesired: boolean): boolean {
-  return !viewerDisposed && stillDesired
+/** A decoded PRBM tile remains useful until the viewer disposes or the bounded resident cache evicts it. */
+export function shouldRetainHiresTile(viewerDisposed: boolean): boolean {
+  return !viewerDisposed
 }

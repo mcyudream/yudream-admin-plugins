@@ -6,6 +6,7 @@ import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
+import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerSnapshotCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftEconomyRecordDTO;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
 
 public class MinecraftServerAppService implements PluginMinecraftService {
 
+    private static final long MAX_FUTURE_EVENT_MILLIS = 5L * 60 * 1000;
     private static final long DEFAULT_HISTORY_WINDOW_MILLIS = 24L * 60 * 60 * 1000;
     private static final int DEFAULT_HISTORY_LIMIT = 144;
     private static final int MAX_HISTORY_LIMIT = 288;
@@ -64,6 +66,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     private final FrameworkServices framework;
     private final PluginContext pluginContext;
     private final MinecraftServerAppAssembler assembler = new MinecraftServerAppAssembler();
+    private final Object playerActivityLock = new Object();
 
     public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, PluginContext pluginContext) {
         this.repository = repository;
@@ -117,11 +120,19 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public MinecraftServerStatus refreshStatus(String serverId) {
         MinecraftServer server = requireServer(serverId);
+        MinecraftServerStatus previousStatus = repository.findStatus(server.id()).orElse(null);
         List<MinecraftEndpointStatus> statuses = server.endpoints().stream()
                 .map(statusService::ping)
                 .toList();
         MinecraftServerStatus status = repository.saveStatus(MinecraftServerStatus.from(server.id(), statuses));
         repository.saveStatusSnapshot(MinecraftStatusSnapshot.from(status));
+        boolean confirmedOffline = !"ONLINE".equals(status.status())
+                && previousStatus != null
+                && !"ONLINE".equals(previousStatus.status());
+        boolean confirmedEmpty = "ONLINE".equals(status.status()) && status.onlinePlayers() == 0;
+        if (confirmedOffline || confirmedEmpty) {
+            recoverPlayersFromOfflineServer(server.id(), confirmedOffline ? previousStatus : status, status.checkedAt());
+        }
         return status;
     }
 
@@ -247,34 +258,75 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public MinecraftPlayerActivityDTO recordJoin(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        long eventAt = eventAt(cmd);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.playerName(), eventAt);
-        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.JOIN, eventAt);
-        return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        synchronized (playerActivityLock) {
+            long eventAt = eventAt(cmd);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.playerName(), eventAt);
+            recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.JOIN, eventAt);
+            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        }
     }
 
     public MinecraftPlayerActivityDTO recordQuit(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        long eventAt = eventAt(cmd);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.playerName(), eventAt);
-        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.QUIT, eventAt);
-        return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        synchronized (playerActivityLock) {
+            long eventAt = eventAt(cmd);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.playerName(), eventAt);
+            recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.QUIT, eventAt);
+            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        }
     }
 
     public MinecraftPlayerActivityDTO recordAfkStart(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        long eventAt = eventAt(cmd);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.playerName(), eventAt);
-        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_START, eventAt);
-        return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        synchronized (playerActivityLock) {
+            long eventAt = eventAt(cmd);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.playerName(), eventAt);
+            recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_START, eventAt);
+            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        }
     }
 
     public MinecraftPlayerActivityDTO recordAfkEnd(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
-        long eventAt = eventAt(cmd);
-        MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.playerName(), eventAt);
-        recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_END, eventAt);
-        return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        synchronized (playerActivityLock) {
+            long eventAt = eventAt(cmd);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.playerName(), eventAt);
+            recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_END, eventAt);
+            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+        }
+    }
+
+    public int reconcilePlayerSnapshot(String serverId, MinecraftPlayerSnapshotCmd cmd) {
+        requireServer(serverId);
+        long observedAt = normalizeTimestamp(cmd.observedAt());
+        Map<String, MinecraftPlayerSnapshotCmd.Player> reported = cmd.players().stream()
+                .collect(Collectors.toMap(
+                        player -> requireText(player.playerId(), "玩家 ID 不能为空"),
+                        player -> player,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+        synchronized (playerActivityLock) {
+            for (MinecraftPlayerActivity activity : allStoredPlayerActivities(serverId)) {
+                if (activity.online()) {
+                    MinecraftPlayerSnapshotCmd.Player player = reported.remove(activity.playerId());
+                    if (player == null && observedAt >= activity.updatedAt()) {
+                        closeActivity(activity, MinecraftPlayerActivityEvent.Type.SERVER_SNAPSHOT, observedAt);
+                    }
+                }
+            }
+            for (MinecraftPlayerSnapshotCmd.Player player : reported.values()) {
+                MinecraftPlayerActivity activity = repository.findPlayerActivity(serverId, player.playerId())
+                        .orElseGet(() -> MinecraftPlayerActivity.empty(
+                                serverId, player.playerId(), player.playerName(), observedAt));
+                if (!activity.online()) {
+                    repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
+                            serverId, player.playerId(), player.playerName(),
+                            MinecraftPlayerActivityEvent.Type.JOIN, observedAt));
+                    repository.savePlayerActivity(activity.join(player.playerName(), observedAt));
+                }
+            }
+        }
+        return cmd.players().size();
     }
 
     public MinecraftPageDTO<MinecraftPlayerActivityDTO> playerActivities(String serverId, int page, int size) {
@@ -342,7 +394,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
             if (at > windowEnd) break;
             switch (event.type()) {
                 case JOIN -> { if (onlineSince == null) onlineSince = at; }
-                case QUIT -> {
+                case QUIT, SERVER_OFFLINE, SERVER_SNAPSHOT -> {
                     onlineMillis += overlap(onlineSince, at, windowStart, windowEnd);
                     afkMillis += overlap(afkSince, at, windowStart, windowEnd);
                     onlineSince = null;
@@ -366,6 +418,43 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     private void recordActivityEvent(String serverId, MinecraftPlayerEventCmd cmd, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
         repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(serverId, cmd.playerId(), cmd.playerName(), type, occurredAt));
+    }
+
+    private void recoverPlayersFromOfflineServer(String serverId, MinecraftServerStatus previousStatus, long detectedAt) {
+        synchronized (playerActivityLock) {
+            List<MinecraftPlayerActivity> activities = allStoredPlayerActivities(serverId);
+            for (MinecraftPlayerActivity activity : activities) {
+                if (!activity.online()) {
+                    continue;
+                }
+                if (activity.updatedAt() > detectedAt) {
+                    continue;
+                }
+                long lastTrustedAt = previousStatus == null ? activity.updatedAt() : previousStatus.checkedAt();
+                long disconnectedAt = Math.min(detectedAt,
+                        Math.max(activity.updatedAt(), Math.max(activity.currentOnlineSince(), lastTrustedAt)));
+                closeActivity(activity, MinecraftPlayerActivityEvent.Type.SERVER_OFFLINE, disconnectedAt);
+            }
+        }
+    }
+
+    private void closeActivity(MinecraftPlayerActivity activity, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
+        repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
+                activity.serverId(), activity.playerId(), activity.playerName(), type, occurredAt));
+        repository.savePlayerActivity(activity.quit(activity.playerName(), occurredAt));
+    }
+
+    private List<MinecraftPlayerActivity> allStoredPlayerActivities(String serverId) {
+        List<MinecraftPlayerActivity> result = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<MinecraftPlayerActivity> batch = repository.listPlayerActivities(serverId, page, SCAN_PAGE_SIZE);
+            result.addAll(batch);
+            if (batch.size() < SCAN_PAGE_SIZE) {
+                return result;
+            }
+            page++;
+        }
     }
 
     private List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId, String playerId) {
@@ -552,7 +641,8 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         if (value == null || value <= 0) {
             return now;
         }
-        return value < 10_000_000_000L ? value * 1000 : value;
+        long normalized = value < 10_000_000_000L ? value * 1000 : value;
+        return Math.min(normalized, now + MAX_FUTURE_EVENT_MILLIS);
     }
 
     private String resetRemark(MinecraftSeasonOperation operation, MinecraftSeasonAdjustment adjustment) {

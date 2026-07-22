@@ -9,6 +9,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import online.yudream.plugin.worldmap.infrastructure.render.RenderJob;
+import online.yudream.plugin.worldmap.infrastructure.world.WorldTileManifest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -79,16 +81,19 @@ class BlueMapCliRenderEngineTest {
         Path output = temp.resolve("output");
         Path resources = temp.resolve("resources/1.21.4");
 
-        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, client, "1.21.4", "nether", output, resources);
+        BlueMapCliRenderEngine.prepareTaskConfiguration(config, "map-1", world, client, "1.21.4", "nether", output,
+                resources, 6);
 
         String map = Files.readString(maps.resolve("map_1.conf"));
         assertTrue(map.contains("minecraft:the_nether"));
         assertTrue(map.contains("name: \"map_1\""));
         assertTrue(map.contains(world.toAbsolutePath().toString().replace('\\', '/')));
+        assertTrue(map.contains("ignore-missing-light-data: true"));
         assertTrue(Files.notExists(maps.resolve("template.conf")));
         assertTrue(Files.readString(storages.resolve("file.conf")).contains(output.toAbsolutePath().toString().replace('\\', '/')));
         assertTrue(Files.readString(config.resolve("core.conf")).contains("accept-download: true"));
         assertTrue(Files.readString(config.resolve("core.conf")).contains(resources.toAbsolutePath().toString().replace('\\', '/')));
+        assertTrue(Files.readString(config.resolve("core.conf")).contains("render-thread-count: 6"));
         assertArrayEquals(Files.readAllBytes(client), Files.readAllBytes(resources.resolve("minecraft-client-1.21.4.jar")));
         assertTrue(Files.readString(config.resolve("webserver.conf")).contains("enabled: false"));
         assertTrue(Files.readString(config.resolve("webapp.conf")).contains("enabled: false"));
@@ -100,6 +105,11 @@ class BlueMapCliRenderEngineTest {
                 () -> BlueMapCliRenderEngine.validateClientVersion(clientJar("1.21.1"), "1.21.4"));
 
         assertTrue(error.getMessage().contains("does not match"));
+    }
+
+    @Test
+    void derivesTheWorkerVersionFromTheClientJarWhenItIsNotConfigured() throws Exception {
+        assertEquals("1.21.1", BlueMapCliRenderEngine.resolveMinecraftVersion(clientJar("1.21.1"), null));
     }
 
     @Test
@@ -119,6 +129,26 @@ class BlueMapCliRenderEngineTest {
 
         assertTrue(tail.endsWith("BlueMap missing resources"));
         assertTrue(tail.length() <= 4_000);
+    }
+
+    @Test
+    void readsTheLatestBlueMapCliRenderPercentage() {
+        String log = "[INFO] updating map 'world': 2.156% (ETA: 6 minutes)\n"
+                + "[INFO] updating map 'world': 74.171% (ETA: 2 minutes)\n";
+
+        assertEquals(74.171, BlueMapCliRenderEngine.progressPercent(log));
+        assertEquals(-1, BlueMapCliRenderEngine.progressPercent("Loading resources..."));
+    }
+
+    @Test
+    void rejectsAnIncompleteBlueMapDetailedTileSet() {
+        RenderJob job = new RenderJob(temp, temp.resolve("client.jar"), "overworld", 0, 0, 1, 0, false,
+                WorldTileManifest.rectangular(0, 0, 1, 0));
+
+        var error = assertThrows(java.io.IOException.class,
+                () -> BlueMapRenderEngineAdapter.requireCompleteHiresCoverage(job, new BlueMapImportSummary(1, 1)));
+
+        assertTrue(error.getMessage().contains("partial generation"));
     }
 
     private Path clientJar(String version) throws Exception {

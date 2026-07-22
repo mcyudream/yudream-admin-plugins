@@ -3,6 +3,39 @@
 **Date:** 2026-07-18
 **Status:** Approved
 
+## Agent-First Revision
+
+The administration experience uses one plugin-owned agent,
+`builtin-web-card-studio`, as its primary workflow. Administrators start with a
+URL and a natural-language outcome instead of manually assembling hosts,
+selectors, templates, bindings, and crawl jobs.
+
+Each turn produces one reviewable `WorkspacePlan` containing the site, parsing
+rules, template, optional group binding, optional crawl job, and publish intent.
+Applying the proposal assigns server-owned IDs, reuses matching site resources,
+creates an immutable template version, and optionally previews and publishes it.
+Unapplied plans never affect automation.
+
+Secret Header values are the only deliberate exception. The agent may request
+that a site use authenticated access and can see which Header names are
+configured, but values are entered through the Secret Store panel and never
+enter model context.
+
+The primary UI is a three-region work surface rather than a form dashboard:
+
+- a 220 px conversation rail;
+- a flexible conversation and composer region;
+- a 360 px plan, preview, and credential inspector.
+
+Independent regions use 20-32 px section padding, 16 px primary gaps, 12 px
+control gaps, and 8 px compact action gaps. The palette uses true white work
+surfaces, cool gray boundaries, dark neutral text, restrained blue selection,
+and green accepted-state accents. At mobile width, the rail is hidden and the
+conversation, plan, preview, and credentials stack without horizontal overflow.
+
+Legacy site, template, binding, and crawl pages remain permission-protected,
+hidden audit/repair routes. They are not the normal creation workflow.
+
 ## Goal
 
 Build an independent `web-card` plugin that recognizes links from configured

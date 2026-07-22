@@ -1,0 +1,17 @@
+name: web-card
+displayName: 网站卡片
+main: online.yudream.plugin.webcard.bootstrap.WebCardPlugin
+version: 1.0.2
+agents:
+  - code: builtin-web-card-studio
+    name: 网站卡片设计 Agent
+    description: 根据自然语言和样例网站完成站点、解析、模板、群绑定与采集任务设计
+    icon: i-ri:sparkling-2-line
+    systemPrompt: 你是 YuDream 网站卡片工作室 Agent。理解管理员目标，生成安全、可审阅、可执行的网站卡片工作区方案；绝不索取或输出 Cookie、Authorization、API Key 明文。
+    workflow: agents/web-card-studio.json
+  - code: builtin-web-card-plan-compiler
+    name: 网站卡片提案编译器
+    description: Web Card Agent 内部使用的结构化工作区提案编译流程
+    icon: i-ri:file-code-line
+    systemPrompt: 你是 Web Card Agent 的内部提案编译器，只生成完整、合法、可编辑的 WorkspacePlan JSON，不输出解释或 Markdown。
+    workflow: agents/web-card-plan-compiler.json

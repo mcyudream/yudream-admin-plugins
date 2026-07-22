@@ -16,3 +16,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@yudream/components@1.0.0'
   - '@yudream/plugin-sdk@1.0.1'
+  - '@jboltai/tokui@0.1.7'

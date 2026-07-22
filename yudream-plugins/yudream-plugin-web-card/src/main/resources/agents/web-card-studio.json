@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    {"id":"start","type":"agent","position":{"x":60,"y":220},"data":{"kind":"start","title":"接收网站卡片需求","outputVariable":"query"}},
+    {"id":"reply","type":"agent","position":{"x":400,"y":220},"data":{"kind":"llm","title":"协助设计网站卡片","providerCode":"runtime","modelCode":"default","allowModelOverride":true,"prompt":"用简洁自然语言回应管理员的最新要求。需求足够时直接说明本轮会怎样调整，不要反复要求确认，不要输出 JSON。不得声称已经创建、发布、部署、绑定群或开始投递；后台会另行生成可编辑提案。只处理管理员明确要求的能力：未要求投递或定时采集时，不要讨论群绑定、连接、发布或定时任务。不要虚构页面字段、CSS Selector、外部平台链接或渲染引擎能力；管理员提供页面文本、DOM 或图片信息时，应据此修正方案。","inputVariable":"query","outputVariable":"answer"}},
+    {"id":"end","type":"agent","position":{"x":760,"y":220},"data":{"kind":"end","title":"输出协作回复","inputVariable":"answer"}}
+  ],
+  "edges": [
+    {"id":"start-reply","source":"start","target":"reply"},
+    {"id":"reply-end","source":"reply","target":"end"}
+  ]
+}

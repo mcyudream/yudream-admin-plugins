@@ -48,6 +48,7 @@
 | `qqbot-automation` | QQ 机器人自动化策略、入群验证与媒体任务 |
 | `student-info` | 学生信息管理 |
 | `wallet` | 钱包、余额、充值与交易管理 |
+| `world-map` | Minecraft 存档 3D 世界地图渲染与浏览（对标 BlueMap），支持原版资产渲染、公开匿名查看，预留标注/地点介绍/导航扩展 |
 | `yudream-skin` | YuDream Skin 皮肤系统 |
 
 ## 架构

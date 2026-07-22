@@ -57,7 +57,8 @@ public final class WorldArchive {
     }
 
     /**
-     * 定位世界根目录（包含 region/*.mca 的目录，最多向下找两层）。
+     * Locates the actual world root. Dimension folders also contain {@code region}, so a valid
+     * root must own both {@code level.dat} and its overworld {@code region} directory.
      */
     public static Path resolveWorldRoot(Path extractedDir) throws IOException {
         try (Stream<Path> stream = Files.walk(extractedDir, 3)) {
@@ -66,7 +67,8 @@ public final class WorldArchive {
                     .filter(dir -> dir.getFileName().toString().equals("region"))
                     .filter(WorldArchive::containsMca)
                     .map(Path::getParent)
-                    .findFirst()
+                    .filter(root -> Files.isRegularFile(root.resolve("level.dat")))
+                    .min(Comparator.comparingInt(Path::getNameCount))
                     .orElseThrow(() -> new IllegalArgumentException("存档中未找到 region 数据（未识别的世界目录结构）"));
         }
     }

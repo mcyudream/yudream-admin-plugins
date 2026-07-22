@@ -17,7 +17,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <yudream.plugin.spi.version>2.4.0</yudream.plugin.spi.version>
+        <yudream.plugin.spi.version>2.6.0</yudream.plugin.spi.version>
         <jackson.version>2.20.0</jackson.version>
     </properties>
 
@@ -34,6 +34,8 @@
         <module>yudream-plugins/yudream-plugin-ai-chatbot</module>
         <module>yudream-plugins/yudream-plugin-qqbot-automation</module>
         <module>yudream-plugins/yudream-plugin-codex-task-notify</module>
+        <module>yudream-plugins/yudream-plugin-world-map</module>
+        <module>yudream-plugins/yudream-plugin-web-card</module>
     </modules>
 
     <dependencyManagement>

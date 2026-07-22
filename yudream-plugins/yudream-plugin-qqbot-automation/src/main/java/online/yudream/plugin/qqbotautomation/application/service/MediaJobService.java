@@ -16,6 +16,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -33,11 +36,12 @@ public class MediaJobService {
     private static final String DEFAULT_MILKY_MEDIA_DIRECTORY = "/media";
     private static final int DOCUMENT_SCAN_SIZE = 200;
     private static final long FALLBACK_FORWARD_UIN = 10001L;
+    private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
     private final FrameworkServices framework;
-    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final HttpClient client = HttpClient.newBuilder().connectTimeout(MEDIA_TIMEOUT).build();
     private final ObjectMapper json = new ObjectMapper();
 
     public MediaJobService(AutomationPolicyService policies, PluginDocumentStore documents, FrameworkServices framework) {
@@ -131,7 +135,7 @@ public class MediaJobService {
                        DeliveryTarget target, String trigger) {
         save(id, connectionId, channelId, sourceUrl, trigger, "QUEUED", null, null);
         MediaRequest request = request(policy, sourceUrl);
-        resolveMedia(request).whenComplete((media, error) -> {
+        resolveMediaWithRetry(request, 3).whenComplete((media, error) -> {
                     if (error != null || media == null || media.deliveryUri().isBlank()) {
                         if (isDouyinImageDownload(request, error)) {
                             sendDouyinImagePost(request, target).whenComplete((ignored, imageError) -> {
@@ -146,43 +150,34 @@ public class MediaJobService {
                         save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
                         return;
                     }
-                    sendResult(target, media.deliveryUri()).whenComplete((ignored, sendError) -> {
+                    deliver(request, target, media).whenComplete((delivery, sendError) -> {
                         if (sendError != null) {
                             save(id, connectionId, channelId, sourceUrl, trigger, "SEND_FAILED", media.downloadUrl(), sanitize(sendError));
                             return;
                         }
-                        sendDouyinComments(request, target).whenComplete((commentResult, commentError) -> {
-                            if (commentError != null) {
-                                saveCommentError(id, sanitize(commentError));
-                            }
-                            save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", media.downloadUrl(), null);
-                        });
+                        if (delivery.commentError() != null) saveCommentError(id, sanitize(delivery.commentError()));
+                        save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", media.downloadUrl(), null);
                     });
                 });
+    }
+
+    private CompletionStage<DeliveryResult> deliver(MediaRequest request, DeliveryTarget target, ResolvedMedia media) {
+        if (!request.dockerDownload() || !isDouyinSource(request.sourceUrl())) {
+            return sendResult(target, media.deliveryUri()).thenApply(ignored -> DeliveryResult.success());
+        }
+        return fetchDouyinCommentsForMedia(request, douyinAwemeId(media.deliveryUri()), target)
+                .handle((comments, error) -> new CommentFetch(comments == null ? List.of() : comments, error))
+                .thenCompose(result -> sendForward(target, videoForwardMessages(target, media.deliveryUri(), result.messages()),
+                        "Douyin media and comments", "Media and comments", "Douyin media and comments")
+                        // QQ clients cannot play records embedded in a forward message. Send it afterwards instead.
+                        .thenCompose(ignored -> sendDouyinAudio(request, target))
+                        .thenApply(ignored -> new DeliveryResult(result.error())));
     }
 
     private java.util.concurrent.CompletionStage<?> sendResult(DeliveryTarget target, String downloadUrl) {
         return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
                 new PluginMessageContent(PluginMessageContent.Type.VIDEO, downloadUrl,
                         java.util.List.of(new PluginMessageContent.Attachment(downloadUrl, "video.mp4", "video/mp4")), target.referrer())));
-    }
-
-    /**
-     * Mirrors the legacy KleinBlue flow: media first, then the first page of Douyin comments as a forward message.
-     * Comment delivery is deliberately best-effort so an unavailable comment API never changes a sent video into a failure.
-     */
-    private CompletionStage<?> sendDouyinComments(MediaRequest request, DeliveryTarget target) {
-        if (!request.dockerDownload() || !isDouyinSource(request.sourceUrl())) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return fetchDouyinComments(request, target).thenCompose(messages -> {
-            if (messages.isEmpty()) return CompletableFuture.completedFuture(null);
-            return sendForward(target, messages, "抖音评论", "评论区", "抖音评论").exceptionallyCompose(error -> {
-                List<Map<String, Object>> textMessages = textOnly(messages);
-                return textMessages.isEmpty() ? CompletableFuture.failedFuture(error)
-                        : sendForward(target, textMessages, "抖音评论", "评论区", "抖音评论");
-            });
-        });
     }
 
     private CompletionStage<Map<String, Object>> sendForward(DeliveryTarget target, List<Map<String, Object>> messages,
@@ -203,24 +198,69 @@ public class MediaJobService {
 
     private CompletionStage<?> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
         URI endpoint = douyinMetadataEndpoint(request, false);
-        HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30)).GET().build();
+        HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(this::douyinMetadata)
                 .thenCompose(data -> {
                     List<String> images = douyinImageUrls(data);
-                    if (images.isEmpty()) {
-                        return CompletableFuture.failedFuture(new IllegalStateException("Douyin image post did not return images"));
-                    }
+                    if (images.isEmpty()) return CompletableFuture.failedFuture(new IllegalStateException("Douyin image post did not return images"));
                     String nickname = nonBlank(data.path("author").path("nickname").asText())
-                            ? data.path("author").path("nickname").asText() : "抖音图文";
+                            ? data.path("author").path("nickname").asText() : "Douyin media";
                     long userId = forwardUserId(target.forwardFallbackUserId());
-                    List<Map<String, Object>> messages = images.stream()
+                    List<Map<String, Object>> messages = new ArrayList<>(images.stream()
                             .map(uri -> forwardNode(nickname, userId, Map.of("type", "image", "data", Map.of("uri", uri))))
-                            .toList();
-                    return sendForward(target, messages, "抖音图文", "图文作品", "抖音图文")
-                            .thenCompose(ignored -> sendDouyinRecord(target, douyinAudioUrl(data)))
-                            .thenCompose(ignored -> sendDouyinComments(request, target));
+                            .toList());
+                    return localizeDouyinAudio(douyinAudioUrl(data)).handle((audioUri, ignored) -> audioUri)
+                            .thenCompose(audioUri -> {
+                                return fetchDouyinCommentsForMedia(request, data.path("aweme_id").asText(), target)
+                                        .exceptionally(ignored -> List.of())
+                                        .thenCompose(comments -> {
+                                            messages.addAll(comments);
+                                            return sendForward(target, messages, "Douyin media and comments",
+                                                    "Media and comments", "Douyin media and comments")
+                                                    .thenCompose(ignored -> sendDouyinRecord(target, audioUri));
+                                        });
+                            });
                 });
+    }
+
+    private CompletionStage<String> localizeDouyinAudio(String audioUrl) {
+        if (!nonBlank(audioUrl)) return CompletableFuture.completedFuture(null);
+        String hostDirectory = runtimeSetting("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", null);
+        String containerDirectory = runtimeSetting("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", DEFAULT_MILKY_MEDIA_DIRECTORY);
+        if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) return CompletableFuture.completedFuture(null);
+        try {
+            Path destination = Path.of(hostDirectory).resolve("douyin_audio");
+            Files.createDirectories(destination);
+            String filename = "douyin_audio_" + UUID.randomUUID() + ".mp3";
+            Path temporary = Files.createTempFile(destination, ".audio-", ".part");
+            HttpRequest request = HttpRequest.newBuilder(URI.create(audioUrl)).timeout(MEDIA_TIMEOUT).GET().build();
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofFile(temporary)).thenApply(response -> {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    throw new IllegalStateException("Douyin audio HTTP " + response.statusCode());
+                }
+                try {
+                    Files.move(temporary, destination.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception exception) {
+                    throw new IllegalStateException("Could not store Douyin audio for Milky", exception);
+                }
+                return "file://" + containerDirectory.replaceAll("/+$", "") + "/douyin_audio/" + filename;
+            });
+        } catch (Exception exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+    }
+
+    private CompletionStage<?> sendDouyinAudio(MediaRequest request, DeliveryTarget target) {
+        URI endpoint = douyinMetadataEndpoint(request, true);
+        HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(MEDIA_TIMEOUT).GET().build();
+        return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                .thenApply(this::douyinMetadata)
+                .thenApply(this::douyinAudioUrl)
+                .thenCompose(this::localizeDouyinAudio)
+                .thenCompose(audioUri -> sendDouyinRecord(target, audioUri))
+                // Audio is an enhancement. A failed download or record send must not fail delivered media/comments.
+                .exceptionally(ignored -> null);
     }
 
     private CompletionStage<?> sendDouyinRecord(DeliveryTarget target, String audioUrl) {
@@ -280,18 +320,35 @@ public class MediaJobService {
                 .toList();
     }
 
-    private CompletionStage<List<Map<String, Object>>> fetchDouyinComments(MediaRequest request, DeliveryTarget target) {
+    private CompletionStage<List<Map<String, Object>>> fetchDouyinCommentsForMedia(MediaRequest request, String knownAwemeId, DeliveryTarget target) {
+        if (nonBlank(knownAwemeId)) return fetchDouyinComments(request, knownAwemeId, target);
         URI metadataEndpoint = douyinMetadataEndpoint(request, true);
-        HttpRequest metadataRequest = HttpRequest.newBuilder(metadataEndpoint).timeout(Duration.ofSeconds(30)).GET().build();
+        HttpRequest metadataRequest = HttpRequest.newBuilder(metadataEndpoint).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(this::douyinAwemeId)
-                .thenCompose(awemeId -> {
-                    URI commentsEndpoint = URI.create(douyinApiEndpoint(request.endpoint(), "/api/douyin/web/fetch_video_comments")
-                            + "?aweme_id=" + URLEncoder.encode(awemeId, StandardCharsets.UTF_8) + "&cursor=0&count=15");
-                    HttpRequest commentsRequest = HttpRequest.newBuilder(commentsEndpoint).timeout(Duration.ofSeconds(30)).GET().build();
-                    return client.sendAsync(commentsRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                })
+                .thenCompose(awemeId -> fetchDouyinComments(request, awemeId, target));
+    }
+
+    private CompletionStage<List<Map<String, Object>>> fetchDouyinComments(MediaRequest request, String awemeId, DeliveryTarget target) {
+        URI commentsEndpoint = URI.create(douyinApiEndpoint(request.endpoint(), "/api/douyin/web/fetch_video_comments")
+                + "?aweme_id=" + URLEncoder.encode(awemeId, StandardCharsets.UTF_8) + "&cursor=0&count=15");
+        HttpRequest commentsRequest = HttpRequest.newBuilder(commentsEndpoint).timeout(MEDIA_TIMEOUT).GET().build();
+        return client.sendAsync(commentsRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .thenApply(response -> forwardCommentMessages(response, target.forwardFallbackUserId()));
+    }
+
+    private String douyinAwemeId(String deliveryUri) {
+        Matcher matcher = Pattern.compile("douyin_(\\d+)(?:\\D|$)").matcher(deliveryUri == null ? "" : deliveryUri);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private List<Map<String, Object>> videoForwardMessages(DeliveryTarget target, String mediaUri,
+                                                             List<Map<String, Object>> comments) {
+        List<Map<String, Object>> messages = new ArrayList<>();
+        messages.add(forwardNode("Douyin media", forwardUserId(target.forwardFallbackUserId()),
+                Map.of("type", "video", "data", Map.of("uri", mediaUri))));
+        messages.addAll(comments);
+        return messages;
     }
 
     private String douyinAwemeId(HttpResponse<String> response) {
@@ -385,6 +442,12 @@ public class MediaJobService {
         return value != null && !value.isBlank();
     }
 
+    private String runtimeSetting(String name, String fallback) {
+        String environmentValue = System.getenv(name);
+        if (nonBlank(environmentValue)) return environmentValue;
+        return System.getProperty(name, fallback);
+    }
+
     private Map<String, Object> replyTo(PluginEvent event) {
         return event.messageId() == null || event.messageId().isBlank() ? Map.of() : Map.of("message_id", event.messageId());
     }
@@ -422,12 +485,31 @@ public class MediaJobService {
     }
 
     private java.util.concurrent.CompletionStage<ResolvedMedia> resolveMedia(MediaRequest request) {
-        HttpRequest httpRequest = HttpRequest.newBuilder(request.endpoint()).timeout(Duration.ofSeconds(90)).GET().build();
+        HttpRequest httpRequest = HttpRequest.newBuilder(request.endpoint()).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(httpRequest, bodyHandler(request)).thenApply(response -> {
             String downloadUrl = downloadUrl(request, response);
             String deliveryUri = request.dockerDownload() ? sharedFileUri(response) : downloadUrl;
             return new ResolvedMedia(downloadUrl, deliveryUri);
         });
+    }
+
+    private CompletionStage<ResolvedMedia> resolveMediaWithRetry(MediaRequest request, int attempts) {
+        return resolveMedia(request).handle((media, error) -> {
+            if (error == null || attempts <= 1 || !retryableParserFailure(error)) {
+                return error == null ? CompletableFuture.completedFuture(media) : CompletableFuture.<ResolvedMedia>failedFuture(error);
+            }
+            return CompletableFuture.supplyAsync(() -> null,
+                            CompletableFuture.delayedExecutor(2, java.util.concurrent.TimeUnit.SECONDS))
+                    .thenCompose(ignored -> resolveMediaWithRetry(request, attempts - 1));
+        }).thenCompose(stage -> stage);
+    }
+
+    private boolean retryableParserFailure(Throwable error) {
+        Throwable root = error;
+        while (root != null && root.getCause() != null) root = root.getCause();
+        String message = root == null ? "" : String.valueOf(root.getMessage());
+        return message.contains("AwemeIdFetcher") || message.contains("请求端点失败")
+                || message.contains("Media provider HTTP 502") || message.contains("Media provider HTTP 503");
     }
 
     private String downloadUrl(MediaRequest request, HttpResponse<String> response) {
@@ -632,6 +714,10 @@ public class MediaJobService {
 
     private record MediaRequest(URI endpoint, boolean dockerDownload, String sourceUrl) { }
     private record ResolvedMedia(String downloadUrl, String deliveryUri) { }
+    private record CommentFetch(List<Map<String, Object>> messages, Throwable error) { }
+    private record DeliveryResult(Throwable commentError) {
+        private static DeliveryResult success() { return new DeliveryResult(null); }
+    }
     private record DeliveryTarget(String connectionId, String platform, String selfId, String channelId,
                                   Map<String, Object> referrer, String forwardFallbackUserId) { }
     private static final class DouyinImageDownloadException extends IllegalStateException { }

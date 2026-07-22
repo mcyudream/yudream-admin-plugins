@@ -124,7 +124,11 @@ export class MapViewer {
   }
 
   /** 切换地图数据源：加载 settings + atlas，重建 tile 调度，相机定位到 spawn 上方斜视 45° */
-  async setSource(source: WorldMapSource): Promise<void> {
+  async setSource(source: WorldMapSource, initialView?: {
+    position: { x: number, y: number, z: number }
+    target: { x: number, y: number, z: number }
+    zoom?: number
+  }): Promise<void> {
     this.source?.dispose?.()
     this.source = source
     this.tileManager?.dispose()
@@ -189,6 +193,10 @@ export class MapViewer {
     const { x, y, z } = settings.spawn
     this.spawn = new THREE.Vector3(x, y, z)
     this.resetView()
+    if (initialView) {
+      // Apply a shared view before the first render so its center owns the initial tile queue.
+      this.setView(initialView.position, initialView.target, initialView.zoom)
+    }
     this.forceRender()
   }
 
@@ -260,12 +268,6 @@ export class MapViewer {
   }
 
   /** 相机朝向的罗盘方位角（度，0 = 北 -Z，顺时针） */
-  get compassYaw(): number {
-    const direction = new THREE.Vector3()
-    this.camera.getWorldDirection(direction)
-    return (Math.atan2(-direction.x, -direction.z) * 180) / Math.PI
-  }
-
   getView(): { position: THREE.Vector3, target: THREE.Vector3, zoom?: number } {
     return {
       position: this.camera.position.clone(),

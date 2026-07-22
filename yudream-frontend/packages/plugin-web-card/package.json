@@ -1,0 +1,40 @@
+{
+  "name": "@yudream/plugin-web-card",
+  "version": "1.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build && node scripts/verify-build.mjs",
+    "test": "vitest run",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.11",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.6",
+    "@jboltai/tokui": "0.1.7",
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "codemirror": "^6.0.2",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "^4.0.8",
+    "vue-tsc": "catalog:"
+  }
+}

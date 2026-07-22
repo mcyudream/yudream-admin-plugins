@@ -34,4 +34,17 @@ class WorldArchiveTest {
         assertFalse(manifest.contains(1, 0));
         assertFalse(manifest.contains(100, -48));
     }
+
+    @Test
+    void resolvesTheWorldRootInsteadOfAnEmbeddedDimensionDirectory() throws Exception {
+        Files.writeString(worldRoot.resolve("level.dat"), "level");
+        Path overworld = Files.createDirectories(worldRoot.resolve("region"));
+        Path nether = Files.createDirectories(worldRoot.resolve("DIM-1/region"));
+        MCAWriter.writeRegion(overworld.resolve("r.0.0.mca"), List.of(
+                new MCAWriter.Entry(0, 0, RegionFile.COMPRESSION_NONE, new byte[]{1}, 1)));
+        MCAWriter.writeRegion(nether.resolve("r.0.0.mca"), List.of(
+                new MCAWriter.Entry(0, 0, RegionFile.COMPRESSION_NONE, new byte[]{1}, 1)));
+
+        assertEquals(worldRoot, WorldArchive.resolveWorldRoot(worldRoot));
+    }
 }

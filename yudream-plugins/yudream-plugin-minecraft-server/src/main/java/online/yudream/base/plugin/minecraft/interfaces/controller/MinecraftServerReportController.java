@@ -38,4 +38,10 @@ public class MinecraftServerReportController {
 
     @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/players/afk/end", permission = MinecraftServerPlugin.REPORT_PERMISSION)
     public PluginHttpResponse playerAfkEndLegacy(PluginHttpRequest request) { return http.playerAfkEnd(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/report/servers/{serverId}/players/snapshot", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse playerSnapshot(PluginHttpRequest request) { return http.playerSnapshot(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/players/snapshot", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse playerSnapshotLegacy(PluginHttpRequest request) { return http.playerSnapshot(request); }
 }

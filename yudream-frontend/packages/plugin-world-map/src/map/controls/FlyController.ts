@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { CameraController } from './CameraController'
+import { clampFlyPitch } from './cameraAnglePolicy'
 
-const PITCH_LIMIT = Math.PI / 2 - 0.01
 const MOUSE_SENSITIVITY = 0.0022
 const BASE_SPEED = 24
 const BOOST_SPEED = 90
@@ -46,7 +46,9 @@ export class FlyController implements CameraController {
     // 从当前相机姿态同步 yaw/pitch，保证模式切换视角连续
     this.euler.setFromQuaternion(this.camera.quaternion, 'YXZ')
     this.yaw = this.euler.y
-    this.pitch = this.euler.x
+    this.pitch = clampFlyPitch(this.euler.x)
+    this.euler.set(this.pitch, this.yaw, 0, 'YXZ')
+    this.camera.quaternion.setFromEuler(this.euler)
   }
 
   setSpeedScale(scale: number): void {
@@ -80,7 +82,7 @@ export class FlyController implements CameraController {
       return
     }
     this.yaw -= event.movementX * MOUSE_SENSITIVITY
-    this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * MOUSE_SENSITIVITY, -PITCH_LIMIT, PITCH_LIMIT)
+    this.pitch = clampFlyPitch(this.pitch - event.movementY * MOUSE_SENSITIVITY)
     this.euler.set(this.pitch, this.yaw, 0, 'YXZ')
     this.camera.quaternion.setFromEuler(this.euler)
     this.onChanged()

@@ -4,6 +4,7 @@ import online.yudream.base.plugin.minecraft.application.service.MinecraftServerA
 import online.yudream.base.plugin.minecraft.interfaces.support.JsonSupport;
 import online.yudream.base.plugin.minecraft.interfaces.assembler.MinecraftServerWebAssembler;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSnapshotRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerSaveRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
@@ -113,6 +114,12 @@ public class MinecraftServerHttpFacade {
     public PluginHttpResponse playerAfkEnd(PluginHttpRequest request) {
         MinecraftPlayerEventRequest body = JsonSupport.read(request.body(), MinecraftPlayerEventRequest.class);
         return PluginHttpResponse.ok(assembler.toRes(appService.recordAfkEnd(reportServerId(request), assembler.toCmd(body))));
+    }
+
+    public PluginHttpResponse playerSnapshot(PluginHttpRequest request) {
+        MinecraftPlayerSnapshotRequest body = JsonSupport.read(request.body(), MinecraftPlayerSnapshotRequest.class);
+        int onlinePlayers = appService.reconcilePlayerSnapshot(reportServerId(request), assembler.toCmd(body));
+        return PluginHttpResponse.ok(Map.of("onlinePlayers", onlinePlayers));
     }
 
     private String userId(PluginHttpRequest request) {

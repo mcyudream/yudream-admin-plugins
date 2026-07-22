@@ -56,6 +56,10 @@ interface LowresRequestValue {
   tz: number
 }
 
+/** A broad exploration session keeps detail visible without allowing unbounded PRBM geometry growth. */
+const MAX_RESIDENT_HIRES_TILES = 512
+const MAX_PERSPECTIVE_HIRES_RADIUS = 10
+
 export interface TileManagerOptions {
   /** hires 加载半径（单位：tile，默认 4 ≈ 128 方块） */
   hiresRadius?: number
@@ -129,7 +133,8 @@ export class TileManager {
     this.frame += 1
     camera.getWorldDirection(this.cameraDirection)
     const tileSize = this.settings.hiresTileSize
-    const radius = this.hiresRadius
+    const perspectiveBlueMap = this.settings.renderer === 'BLUEMAP' && camera instanceof THREE.PerspectiveCamera
+    const radius = perspectiveBlueMap ? this.perspectiveHiresRadius(camera, target) : this.hiresRadius
     const offset = this.settings.hiresTileOffset ?? { x: 0, z: 0 }
     const nextCenterTx = Math.floor((target.x - offset.x) / tileSize)
     const nextCenterTz = Math.floor((target.z - offset.z) / tileSize)
@@ -142,13 +147,13 @@ export class TileManager {
     // 1. BlueMap stops requesting expensive PRBM tiles when the camera is in distant overview mode.
     const distance = camera.position.distanceTo(target)
     if (this.settings.renderer === 'BLUEMAP') {
-      this.blueMapHiresEnabled = nextBlueMapHiresEnabled(this.blueMapHiresEnabled, distance)
+      this.blueMapHiresEnabled = perspectiveBlueMap || nextBlueMapHiresEnabled(this.blueMapHiresEnabled, distance)
     }
     const loadHires = this.settings.renderer !== 'BLUEMAP' || this.blueMapHiresEnabled
     if (loadHires) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         for (let dz = -radius; dz <= radius; dz += 1) {
-          if (dx * dx + dz * dz > radius * radius) {
+          if (!perspectiveBlueMap && dx * dx + dz * dz > radius * radius) {
             continue
           }
           const key = `${this.centerTx + dx},${this.centerTz + dz}`
@@ -168,19 +173,7 @@ export class TileManager {
     this.reprioritizeHires()
 
     // 2. 卸载超半径 tile（LRU：最旧未使用的先卸）
-    const evictRadius = radius + 1.5
-    const stale: [string, HiresRecord][] = []
-    for (const [key, record] of this.hires) {
-      const [tx, tz] = key.split(',').map(Number)
-      if (!loadHires || Math.hypot(tx - this.centerTx, tz - this.centerTz) > evictRadius) {
-        stale.push([key, record])
-      }
-    }
-    stale.sort((a, b) => a[1].lastUsed - b[1].lastUsed)
-    for (const [key, record] of stale) {
-      this.disposeHiresRecord(record)
-      this.hires.delete(key)
-    }
+    this.evictExcessHires()
 
     this.updateLowres(camera, target)
     this.pump()
@@ -197,15 +190,20 @@ export class TileManager {
     this.lowresCoverage = normalizeLowresCoverage(coverage)
   }
 
+  private perspectiveHiresRadius(camera: THREE.PerspectiveCamera, target: THREE.Vector3): number {
+    const distance = camera.position.distanceTo(target)
+    const projectedRadius = Math.ceil(distance * 1.4 / this.settings.hiresTileSize)
+    return Math.min(MAX_PERSPECTIVE_HIRES_RADIUS, Math.max(this.hiresRadius, projectedRadius))
+  }
+
   /** 按并发上限驱动加载队列 */
   private pump(): void {
     const maxConcurrent = this.options.maxConcurrent ?? 6
-    const evictRadius = this.hiresRadius + 1.5
     while (this.inFlight < maxConcurrent && this.queue.length > 0) {
       const request = this.queue.shift()!
       this.queued.delete(request.key)
       const { key, tx, tz } = request
-      if (Math.hypot(tx - this.centerTx, tz - this.centerTz) > evictRadius) {
+      if (!this.desired.has(key)) {
         continue // 排队期间已滚出范围，直接丢弃
       }
       const controller = new AbortController()
@@ -215,7 +213,7 @@ export class TileManager {
         .then(async (tile) => {
           // A move may change the center tile while this request remains inside the new visible
           // disk. Retain that useful work instead of making every tile stale by view generation.
-          if (!shouldRetainHiresTile(this.disposed, this.desired.has(key))) {
+          if (!shouldRetainHiresTile(this.disposed)) {
             return
           }
           if (!tile || (!(tile instanceof ArrayBuffer) && tile.positions.length === 0)) {
@@ -227,7 +225,7 @@ export class TileManager {
           const mesh = tile instanceof ArrayBuffer
             ? await this.buildPrbmMesh(tile, this.material, tx, tz)
             : this.buildMesh(tile, this.material)
-          if (!shouldRetainHiresTile(this.disposed, this.desired.has(key))) {
+          if (!shouldRetainHiresTile(this.disposed)) {
             mesh.geometry.dispose()
             return
           }
@@ -299,16 +297,27 @@ export class TileManager {
 
   private replaceDesired(desired: Set<string>): void {
     this.desired = desired
-    for (const [key, controller] of this.inFlightRequests) {
-      if (!desired.has(key)) {
-        controller.abort()
-      }
-    }
     for (let index = this.queue.length - 1; index >= 0; index -= 1) {
       if (!desired.has(this.queue[index]!.key)) {
         this.queued.delete(this.queue[index]!.key)
         this.queue.splice(index, 1)
       }
+    }
+    // Do not let stale requests consume all six slots after a long teleport or shared-view restore.
+    for (const [key, controller] of this.inFlightRequests) {
+      if (!desired.has(key)) controller.abort()
+    }
+  }
+
+  private evictExcessHires(): void {
+    const overflow = this.hires.size - MAX_RESIDENT_HIRES_TILES
+    if (overflow <= 0) return
+    const candidates = [...this.hires.entries()]
+      .filter(([key]) => !this.desired.has(key))
+      .sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    for (const [key, record] of candidates.slice(0, overflow)) {
+      this.disposeHiresRecord(record)
+      this.hires.delete(key)
     }
   }
 
@@ -406,6 +415,12 @@ export class TileManager {
 
   /** lowres 金字塔平面：按相机距离选 lod，覆盖视野范围，作为 hires 的兜底 */
   private updateLowres(camera: THREE.Camera, target: THREE.Vector3): void {
+    if (this.settings.renderer === 'BLUEMAP' && camera instanceof THREE.PerspectiveCamera) {
+      for (const record of this.lowres.values()) {
+        record.mesh.visible = false
+      }
+      return
+    }
     const minLod = this.settings.lowresMinLod ?? 0
     const maxLod = this.settings.lowresMaxLod
     const distance = camera.position.distanceTo(target)
@@ -596,7 +611,7 @@ export class TileManager {
     const count = Math.ceil(tileSize / hiresSize)
     for (let x = x0; x < x0 + count; x += 1) {
       for (let z = z0; z < z0 + count; z += 1) {
-        if (!this.hires.has(`${x},${z}`)) {
+        if (!this.hires.get(`${x},${z}`)?.mesh) {
           return false
         }
       }

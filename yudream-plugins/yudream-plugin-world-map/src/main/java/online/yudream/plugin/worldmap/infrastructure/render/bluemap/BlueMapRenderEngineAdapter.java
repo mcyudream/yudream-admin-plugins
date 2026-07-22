@@ -15,33 +15,49 @@ public final class BlueMapRenderEngineAdapter {
 
     private final BlueMapCliLocator locator;
     private final BlueMapFileGenerationImporter importer;
+    private final BlueMapBundledRuntime bundledRuntime;
     private volatile BlueMapCliRenderEngine activeWorker;
 
     public BlueMapRenderEngineAdapter() {
-        this(new BlueMapCliLocator(), new BlueMapFileGenerationImporter());
+        this(new BlueMapCliLocator(), new BlueMapFileGenerationImporter(), new BlueMapBundledRuntime());
     }
 
     BlueMapRenderEngineAdapter(BlueMapCliLocator locator, BlueMapFileGenerationImporter importer) {
+        this(locator, importer, new BlueMapBundledRuntime());
+    }
+
+    BlueMapRenderEngineAdapter(BlueMapCliLocator locator, BlueMapFileGenerationImporter importer,
+                               BlueMapBundledRuntime bundledRuntime) {
         this.locator = locator;
         this.importer = importer;
+        this.bundledRuntime = bundledRuntime;
     }
 
     public RenderSummary render(RenderJob job, String blueMapMapId, Path workDir, MapGeneration generation,
                                 GenerationPublisher publisher, BlueMapRenderConfiguration config,
                                 ProgressListener progress) throws IOException {
-        Path cli = locator.verify(config.cliJar());
+        Path cli = config.cliJar();
+        Path template = config.configTemplate();
+        if (config.bundledRuntime()) {
+            BlueMapBundledRuntime.Materialized runtime = bundledRuntime.materialize(workDir);
+            cli = runtime.cliJar();
+            template = runtime.configTemplate();
+        }
+        cli = locator.verify(cli);
         if (progress != null) {
             progress.phase(online.yudream.plugin.worldmap.domain.enumerate.RenderPhase.HIRES, "BlueMap rendering detailed tiles");
         }
-        BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(config.javaExecutable(), cli, config.configTemplate(),
-                config.maxHeapMiB(), config.timeout());
+        BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(config.javaExecutable(), cli, template,
+                config.maxHeapMiB(), config.timeout(), config.renderThreadCount());
         activeWorker = worker;
         Path storageParent = resolveStorageParent(workDir, config.storageRoot());
-        Path resourceDataRoot = resolveResourceDataRoot(workDir, config.resourceCacheRoot(), config.minecraftVersion());
+        String minecraftVersion = BlueMapCliRenderEngine.resolveMinecraftVersion(job.clientJar(), config.minecraftVersion());
+        Path resourceDataRoot = resolveResourceDataRoot(workDir, config.resourceCacheRoot(), minecraftVersion);
         String workerMapId = BlueMapCliRenderEngine.blueMapMapId(blueMapMapId);
+        int totalHiresTiles = Math.toIntExact(job.tileManifest().tileCount());
         try {
-            worker.render(workDir, workerMapId, config.minecraftVersion(), job.worldDir(), job.clientJar(), job.dimension(),
-                    storageParent, resourceDataRoot);
+            worker.render(workDir, workerMapId, minecraftVersion, job.worldDir(), job.clientJar(), job.dimension(),
+                    storageParent, resourceDataRoot, percent -> publishProgress(progress, percent, totalHiresTiles));
         } finally {
             activeWorker = null;
         }
@@ -50,6 +66,7 @@ public final class BlueMapRenderEngineAdapter {
             progress.phase(online.yudream.plugin.worldmap.domain.enumerate.RenderPhase.LOWRES, "Importing BlueMap output");
         }
         BlueMapImportSummary imported = importer.importStorage(storageRoot, generation, publisher);
+        requireCompleteHiresCoverage(job, imported);
         return new RenderSummary(imported.hiresTiles(), imported.lowresTiles(), 0, 0);
     }
 
@@ -57,6 +74,22 @@ public final class BlueMapRenderEngineAdapter {
     public void cancel() {
         BlueMapCliRenderEngine worker = activeWorker;
         if (worker != null) worker.cancel();
+    }
+
+    /** A published BlueMap generation must cover every populated 32x32 world tile. */
+    static void requireCompleteHiresCoverage(RenderJob job, BlueMapImportSummary imported) throws IOException {
+        long expected = job.tileManifest().tileCount();
+        if (imported.hiresTiles() < expected) {
+            throw new IOException("BlueMap emitted only " + imported.hiresTiles() + " detailed tiles; expected at least "
+                    + expected + " for the uploaded world. The partial generation was not published.");
+        }
+    }
+
+    private static void publishProgress(ProgressListener progress, double percent, int totalHiresTiles) {
+        if (progress == null) return;
+        int completed = (int) Math.min(totalHiresTiles, Math.floor(totalHiresTiles * percent / 100d));
+        progress.progress(completed, totalHiresTiles,
+                "BlueMap rendering detailed tiles (" + String.format(java.util.Locale.ROOT, "%.1f", percent) + "%)");
     }
 
     private Path resolveStorageParent(Path workDir, Path configured) throws IOException {

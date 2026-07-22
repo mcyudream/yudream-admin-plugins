@@ -10,6 +10,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.DoubleConsumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
@@ -21,16 +24,25 @@ public final class BlueMapCliRenderEngine {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_FAILURE_LOG_CHARS = 4_000;
+    private static final long PROGRESS_POLL_MILLIS = 500;
+    private static final Pattern RENDER_PROGRESS = Pattern.compile(
+            "updating map '.+?':\\s*([0-9]+(?:\\.[0-9]+)?)%", Pattern.CASE_INSENSITIVE);
 
     private final Path javaExecutable;
     private final Path cliJar;
     private final Path configTemplate;
     private final int maxHeapMiB;
     private final Duration timeout;
+    private final int renderThreadCount;
     private volatile Process activeProcess;
 
     public BlueMapCliRenderEngine(Path javaExecutable, Path cliJar, Path configTemplate,
                                   int maxHeapMiB, Duration timeout) {
+        this(javaExecutable, cliJar, configTemplate, maxHeapMiB, timeout, 3);
+    }
+
+    public BlueMapCliRenderEngine(Path javaExecutable, Path cliJar, Path configTemplate,
+                                  int maxHeapMiB, Duration timeout, int renderThreadCount) {
         if (javaExecutable == null || cliJar == null || configTemplate == null) {
             throw new IllegalArgumentException("BlueMap worker paths are required");
         }
@@ -40,23 +52,33 @@ public final class BlueMapCliRenderEngine {
         if (timeout == null || timeout.isNegative() || timeout.isZero()) {
             throw new IllegalArgumentException("BlueMap worker timeout must be positive");
         }
+        if (renderThreadCount < 1) {
+            throw new IllegalArgumentException("BlueMap worker render thread count must be positive");
+        }
         this.javaExecutable = javaExecutable;
         this.cliJar = cliJar;
         this.configTemplate = configTemplate;
         this.maxHeapMiB = maxHeapMiB;
         this.timeout = timeout;
+        this.renderThreadCount = renderThreadCount;
     }
 
     /** Runs one forced render and returns the task-local log file. */
     public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir, Path clientJar,
                        String dimension, Path storageRoot, Path resourceDataRoot) throws IOException {
+        return render(workDir, mapId, minecraftVersion, worldDir, clientJar, dimension, storageRoot, resourceDataRoot, null);
+    }
+
+    /** Runs one forced render and reports the latest BlueMap CLI percentage while the process is alive. */
+    public Path render(Path workDir, String mapId, String minecraftVersion, Path worldDir, Path clientJar,
+                       String dimension, Path storageRoot, Path resourceDataRoot, DoubleConsumer progressConsumer) throws IOException {
         String blueMapMapId = blueMapMapId(mapId);
         Path normalizedWorkDir = workDir.toAbsolutePath().normalize();
         Files.createDirectories(normalizedWorkDir);
         Path configDir = normalizedWorkDir.resolve("config");
         copyConfiguration(configTemplate, configDir);
         prepareTaskConfiguration(configDir, blueMapMapId, worldDir, clientJar, minecraftVersion, dimension,
-                storageRoot, resourceDataRoot);
+                storageRoot, resourceDataRoot, renderThreadCount);
         Path logFile = normalizedWorkDir.resolve("bluemap.log");
         Process process = new ProcessBuilder(commandFor(normalizedWorkDir, blueMapMapId, minecraftVersion))
                 .directory(normalizedWorkDir.toFile())
@@ -65,10 +87,7 @@ public final class BlueMapCliRenderEngine {
                 .start();
         activeProcess = process;
         try {
-            if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                terminate(process);
-                throw new IOException("BlueMap CLI timed out after " + timeout);
-            }
+            awaitRender(process, logFile, progressConsumer);
         } catch (InterruptedException exception) {
             terminate(process);
             Thread.currentThread().interrupt();
@@ -80,6 +99,49 @@ public final class BlueMapCliRenderEngine {
             throw new IOException("BlueMap CLI failed with exit code " + process.exitValue() + ": " + logTail(logFile));
         }
         return logFile;
+    }
+
+    private void awaitRender(Process process, Path logFile, DoubleConsumer progressConsumer) throws IOException, InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        double lastReported = -1;
+        while (true) {
+            long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos <= 0) {
+                terminate(process);
+                throw new IOException("BlueMap CLI timed out after " + timeout);
+            }
+            long waitMillis = Math.max(1, Math.min(PROGRESS_POLL_MILLIS, TimeUnit.NANOSECONDS.toMillis(remainingNanos)));
+            if (process.waitFor(waitMillis, TimeUnit.MILLISECONDS)) {
+                reportProgress(logFile, progressConsumer, lastReported);
+                return;
+            }
+            double reported = reportProgress(logFile, progressConsumer, lastReported);
+            if (reported >= 0) lastReported = reported;
+        }
+    }
+
+    private static double reportProgress(Path logFile, DoubleConsumer progressConsumer, double lastReported) {
+        if (progressConsumer == null || !Files.isRegularFile(logFile)) return lastReported;
+        try {
+            double progress = progressPercent(Files.readString(logFile));
+            if (progress > lastReported) {
+                progressConsumer.accept(progress);
+                return progress;
+            }
+        } catch (IOException ignored) {
+            // The next polling pass can read a log file that is still being created by the process.
+        }
+        return lastReported;
+    }
+
+    static double progressPercent(String log) {
+        if (log == null || log.isBlank()) return -1;
+        Matcher matcher = RENDER_PROGRESS.matcher(log);
+        double latest = -1;
+        while (matcher.find()) {
+            latest = Math.min(100, Double.parseDouble(matcher.group(1)));
+        }
+        return latest;
     }
 
     /** Stops the isolated CLI immediately when its enclosing render task is cancelled. */
@@ -96,10 +158,20 @@ public final class BlueMapCliRenderEngine {
     static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir, Path clientJar,
                                          String minecraftVersion, String dimension, Path storageRoot,
                                          Path resourceDataRoot) throws IOException {
+        prepareTaskConfiguration(configDir, mapId, worldDir, clientJar, minecraftVersion, dimension, storageRoot,
+                resourceDataRoot, 3);
+    }
+
+    static void prepareTaskConfiguration(Path configDir, String mapId, Path worldDir, Path clientJar,
+                                         String minecraftVersion, String dimension, Path storageRoot,
+                                         Path resourceDataRoot, int renderThreadCount) throws IOException {
         String blueMapMapId = blueMapMapId(mapId);
         if (worldDir == null || !Files.isDirectory(worldDir) || clientJar == null || !Files.isRegularFile(clientJar)
                 || minecraftVersion == null || minecraftVersion.isBlank() || storageRoot == null || resourceDataRoot == null) {
             throw new IOException("BlueMap task world, client JAR, version and storage root are required");
+        }
+        if (renderThreadCount < 1) {
+            throw new IOException("BlueMap render thread count must be positive");
         }
         validateClientVersion(clientJar, minecraftVersion.trim());
         // The worker only renders map assets. BlueMap generates web configs again when they are
@@ -121,6 +193,9 @@ public final class BlueMapCliRenderEngine {
         String mapText = replace(templateText, "${world}", configPath(worldDir));
         mapText = replace(mapText, "${dimension}", dimensionKey(dimension));
         mapText = replace(mapText, "${name}", blueMapMapId);
+        // Uploaded worlds commonly contain chunks without persisted light arrays. BlueMap otherwise
+        // omits those chunks, leaving a sparse 3D map even though the Anvil region contains terrain.
+        mapText = withIgnoreMissingLightData(mapText);
         Files.writeString(configDir.resolve("maps").resolve(blueMapMapId + ".conf"), mapText,
                 java.nio.file.StandardOpenOption.CREATE_NEW);
         Files.delete(template);
@@ -137,7 +212,26 @@ public final class BlueMapCliRenderEngine {
         if (!coreText.matches("(?s).*?\\baccept-download\\s*:.*")) {
             coreText += System.lineSeparator() + "accept-download: true" + System.lineSeparator();
         }
+        coreText = withRenderThreadCount(coreText, renderThreadCount);
         Files.writeString(core, coreText, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    private static String withRenderThreadCount(String coreText, int renderThreadCount) {
+        String setting = "render-thread-count: " + renderThreadCount;
+        if (coreText.matches("(?s).*?\\brender-thread-count\\s*:.*")) {
+            return coreText.replaceAll("(?m)^\\s*render-thread-count\\s*:\\s*.*$", setting);
+        }
+        return coreText + (coreText.endsWith(System.lineSeparator()) ? "" : System.lineSeparator())
+                + setting + System.lineSeparator();
+    }
+
+    private static String withIgnoreMissingLightData(String mapText) {
+        String setting = "ignore-missing-light-data: true";
+        if (mapText.matches("(?s).*?\\bignore-missing-light-data\\s*:.*")) {
+            return mapText.replaceAll("(?m)^\\s*ignore-missing-light-data\\s*:\\s*.*$", setting);
+        }
+        return mapText + (mapText.endsWith(System.lineSeparator()) ? "" : System.lineSeparator())
+                + setting + System.lineSeparator();
     }
 
     private static void disableWebServices(Path configDir) throws IOException {
@@ -149,16 +243,34 @@ public final class BlueMapCliRenderEngine {
     }
 
     static void validateClientVersion(Path clientJar, String expectedVersion) throws IOException {
+        resolveMinecraftVersion(clientJar, expectedVersion);
+    }
+
+    /** Uses the client JAR's declared version unless an administrator explicitly pins one. */
+    static String resolveMinecraftVersion(Path clientJar, String configuredVersion) throws IOException {
+        String actual = clientVersion(clientJar);
+        if (configuredVersion == null || configuredVersion.isBlank()) {
+            return actual;
+        }
+        String expected = configuredVersion.trim();
+        if (!expected.equals(actual)) {
+            throw new IOException("Minecraft client JAR version " + actual
+                    + " does not match BlueMap worker version " + expected);
+        }
+        return expected;
+    }
+
+    private static String clientVersion(Path clientJar) throws IOException {
         try (ZipFile zip = new ZipFile(clientJar.toFile())) {
             var entry = zip.getEntry("version.json");
             if (entry == null) throw new IOException("Minecraft client JAR does not contain version.json");
             try (var input = zip.getInputStream(entry)) {
                 JsonNode root = JSON.readTree(input);
                 String actualVersion = root == null ? null : root.path("id").asText(null);
-                if (!expectedVersion.equals(actualVersion)) {
-                    throw new IOException("Minecraft client JAR version " + actualVersion
-                            + " does not match BlueMap worker version " + expectedVersion);
+                if (actualVersion == null || actualVersion.isBlank()) {
+                    throw new IOException("Minecraft client JAR version.json does not contain id");
                 }
+                return actualVersion;
             }
         }
     }

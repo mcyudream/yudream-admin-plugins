@@ -48,7 +48,10 @@ class BlueMapCliEndToEndTest {
         Path work = temp.resolve("work");
         Path output = work.resolve("output");
 
-        BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(java, cli, template, 1024, Duration.ofMinutes(5));
+        int timeoutMinutes = Integer.getInteger(PROPERTY_PREFIX + "timeout-minutes", 60);
+        int renderThreads = Integer.getInteger(PROPERTY_PREFIX + "render-thread-count", 16);
+        BlueMapCliRenderEngine worker = new BlueMapCliRenderEngine(java, cli, template, 1024,
+                Duration.ofMinutes(timeoutMinutes), renderThreads);
         Path log = worker.render(work, "cli-e2e", version, world, client, "overworld", output, resourceData);
 
         assertTrue(Files.isRegularFile(log));
@@ -83,7 +86,8 @@ class BlueMapCliEndToEndTest {
         Files.writeString(config.resolve("core.conf"), "accept-download: true\ndata: \"${data}\"\n"
                 + "render-thread-count: 1\nmetrics: false\nscan-for-mod-resources: false\n");
         Files.writeString(config.resolve("maps/template.conf"), "world: \"${world}\"\n"
-                + "dimension: \"${dimension}\"\nname: \"${name}\"\nstorage: \"file\"\nrender-edges: false\n");
+                + "dimension: \"${dimension}\"\nname: \"${name}\"\nstorage: \"file\"\nrender-edges: false\n"
+                + "ignore-missing-light-data: true\n");
         Files.writeString(config.resolve("storages/file.conf"), "storage-type: file\nroot: \"${root}\"\ncompression: gzip\n");
         return config;
     }
