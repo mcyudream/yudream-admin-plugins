@@ -1128,7 +1128,7 @@ packages:
         optional: true
 
   '@yudream/plugin-sdk@1.0.1':
-    resolution: {integrity: sha512-jZ/KRjDuj0aO9xYchlQOy3qH8g9hu1BE6gGqUb11D5/cs/K/yrDH+VPyen8y6X6DFHMau0LfDydxDyuvgQsUWg==}
+    resolution: {integrity: sha512-1f/6R1KdVTIiWQ3BqRNqXT8VMhjL+U+UNrKS3d67Uq9FyXuoRIMby6VkZepBmRNjbAbaJteu/UrUHFQX23rRlg==}
     peerDependencies:
       vue: ^3.5.38
       vue-router: ^5.1.0
