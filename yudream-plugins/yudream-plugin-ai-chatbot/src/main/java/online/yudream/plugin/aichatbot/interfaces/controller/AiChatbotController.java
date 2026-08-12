@@ -35,4 +35,18 @@ public class AiChatbotController {
     public PluginHttpResponse profileEnabled(PluginHttpRequest request) { return http.profileEnabled(request); }
     @PluginHttpEndpoint(method = "DELETE", path = "/admin/memory-profile", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse deleteProfile(PluginHttpRequest request) { return http.deleteProfile(request); }
+    @PluginHttpEndpoint(method = "POST", path = "/admin/memory-profile/analyze", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse analyzeProfile(PluginHttpRequest request) { return http.analyzeProfile(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profile/observations", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse profileObservations(PluginHttpRequest request) { return http.profileObservations(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/overview", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse overview(PluginHttpRequest request) { return http.overview(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/timeline", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse timeline(PluginHttpRequest request) { return http.timeline(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/heatmap", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse heatmap(PluginHttpRequest request) { return http.heatmap(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/users", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse users(PluginHttpRequest request) { return http.users(request); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/events", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse events(PluginHttpRequest request) { return http.events(request); }
 }
