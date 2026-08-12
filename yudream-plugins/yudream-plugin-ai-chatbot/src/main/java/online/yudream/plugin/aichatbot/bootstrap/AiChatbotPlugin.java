@@ -76,34 +76,41 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     @PluginCommand(code = "ai-chatbot.my-profile", command = "我的画像", name = "查看我的画像", description = "以图片形式查看机器人在本群为你生成的画像（只读）", permission = USE_PERMISSION)
     public void myProfile(PluginCommandContext command, PluginContext ignored) {
         PluginEvent event = command.event();
-        if (command.userId() == null) { reply(event, "当前 QQ 未绑定系统账号，请先完成绑定。"); return; }
-        AiChatbotMemoryProfile profile = profiles.find(event.connectionId(), event.channelId(), String.valueOf(command.userId()));
-        if (profile == null) { reply(event, "还没有你的画像记录，先在群里和我多聊几句吧。"); return; }
-        if (!profile.enabled()) { reply(event, "你的画像已被管理员停用，如有疑问请联系管理员。"); return; }
-        Map<String, Object> variables = new LinkedHashMap<>();
-        variables.put("nickname", profile.nickname() == null || profile.nickname().isBlank() ? "QQ " + event.userId() : profile.nickname());
-        variables.put("avatar", profile.avatar() == null ? "" : profile.avatar());
-        variables.put("summary", profile.summary() == null ? "" : profile.summary());
-        variables.put("personality", profile.personality() == null ? "" : profile.personality());
-        variables.put("interactionStyle", profile.interactionStyle() == null ? "" : profile.interactionStyle());
-        variables.put("tags", profile.tags() == null ? List.of() : profile.tags());
-        variables.put("facts", profile.facts().stream()
-                .filter(fact -> fact.approved() && !"recent_message".equals(fact.key()))
-                .limit(8)
-                .map(fact -> Map.of("type", factLabel(fact.key()), "value", fact.value()))
-                .toList());
-        variables.put("observed", profile.observedMessageCount());
-        variables.put("triggered", profile.replyTriggeredCount());
-        variables.put("completed", profile.replyCompletedCount());
-        context.templateRenderer().render("my-profile", variables, "#profile-card").whenComplete((image, error) -> {
-            if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                reply(event, "画像图片生成失败，请稍后再试。");
-                return;
-            }
-            String uri = "base64://" + Base64.getEncoder().encodeToString(image.content());
-            context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(),
-                    new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
-        });
+        LOGGER.info("[YuDreamAdmin] [AI Chatbot] my-profile invoked: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId());
+        try {
+            if (command.userId() == null) { reply(event, "当前 QQ 未绑定系统账号，请先完成绑定。"); return; }
+            AiChatbotMemoryProfile profile = profiles.find(event.connectionId(), event.channelId(), String.valueOf(command.userId()));
+            if (profile == null) { reply(event, "还没有你的画像记录，先在群里和我多聊几句吧。"); return; }
+            if (!profile.enabled()) { reply(event, "你的画像已被管理员停用，如有疑问请联系管理员。"); return; }
+            Map<String, Object> variables = new LinkedHashMap<>();
+            variables.put("nickname", profile.nickname() == null || profile.nickname().isBlank() ? "QQ " + event.userId() : profile.nickname());
+            variables.put("avatar", profile.avatar() == null ? "" : profile.avatar());
+            variables.put("summary", profile.summary() == null ? "" : profile.summary());
+            variables.put("personality", profile.personality() == null ? "" : profile.personality());
+            variables.put("interactionStyle", profile.interactionStyle() == null ? "" : profile.interactionStyle());
+            variables.put("tags", profile.tags() == null ? List.of() : profile.tags());
+            variables.put("facts", profile.facts().stream()
+                    .filter(fact -> fact.approved() && !"recent_message".equals(fact.key()))
+                    .limit(8)
+                    .map(fact -> Map.of("type", factLabel(fact.key()), "value", fact.value()))
+                    .toList());
+            variables.put("observed", profile.observedMessageCount());
+            variables.put("triggered", profile.replyTriggeredCount());
+            variables.put("completed", profile.replyCompletedCount());
+            context.templateRenderer().render("my-profile", variables, "#profile-card").whenComplete((image, error) -> {
+                if (error != null || image == null || image.content() == null || image.content().length == 0) {
+                    LOGGER.warning("[YuDreamAdmin] [AI Chatbot] my-profile render failed: " + (error == null ? "empty image" : errorMessage(error)));
+                    reply(event, "画像图片生成失败，请稍后再试。");
+                    return;
+                }
+                String uri = "base64://" + Base64.getEncoder().encodeToString(image.content());
+                context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(),
+                        new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+            });
+        } catch (RuntimeException error) {
+            LOGGER.warning("[YuDreamAdmin] [AI Chatbot] my-profile failed: " + errorMessage(error));
+            reply(event, "画像查询失败：" + errorMessage(error));
+        }
     }
 
     private String factLabel(String key) {

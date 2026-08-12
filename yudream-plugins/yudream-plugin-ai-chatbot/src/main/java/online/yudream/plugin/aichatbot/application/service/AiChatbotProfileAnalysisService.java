@@ -38,11 +38,18 @@ public class AiChatbotProfileAnalysisService {
     public AiChatbotMemoryProfile analyze(String profileId) {
         AiChatbotMemoryProfile profile = profiles.get(profileId);
         List<AiChatbotProfileObservation> observations = profiles.observations(profile.id());
-        if (observations.isEmpty()) throw new IllegalArgumentException("该用户暂无可分析的发言证据");
+        if (observations.isEmpty()) {
+            // 兼容新版之前建立的画像：回退使用用户本人发言的 recent_message 事实作为证据
+            observations = profile.facts().stream()
+                    .filter(fact -> "recent_message".equals(fact.key()) && fact.value() != null && !fact.value().isBlank())
+                    .map(fact -> new AiChatbotProfileObservation(fact.value(), fact.updatedAt()))
+                    .toList();
+        }
+        if (observations.isEmpty()) throw new IllegalArgumentException("该用户暂无可分析的发言证据，请先让该用户在群里与机器人互动");
         AiChatbotGroupPolicy policy = policies.get(profile.connectionId(), profile.channelId());
-        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations), policy.providerCode(), policy.modelCode(), List.of(), null, false);
+        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations), blankToNull(policy.providerCode()), blankToNull(policy.modelCode()), List.of(), null, false);
         PluginAiChatResponse response = await(ai.chat(request));
-        if (response == null || response.content() == null || response.content().isBlank()) throw new IllegalStateException("画像分析失败：AI 未返回内容");
+        if (response == null || response.content() == null || response.content().isBlank()) throw new IllegalStateException("画像分析失败：AI 未返回内容，请检查宿主的默认 AI 模型配置");
         return profiles.applyAnalysis(profile.id(), parse(response.content()));
     }
     AiChatbotProfileAnalysis parse(String content) {
@@ -58,4 +65,5 @@ public class AiChatbotProfileAnalysisService {
     private String extractJson(String content) { String value = content == null ? "" : content.trim(); int start = value.indexOf('{'), end = value.lastIndexOf('}'); if (start < 0 || end <= start) throw new IllegalStateException("画像分析结果缺少 JSON 内容"); return value.substring(start, end + 1); }
     private PluginAiChatResponse await(CompletionStage<PluginAiChatResponse> stage) { try { return stage.toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS); } catch (Exception error) { Throwable cause = error instanceof java.util.concurrent.ExecutionException && error.getCause() != null ? error.getCause() : error; throw new IllegalStateException("画像分析调用失败：" + (cause.getMessage() == null || cause.getMessage().isBlank() ? cause.getClass().getSimpleName() : cause.getMessage()), cause); } }
     private static String text(JsonNode node, int max) { String value = node != null && node.isTextual() ? node.asText().trim() : ""; return value.substring(0, Math.min(value.length(), max)); }
+    private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value; }
 }
