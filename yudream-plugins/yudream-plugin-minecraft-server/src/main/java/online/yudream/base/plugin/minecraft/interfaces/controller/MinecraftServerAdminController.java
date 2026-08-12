@@ -23,6 +23,18 @@ public class MinecraftServerAdminController {
     @PluginHttpEndpoint(method = "DELETE", path = "/admin/servers/{serverId}", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse delete(PluginHttpRequest request) { return http.delete(request); }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/map", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveMap(PluginHttpRequest request) { return http.saveMap(request); }
+
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/servers/{serverId}/map/public", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse setMapPublicAccess(PluginHttpRequest request) { return http.setMapPublicAccess(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/servers/{serverId}/map/download", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse downloadMap(PluginHttpRequest request) { return http.adminMapDownload(request); }
+
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/servers/{serverId}/map", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse deleteMap(PluginHttpRequest request) { return http.deleteMap(request); }
+
     @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/status/refresh", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse refreshStatus(PluginHttpRequest request) { return http.refreshStatus(request); }
 

@@ -32,7 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class WebCardApplicationService implements AutoCloseable {
-    public static final String SITES = "sites", RULES = "parse-rules", TEMPLATES = "templates", VERSIONS = "template-versions", BINDINGS = "group-bindings", JOBS = "crawl-jobs", CONTENTS = "content-records", DELIVERIES = "deliveries", SESSIONS = "agent-sessions", PROPOSALS = "agent-proposals";
+    public static final String SITES = "sites", RULES = "parse-rules", ROUTE_RULES = "site-route-rules", TEMPLATES = "templates", VERSIONS = "template-versions", BINDINGS = "group-bindings", JOBS = "crawl-jobs", CONTENTS = "content-records", DELIVERIES = "deliveries", SESSIONS = "agent-sessions", PROPOSALS = "agent-proposals";
     private static final Pattern URL = Pattern.compile("https?://[^\\s<>\\[\\]{}\"']+");
 
     private final WebCardRepository repository;
@@ -104,6 +104,7 @@ public final class WebCardApplicationService implements AutoCloseable {
             repository.delete(BINDINGS, binding.id());
         });
         forEachBy(CONTENTS, "siteId", id, ContentRecord.class, this::deleteContent);
+        forEachBy(ROUTE_RULES, "siteId", id, SiteRouteRule.class, rule -> repository.delete(ROUTE_RULES, rule.id()));
         headers.delete(value.secretRef());
         repository.delete(RULES, id);
         repository.delete(SITES, id);
@@ -111,6 +112,28 @@ public final class WebCardApplicationService implements AutoCloseable {
 
     public ParseRules saveRules(ParseRules rules) { requireSite(rules.siteId()); return repository.save(RULES, rules.siteId(), rules); }
     public Optional<ParseRules> rules(String siteId) { return repository.find(RULES, siteId, ParseRules.class); }
+    public List<SiteRouteRule> routeRules(String siteId) {
+        requireSite(siteId);
+        return repository.findBy(ROUTE_RULES, "siteId", siteId, 1, 200, SiteRouteRule.class).stream()
+                .sorted(Comparator.comparingLong(SiteRouteRule::createdAt).thenComparing(SiteRouteRule::id)).toList();
+    }
+    public SiteRouteRule saveRouteRule(SiteRouteRule input) {
+        Site site = requireSite(input.siteId());
+        if (!input.templateId().isBlank()) {
+            Template template = requireTemplate(input.templateId());
+            if (!site.id().equals(template.siteId())) throw new IllegalArgumentException("子链接规则模板不属于当前站点");
+        }
+        ParseRules normalized = new ParseRules(site.id(), input.rules().detailType(), input.rules().fields(),
+                input.rules().listExpression(), input.rules().listLinkAttribute(), input.rules().jsonItemsPath(),
+                input.rules().canonicalField(), input.rules().contentKeyField(), input.rules().detailUrlPattern());
+        if (normalized.detailUrlPattern().isBlank()) throw new IllegalArgumentException("子链接格式不能为空");
+        long now = System.currentTimeMillis();
+        SiteRouteRule existing = repository.find(ROUTE_RULES, input.id(), SiteRouteRule.class).orElse(null);
+        SiteRouteRule value = new SiteRouteRule(input.id(), site.id(), input.name(), input.enabled(), input.templateId(),
+                normalized, existing == null ? now : existing.createdAt(), now);
+        return repository.save(ROUTE_RULES, value.id(), value);
+    }
+    public void deleteRouteRule(String id) { repository.delete(ROUTE_RULES, id); }
 
     public Template saveTemplate(Template input) {
         long now = System.currentTimeMillis(); requireSite(input.siteId());
@@ -127,6 +150,8 @@ public final class WebCardApplicationService implements AutoCloseable {
         forEachBy(VERSIONS, "templateId", id, TemplateVersion.class, this::deleteTemplateVersion);
         site(template.siteId()).filter(value -> id.equals(value.defaultTemplateId())).ifPresent(value -> repository.save(SITES, value.id(), new Site(
                 value.id(), value.name(), value.enabled(), value.hosts(), value.accessMode(), value.headerNames(), value.secretRef(), value.responseType(), value.redirectHosts(), null, value.createdAt(), System.currentTimeMillis())));
+        forEachBy(ROUTE_RULES, "templateId", id, SiteRouteRule.class, rule -> repository.save(ROUTE_RULES, rule.id(), new SiteRouteRule(
+                rule.id(), rule.siteId(), rule.name(), rule.enabled(), "", rule.rules(), rule.createdAt(), System.currentTimeMillis())));
         repository.delete(TEMPLATES, id);
     }
 
@@ -216,6 +241,17 @@ public final class WebCardApplicationService implements AutoCloseable {
 
     public Map<String, Object> testFetch(String siteId, String url) { Site site = requireSite(siteId); var fetched = fetcher.fetch(site, url, headerValues(site)); return Map.of("status", fetched.status(), "finalUrl", fetched.finalUri().toString(), "contentType", fetched.contentType(), "size", fetched.body().length, "preview", fetched.text().substring(0, Math.min(2000, fetched.text().length()))); }
     public Map<String, Object> testParse(String siteId, String url) { Site site = requireSite(siteId); ParseRules rules = requireRules(siteId); return parser.detail(rules, fetcher.fetch(site, url, headerValues(site))); }
+    public Map<String, Object> testRouteRule(String siteId, String url, SiteRouteRule input) {
+        Site site = requireSite(siteId);
+        if (input == null || input.rules() == null) throw new IllegalArgumentException("请选择需要测试的子链接规则");
+        URI target = URI.create(url);
+        if (target.getHost() == null || !site.matches(target.getHost())) throw new IllegalArgumentException("测试链接不属于当前站点");
+        ParseRules rules = new ParseRules(site.id(), input.rules().detailType(), input.rules().fields(),
+                input.rules().listExpression(), input.rules().listLinkAttribute(), input.rules().jsonItemsPath(),
+                input.rules().canonicalField(), input.rules().contentKeyField(), input.rules().detailUrlPattern());
+        if (!matchesDetailPath(rules.detailUrlPattern(), target.getPath())) throw new IllegalArgumentException("测试链接不符合当前子链接格式");
+        return parser.detail(rules, fetcher.fetch(site, url, headerValues(site)));
+    }
     public Map<String, Object> inspectForAgent(String url) {
         URI target = URI.create(url);
         Site site = findSite(target.getHost()).orElseGet(() -> new Site(
@@ -226,13 +262,13 @@ public final class WebCardApplicationService implements AutoCloseable {
     }
     public Map<String, Object> previewUrl(String url) {
         if (url == null || url.isBlank()) throw new IllegalArgumentException("请输入网页链接");
-        URI target = URI.create(url);
-        Site site = findSiteForUrl(url).orElseThrow(() -> new IllegalArgumentException("没有匹配的站点和子链接规则"));
+        RouteMatch match = findRouteForUrl(url).orElseThrow(() -> new IllegalArgumentException("没有匹配的站点和子链接规则"));
+        Site site = match.site();
         SecureWebFetcher.Fetched fetched = fetcher.fetch(site, url, headerValues(site));
-        Map<String, Object> fields = new LinkedHashMap<>(parser.detail(requireRules(site.id()), fetched));
+        Map<String, Object> fields = new LinkedHashMap<>(parser.detail(match.rules(), fetched));
         proxyImage(site, fields);
         fields.put("url", canonical(String.valueOf(fields.getOrDefault("url", fetched.finalUri().toString()))));
-        TemplateVersion version = previewVersion(site);
+        TemplateVersion version = previewVersion(site, match.templateId());
         return Map.of("contentType", "image/png", "base64", renderer.renderBase64(version, fields), "fields", fields,
                 "site", site.name(), "templateVersionId", version.id(), "finalUrl", fetched.finalUri().toString());
     }
@@ -319,10 +355,11 @@ public final class WebCardApplicationService implements AutoCloseable {
     private void processMessageUrl(PluginEvent event, String url) {
         String key = hash(event.connectionId() + ":" + event.channelId() + ":" + event.messageId() + ":" + url);
         try {
-            Site site = findSiteForUrl(url).orElse(null); if (site == null) return;
-            ContentRecord content = fetchContent(site, url);
+            RouteMatch match = findRouteForUrl(url).orElse(null); if (match == null) return;
+            Site site = match.site();
+            ContentRecord content = fetchContent(site, url, match.rules(), match.templateId());
             TemplateVersion defaultVersion;
-            try { defaultVersion = content.templateVersionId() == null || content.templateVersionId().isBlank() ? runtimeVersion(site, null) : requireVersion(content.templateVersionId()); }
+            try { defaultVersion = content.templateVersionId() == null || content.templateVersionId().isBlank() ? runtimeVersionForTemplate(site, match.templateId()) : requireVersion(content.templateVersionId()); }
             catch (Exception ignored) { defaultVersion = null; }
             reply(new ParsedRuntime(content, defaultVersion), event, key);
         } catch (Exception error) { saveFailed(key, null, null, null, error); }
@@ -363,10 +400,13 @@ public final class WebCardApplicationService implements AutoCloseable {
         return new ParsedRuntime(content, version);
     }
     private ContentRecord fetchContent(Site site, String url) {
-        ParseRules rules = requireRules(site.id()); SecureWebFetcher.Fetched fetched = fetcher.fetch(site, url, headerValues(site)); Map<String, Object> fields = new LinkedHashMap<>(parser.detail(rules, fetched));
+        return fetchContent(site, url, requireRules(site.id()), "");
+    }
+    private ContentRecord fetchContent(Site site, String url, ParseRules rules, String templateId) {
+        SecureWebFetcher.Fetched fetched = fetcher.fetch(site, url, headerValues(site)); Map<String, Object> fields = new LinkedHashMap<>(parser.detail(rules, fetched));
         String normalized = canonical(String.valueOf(fields.getOrDefault("url", fetched.finalUri().toString()))); fields.put("url", normalized);
         String contentId = hash(site.id() + ":" + String.valueOf(fields.getOrDefault(rules.contentKeyField() == null ? "url" : rules.contentKeyField(), normalized)));
-        String versionId = null; try { versionId = runtimeVersion(site, null).id(); } catch (Exception ignored) { }
+        String versionId = null; try { versionId = runtimeVersionForTemplate(site, templateId).id(); } catch (Exception ignored) { }
         ContentRecord content = new ContentRecord(contentId, site.id(), normalized, contentId, fields, versionId, System.currentTimeMillis(), System.currentTimeMillis()); repository.save(CONTENTS, contentId, content);
         return content;
     }
@@ -412,10 +452,20 @@ public final class WebCardApplicationService implements AutoCloseable {
         if (override != null && !override.isBlank()) return requireVersion(override);
         Template template = requireTemplate(site.defaultTemplateId()); if (template.publishedVersionId() == null || template.publishedVersionId().isBlank()) throw new IllegalArgumentException("站点模板尚未发布"); return requireVersion(template.publishedVersionId());
     }
+    private TemplateVersion runtimeVersionForTemplate(Site site, String templateId) {
+        Template template = requireTemplate(templateId == null || templateId.isBlank() ? site.defaultTemplateId() : templateId);
+        if (!site.id().equals(template.siteId())) throw new IllegalArgumentException("子链接规则模板不属于当前站点");
+        if (template.publishedVersionId() == null || template.publishedVersionId().isBlank()) throw new IllegalArgumentException("子链接规则模板尚未发布");
+        return requireVersion(template.publishedVersionId());
+    }
     private TemplateVersion previewVersion(Site site) {
-        Template template = site.defaultTemplateId() == null || site.defaultTemplateId().isBlank()
+        return previewVersion(site, "");
+    }
+    private TemplateVersion previewVersion(Site site, String templateId) {
+        Template template = templateId == null || templateId.isBlank() ? site.defaultTemplateId() == null || site.defaultTemplateId().isBlank()
                 ? repository.findBy(TEMPLATES, "siteId", site.id(), 1, 1, Template.class).stream().findFirst().orElseThrow(() -> new IllegalArgumentException("站点尚未配置卡片模板"))
-                : requireTemplate(site.defaultTemplateId());
+                : requireTemplate(site.defaultTemplateId()) : requireTemplate(templateId);
+        if (!site.id().equals(template.siteId())) throw new IllegalArgumentException("子链接规则模板不属于当前站点");
         String versionId = template.publishedVersionId();
         if (versionId == null || versionId.isBlank()) versionId = template.draftVersionId();
         return requireVersion(versionId);
@@ -439,10 +489,17 @@ public final class WebCardApplicationService implements AutoCloseable {
         } catch (Exception ignored) { fields.remove("image"); }
     }
     private Optional<Site> findSite(String host) { return repository.page(SITES, 1, 200, Site.class).stream().filter(Site::enabled).filter(site -> site.matches(host)).findFirst(); }
-    private Optional<Site> findSiteForUrl(String url) {
+    private Optional<RouteMatch> findRouteForUrl(String url) {
         URI uri = URI.create(url);
-        return repository.page(SITES, 1, 200, Site.class).stream().filter(Site::enabled).filter(site -> site.matches(uri.getHost()))
-                .filter(site -> rules(site.id()).map(value -> matchesDetailPath(value.detailUrlPattern(), uri.getPath())).orElse(false)).findFirst();
+        for (Site site : repository.page(SITES, 1, 200, Site.class).stream().filter(Site::enabled).filter(value -> value.matches(uri.getHost())).toList()) {
+            Optional<SiteRouteRule> matched = routeRules(site.id()).stream().filter(SiteRouteRule::enabled)
+                    .filter(rule -> matchesDetailPath(rule.rules().detailUrlPattern(), uri.getPath()))
+                    .max(Comparator.comparingInt(rule -> rule.rules().detailUrlPattern().length()));
+            if (matched.isPresent()) return Optional.of(new RouteMatch(site, matched.orElseThrow().rules(), matched.orElseThrow().templateId()));
+            Optional<ParseRules> legacy = rules(site.id()).filter(value -> matchesDetailPath(value.detailUrlPattern(), uri.getPath()));
+            if (legacy.isPresent()) return Optional.of(new RouteMatch(site, legacy.orElseThrow(), ""));
+        }
+        return Optional.empty();
     }
     private boolean matchesDetailPath(String pattern, String path) {
         if (pattern == null || pattern.isBlank()) return true;
@@ -485,4 +542,5 @@ public final class WebCardApplicationService implements AutoCloseable {
     private String safe(Throwable error) { Throwable value = error; while (value.getCause() != null) value = value.getCause(); String text = value.getMessage(); if (text == null || text.isBlank()) text = value.getClass().getSimpleName(); String sanitized = text.replaceAll("(?i)(authorization|cookie|api[-_ ]?key)\\s*[:=][^,;\\s]+", "$1=********"); return sanitized.substring(0, Math.min(500, sanitized.length())); }
     @Override public void close() { workers.close(); }
     private record ParsedRuntime(ContentRecord content, TemplateVersion version) { }
+    private record RouteMatch(Site site, ParseRules rules, String templateId) { }
 }

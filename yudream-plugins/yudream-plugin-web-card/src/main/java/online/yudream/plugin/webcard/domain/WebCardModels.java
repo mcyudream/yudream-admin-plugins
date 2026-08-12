@@ -38,6 +38,16 @@ public final class WebCardModels {
             this(siteId, detailType, fields, listExpression, listLinkAttribute, jsonItemsPath, canonicalField, contentKeyField, "");
         }
     }
+    public record SiteRouteRule(String id, String siteId, String name, boolean enabled,
+                                String templateId, ParseRules rules, long createdAt, long updatedAt) {
+        public SiteRouteRule {
+            if (id == null || id.isBlank()) throw new IllegalArgumentException("子链接规则 ID 不能为空");
+            if (siteId == null || siteId.isBlank()) throw new IllegalArgumentException("子链接规则必须属于站点");
+            name = name == null || name.isBlank() ? "未命名规则" : name.trim();
+            templateId = templateId == null ? "" : templateId.trim();
+            if (rules == null) throw new IllegalArgumentException("子链接解析规则不能为空");
+        }
+    }
     public record Template(String id, String siteId, String name, TemplateMode mode,
                            String draftVersionId, String publishedVersionId, long createdAt, long updatedAt) { }
     public record TemplateVersion(String id, String templateId, int version, ParseRules parseRules,

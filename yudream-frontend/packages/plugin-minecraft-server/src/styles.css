@@ -698,6 +698,50 @@
   padding: 12px;
 }
 
+.mc-server-card.is-closed {
+  border-color: #e4c8a6;
+  background: #fffaf2;
+}
+
+.mc-card-status,
+.mc-title-row,
+.mc-map-action,
+.mc-map-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mc-title-row h2 { margin-bottom: 6px; }
+
+.mc-closed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff1d6;
+  color: #9a6400;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mc-closed-notice {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #fff7e8;
+  color: #805400;
+}
+
+.mc-map-action,
+.mc-map-admin-row {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--mc-surface-soft);
+}
+
 .mc-pagination {
   display: flex;
   flex-wrap: wrap;

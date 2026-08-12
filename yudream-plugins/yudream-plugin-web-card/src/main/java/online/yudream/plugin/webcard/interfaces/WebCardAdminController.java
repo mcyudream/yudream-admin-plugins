@@ -13,8 +13,12 @@ public final class WebCardAdminController {
     @PluginHttpEndpoint(method="DELETE",path="/admin/sites/{id}",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse deleteSite(PluginHttpRequest r){return h.deleteSite(r);}
     @PluginHttpEndpoint(method="GET",path="/admin/sites/{id}/parse-rules",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse rules(PluginHttpRequest r){return h.rules(r);}
     @PluginHttpEndpoint(method="PUT",path="/admin/sites/{id}/parse-rules",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse saveRules(PluginHttpRequest r){return h.saveRules(r);}
+    @PluginHttpEndpoint(method="GET",path="/admin/sites/{id}/route-rules",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse routeRules(PluginHttpRequest r){return h.routeRules(r);}
+    @PluginHttpEndpoint(method="POST",path="/admin/site-route-rules",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse saveRouteRule(PluginHttpRequest r){return h.saveRouteRule(r);}
+    @PluginHttpEndpoint(method="DELETE",path="/admin/site-route-rules/{id}",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse deleteRouteRule(PluginHttpRequest r){return h.deleteRouteRule(r);}
     @PluginHttpEndpoint(method="POST",path="/admin/sites/{id}/test-fetch",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse testFetch(PluginHttpRequest r){return h.testFetch(r);}
     @PluginHttpEndpoint(method="POST",path="/admin/sites/{id}/test-parse",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse testParse(PluginHttpRequest r){return h.testParse(r);}
+    @PluginHttpEndpoint(method="POST",path="/admin/sites/{id}/test-route-rule",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse testRouteRule(PluginHttpRequest r){return h.testRouteRule(r);}
     @PluginHttpEndpoint(method="POST",path="/admin/link-preview",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse previewUrl(PluginHttpRequest r){return h.previewUrl(r);}
     @PluginHttpEndpoint(method="POST",path="/admin/template-draft-preview",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse previewDraftUrl(PluginHttpRequest r){return h.previewDraftUrl(r);}
     @PluginHttpEndpoint(method="GET",path="/admin/templates",permission=WebCardPlugin.MANAGE_PERMISSION) public PluginHttpResponse templates(PluginHttpRequest r){return h.templates(r);}

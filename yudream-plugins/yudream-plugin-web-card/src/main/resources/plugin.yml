@@ -1,7 +1,7 @@
 name: web-card
 displayName: 网站卡片
 main: online.yudream.plugin.webcard.bootstrap.WebCardPlugin
-version: 1.0.2
+version: 1.0.3
 agents:
   - code: builtin-web-card-studio
     name: 网站卡片设计 Agent

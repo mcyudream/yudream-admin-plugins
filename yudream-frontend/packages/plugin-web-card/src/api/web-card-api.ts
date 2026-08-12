@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AgentProposal, AgentSession, CardTemplate, CrawlJob, DeliveryRecord, GroupBinding, Option, PageResult, ParseRules, Site, TemplateDraftPreviewRequest, TemplateDraftPreviewResult, TemplateVersion, WorkspacePlan } from '../types'
+import type { AgentProposal, AgentSession, CardTemplate, CrawlJob, DeliveryRecord, GroupBinding, Option, PageResult, ParseRules, Site, SiteRouteRule, TemplateDraftPreviewRequest, TemplateDraftPreviewResult, TemplateVersion, WorkspacePlan } from '../types'
 export function createWebCardApi(sdk: YuDreamPluginSdk) {
   const q = (page = 1, size = 10) => `?page=${page}&size=${size}`
   return {
@@ -9,8 +9,12 @@ export function createWebCardApi(sdk: YuDreamPluginSdk) {
     deleteSite: (id:string)=>sdk.http.request(`/admin/sites/${encodeURIComponent(id)}`,{method:'DELETE'}),
     rules: (id:string)=>sdk.http.get<ParseRules|null>(`/admin/sites/${encodeURIComponent(id)}/parse-rules`),
     saveRules: (id:string,rules:ParseRules)=>sdk.http.request<ParseRules>(`/admin/sites/${encodeURIComponent(id)}/parse-rules`,{method:'PUT',data:rules}),
+    routeRules: (id:string)=>sdk.http.get<SiteRouteRule[]>(`/admin/sites/${encodeURIComponent(id)}/route-rules`),
+    saveRouteRule: (value:SiteRouteRule)=>sdk.http.request<SiteRouteRule>('/admin/site-route-rules',{method:'POST',data:value}),
+    deleteRouteRule: (id:string)=>sdk.http.request(`/admin/site-route-rules/${encodeURIComponent(id)}`,{method:'DELETE'}),
     testFetch: (id:string,url:string)=>sdk.http.request<Record<string,unknown>>(`/admin/sites/${encodeURIComponent(id)}/test-fetch`,{method:'POST',data:{url}}),
     testParse: (id:string,url:string)=>sdk.http.request<Record<string,unknown>>(`/admin/sites/${encodeURIComponent(id)}/test-parse`,{method:'POST',data:{url}}),
+    testRouteRule: (id:string,url:string,rule:SiteRouteRule)=>sdk.http.request<Record<string,unknown>>(`/admin/sites/${encodeURIComponent(id)}/test-route-rule`,{method:'POST',data:{url,rule}}),
     previewUrl: (url:string)=>sdk.http.request<{base64:string;fields:Record<string,unknown>;site:string;finalUrl:string;templateVersionId:string}>('/admin/link-preview',{method:'POST',data:{url}}),
     previewDraft: (value:TemplateDraftPreviewRequest)=>sdk.http.request<TemplateDraftPreviewResult>('/admin/template-draft-preview',{method:'POST',data:value}),
     templates: (page=1,size=10)=>sdk.http.get<PageResult<CardTemplate>>(`/admin/templates${q(page,size)}`),

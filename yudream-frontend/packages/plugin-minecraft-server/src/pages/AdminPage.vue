@@ -3,11 +3,12 @@ import type { TableColumn } from '@yudream/components'
 import type { MinecraftServer } from '../types'
 import type { MinecraftServerPluginModel } from '../composables/useMinecraftServerPlugin'
 import { useRouter } from 'vue-router'
-import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable } from '@yudream/components'
+import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable, useFaModal } from '@yudream/components'
 import StatusPill from '../components/StatusPill.vue'
 
 const props = defineProps<{ model: MinecraftServerPluginModel }>()
 const router = useRouter()
+const modal = useFaModal()
 const columns: TableColumn<MinecraftServer>[] = [
   { accessorKey: 'name', header: '服务器', width: 240, fixed: 'left' },
   { id: 'status', header: '状态', width: 100, align: 'center' },
@@ -19,6 +20,16 @@ function go(component: 'Editor' | 'Seasons' | 'Operations' | 'Players', id?: str
   return router.push({ path: `/platform/plugins/minecraft-server/admin/${component.toLowerCase()}`, query: id ? { id } : {} })
 }
 async function reload() { await props.model.load(true) }
+function confirmToggleServer(server: MinecraftServer) {
+  const ending = server.enabled
+  modal.confirm({
+    title: ending ? '结束服务器' : '恢复服务器',
+    content: ending
+      ? `确认结束“${server.name}”吗？结束后将从 QQ 服务器列表移除，并归档到网站的已关闭服务器列表。`
+      : `确认恢复“${server.name}”运营吗？`,
+    onConfirm: () => props.model.toggleServerEnabled(server),
+  })
+}
 </script>
 
 <template>
@@ -31,7 +42,7 @@ async function reload() { await props.model.load(true) }
       <template #cell-name="{ row }"><div class="grid gap-1"><strong>{{ row.original.name }}</strong><span class="font-mono text-xs text-muted-foreground">ID: {{ row.original.id }}</span></div></template>
       <template #cell-status="{ row }"><StatusPill :status="row.original.status?.status" /></template>
       <template #cell-enabled="{ row }">{{ row.original.enabled ? '启用' : '停用' }}</template>
-      <template #cell-operation="{ row }"><div class="flex flex-wrap justify-center gap-2"><FaButton size="sm" variant="outline" @click="go('Editor', row.original.id)">编辑</FaButton><FaButton size="sm" variant="outline" @click="go('Seasons', row.original.id)">周目</FaButton><FaButton size="sm" variant="outline" @click="go('Operations', row.original.id)">操作记录</FaButton><FaButton size="sm" variant="outline" @click="go('Players', row.original.id)">玩家统计</FaButton></div></template>
+      <template #cell-operation="{ row }"><div class="flex flex-wrap justify-center gap-2"><FaButton size="sm" :variant="row.original.enabled ? 'destructive' : 'outline'" :loading="model.saving" @click="confirmToggleServer(row.original)">{{ row.original.enabled ? '结束服务器' : '恢复运营' }}</FaButton><FaButton size="sm" variant="outline" @click="go('Editor', row.original.id)">编辑</FaButton><FaButton size="sm" variant="outline" @click="go('Seasons', row.original.id)">周目</FaButton><FaButton size="sm" variant="outline" @click="go('Operations', row.original.id)">操作记录</FaButton><FaButton size="sm" variant="outline" @click="go('Players', row.original.id)">玩家统计</FaButton></div></template>
     </FaTable>
     <FaPagination v-model:page="model.serverPager.page" v-model:size="model.serverPager.size" :total="model.serverPager.total" class="mt-3" @page-change="reload" @size-change="reload" />
   </FaPageMain>

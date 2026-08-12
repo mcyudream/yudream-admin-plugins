@@ -12,6 +12,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftInheritanceRu
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSeasonAdjustment;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerEndpoint;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
@@ -202,6 +203,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("sort", server.sort());
         document.put("endpoints", server.endpoints().stream().map(this::endpointDocument).toList());
         document.put("seasons", server.seasons().stream().map(this::seasonDocument).toList());
+        document.put("map", mapDocument(server.map()));
         document.put("createdAt", server.createdAt());
         document.put("updatedAt", server.updatedAt());
         return document;
@@ -242,6 +244,25 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
             }
             rows.forEach(row -> documents.delete(collection, string(row, "id")));
         }
+    }
+
+    private Map<String, Object> mapDocument(MinecraftServerMap map) {
+        if (map == null) return null;
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("fileId", map.fileId());
+        document.put("objectKey", map.objectKey());
+        document.put("originalName", map.originalName());
+        document.put("publicAccess", map.publicAccess());
+        return document;
+    }
+
+    @SuppressWarnings("unchecked")
+    private MinecraftServerMap toMap(Object value) {
+        if (!(value instanceof Map<?, ?> raw)) return null;
+        Map<String, Object> document = (Map<String, Object>) raw;
+        String fileId = string(document, "fileId");
+        return fileId == null || fileId.isBlank() ? null : new MinecraftServerMap(fileId, string(document, "objectKey"),
+                string(document, "originalName"), bool(document, "publicAccess", false));
     }
 
     private Map<String, Object> endpointDocument(MinecraftServerEndpoint endpoint) {
@@ -394,6 +415,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 integer(document, "sort", 0),
                 endpoints,
                 seasons,
+                toMap(document.get("map")),
                 number(document, "createdAt", 0L),
                 number(document, "updatedAt", 0L)
         );

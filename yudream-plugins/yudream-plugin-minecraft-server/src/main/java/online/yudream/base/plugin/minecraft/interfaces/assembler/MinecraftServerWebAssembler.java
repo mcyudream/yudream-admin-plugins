@@ -81,6 +81,7 @@ public class MinecraftServerWebAssembler {
                 dto.seasons().stream().map(this::toRes).toList(),
                 dto.currentSeason() == null ? null : toRes(dto.currentSeason()),
                 dto.status() == null ? null : toRes(dto.status()),
+                dto.map() == null ? null : new MinecraftServerRes.MapRes(dto.map().fileId(), dto.map().originalName(), dto.map().publicAccess()),
                 dto.createdAt(),
                 dto.updatedAt()
         );

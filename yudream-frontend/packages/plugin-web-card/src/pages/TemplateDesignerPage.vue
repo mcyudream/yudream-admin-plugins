@@ -179,10 +179,10 @@ async function loadVersions() {
     template.draftVersionId ? api.version(template.draftVersionId) : Promise.resolve(undefined),
   ])
   if (request !== versionsRequest || selected.value !== template.id) return
-  currentRules.value = rules
   versions.value = result.records.sort((left, right) => right.version - left.version)
   versionTotal.value = result.total
   const draft = draftVersion ?? versions.value[0]
+  currentRules.value = draft?.parseRules ?? rules
   mode.value = draft?.mode ?? template.mode ?? 'STRUCTURED'
   layoutText.value = normalizedLayout(draft?.structuredLayout)
   html.value = draft?.html || DEFAULT_HTML

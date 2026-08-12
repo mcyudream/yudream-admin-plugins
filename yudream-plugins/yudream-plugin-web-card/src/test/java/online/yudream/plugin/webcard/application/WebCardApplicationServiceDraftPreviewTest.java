@@ -8,6 +8,7 @@ import online.yudream.plugin.webcard.domain.WebCardModels.ContentRecord;
 import online.yudream.plugin.webcard.domain.WebCardModels.FieldRule;
 import online.yudream.plugin.webcard.domain.WebCardModels.ParseRules;
 import online.yudream.plugin.webcard.domain.WebCardModels.Site;
+import online.yudream.plugin.webcard.domain.WebCardModels.SiteRouteRule;
 import online.yudream.plugin.webcard.domain.WebCardModels.SourceType;
 import online.yudream.plugin.webcard.domain.WebCardModels.Template;
 import online.yudream.plugin.webcard.domain.WebCardModels.TemplateMode;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static online.yudream.plugin.webcard.application.WebCardApplicationService.RULES;
+import static online.yudream.plugin.webcard.application.WebCardApplicationService.ROUTE_RULES;
 import static online.yudream.plugin.webcard.application.WebCardApplicationService.SITES;
 import static online.yudream.plugin.webcard.application.WebCardApplicationService.TEMPLATES;
 import static online.yudream.plugin.webcard.application.WebCardApplicationService.VERSIONS;
@@ -203,6 +205,33 @@ class WebCardApplicationServiceDraftPreviewTest {
         assertEquals(imageUrl, cached.fields().get("image"));
     }
 
+    @Test
+    void sameDomainUsesIndependentRulesAndTemplatesForDifferentChildPaths() {
+        MemoryRepository repository = new MemoryRepository();
+        long now = System.currentTimeMillis();
+        repository.save(SITES, "site", new Site("site", "MC百科", true, List.of("www.mcmod.cn"),
+                AccessMode.PUBLIC_HTTP, List.of(), null, SourceType.HTML, List.of(), "class-template", now, now));
+        repository.save(TEMPLATES, "class-template", new Template("class-template", "site", "模组卡片", TemplateMode.STRUCTURED, null, "class-version", now, now));
+        repository.save(TEMPLATES, "modpack-template", new Template("modpack-template", "site", "整合包卡片", TemplateMode.STRUCTURED, null, "modpack-version", now, now));
+        repository.save(VERSIONS, "class-version", new TemplateVersion("class-version", "class-template", 1, null, TemplateMode.STRUCTURED, "default", "", "", Map.of(), "TEST", "", true, now));
+        repository.save(VERSIONS, "modpack-version", new TemplateVersion("modpack-version", "modpack-template", 1, null, TemplateMode.STRUCTURED, "default", "", "", Map.of(), "TEST", "", true, now));
+        ParseRules classRules = new ParseRules("site", SourceType.HTML, List.of(new FieldRule("title", "h1", "text", "TEXT", true)), "", "", "", "url", "url", "/class/{id}.html");
+        ParseRules modpackRules = new ParseRules("site", SourceType.HTML, List.of(new FieldRule("title", "h2", "text", "TEXT", true)), "", "", "", "url", "url", "/modpack/{id}.html");
+        repository.save(ROUTE_RULES, "class-rule", new SiteRouteRule("class-rule", "site", "模组详情", true, "class-template", classRules, now, now));
+        repository.save(ROUTE_RULES, "modpack-rule", new SiteRouteRule("modpack-rule", "site", "整合包详情", true, "modpack-template", modpackRules, now, now));
+        List<String> renderedTemplates = new ArrayList<>();
+        List<String> renderedTitles = new ArrayList<>();
+        WebCardApplicationService service = WebCardApplicationService.forTesting(repository, headers(Map.of()),
+                (site, url, requestHeaders) -> fetched(url, "text/html", "<h1>Class page</h1><h2>Modpack page</h2>".getBytes(StandardCharsets.UTF_8)),
+                new ContentParser(), (version, fields) -> { renderedTemplates.add(version.templateId()); renderedTitles.add(String.valueOf(fields.get("title"))); return "rendered"; });
+
+        service.previewUrl("https://www.mcmod.cn/class/17142.html");
+        service.previewUrl("https://www.mcmod.cn/modpack/100.html");
+
+        assertEquals(List.of("class-template", "modpack-template"), renderedTemplates);
+        assertEquals(List.of("Class page", "Modpack page"), renderedTitles);
+    }
+
     private static Site site(String id, String host, long now) {
         return new Site(id, id, true, List.of(host), AccessMode.PUBLIC_HTTP, List.of(), null, SourceType.HTML, List.of(), null, now, now);
     }
@@ -227,7 +256,13 @@ class WebCardApplicationServiceDraftPreviewTest {
         @Override public <T> T save(String collection, String id, T value) { collections.computeIfAbsent(collection, ignored -> new LinkedHashMap<>()).put(id, value); return value; }
         @Override public <T> Optional<T> find(String collection, String id, Class<T> type) { return Optional.ofNullable(type.cast(collection(collection).get(id))); }
         @Override public <T> List<T> page(String collection, int page, int size, Class<T> type) { return slice(collection(collection).values().stream().map(type::cast).toList(), page, size); }
-        @Override public <T> List<T> findBy(String collection, String field, Object value, int page, int size, Class<T> type) { return List.of(); }
+        @Override public <T> List<T> findBy(String collection, String field, Object value, int page, int size, Class<T> type) {
+            List<T> matched = collection(collection).values().stream().map(type::cast).filter(item -> {
+                try { return java.util.Objects.equals(item.getClass().getMethod(field).invoke(item), value); }
+                catch (Exception ignored) { return false; }
+            }).toList();
+            return slice(matched, page, size);
+        }
         @Override public long count(String collection) { return collection(collection).size(); }
         @Override public <T> boolean updateIfFieldAtMost(String collection, String id, String field, long maximum, T value) { return false; }
         @Override public void delete(String collection, String id) { collection(collection).remove(id); }

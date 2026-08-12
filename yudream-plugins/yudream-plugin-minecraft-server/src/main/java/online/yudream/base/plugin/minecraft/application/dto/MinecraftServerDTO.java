@@ -12,6 +12,7 @@ public record MinecraftServerDTO(
         List<SeasonDTO> seasons,
         SeasonDTO currentSeason,
         MinecraftServerStatusDTO status,
+        MinecraftServerMapDTO map,
         long createdAt,
         long updatedAt
 ) {

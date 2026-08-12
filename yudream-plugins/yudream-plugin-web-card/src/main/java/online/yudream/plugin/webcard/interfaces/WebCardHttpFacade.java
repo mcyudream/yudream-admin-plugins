@@ -14,6 +14,7 @@ import java.util.Map;
 public final class WebCardHttpFacade {
     public record SiteRequest(Site site, Map<String, String> headers) { }
     public record UrlRequest(String url) { }
+    public record RouteRuleTestRequest(String url, SiteRouteRule rule) { }
     public record PreviewRequest(Map<String, Object> fixture) { }
     public record DraftPreviewRequest(String siteId, String url, TemplateVersion version, Site site, ParseRules rules) { }
     public record PublishRequest(String versionId) { }
@@ -27,8 +28,12 @@ public final class WebCardHttpFacade {
     public PluginHttpResponse deleteSite(PluginHttpRequest r) { app.deleteSite(path(r,2)); return PluginHttpResponse.ok(Map.of("deleted",true)); }
     public PluginHttpResponse rules(PluginHttpRequest r) { return PluginHttpResponse.ok(app.rules(path(r,2)).orElse(null)); }
     public PluginHttpResponse saveRules(PluginHttpRequest r) { return PluginHttpResponse.ok(app.saveRules(JsonSupport.read(r.body(), ParseRules.class))); }
+    public PluginHttpResponse routeRules(PluginHttpRequest r) { return PluginHttpResponse.ok(app.routeRules(path(r,2))); }
+    public PluginHttpResponse saveRouteRule(PluginHttpRequest r) { return PluginHttpResponse.ok(app.saveRouteRule(JsonSupport.read(r.body(), SiteRouteRule.class))); }
+    public PluginHttpResponse deleteRouteRule(PluginHttpRequest r) { app.deleteRouteRule(path(r,2)); return PluginHttpResponse.ok(Map.of("deleted",true)); }
     public PluginHttpResponse testFetch(PluginHttpRequest r) { UrlRequest request=JsonSupport.read(r.body(),UrlRequest.class); return PluginHttpResponse.ok(app.testFetch(path(r,2),request.url())); }
     public PluginHttpResponse testParse(PluginHttpRequest r) { UrlRequest request=JsonSupport.read(r.body(),UrlRequest.class); return PluginHttpResponse.ok(app.testParse(path(r,2),request.url())); }
+    public PluginHttpResponse testRouteRule(PluginHttpRequest r) { RouteRuleTestRequest request=JsonSupport.read(r.body(),RouteRuleTestRequest.class); return PluginHttpResponse.ok(app.testRouteRule(path(r,2),request.url(),request.rule())); }
     public PluginHttpResponse previewUrl(PluginHttpRequest r) { return PluginHttpResponse.ok(app.previewUrl(JsonSupport.read(r.body(), UrlRequest.class).url())); }
     public PluginHttpResponse previewDraftUrl(PluginHttpRequest r) { DraftPreviewRequest request=JsonSupport.read(r.body(),DraftPreviewRequest.class); return PluginHttpResponse.ok(app.previewDraftUrl(request.siteId(),request.url(),request.version(),request.site(),request.rules())); }
     public PluginHttpResponse templates(PluginHttpRequest r) { return PluginHttpResponse.ok(app.templates(number(r,"page",1),number(r,"size",10))); }

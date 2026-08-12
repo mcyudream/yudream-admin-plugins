@@ -11,6 +11,10 @@ import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 
 import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.io.IOException;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerMapSaveRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerMapPublicAccessRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -25,7 +29,8 @@ public class MinecraftServerHttpFacade {
 
     public PluginHttpResponse userList(PluginHttpRequest request) {
         boolean refresh = boolQuery(request, "refresh", false);
-        var page = appService.pageServers(false, refresh, page(request), size(request));
+        boolean closed = boolQuery(request, "closed", false);
+        var page = closed ? appService.archivedServers(page(request), size(request)) : appService.pageServers(false, refresh, page(request), size(request));
         return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
@@ -35,12 +40,47 @@ public class MinecraftServerHttpFacade {
         return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
     }
 
+    public PluginHttpResponse archivedList(PluginHttpRequest request) {
+        var page = appService.archivedServers(page(request), size(request));
+        return PluginHttpResponse.ok(Map.of("records", page.records().stream().map(assembler::toRes).toList(), "total", page.total()));
+    }
+
+    public PluginHttpResponse archivedDetail(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(appService.archivedDetail(pathSegment(request.path(), 2))));
+    }
+
     public PluginHttpResponse userDetail(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(assembler.toRes(appService.userDetail(pathSegment(request.path(), 1), boolQuery(request, "refresh", false))));
+        boolean closed = boolQuery(request, "closed", false);
+        return PluginHttpResponse.ok(assembler.toRes(closed ? appService.archivedDetail(pathSegment(request.path(), 1)) : appService.userDetail(pathSegment(request.path(), 1), boolQuery(request, "refresh", false))));
     }
 
     public PluginHttpResponse adminDetail(PluginHttpRequest request) {
         return PluginHttpResponse.ok(assembler.toRes(appService.detail(pathSegment(request.path(), 2), boolQuery(request, "refresh", false))));
+    }
+
+    public PluginHttpResponse saveMap(PluginHttpRequest request) {
+        MinecraftServerMapSaveRequest body = JsonSupport.read(request.body(), MinecraftServerMapSaveRequest.class);
+        return PluginHttpResponse.ok(assembler.toRes(appService.saveMap(pathSegment(request.path(), 2), body.fileId())));
+    }
+
+    public PluginHttpResponse setMapPublicAccess(PluginHttpRequest request) {
+        MinecraftServerMapPublicAccessRequest body = JsonSupport.read(request.body(), MinecraftServerMapPublicAccessRequest.class);
+        if (body.publicAccess() == null) throw new IllegalArgumentException("公开状态不能为空");
+        return PluginHttpResponse.ok(assembler.toRes(appService.setMapPublicAccess(pathSegment(request.path(), 2), body.publicAccess())));
+    }
+
+    public PluginHttpResponse deleteMap(PluginHttpRequest request) {
+        appService.deleteMap(pathSegment(request.path(), 2));
+        return PluginHttpResponse.ok(Map.of("deleted", true));
+    }
+
+    public PluginHttpResponse publicMapDownload(PluginHttpRequest request) { return mapResponse(appService.downloadMap(pathSegment(request.path(), 1), true, true)); }
+    public PluginHttpResponse adminMapDownload(PluginHttpRequest request) { return mapResponse(appService.downloadMap(pathSegment(request.path(), 2), false, true)); }
+
+    private PluginHttpResponse mapResponse(online.yudream.base.plugin.spi.system.storage.PluginStoredFile file) {
+        try (var input = file.inputStream()) {
+            return new PluginHttpResponse(200, Map.of("Content-Disposition", "attachment; filename=map.zip", "Cache-Control", "no-cache"), "application/zip", input.readAllBytes(), false);
+        } catch (IOException e) { return PluginHttpResponse.rawJson(500, Map.of("message", "地图读取失败")); }
     }
 
     public PluginHttpResponse save(PluginHttpRequest request) {

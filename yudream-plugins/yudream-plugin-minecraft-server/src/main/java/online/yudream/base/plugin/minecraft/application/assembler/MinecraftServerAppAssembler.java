@@ -6,6 +6,7 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftSeasonAdjus
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftSeasonOperationDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftPlayerActivityDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
+import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerMapDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerStatusDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
@@ -16,6 +17,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftInheritanceRu
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSeasonAdjustment;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerEndpoint;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 
@@ -35,9 +37,14 @@ public class MinecraftServerAppAssembler {
                 server.seasons().stream().map(this::toDTO).toList(),
                 server.currentSeason() == null ? null : toDTO(server.currentSeason()),
                 status == null ? null : toDTO(status),
+                server.map() == null ? null : toDTO(server.map()),
                 server.createdAt(),
                 server.updatedAt()
         );
+    }
+
+    public MinecraftServerMapDTO toDTO(MinecraftServerMap map) {
+        return new MinecraftServerMapDTO(map.fileId(), map.originalName(), map.publicAccess());
     }
 
     public MinecraftServerDTO.EndpointDTO toDTO(MinecraftServerEndpoint endpoint) {

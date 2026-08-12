@@ -4,6 +4,7 @@ import minecraftStyles from './styles.css?inline'
 import MinecraftServerPlugin from './MinecraftServerPlugin.vue'
 
 export const List = MinecraftServerPlugin
+export const Closed = MinecraftServerPlugin
 export const Detail = MinecraftServerPlugin
 export const Admin = MinecraftServerPlugin
 export const Editor = MinecraftServerPlugin
@@ -12,14 +13,9 @@ export const Operations = MinecraftServerPlugin
 export const Players = MinecraftServerPlugin
 
 export const routes = {
-  List,
-  Detail,
-  Admin,
-  Editor,
-  Seasons,
-  Operations,
-  Players,
+  List, Closed, Detail, Admin, Editor, Seasons, Operations, Players,
   'minecraft-server/List': List,
+  'minecraft-server/Closed': Closed,
   'minecraft-server/Detail': Detail,
   'minecraft-server/Admin': Admin,
   'minecraft-server/Editor': Editor,
@@ -30,6 +26,7 @@ export const routes = {
 
 export {
   List as 'minecraft-server/List',
+  Closed as 'minecraft-server/Closed',
   Detail as 'minecraft-server/Detail',
   Admin as 'minecraft-server/Admin',
   Editor as 'minecraft-server/Editor',
@@ -39,9 +36,7 @@ export {
 }
 
 export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
+  if (typeof document === 'undefined') return
   const id = 'yudream-plugin-minecraft-server-style'
   let style = document.getElementById(id) as HTMLStyleElement | null
   if (!style) {
@@ -52,8 +47,4 @@ export function install() {
   style.textContent = `${markdownEditorStyles}\n${minecraftStyles}`
 }
 
-export default defineYuDreamPlugin({
-  routes,
-  default: List,
-  install,
-})
+export default defineYuDreamPlugin({ routes, default: List, install })

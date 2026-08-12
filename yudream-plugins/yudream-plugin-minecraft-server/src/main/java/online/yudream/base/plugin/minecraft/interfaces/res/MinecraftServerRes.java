@@ -12,9 +12,12 @@ public record MinecraftServerRes(
         List<SeasonRes> seasons,
         SeasonRes currentSeason,
         MinecraftServerStatusRes status,
+        MapRes map,
         long createdAt,
         long updatedAt
 ) {
+
+    public record MapRes(String fileId, String originalName, boolean publicAccess) {}
 
     public record EndpointRes(
             String id,

@@ -178,12 +178,15 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         String username = profile == null || profile.username() == null ? "" : profile.username();
         String userId = String.valueOf(command.userId());
         Set<String> playerIds = playerIdsForUser(context, userId);
-        var servers = appService.listServers(false, false);
+        var servers = appService.listServers(true, false);
         Map<String, String> serverNames = servers.stream().collect(java.util.stream.Collectors.toMap(
-                MinecraftServerDTO::id, MinecraftServerDTO::name, (first, ignored) -> first));
+                MinecraftServerDTO::id, server -> server.enabled() ? server.name() : "已关闭服务器", (first, ignored) -> first));
         var matches = servers.stream().flatMap(server -> appService.allPlayerActivities(server.id()).stream())
                 .filter(activity -> playerIds.contains(normalizePlayerId(activity.playerId()))
-                        || activity.playerName().equalsIgnoreCase(username)).toList();
+                        || activity.playerName().equalsIgnoreCase(username))
+                .collect(java.util.stream.Collectors.groupingBy(activity -> serverNames.getOrDefault(activity.serverId(), activity.serverId()),
+                        LinkedHashMap::new, java.util.stream.Collectors.toList())).entrySet().stream()
+                .map(entry -> mergeActivities(entry.getKey(), entry.getValue())).toList();
         if (matches.isEmpty()) { reply(command, context, "未找到关联的 Minecraft 玩家活动记录。"); return; }
         List<Map<String, Object>> activities = matches.stream().map(activity -> activityView(
                 activity, serverNames.getOrDefault(activity.serverId(), activity.serverId()))).toList();
@@ -257,6 +260,15 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         view.put("players", players);
         view.put("unreportedPlayers", Math.max(0, (status == null ? 0 : status.onlinePlayers()) - players.size()));
         return view;
+    }
+
+    private MinecraftPlayerActivityDTO mergeActivities(String serverName, List<MinecraftPlayerActivityDTO> items) {
+        MinecraftPlayerActivityDTO first = items.getFirst();
+        return new MinecraftPlayerActivityDTO(serverName, first.playerId(), first.playerName(),
+                items.stream().anyMatch(MinecraftPlayerActivityDTO::online), items.stream().anyMatch(MinecraftPlayerActivityDTO::afk),
+                items.stream().mapToLong(MinecraftPlayerActivityDTO::totalOnlineMillis).sum(),
+                items.stream().mapToLong(MinecraftPlayerActivityDTO::totalAfkMillis).sum(), null, null,
+                first.lastJoinedAt(), first.lastQuitAt(), first.updatedAt());
     }
 
     private Map<String, Object> activityView(MinecraftPlayerActivityDTO activity, String serverName) {

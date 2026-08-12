@@ -3,6 +3,7 @@ import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMinecraftApi } from '../api/minecraft-api'
+import { zipValidationError } from '../utils/mapFile'
 
 const STATUS_HISTORY_WINDOW = 24 * 60 * 60 * 1000
 const STATUS_HISTORY_LIMIT = 144
@@ -21,6 +22,8 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   const statusHistory = ref<MinecraftStatusSnapshot[]>([])
   const playerActivities = ref<PlayerActivity[]>([])
   const adminSurface = ref(false)
+  const closedSurface = ref(false)
+  const mapOperating = ref(false)
   const serverPager = reactive({ page: 1, size: 10, total: 0 })
   const recordsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const operationsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
@@ -49,15 +52,17 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   const maxCount = computed(() => selectedServer.value?.status?.maxPlayers ?? 0)
   const latestOperation = computed(() => operations.value.find(item => item.status === 'APPLIED'))
 
-  async function load(admin = false) {
+  async function load(admin = false, closed = false) {
     loading.value = true
     try {
       adminSurface.value = admin
+      closedSurface.value = !admin && closed
       await loadEconomyStatus()
       const result = admin
         ? await api.adminList(serverPager.page, serverPager.size)
-        : await api.list(serverPager.page, serverPager.size)
-      servers.value = result.records
+        : await api.list(serverPager.page, serverPager.size, false, closed)
+      // The backend may not yet honour `closed`; retain the intended public surface locally.
+      servers.value = admin ? result.records : result.records.filter(server => closed ? !server.enabled : server.enabled)
       serverPager.total = result.total
       if (!selectedId.value || !servers.value.some(server => server.id === selectedId.value)) {
         selectedId.value = servers.value[0]?.id || ''
@@ -108,7 +113,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadSideData(id: string) {
-    const detail = adminSurface.value ? await api.adminDetail(id) : await api.detail(id)
+    const detail = adminSurface.value ? await api.adminDetail(id) : await api.detail(id, false, closedSurface.value)
     replaceServer(detail)
     if (adminSurface.value) {
       await Promise.all([
@@ -234,6 +239,69 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
     finally {
       saving.value = false
+    }
+  }
+
+  async function uploadMap(file: File) {
+    const serverId = serverForm.id
+    const validationError = zipValidationError(file)
+    if (validationError) throw new Error(validationError)
+    if (!serverId) throw new Error('请先保存服务器，再上传地图')
+    if (!sdk.files?.uploadImage) throw new Error('当前宿主未提供文件上传能力')
+    mapOperating.value = true
+    try {
+      const uploaded = await sdk.files.uploadImage(file, { module: 'minecraft-server', publicAccess: false })
+      if (!uploaded.id) throw new Error('地图上传后未返回文件 ID')
+      const saved = await api.saveMap(serverId, uploaded.id)
+      replaceServer(saved)
+      editServer(saved)
+      toast.success('地图 ZIP 已上传')
+    }
+    finally {
+      mapOperating.value = false
+    }
+  }
+
+  async function setMapPublicAccess(publicAccess: boolean) {
+    const serverId = serverForm.id
+    if (!serverId) return
+    mapOperating.value = true
+    try {
+      const saved = await api.setMapPublicAccess(serverId, publicAccess)
+      replaceServer(saved)
+      editServer(saved)
+      toast.success(publicAccess ? '地图已公开' : '地图已设为私有')
+    }
+    finally {
+      mapOperating.value = false
+    }
+  }
+
+  async function deleteMap() {
+    const serverId = serverForm.id
+    if (!serverId) return
+    mapOperating.value = true
+    try {
+      await api.deleteMap(serverId)
+      const server = servers.value.find(item => item.id === serverId)
+      if (server) replaceServer({ ...server, map: undefined })
+      toast.success('地图已删除')
+    }
+    finally {
+      mapOperating.value = false
+    }
+  }
+
+  async function downloadMap(admin = false) {
+    const serverId = admin ? serverForm.id : selectedServer.value?.id
+    if (!serverId) return
+    mapOperating.value = true
+    try {
+      const response = await (admin ? api.downloadAdminMap(serverId) : api.downloadPublicMap(serverId))
+      triggerDownload(response, `${serverId}-map.zip`)
+    }
+    finally {
+      mapOperating.value = false
     }
   }
 
@@ -397,6 +465,26 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function toggleServerEnabled(server: MinecraftServer) {
+    saving.value = true
+    try {
+      await api.save({
+        id: server.id,
+        name: server.name,
+        descriptionMarkdown: server.descriptionMarkdown,
+        enabled: !server.enabled,
+        sort: server.sort,
+        endpoints: server.endpoints,
+        seasons: server.seasons,
+      })
+      await load(true)
+      toast.success(server.enabled ? '服务器已结束并归档' : '服务器已恢复运营')
+    }
+    finally {
+      saving.value = false
+    }
+  }
+
   async function deleteServer(server?: MinecraftServer) {
     const target = server || selectedServer.value
     if (!target) {
@@ -549,7 +637,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   return reactive({
     loading,
     saving,
+    mapOperating,
     walletEnabled,
+    closedSurface,
     servers,
     selectedId,
     selectedServer,
@@ -579,7 +669,12 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     addEndpoint,
     removeEndpoint,
     saveServer,
+    toggleServerEnabled,
     deleteServer,
+    uploadMap,
+    setMapPublicAccess,
+    deleteMap,
+    downloadMap,
     refreshStatus,
     copyServerId,
     previewSeason,
@@ -602,6 +697,17 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     nextPlayerActivitiesPage,
     prevPlayerActivitiesPage,
   })
+}
+
+function triggerDownload(response: unknown, filename: string) {
+  const blob = response instanceof Blob ? response : (response as { data?: Blob }).data
+  if (!(blob instanceof Blob)) throw new Error('地图下载未返回文件内容')
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function endpointPortPayload(endpoint: MinecraftEndpoint) {

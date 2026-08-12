@@ -28,6 +28,11 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSeasonAdjustm
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerEndpoint;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
+import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
+import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusService;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -65,14 +70,20 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     private final MinecraftStatusService statusService;
     private final FrameworkServices framework;
     private final PluginContext pluginContext;
+    private final PluginFileStore files;
     private final MinecraftServerAppAssembler assembler = new MinecraftServerAppAssembler();
     private final Object playerActivityLock = new Object();
 
     public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, PluginContext pluginContext) {
+        this(repository, statusService, pluginContext, pluginContext.files());
+    }
+
+    public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, PluginContext pluginContext, PluginFileStore files) {
         this.repository = repository;
         this.statusService = statusService;
         this.pluginContext = pluginContext;
         this.framework = pluginContext.framework();
+        this.files = files;
     }
 
     public MinecraftPageDTO<MinecraftServerDTO> pageServers(boolean includeDisabled, boolean refreshStatus, int page, int size) {
@@ -114,8 +125,53 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     public void deleteServer(String serverId) {
-        requireServer(serverId);
+        MinecraftServer server = requireServer(serverId);
+        if (server.map() != null && !server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
         repository.delete(serverId);
+    }
+
+    public MinecraftServerDTO saveMap(String serverId, String fileId) {
+        MinecraftServer server = requireServer(serverId);
+        PluginStoredFile source = framework.platformFile(requireText(fileId, "地图文件不能为空"))
+                .orElseThrow(() -> new IllegalArgumentException("平台文件不存在：" + fileId));
+        try (var input = source.inputStream()) {
+            String contentType = source.contentType();
+            if (contentType != null && !contentType.isBlank() && !List.of("application/zip", "application/x-zip-compressed", "application/octet-stream").contains(contentType.toLowerCase(java.util.Locale.ROOT))) {
+                throw new IllegalArgumentException("地图文件必须是 ZIP 压缩包");
+            }
+            byte[] bytes = input.readAllBytes();
+            if (bytes.length < 4 || bytes[0] != 'P' || bytes[1] != 'K' || bytes[2] != 3 || bytes[3] != 4) throw new IllegalArgumentException("地图文件必须是 ZIP 压缩包");
+            String objectKey = "servers/" + server.id() + "/map.zip";
+            if (server.map() != null && !server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
+            files.put(objectKey, new ByteArrayInputStream(bytes), bytes.length, "application/zip");
+            MinecraftServer saved = repository.save(server.withMap(new MinecraftServerMap(fileId, objectKey, fileId + ".zip", false)));
+            return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
+        } catch (IOException e) { throw new IllegalStateException("读取地图文件失败", e); }
+    }
+
+    public MinecraftServerDTO setMapPublicAccess(String serverId, boolean publicAccess) {
+        MinecraftServer server = requireServer(serverId);
+        if (server.map() == null) throw new IllegalArgumentException("服务器尚未上传地图");
+        MinecraftServer saved = repository.save(server.withMap(server.map().withPublicAccess(publicAccess)));
+        return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
+    }
+
+    public MinecraftServerDTO deleteMap(String serverId) {
+        MinecraftServer server = requireServer(serverId);
+        if (server.map() == null) throw new IllegalArgumentException("服务器尚未上传地图");
+        if (!server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
+        MinecraftServer saved = repository.save(server.withMap(null));
+        return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
+    }
+
+    public PluginStoredFile downloadMap(String serverId, boolean publicOnly, boolean allowClosed) {
+        MinecraftServer server = requireServer(serverId);
+        if (!allowClosed && !server.enabled()) throw new IllegalArgumentException("服务器不存在");
+        MinecraftServerMap map = server.map();
+        if (map == null || (publicOnly && !map.publicAccess())) throw new IllegalArgumentException("地图不存在");
+        PluginStoredFile file = files.get(map.objectKey());
+        if (file == null) throw new IllegalArgumentException("地图文件不存在");
+        return file;
     }
 
     public MinecraftServerStatus refreshStatus(String serverId) {
@@ -141,6 +197,21 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         if (!detail.enabled()) {
             throw new IllegalArgumentException("服务器不存在");
         }
+        return detail;
+    }
+
+    /** Closed servers remain available only through the explicit archive surface. */
+    public MinecraftPageDTO<MinecraftServerDTO> archivedServers(int page, int size) {
+        List<MinecraftServerDTO> records = allServers(true).stream().filter(server -> !server.enabled())
+                .skip((long) (safePage(page) - 1) * safeSize(size)).limit(safeSize(size))
+                .map(server -> assembler.toDTO(server, repository.findStatus(server.id()).orElse(null))).toList();
+        long total = allServers(true).stream().filter(server -> !server.enabled()).count();
+        return new MinecraftPageDTO<>(records, total);
+    }
+
+    public MinecraftServerDTO archivedDetail(String serverId) {
+        MinecraftServerDTO detail = detail(serverId, false);
+        if (detail.enabled()) throw new IllegalArgumentException("关闭服务器不存在");
         return detail;
     }
 

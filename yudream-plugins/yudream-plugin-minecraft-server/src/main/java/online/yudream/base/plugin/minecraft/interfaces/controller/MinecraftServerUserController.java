@@ -14,11 +14,20 @@ public class MinecraftServerUserController {
     @PluginHttpEndpoint(method = "GET", path = "/servers", permission = MinecraftServerPlugin.VIEW_PERMISSION)
     public PluginHttpResponse list(PluginHttpRequest request) { return http.userList(request); }
 
+    @PluginHttpEndpoint(method = "GET", path = "/archived/servers", permission = MinecraftServerPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse archivedList(PluginHttpRequest request) { return http.archivedList(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/archived/servers/{serverId}", permission = MinecraftServerPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse archivedDetail(PluginHttpRequest request) { return http.archivedDetail(request); }
+
     @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}", permission = MinecraftServerPlugin.VIEW_PERMISSION)
     public PluginHttpResponse detail(PluginHttpRequest request) { return http.userDetail(request); }
 
     @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}/status/history", permission = MinecraftServerPlugin.VIEW_PERMISSION)
     public PluginHttpResponse statusHistory(PluginHttpRequest request) { return http.statusHistory(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}/map/download", permission = MinecraftServerPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse downloadMap(PluginHttpRequest request) { return http.publicMapDownload(request); }
 
     @PluginHttpEndpoint(method = "GET", path = "/economy/status", permission = MinecraftServerPlugin.VIEW_PERMISSION)
     public PluginHttpResponse economyStatus() { return http.economyStatus(); }

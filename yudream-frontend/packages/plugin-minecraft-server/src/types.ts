@@ -50,6 +50,12 @@ export interface MinecraftStatusSnapshot {
   checkedAt: TimeValue
 }
 
+export interface MinecraftServerMap {
+  fileId: string
+  originalName?: string
+  publicAccess: boolean
+}
+
 export interface MinecraftServer {
   id: string
   name: string
@@ -60,6 +66,7 @@ export interface MinecraftServer {
   seasons: MinecraftSeason[]
   currentSeason?: MinecraftSeason
   status?: MinecraftServerStatus
+  map?: MinecraftServerMap
   createdAt: TimeValue
   updatedAt: TimeValue
 }

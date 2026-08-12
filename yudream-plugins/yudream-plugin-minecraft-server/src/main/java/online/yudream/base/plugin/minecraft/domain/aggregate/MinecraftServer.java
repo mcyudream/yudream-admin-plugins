@@ -2,6 +2,7 @@ package online.yudream.base.plugin.minecraft.domain.aggregate;
 
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerEndpoint;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 
 import java.util.Comparator;
 import java.util.List;
@@ -15,6 +16,7 @@ public record MinecraftServer(
         int sort,
         List<MinecraftServerEndpoint> endpoints,
         List<MinecraftServerSeason> seasons,
+        MinecraftServerMap map,
         long createdAt,
         long updatedAt
 ) {
@@ -34,7 +36,7 @@ public record MinecraftServer(
                                          List<MinecraftServerEndpoint> endpoints,
                                          List<MinecraftServerSeason> seasons) {
         long now = System.currentTimeMillis();
-        return new MinecraftServer(null, name, descriptionMarkdown, enabled, sort, endpoints, seasons, now, now);
+        return new MinecraftServer(null, name, descriptionMarkdown, enabled, sort, endpoints, seasons, null, now, now);
     }
 
     public MinecraftServer update(String name, String descriptionMarkdown, Boolean enabled, Integer sort,
@@ -48,9 +50,14 @@ public record MinecraftServer(
                 sort == null ? this.sort : sort,
                 endpoints == null ? this.endpoints : endpoints,
                 seasons == null ? this.seasons : seasons,
+                map,
                 createdAt,
                 System.currentTimeMillis()
         );
+    }
+
+    public MinecraftServer withMap(MinecraftServerMap map) {
+        return new MinecraftServer(id, name, descriptionMarkdown, enabled, sort, endpoints, seasons, map, createdAt, System.currentTimeMillis());
     }
 
     public List<MinecraftServerEndpoint> enabledEndpoints() {
