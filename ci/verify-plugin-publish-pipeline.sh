@@ -23,7 +23,9 @@ require_pattern() {
 reject_pattern() {
   pattern=$1
   message=$2
-  if grep -q "$pattern" .gitlab-ci.yml ci/publish-plugin-jars.sh ci/verify-published-plugin-jars.sh; then
+  if grep -q "$pattern" .gitlab-ci.yml \
+    ci/publish-plugin-jars.sh ci/verify-published-plugin-jars.sh \
+    ci/publish-plugin-store.sh ci/verify-published-plugin-store.sh; then
     fail "$message"
   fi
 }
@@ -36,6 +38,13 @@ require_file "ci/verify-core-npm-contracts.sh"
 require_file "ci/verify-plugin-jar-assets.sh"
 require_file "ci/publish-plugin-jars.sh"
 require_file "ci/verify-published-plugin-jars.sh"
+require_file "ci/publish-plugin-store.sh"
+require_file "ci/verify-published-plugin-store.sh"
+require_file "ci/verify-plugin-store-catalog.sh"
+require_file "ci/verify-third-party-submission.sh"
+require_file "ci/verify-third-party-submission-fixture.sh"
+require_file "release/plugins.txt"
+require_file "ci/verify-plugin-release-selection.sh"
 
 echo "[verify-plugin-publish-pipeline] checking stage layout"
 require_pattern '^[[:space:]]*-[[:space:]]\+validate$' "plugin CI must keep validate stage"
@@ -52,8 +61,26 @@ require_pattern '^validate:core-npm-contracts:$' "plugin CI must validate core n
 require_pattern '^validate:docs:$' "plugin CI must validate documentation independence"
 require_pattern '^validate:publish-pipeline:$' "plugin CI must validate its own publish pipeline shape"
 require_pattern 'sh ci/verify-plugin-publish-pipeline.sh' "plugin CI must call ci/verify-plugin-publish-pipeline.sh"
+require_pattern '^validate:plugin-store-catalog:$' "plugin CI must validate the plugin store catalog contract"
+require_pattern 'sh ci/verify-plugin-store-catalog.sh' "plugin CI must run the plugin store catalog fixture"
+require_pattern '^validate:plugin-release-selection:$' "plugin CI must validate the explicit release module selection"
+require_pattern 'sh ci/verify-plugin-release-selection.sh' "plugin CI must run the release selection validator"
+require_pattern '^validate:third-party-submission-fixture:$' "plugin CI must run third-party submission fixtures"
+require_pattern 'sh ci/verify-third-party-submission-fixture.sh' "plugin CI must validate third-party submission fixtures"
+require_pattern '^validate:third-party-submission:$' "plugin CI must validate submitted third-party materials"
+require_pattern 'sh ci/verify-third-party-submission.sh' "third-party submission job must call the offline validator"
+if grep -A12 '^validate:third-party-submission:' .gitlab-ci.yml | grep -Eq 'NEXUS_(USERNAME|PASSWORD)'; then
+  fail "third-party submission validation must not receive Nexus write credentials"
+fi
 
 echo "[verify-plugin-publish-pipeline] checking package/publish/verify chain"
+require_pattern 'PLUGIN_RELEASE_ONLY=1' "tag pipelines must restrict packaging/publish/verify to the release list"
+require_pattern 'plugin_release_maven_pl_args' "tag packaging must derive the Maven -pl module list from the release selection"
+require_pattern 'MAVEN_AM="-am"' "tag packaging must build selected modules with reactor dependencies via -am"
+grep -q 'plugin_release_only_enabled' ci/lib/plugin-jar-selection.sh \
+  || fail "plugin jar selection must support explicit release-only filtering"
+grep -q 'plugin.yml version mismatch' ci/verify-plugin-release-selection.sh \
+  || fail "release selection validator must check selected plugin.yml versions against the tag version"
 require_pattern '^package:plugins:$' "plugin CI must keep package:plugins job"
 require_pattern 'PACKAGE_MAVEN_REPO' "plugin CI package job must use a dedicated clean Maven local repository"
 require_pattern 'sh ci/verify-plugin-jar-assets.sh' "plugin CI package job must verify plugin jar assets"
@@ -63,14 +90,34 @@ require_pattern '^publish:plugin-jars:$' "plugin CI must keep publish:plugin-jar
 require_pattern 'sh ci/publish-plugin-jars.sh' "plugin CI publish job must upload plugin jars"
 require_pattern '^verify:published-plugin-jars:$' "plugin CI must keep verify:published-plugin-jars job"
 require_pattern 'sh ci/verify-published-plugin-jars.sh' "plugin CI must re-read published plugin jars after upload"
+require_pattern '^publish:plugin-store:$' "plugin CI must publish the Raw plugin store"
+require_pattern 'job: publish:plugin-jars' "Raw store publication must wait for Maven JAR publication"
+require_pattern 'sh ci/publish-plugin-store.sh' "plugin CI must publish Raw plugin store metadata"
+require_pattern '^verify:published-plugin-store:$' "plugin CI must verify the published Raw plugin store"
+require_pattern 'sh ci/verify-published-plugin-store.sh' "plugin CI must re-read Raw plugin store metadata after upload"
+grep -q 'plugins/\${plugin_code}/versions/\${plugin_version}\.json' ci/lib/plugin-store-catalog.sh \
+  || fail "store descriptors must use plugins/{code}/versions/{version}.json"
+grep -q 'JAR plugin.yml version for .*must equal release version' ci/lib/plugin-store-catalog.sh \
+  || fail "store publication must reject JAR plugin.yml/package version mismatches"
+grep -q 'plugin_store_list_payload_files' ci/publish-plugin-store.sh \
+  || fail "store payload must upload before indexes"
+grep -q 'plugin_store_list_plugin_indexes' ci/publish-plugin-store.sh \
+  || fail "plugin indexes must upload before root index"
+grep -q 'upload_file index.json' ci/publish-plugin-store.sh \
+  || fail "root store index must be uploaded last"
 
 echo "[verify-plugin-publish-pipeline] checking Nexus-only package routing"
 require_pattern 'NEXUS_MAVEN_PUBLIC_URL' "plugin CI must pull Maven artifacts through Nexus maven-public"
 require_pattern 'NEXUS_MAVEN_RELEASES_URL' "plugin CI must publish plugin artifacts to Nexus maven-releases"
+require_pattern 'NEXUS_PLUGIN_STORE_URL' "plugin CI must publish store metadata to Nexus Raw plugin-store-releases"
 require_pattern 'NEXUS_NPM_PUBLIC_URL' "plugin CI must pull npm artifacts through Nexus npm-public"
 grep -q 'NEXUS_USERNAME' ci/publish-plugin-jars.sh || fail "plugin publishing must require a Nexus username"
 grep -q 'NEXUS_PASSWORD' ci/publish-plugin-jars.sh || fail "plugin publishing must require a Nexus password"
-if grep -Eq 'NEXUS_(USERNAME|PASSWORD)' ci/verify-core-maven-registry.sh ci/verify-core-npm-contracts.sh ci/verify-published-plugin-jars.sh; then
+grep -q 'NEXUS_PLUGIN_STORE_URL' ci/publish-plugin-store.sh || fail "plugin store publishing must use the configured Nexus Raw URL"
+grep -q 'NEXUS_USERNAME' ci/publish-plugin-store.sh || fail "plugin store publishing must require a Nexus username"
+grep -q 'NEXUS_PASSWORD' ci/publish-plugin-store.sh || fail "plugin store publishing must require a Nexus password"
+grep -q 'NEXUS_PLUGIN_STORE_URL' ci/verify-published-plugin-store.sh || fail "plugin store verification must use the configured Nexus Raw URL"
+if grep -Eq 'NEXUS_(USERNAME|PASSWORD)' ci/verify-core-maven-registry.sh ci/verify-core-npm-contracts.sh ci/verify-published-plugin-jars.sh ci/verify-published-plugin-store.sh; then
   fail "plugin read and verification paths must not require protected publish credentials"
 fi
 if grep -q '<mirrorOf>' .gitlab-ci.yml settings.xml.example; then
@@ -99,12 +146,30 @@ reject_pattern 'packages/generic' "plugin publishing must not use GitLab Generic
 reject_pattern 'JOB-TOKEN:' "plugin publishing must not authenticate to a registry with GitLab job tokens"
 if grep -R -Eq 'gitlab-maven|gitlab\.yudream\.online/api/v4/projects|CI_JOB_TOKEN|CORE_PACKAGE_(USER|TOKEN)|packages/(maven|npm)' \
   .gitlab-ci.yml .npmrc.example settings.xml.example \
-  ci/publish-plugin-jars.sh ci/verify-core-maven-registry.sh \
-  ci/verify-core-npm-contracts.sh ci/verify-published-plugin-jars.sh; then
+  ci/publish-plugin-jars.sh ci/publish-plugin-store.sh \
+  ci/verify-core-maven-registry.sh ci/verify-core-npm-contracts.sh \
+  ci/verify-published-plugin-jars.sh ci/verify-published-plugin-store.sh; then
   fail "plugin package routing must not use GitLab Package Registry"
 fi
 
 echo "[verify-plugin-publish-pipeline] checking publish rules"
+for job in publish:plugin-jars publish:plugin-store verify:published-plugin-jars verify:published-plugin-store; do
+  job_block=$(awk -v job="$job" '$0 == job ":" { found=1 } found { print } found && NR > 1 && $0 ~ /^[^[:space:]][^:]*:$/ && $0 != job ":" { exit }' .gitlab-ci.yml)
+  printf '%s
+' "$job_block" | grep -q 'export PLUGIN_RELEASE_ONLY=1' \
+    || fail "$job must publish/verify only the release/plugins.txt selection"
+done
 require_pattern '\$CI_COMMIT_TAG =~ /\^v/' "plugin CI publish/verify jobs must stay tag-gated"
+for job in publish:plugin-jars publish:plugin-store verify:published-plugin-jars verify:published-plugin-store; do
+  job_block=$(awk -v job="$job" '$0 == job ":" { found=1 } found { print } found && NR > 1 && $0 ~ /^[^[:space:]][^:]*:$/ && $0 != job ":" { exit }' .gitlab-ci.yml)
+  printf '%s\n' "$job_block" | grep -q 'CI_COMMIT_REF_PROTECTED == "true"' \
+    || fail "$job must require a protected tag/ref"
+done
+if grep -Eq 'NEXUS_(USERNAME|PASSWORD)|publish-plugin|verify-published' ci/verify-third-party-submission.sh ci/verify-third-party-submission-fixture.sh; then
+  fail "third-party validation scripts must stay offline and credential-free"
+fi
+store_job_block=$(awk '$0 == "publish:plugin-store:" { found=1 } found { print } found && NR > 1 && $0 ~ /^[^[:space:]][^:]*:$/ && $0 != "publish:plugin-store:" { exit }' .gitlab-ci.yml)
+printf '%s\n' "$store_job_block" | grep -q 'resource_group: nexus-plugin-store-release' \
+  || fail "Raw store publication must use a serial resource_group"
 
 echo "[verify-plugin-publish-pipeline] OK"

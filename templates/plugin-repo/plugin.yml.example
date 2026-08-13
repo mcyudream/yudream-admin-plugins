@@ -1,0 +1,7 @@
+name: example-plugin
+version: 1.2.3
+main: example.plugin.ExamplePlugin
+depend:
+  - provider-plugin
+softdepend:
+  - optional-plugin

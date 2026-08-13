@@ -1,5 +1,6 @@
 name: yudream-wallet
 displayName: 用户钱包
+description: 提供人民币余额与可扩展积分资产管理，支持流水、转账、个人查询和后台资产维护。
 main: online.yudream.base.plugin.wallet.bootstrap.WalletPlugin
 version: 1.0.0
 softdepend:

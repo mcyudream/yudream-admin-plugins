@@ -1,0 +1,8 @@
+stages:
+  - validate
+
+validate:third-party-submission:
+  stage: validate
+  image: alpine:3.20
+  script:
+    - sh ci/verify-third-party-submission.sh

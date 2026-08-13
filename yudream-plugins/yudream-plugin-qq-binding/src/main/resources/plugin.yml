@@ -1,4 +1,5 @@
 name: qq-binding
 displayName: QQ 账号绑定
+description: 通过群聊一次性绑定码关联 QQ 与系统账号，并支持绑定资料查询。
 main: online.yudream.base.plugin.qqbinding.bootstrap.QqBindingPlugin
 version: 1.0.0

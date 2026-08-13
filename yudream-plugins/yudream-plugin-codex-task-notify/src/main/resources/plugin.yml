@@ -1,4 +1,5 @@
 name: codex-task-notify
 displayName: Codex 任务通知
+description: 将 Codex 任务的完成、确认和中断状态私信通知给对应用户，并定期清理过期任务会话。
 main: online.yudream.plugin.codextasknotify.bootstrap.CodexTaskNotifyPlugin
 version: 1.0.0

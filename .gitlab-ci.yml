@@ -11,6 +11,7 @@ variables:
   PNPM_IGNORE_PACKAGE_MANAGER_VERSION: "true"
   NEXUS_MAVEN_PUBLIC_URL: "https://nexus.yudream.online/repository/maven-public"
   NEXUS_MAVEN_RELEASES_URL: "https://nexus.yudream.online/repository/maven-releases"
+  NEXUS_PLUGIN_STORE_URL: "https://nexus.yudream.online/repository/plugin-store-releases"
   NEXUS_NPM_PUBLIC_URL: "https://nexus.yudream.online/repository/npm-public/"
   NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
   COREPACK_NPM_REGISTRY: "https://registry.npmjs.org/"
@@ -76,6 +77,34 @@ validate:publish-pipeline:
   image: alpine:3.20
   script:
     - sh ci/verify-plugin-publish-pipeline.sh
+
+validate:plugin-store-catalog:
+  stage: validate
+  image: alpine:3.20
+  script:
+    - sh ci/verify-plugin-store-catalog.sh
+
+validate:plugin-release-selection:
+  stage: validate
+  image: alpine:3.20
+  script:
+    # List-only validation; jar plugin.yml versions are checked after packaging.
+    - CI_COMMIT_TAG= PLUGIN_PACKAGE_VERSION= sh ci/verify-plugin-release-selection.sh
+
+validate:third-party-submission-fixture:
+  stage: validate
+  image: alpine:3.20
+  script:
+    - sh ci/verify-third-party-submission-fixture.sh
+
+validate:third-party-submission:
+  stage: validate
+  image: alpine:3.20
+  rules:
+    - exists:
+        - submissions/third-party/**/submission.json
+  script:
+    - sh ci/verify-third-party-submission.sh
 
 build:frontend:
   stage: build-frontend
@@ -151,13 +180,31 @@ package:plugins:
       fi
     - rm -rf "$PACKAGE_MAVEN_REPO"
     - mkdir -p "$PACKAGE_MAVEN_REPO"
-    - mvn -s settings.xml "-Dmaven.repo.local=$PACKAGE_MAVEN_REPO" clean package -DskipTests -B -e
+    - |
+      MAVEN_PROJECTS=""
+      MAVEN_AM=""
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        export PLUGIN_RELEASE_ONLY=1
+        CI_COMMIT_TAG= PLUGIN_PACKAGE_VERSION= sh ci/verify-plugin-release-selection.sh
+        . ./ci/lib/plugin-jar-selection.sh
+        MAVEN_PROJECTS=$(plugin_release_maven_pl_args "$PWD")
+        MAVEN_AM="-am"
+        echo "Tag release packages only release/plugins.txt modules: $MAVEN_PROJECTS $MAVEN_AM"
+      else
+        echo "Branch build packages the full plugin reactor"
+      fi
+    # MAVEN_PROJECTS/MAVEN_AM intentionally word-split; empty on branch builds.
+    - mvn -s settings.xml "-Dmaven.repo.local=$PACKAGE_MAVEN_REPO" clean package -DskipTests -B -e $MAVEN_PROJECTS $MAVEN_AM
     - sh ci/verify-plugin-jar-assets.sh
     - rm -rf dist/plugins
     - mkdir -p dist/plugins
     - |
       . ./ci/lib/plugin-jar-selection.sh
       copy_final_plugin_jars "$PWD" "$PWD/dist/plugins"
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        sh ci/verify-plugin-release-selection.sh
+      fi
     - ls -R dist/plugins
   artifacts:
     paths:
@@ -170,9 +217,24 @@ publish:plugin-jars:
   dependencies:
     - package:plugins
   script:
+    - export PLUGIN_RELEASE_ONLY=1
     - sh ci/publish-plugin-jars.sh
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v/
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
+
+publish:plugin-store:
+  stage: publish-plugin
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
+  resource_group: nexus-plugin-store-release
+  dependencies:
+    - package:plugins
+  needs:
+    - job: publish:plugin-jars
+  script:
+    - export PLUGIN_RELEASE_ONLY=1
+    - sh ci/publish-plugin-store.sh
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
 
 verify:published-plugin-jars:
   stage: verify-publish
@@ -180,6 +242,20 @@ verify:published-plugin-jars:
   dependencies:
     - package:plugins
   script:
+    - export PLUGIN_RELEASE_ONLY=1
     - sh ci/verify-published-plugin-jars.sh
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v/
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
+
+verify:published-plugin-store:
+  stage: verify-publish
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
+  dependencies:
+    - package:plugins
+  needs:
+    - job: publish:plugin-store
+  script:
+    - export PLUGIN_RELEASE_ONLY=1
+    - sh ci/verify-published-plugin-store.sh
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'

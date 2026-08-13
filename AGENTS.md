@@ -123,7 +123,20 @@ META-INF/yudream-plugin/frontend/{pluginCode}/assets/*
 - 只有少数非 Vite 或必须在入口前执行的脚本才使用显式 `styles`/`scripts` 补充清单；路径必须相对、不得以 `/` 开头、不得含 `..` 或反斜杠，并需去重与保持顺序。
 - 静态图片、字体、JSON、媒体等资源随 dist 打入；通过宿主 SDK 的 `sdk.assets.url("assets/logo.svg")`（所用 SDK 版本已发布该契约时）或构建器生成的相对 URL 使用，不硬编码宿主 origin。
 
-## 8. 构建、验证与发布
+## 8. 版本与更新日志（强制）
+
+- 每次完成插件功能新增、行为变更或 bug 修复时，必须根据改动范围自动更新**受影响插件**的版本和更新日志；纯格式化、注释、测试、构建脚本或文档改动且不改变插件产物行为时不得无意义升级版本。
+- 使用稳定 SemVer `MAJOR.MINOR.PATCH`：
+  - `PATCH`：向后兼容的 bug 修复、性能/稳定性/安全修复。
+  - `MINOR`：向后兼容的新功能、可选配置、新增 API 或 UI 能力。
+  - `MAJOR`：不兼容的配置、API、数据、权限、路由、依赖或行为变更。
+- 同一插件的版本必须同步写入其 Maven `pom.xml`、`src/main/resources/plugin.yml`，并与本次发布的 `vMAJOR.MINOR.PATCH` Git tag 一致；禁止只修改其中一处。
+- 每个受影响插件在 `src/main/resources/store.json` 的 `releaseNotes` 中记录本版本面向用户的变更，使用简洁 UTF-8 中文，说明新增、修复、破坏性变更及必要迁移步骤。若文件不存在或缺少该字段，应在本次版本发布时补齐；不得写入密码、token、内部地址或无关实现细节。
+- 一个提交涉及多个插件时，分别判断并更新每个受影响插件的版本与 `releaseNotes`；未受影响插件不得跟随升版。根聚合版本、SPI/SDK 版本不因普通插件业务改动自动升级。
+- 版本升级后必须重新构建受影响 JAR，并检查商店生成的 Raw descriptor 中 `plugin.version`、`releaseVersion` 与 `releaseNotes` 与源码一致。
+- Tag 发布是显式选择性发布：发布提交必须同步编辑 `release/plugins.txt`，逐行列出本次要发布的 `yudream-plugin-*` artifactId；受保护的 `v*` tag 流水线只打包、发布和回读列表中的模块，且每个选中 JAR 的 `plugin.yml version` 必须与 tag 版本一致。未列入的模块不发布、不检查版本、不跟随升版。不做基于 git diff 的改动模块自动检测。发布前运行 `sh ci/verify-plugin-release-selection.sh`（提供 tag 版本时会同时校验选中 JAR 的 `plugin.yml`）。
+
+## 9. 构建、验证与发布
 
 环境：JDK 21、Maven 3.9+、Node.js 22.22+/24.15+、pnpm 11.9+。
 
@@ -147,7 +160,7 @@ mvn -pl yudream-plugins/yudream-plugin-{code} -am package -DskipTests
 - CI 凭据、密码、token、API key 等仅通过受保护变量注入；禁止提交到仓库、日志、文档或示例。
 - 文档不得包含本机绝对路径、敏感信息或已过时的行为描述。
 
-## 9. 完成前自检
+## 10. 完成前自检
 
 - 前后端 plugin code、入口、菜单、路由、权限、HTTP path、资源路径是否一致？
 - 是否引入了宿主内部依赖、重复共享包、私有 API client、数值型长 ID 或未授权端点？

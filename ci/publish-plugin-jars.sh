@@ -5,6 +5,13 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
 . "$ROOT_DIR/ci/lib/plugin-jar-selection.sh"
 
+# A tag context always publishes/verifies the explicit release/plugins.txt
+# selection; local runs without a tag keep the full all-module behavior.
+if [ -n "${CI_COMMIT_TAG:-}" ] && ! plugin_release_only_enabled; then
+  PLUGIN_RELEASE_ONLY=1
+  export PLUGIN_RELEASE_ONLY
+fi
+
 fail() {
   echo "[publish-plugin-jars] $1" >&2
   exit 1

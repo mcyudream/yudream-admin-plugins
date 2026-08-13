@@ -32,8 +32,9 @@ fi
 
 if [ "${VERIFY_PUBLISHED_PLUGIN_JARS:-}" = "true" ]; then
   run_step "published plugin jar validation" "ci/verify-published-plugin-jars.sh"
+  run_step "published plugin store validation" "ci/verify-published-plugin-store.sh"
 else
-  echo "[verify-plugin-repo-readiness] skipping published plugin jar re-read check (set VERIFY_PUBLISHED_PLUGIN_JARS=true to enable)"
+  echo "[verify-plugin-repo-readiness] skipping published plugin jar/store re-read checks (set VERIFY_PUBLISHED_PLUGIN_JARS=true to enable)"
 fi
 
 echo "[verify-plugin-repo-readiness] OK"

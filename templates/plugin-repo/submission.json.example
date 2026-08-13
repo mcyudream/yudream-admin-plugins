@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "plugin": "plugin.yml",
+  "store": "store.json",
+  "jar": "plugin.jar",
+  "sha256": "replace-with-lowercase-sha256-of-plugin.jar",
+  "license": "LICENSE",
+  "licenseId": "MIT",
+  "author": {
+    "id": "example-author",
+    "name": "Example Author",
+    "url": "https://example.com/authors/example"
+  },
+  "source": {
+    "repository": "https://example.com/plugins/example-plugin",
+    "commit": "replace-with-40-lowercase-hex-commit"
+  },
+  "releaseNotes": "Describe this release.",
+  "resources": ["assets/icon.svg", "assets/overview.png"]
+}

@@ -1,5 +1,6 @@
 name: authlib-injector
 displayName: 外置登录认证
+description: 提供兼容 authlib-injector 与 Yggdrasil 协议的外置登录认证服务，并使用系统用户与皮肤角色资料。
 main: online.yudream.base.plugin.authlib.bootstrap.AuthlibInjectorPlugin
 version: 1.0.0
 depend:

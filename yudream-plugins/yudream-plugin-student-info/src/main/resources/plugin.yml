@@ -1,4 +1,5 @@
 name: yudream-student-info
 displayName: 学生信息
+description: 支持学生自助维护档案、管理员统一管理，并为其他插件提供学生信息服务。
 main: online.yudream.base.plugin.studentinfo.bootstrap.StudentInfoPlugin
 version: 1.0.0

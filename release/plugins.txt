@@ -1,0 +1,19 @@
+# Explicit tag-release module list (Maven artifactIds under yudream-plugins/).
+# A protected v* tag pipeline packages, publishes and verifies only the modules
+# listed here. Edit this file in the release commit; one artifactId per line,
+# no duplicates, every entry must be a root-reactor module. Local and branch
+# builds ignore this file and always build the full reactor.
+yudream-plugin-alipay
+yudream-plugin-authlib-injector
+yudream-plugin-minecraft-activity-proof
+yudream-plugin-minecraft-server
+yudream-plugin-project-progress
+yudream-plugin-yudream-skin
+yudream-plugin-student-info
+yudream-plugin-wallet
+yudream-plugin-qq-binding
+yudream-plugin-ai-chatbot
+yudream-plugin-qqbot-automation
+yudream-plugin-codex-task-notify
+yudream-plugin-world-map
+yudream-plugin-web-card

@@ -168,9 +168,13 @@ CI 会按以下顺序执行：
 2. 构建所有前端远程模块。
 3. 打包所有插件 JAR，并验证其中包含 `remoteEntry.js`。
 4. 将最终插件 JAR 收集到 `dist/plugins/`。
-5. 在 `v*` 标签上发布到 Nexus，并重新读取制品进行校验。
+5. 仅在受保护的 `v*` 标签上发布到 Nexus，并重新读取制品进行校验。
 
-发布依赖的凭据由 CI 环境注入。不要将 API Key、Nexus 账号、密码或其他密钥提交到仓库。
+发布依赖的凭据仅由受保护发布 CI 环境注入。普通 Merge Request（包括第三方投稿）不获得 Nexus 写凭据，也不得将 API Key、Nexus 账号、密码或其他密钥提交到仓库。
+
+### 第三方插件投稿
+
+第三方作者仅可通过 Merge Request 在 `submissions/third-party/` 提交投稿材料；离线校验会验证 JAR、SHA-256、许可证、资源及商店契约，但不会上传或读取 Nexus 凭据。审核通过后由维护者在未来的 protected tag/manual 流程代发；同一插件版本不可变，更新必须使用新稳定 SemVer。详见[第三方插件市场投稿](docs/third-party-plugin-submission.md)与[作者模板](templates/plugin-repo/README.md)。
 
 ## 相关项目与文档
 

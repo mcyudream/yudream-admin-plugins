@@ -1,0 +1,13 @@
+{
+  "icon": "assets/icon.svg",
+  "screenshots": ["assets/overview.png"],
+  "compatibility": {
+    "host": "^1.0.0",
+    "spi": "^2.6.0",
+    "frontendSdk": "^1.0.1"
+  },
+  "dependencies": [
+    { "code": "provider-plugin", "range": "^1.2.3", "required": true },
+    { "code": "optional-plugin", "range": "^1.2.3", "required": false }
+  ]
+}
