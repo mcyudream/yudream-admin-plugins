@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AiAgent, AiTool, GroupPolicy, Option } from '../types'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea } from '@yudream/components'
+import { FaButton, FaCheckboxGroup, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import { resolveGroupAgentCode, toGroupAgentOptions } from '../config/group-agent-options'
 
@@ -19,6 +19,7 @@ const connectionIds = ref<string[]>([]), channelIds = ref<string[]>([])
 const connectionOptions = computed(() => connections.value.map(item => ({ label: item.name, value: item.id })))
 const groupOptions = computed(() => groups.value.map(item => ({ label: `${item.name}（${item.id}）`, value: item.id })))
 const agentOptions = computed(() => toGroupAgentOptions(agents.value))
+const toolOptions = computed(() => tools.value.map(tool => ({ label: `${tool.title}：${tool.description}`, value: tool.name })))
 const form = reactive<PolicyForm>({ connectionId: '', channelId: '', enabled: true, randomProbability: 0.03, groupContextLimit: 12, personalContextLimit: 16, contextExpansionLimit: 12, cooldownSeconds: 30, hourlyReplyLimit: 30, quietHoursStart: '', quietHoursEnd: '', systemPrompt: '你是 YuDream 群聊助手，回答简短、友好、准确。', persona: '', enabledToolNames: [], randomToolCallingEnabled: false, longTermMemoryEnabled: false, semanticMemoryTopK: 5, agentCode: 'builtin-group-chatbot' })
 
 function apply(policy: GroupPolicy) { Object.assign(form, policy, { quietHoursStart: policy.quietHoursStart ?? '', quietHoursEnd: policy.quietHoursEnd ?? '' }) }
@@ -52,7 +53,7 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
             <label class="grid gap-2">Agent 应用<FaSelect v-model="form.agentCode" :options="agentOptions" placeholder="选择已发布 Agent" class="w-full" /></label>
           </div>
         </section>
-        <section class="grid gap-3 rounded border p-4"><h3>上下文、人设与工具</h3><div class="grid grid-cols-1 gap-3 md:grid-cols-3"><label class="grid gap-2">群聊上下文条数<FaInput v-model="form.groupContextLimit" type="number" /></label><label class="grid gap-2">个人上下文条数<FaInput v-model="form.personalContextLimit" type="number" /></label><label class="grid gap-2">扩展上下文条数<FaInput v-model="form.contextExpansionLimit" type="number" /></label><label class="grid gap-2">静默开始（HH:mm）<FaInput v-model="form.quietHoursStart" placeholder="22:30" /></label><label class="grid gap-2">静默结束（HH:mm）<FaInput v-model="form.quietHoursEnd" placeholder="08:00" /></label></div><label class="grid gap-2">系统提示词<FaTextarea v-model="form.systemPrompt" :rows="3" /></label><label class="grid gap-2">人设<FaTextarea v-model="form.persona" :rows="2" placeholder="例如：Minecraft 社群管理员，活泼但不过度打扰。" /></label><div class="grid gap-2"><strong>允许调用的工具</strong><label v-for="tool in tools" :key="tool.name" class="flex items-center gap-2"><input v-model="form.enabledToolNames" type="checkbox" :value="tool.name"><span>{{ tool.title }}：{{ tool.description }}</span></label><span v-if="!tools.length" class="text-sm text-muted-foreground">当前没有可配置工具。</span></div></section>
+        <section class="grid gap-3 rounded border p-4"><h3>上下文、人设与工具</h3><div class="grid grid-cols-1 gap-3 md:grid-cols-3"><label class="grid gap-2">群聊上下文条数<FaInput v-model="form.groupContextLimit" type="number" /></label><label class="grid gap-2">个人上下文条数<FaInput v-model="form.personalContextLimit" type="number" /></label><label class="grid gap-2">扩展上下文条数<FaInput v-model="form.contextExpansionLimit" type="number" /></label><label class="grid gap-2">静默开始（HH:mm）<FaInput v-model="form.quietHoursStart" placeholder="22:30" /></label><label class="grid gap-2">静默结束（HH:mm）<FaInput v-model="form.quietHoursEnd" placeholder="08:00" /></label></div><label class="grid gap-2">系统提示词<FaTextarea v-model="form.systemPrompt" :rows="3" /></label><label class="grid gap-2">人设<FaTextarea v-model="form.persona" :rows="2" placeholder="例如：Minecraft 社群管理员，活泼但不过度打扰。" /></label><div class="grid gap-2"><strong>允许调用的工具</strong><FaCheckboxGroup v-model="form.enabledToolNames" :options="toolOptions" /><span v-if="!tools.length" class="text-sm text-muted-foreground">当前没有可配置工具。</span></div></section>
         <div class="flex justify-end"><FaButton type="submit" :loading="saving">保存配置</FaButton></div>
         <section class="grid gap-3 rounded border p-4"><h3>Tools and long-term memory</h3><div class="flex flex-wrap gap-4"><FaSwitch v-model="form.randomToolCallingEnabled">Allow tools in random replies</FaSwitch><FaSwitch v-model="form.longTermMemoryEnabled">Enable long-term vector memory</FaSwitch></div><label class="grid max-w-xs gap-2">Recall result limit<FaNumberField v-model="form.semanticMemoryTopK" :min="1" :max="20" /></label></section>
       </form>

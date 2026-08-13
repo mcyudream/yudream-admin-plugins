@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaCard, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
+import { FaButton, FaCard, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import type { ActivityEvent, ActivityFilters, ActivityTimelinePoint, MemoryProfile, ProfileObservation } from '../types'
@@ -174,7 +174,7 @@ onMounted(() => loadUsers())
       <div class="upw-layout">
         <aside class="upw-users">
           <div class="upw-search">
-            <input v-model="keyword" placeholder="搜索昵称 / QQ / 用户标识">
+            <FaInput v-model="keyword" placeholder="搜索昵称 / QQ / 用户标识" class="w-full" />
           </div>
           <div class="upw-user-list">
             <button v-for="user in filteredUsers" :key="user.id" type="button" class="upw-user-card" :class="{ active: user.id === selectedId }" @click="select(user)">

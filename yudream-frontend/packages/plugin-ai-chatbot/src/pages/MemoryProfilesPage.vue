@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { MemoryFact, MemoryProfile } from '../types'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaPageHeader, FaPageMain, FaPagination, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaInput, FaPageHeader, FaPageMain, FaPagination, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import FactsEditor from '../components/FactsEditor.vue'
 import { formatDateTime, formatPercent } from '../utils/format'
@@ -210,7 +210,7 @@ onMounted(load)
                   {{ tag }}
                   <button type="button" class="mp-tag-remove" title="移除标签" @click="removeTag(tag)">×</button>
                 </span>
-                <input v-model="tagInput" class="mp-tag-input" placeholder="输入标签后回车" @keydown="onTagKeydown" @blur="addTag">
+                <FaInput v-model="tagInput" class="mp-tag-input" placeholder="输入标签后回车" @keydown="onTagKeydown" @blur="addTag" />
               </div>
             </section>
 

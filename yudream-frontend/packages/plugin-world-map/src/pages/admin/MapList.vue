@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { TableColumn } from '@yudream/components'
+import type { FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
   FaButton,
   FaCard,
+  FaFileUpload,
   FaIcon,
   FaInput,
   FaModal,
@@ -47,23 +48,27 @@ const columns: TableColumn<MapAdmin>[] = [
   { id: 'operation', header: '操作', width: 230, fixed: 'right' },
 ]
 
-const worldFileInput = ref<HTMLInputElement | null>(null)
-const clientJarInput = ref<HTMLInputElement | null>(null)
+const worldFiles = ref<FileItem[]>([])
+const clientJarFiles = ref<FileItem[]>([])
 
-function pickFile(input: HTMLInputElement | null) {
-  input?.click()
+function isZipFile(file: File) {
+  return file.type === 'application/zip' || file.name.toLowerCase().endsWith('.zip')
 }
 
-function onWorldFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  model.worldFile.value = target.files?.[0] ?? null
-  target.value = ''
+function isJarFile(file: File) {
+  return file.type === 'application/java-archive' || file.name.toLowerCase().endsWith('.jar')
 }
 
-function onClientJarChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  model.clientJarFile.value = target.files?.[0] ?? null
-  target.value = ''
+function selectWorldFile(options: FileUploadRequestOptions) {
+  model.worldFile.value = options.file
+  options.onProgress(100)
+  return { selected: true }
+}
+
+function selectClientJar(options: FileUploadRequestOptions) {
+  model.clientJarFile.value = options.file
+  options.onProgress(100)
+  return { selected: true }
 }
 
 function viewMap() {
@@ -252,42 +257,26 @@ function mapStateTag(state: MapAdmin['state']) {
 
         <div class="grid gap-1.5">
           <span class="text-sm">存档 zip</span>
-          <div class="flex items-center gap-2">
-            <FaButton size="sm" variant="outline" :disabled="model.creating.value" @click="pickFile(worldFileInput)">
-              <FaIcon name="i-mdi:folder-zip-outline" />
-              选择文件
-            </FaButton>
-            <span class="text-sm text-muted-foreground">
-              {{ model.worldFile.value?.name || '未选择（必填）' }}
-            </span>
-          </div>
-          <input
-            ref="worldFileInput"
-            type="file"
-            accept=".zip,application/zip"
-            class="hidden"
-            @change="onWorldFileChange"
-          >
+          <FaFileUpload
+            v-model="worldFiles"
+            :max="1"
+            :disabled="model.creating.value"
+            :before-upload="isZipFile"
+            :http-request="selectWorldFile"
+            description="拖放或点击选择 ZIP 压缩包（必填）"
+          />
         </div>
 
         <div class="grid gap-1.5">
           <span class="text-sm">客户端 jar（可选，留空则从镜像下载）</span>
-          <div class="flex items-center gap-2">
-            <FaButton size="sm" variant="outline" :disabled="model.creating.value" @click="pickFile(clientJarInput)">
-              <FaIcon name="i-mdi:java" />
-              选择文件
-            </FaButton>
-            <span class="text-sm text-muted-foreground">
-              {{ model.clientJarFile.value?.name || '未选择（可选）' }}
-            </span>
-          </div>
-          <input
-            ref="clientJarInput"
-            type="file"
-            accept=".jar,application/java-archive"
-            class="hidden"
-            @change="onClientJarChange"
-          >
+          <FaFileUpload
+            v-model="clientJarFiles"
+            :max="1"
+            :disabled="model.creating.value"
+            :before-upload="isJarFile"
+            :http-request="selectClientJar"
+            description="拖放或点击选择客户端 JAR（可选）"
+          />
         </div>
 
         <label class="flex items-center gap-2">

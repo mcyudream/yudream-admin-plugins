@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FaButton } from '@yudream/components'
+import { FaButton, FaCheckbox, FaInput, FaSelect, FaSlider } from '@yudream/components'
 import type { MemoryFact } from '../types'
 
 const MAX_FACTS = 30
@@ -25,20 +25,15 @@ function confidencePercent(fact: MemoryFact) { return Math.round((fact.confidenc
   <div class="fe">
     <div v-for="(fact, index) in facts" :key="index" class="fe-row">
       <div class="fe-line">
-        <select class="fe-select" :value="fact.key" @change="patch(index, { key: ($event.target as HTMLSelectElement).value })">
-          <option v-for="option in KEY_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-        </select>
-        <input :value="fact.value" class="fe-value" placeholder="事实内容，例如：喜欢 Java" maxlength="500" @input="patch(index, { value: ($event.target as HTMLInputElement).value })">
+        <FaSelect :model-value="fact.key" :options="KEY_OPTIONS" class="fe-select" @update:model-value="patch(index, { key: String($event) })" />
+        <FaInput :model-value="fact.value" class="fe-value" placeholder="事实内容，例如：喜欢 Java" maxlength="500" @update:model-value="patch(index, { value: String($event) })" />
         <button type="button" class="fe-delete" title="删除事实" @click="remove(index)">×</button>
       </div>
       <div class="fe-sub">
         <span class="fe-label">置信度</span>
-        <input type="range" min="0" max="1" step="0.05" :value="fact.confidence ?? 1" class="fe-slider" @input="patch(index, { confidence: Number(($event.target as HTMLInputElement).value) })">
+        <FaSlider :model-value="[fact.confidence ?? 1]" :min="0" :max="1" :step="0.05" :tooltip="false" class="fe-slider" @update:model-value="patch(index, { confidence: $event?.[0] })" />
         <span class="fe-percent">{{ confidencePercent(fact) }}%</span>
-        <label class="fe-approved">
-          <input type="checkbox" :checked="fact.approved ?? true" @change="patch(index, { approved: ($event.target as HTMLInputElement).checked })">
-          已批准
-        </label>
+        <FaCheckbox :model-value="fact.approved ?? true" class="fe-approved" @update:model-value="value => patch(index, { approved: Boolean(value) })">已批准</FaCheckbox>
       </div>
     </div>
     <p v-if="!facts.length" class="fe-empty">暂无事实，点击下方按钮添加</p>

@@ -11,6 +11,7 @@
     "./remote": "./dist/remoteEntry.js"
   },
   "dependencies": {
+    "@yudream/components": "catalog:",
     "@yudream/plugin-sdk": "catalog:"
   },
   "devDependencies": {
