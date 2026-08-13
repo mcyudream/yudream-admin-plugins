@@ -69,8 +69,9 @@ require_pattern '^validate:third-party-submission-fixture:$' "plugin CI must run
 require_pattern 'sh ci/verify-third-party-submission-fixture.sh' "plugin CI must validate third-party submission fixtures"
 require_pattern '^validate:third-party-submission:$' "plugin CI must validate submitted third-party materials"
 require_pattern 'sh ci/verify-third-party-submission.sh' "third-party submission job must call the offline validator"
-require_pattern 'apk add --no-cache python3' "alpine validate jobs that run catalog/submission scripts must install python3"
-require_pattern 'apt-get install -y -qq python3 curl unzip' "maven publish/verify jobs that run store scripts must install python3, curl and unzip"
+require_pattern 'library/python:3.12-alpine' "catalog/submission/store jobs must use a python-bundled image instead of per-job python installs"
+require_pattern 'apk add --no-cache curl unzip' "store publish/verify jobs must add curl and unzip"
+require_pattern 'apk add --no-cache unzip' "python-image validate jobs must add unzip"
 require_pattern 'apt-get install -y -qq unzip' "tag package job must install unzip for the release-selection validator"
 if grep -A12 '^validate:third-party-submission:' .gitlab-ci.yml | grep -Eq 'NEXUS_(USERNAME|PASSWORD)'; then
   fail "third-party submission validation must not receive Nexus write credentials"

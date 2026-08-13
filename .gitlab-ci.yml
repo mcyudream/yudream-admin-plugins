@@ -79,9 +79,9 @@ validate:publish-pipeline:
 
 validate:plugin-store-catalog:
   stage: validate
-  image: alpine:3.20
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   before_script:
-    - apk add --no-cache python3
+    - apk add --no-cache unzip
   script:
     - sh ci/verify-plugin-store-catalog.sh
 
@@ -94,20 +94,20 @@ validate:plugin-release-selection:
 
 validate:third-party-submission-fixture:
   stage: validate
-  image: alpine:3.20
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   before_script:
-    - apk add --no-cache python3
+    - apk add --no-cache unzip
   script:
     - sh ci/verify-third-party-submission-fixture.sh
 
 validate:third-party-submission:
   stage: validate
-  image: alpine:3.20
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   rules:
     - exists:
         - submissions/third-party/**/submission.json
   before_script:
-    - apk add --no-cache python3
+    - apk add --no-cache unzip
   script:
     - sh ci/verify-third-party-submission.sh
 
@@ -232,7 +232,7 @@ publish:plugin-jars:
 
 publish:plugin-store:
   stage: publish-plugin
-  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   resource_group: nexus-plugin-store-release
   needs:
     - job: package:plugins
@@ -240,7 +240,7 @@ publish:plugin-store:
     - job: publish:plugin-jars
       artifacts: false
   before_script:
-    - apt-get update -qq && apt-get install -y -qq python3 curl unzip
+    - apk add --no-cache curl unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/publish-plugin-store.sh
@@ -260,14 +260,14 @@ verify:published-plugin-jars:
 
 verify:published-plugin-store:
   stage: verify-publish
-  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
+  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   needs:
     - job: package:plugins
       artifacts: true
     - job: publish:plugin-store
       artifacts: false
   before_script:
-    - apt-get update -qq && apt-get install -y -qq python3 curl unzip
+    - apk add --no-cache curl unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/verify-published-plugin-store.sh
