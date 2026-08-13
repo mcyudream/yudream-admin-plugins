@@ -1,8 +1,8 @@
-name: minecraft-activity-proof
+﻿name: minecraft-activity-proof
 displayName: Minecraft 活跃证明
 description: 将 Minecraft 在线记录关联学生档案，维护玩家映射与证明模板，并支持查询和导出活动证明。
 main: online.yudream.base.plugin.activityproof.bootstrap.MinecraftActivityProofPlugin
-version: 1.0.0
+version: 1.1.0
 depend:
   - minecraft-server
   - yudream-student-info

@@ -11,9 +11,7 @@ yudream-plugin-project-progress
 yudream-plugin-yudream-skin
 yudream-plugin-student-info
 yudream-plugin-wallet
-yudream-plugin-qq-binding
 yudream-plugin-ai-chatbot
 yudream-plugin-qqbot-automation
-yudream-plugin-codex-task-notify
 yudream-plugin-world-map
 yudream-plugin-web-card

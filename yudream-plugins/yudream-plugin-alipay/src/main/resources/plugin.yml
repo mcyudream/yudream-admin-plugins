@@ -1,7 +1,7 @@
-name: yudream-alipay
+﻿name: yudream-alipay
 displayName: 支付宝支付
 description: 接入支付宝收款创建充值订单并为用户钱包入账，提供订单查询、后台配置与订单管理。
 main: online.yudream.base.plugin.alipay.bootstrap.AlipayPlugin
-version: 1.0.0
+version: 1.1.0
 depend:
   - yudream-wallet
