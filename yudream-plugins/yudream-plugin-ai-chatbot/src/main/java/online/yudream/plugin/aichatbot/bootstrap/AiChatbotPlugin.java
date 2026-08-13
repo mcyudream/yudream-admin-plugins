@@ -39,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @PluginSpec(code = AiChatbotPlugin.CODE, name = "ai-chatbot", version = "1.0.0", description = "群聊 AI 回复与用户专属上下文。")
@@ -99,7 +100,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             variables.put("completed", profile.replyCompletedCount());
             context.templateRenderer().render("my-profile", variables, "#profile-card").whenComplete((image, error) -> {
                 if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                    LOGGER.warning("[YuDreamAdmin] [AI Chatbot] my-profile render failed: " + (error == null ? "empty image" : errorMessage(error)));
+                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] my-profile render failed: " + (error == null ? "empty image" : errorMessage(error)), error);
                     reply(event, "画像图片生成失败，请稍后再试。");
                     return;
                 }
@@ -108,7 +109,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
                         new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
             });
         } catch (RuntimeException error) {
-            LOGGER.warning("[YuDreamAdmin] [AI Chatbot] my-profile failed: " + errorMessage(error));
+            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] my-profile failed: " + errorMessage(error), error);
             reply(event, "画像查询失败：" + errorMessage(error));
         }
     }
@@ -133,7 +134,10 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             CompletableFuture<Void> previous = tail == null ? CompletableFuture.completedFuture(null) : tail.exceptionally(error -> null);
             return previous.thenCompose(value -> processMessage(event));
         });
-        next.whenComplete((value, error) -> groupQueues.remove(key, next));
+        next.whenComplete((value, error) -> {
+            groupQueues.remove(key, next);
+            if (error != null) LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] message processing failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+        });
     }
 
     private CompletableFuture<Void> processMessage(PluginEvent event) {
@@ -160,12 +164,14 @@ public class AiChatbotPlugin implements YuDreamPlugin {
                 var hits = context.semanticMemory().search(new PluginSemanticMemoryQuery(namespace, event.content(), policy.providerCode(), policy.modelCode(), policy.semanticMemoryTopK())).toCompletableFuture().join();
                 if (!hits.isEmpty()) { history = new ArrayList<>(history); history.addAll(hits.stream().map(hit -> new PluginAiChatMessage("system", "相关长期记忆：" + hit.content())).toList()); }
                 context.semanticMemory().index(new PluginSemanticMemoryRecord(namespace, event.messageId() == null ? UUID.randomUUID().toString() : event.messageId(), event.content(), policy.providerCode(), policy.modelCode(), Map.of("qq", event.userId(), "timestamp", System.currentTimeMillis())));
-            } catch (Exception ignored) { }
+            } catch (Exception error) {
+                LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] semantic memory failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+            }
         }
         if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
         PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), policy.enabledToolNames());
         return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
-            if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error)); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
+            if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
             append("group-history", groupId(event), "assistant", result.content());
@@ -174,8 +180,8 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         }).toCompletableFuture();
     }
 
-    private void activity(PluginEvent event, String userId, String type, String mode, boolean success) { try { activities.record(event.connectionId(), event.channelId(), event.userId(), userId, type, mode, success); } catch (Exception error) { LOGGER.fine(() -> "[YuDreamAdmin] [AI Chatbot] activity recording failed: " + errorMessage(error)); } }
-    private void profileActivity(PluginEvent event, String userId, String nickname, String avatar, String outcome) { try { if ("OBSERVED".equals(outcome)) profiles.observe(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, event.content()); else profiles.recordReply(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, outcome); } catch (Exception error) { LOGGER.fine(() -> "[YuDreamAdmin] [AI Chatbot] profile activity recording failed: " + errorMessage(error)); } }
+    private void activity(PluginEvent event, String userId, String type, String mode, boolean success) { try { activities.record(event.connectionId(), event.channelId(), event.userId(), userId, type, mode, success); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] activity recording failed: " + errorMessage(error), error); } }
+    private void profileActivity(PluginEvent event, String userId, String nickname, String avatar, String outcome) { try { if ("OBSERVED".equals(outcome)) profiles.observe(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, event.content()); else profiles.recordReply(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, outcome); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] profile activity recording failed: " + errorMessage(error), error); } }
     private List<PluginAiChatMessage> history(String collection, String id, int limit) { return context.documents().findById(collection, id).map(doc -> toHistory(doc.get("messages"), limit)).orElse(List.of()); }
     private List<PluginAiChatMessage> toHistory(Object value, int limit) { if (!(value instanceof List<?> rows)) return List.of(); List<PluginAiChatMessage> result = new ArrayList<>(); for (Object row : rows) if (row instanceof Map<?, ?> map) result.add(new PluginAiChatMessage(String.valueOf(map.get("role")), String.valueOf(map.get("content")))); return result.size() > limit ? result.subList(result.size() - limit, result.size()) : result; }
     @SuppressWarnings("unchecked") private void append(String collection, String id, String role, String content) { List<Map<String, String>> values = new ArrayList<>(); context.documents().findById(collection, id).map(doc -> doc.get("messages")).filter(List.class::isInstance).map(List.class::cast).ifPresent(values::addAll); values.add(Map.of("role", role, "content", content)); if (values.size() > 32) values = new ArrayList<>(values.subList(values.size() - 32, values.size())); context.documents().save(collection, id, Map.of("messages", values, "updatedAt", System.currentTimeMillis())); }
@@ -195,5 +201,11 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     }
     private String groupId(PluginEvent event) { return event.connectionId() + ":" + event.channelId(); }
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
-    private void reply(PluginEvent event, String text) { context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId())))); }
+    private void reply(PluginEvent event, String text) {
+        try {
+            context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+        } catch (Exception error) {
+            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+        }
+    }
 }
