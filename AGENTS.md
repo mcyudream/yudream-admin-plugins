@@ -134,7 +134,18 @@ META-INF/yudream-plugin/frontend/{pluginCode}/assets/*
 - 每个受影响插件在 `src/main/resources/store.json` 的 `releaseNotes` 中记录本版本面向用户的变更，使用简洁 UTF-8 中文，说明新增、修复、破坏性变更及必要迁移步骤。若文件不存在或缺少该字段，应在本次版本发布时补齐；不得写入密码、token、内部地址或无关实现细节。
 - 一个提交涉及多个插件时，分别判断并更新每个受影响插件的版本与 `releaseNotes`；未受影响插件不得跟随升版。根聚合版本、SPI/SDK 版本不因普通插件业务改动自动升级。
 - 版本升级后必须重新构建受影响 JAR，并检查商店生成的 Raw descriptor 中 `plugin.version`、`releaseVersion` 与 `releaseNotes` 与源码一致。
-- Tag 发布是显式选择性发布：发布提交必须同步编辑 `release/plugins.txt`，逐行列出本次要发布的 `yudream-plugin-*` artifactId；受保护的 `v*` tag 流水线只打包、发布和回读列表中的模块，且每个选中 JAR 的 `plugin.yml version` 必须与 tag 版本一致。未列入的模块不发布、不检查版本、不跟随升版。不做基于 git diff 的改动模块自动检测。发布前运行 `sh ci/verify-plugin-release-selection.sh`（提供 tag 版本时会同时校验选中 JAR 的 `plugin.yml`）。
+### 发布清单 `release/plugins.txt`（强制）
+
+Tag 发布是显式选择性发布，发布范围由版本控制的 `release/plugins.txt` 决定，不做基于 git diff 的改动模块自动检测。
+
+- 每次发布提交必须同步编辑 `release/plugins.txt`：每行一个本次要发布的 `yudream-plugin-*` artifactId，不写插件 code、版本号或其他内容。
+- 清单中的模块必须是根 `pom.xml` `<modules>` 声明的插件模块；空清单、重复项、未知模块都会被 CI 拒绝。
+- 受保护的 `v*` tag 流水线只打包（`mvn -pl <清单> -am`）、发布和回读清单中的模块；`-am` 的依赖模块不会进入发布产物。
+- 清单中每个插件的 `plugin.yml version` 必须与 tag 版本完全一致；版本不一致的 tag 会被拒绝。
+- 未列入清单的插件不发布、不检查版本、不跟随升版；其线上 JAR 与 Raw 商店条目保持不变。
+- 清单随发布提交进入代码审查，审查人必须核对“清单内容 == 本次实际改动且需要发布的插件”。
+- 全局 `plugin-catalog:<version>` 坐标只包含本次所选插件行；禁止把同一版本号拆给两个不同 tag 发布不同插件，每次发布的 tag 版本必须唯一。
+- 发布前必须运行 `sh ci/verify-plugin-release-selection.sh`；本地可用 `PLUGIN_PACKAGE_VERSION=vX.Y.Z` 或 `PLUGIN_RELEASE_MODULES=...` 覆盖做选择/版本预检，CI tag 环境强制 `PLUGIN_RELEASE_ONLY=1`，不允许回退全量发布。
 
 ## 9. 构建、验证与发布
 
