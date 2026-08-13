@@ -73,6 +73,11 @@ require_pattern 'library/python:3.12-alpine' "catalog/submission/store jobs must
 require_pattern 'apk add --no-cache curl unzip' "store publish/verify jobs must add curl and unzip"
 require_pattern 'apk add --no-cache unzip' "python-image validate jobs must add unzip"
 require_pattern 'apt-get install -y -qq unzip' "tag package job must install unzip for the release-selection validator"
+for job in publish:plugin-jars verify:published-plugin-jars; do
+  job_block=$(awk -v job="$job" '$0 == job ":" { found=1 } found { print } found && NR > 1 && $0 ~ /^[^[:space:]][^:]*:$/ && $0 != job ":" { exit }' .gitlab-ci.yml)
+  printf '%s\n' "$job_block" | grep -q 'apt-get install -y -qq unzip' \
+    || fail "$job must install unzip before reading per-plugin plugin.yml versions"
+done
 if grep -A12 '^validate:third-party-submission:' .gitlab-ci.yml | grep -Eq 'NEXUS_(USERNAME|PASSWORD)'; then
   fail "third-party submission validation must not receive Nexus write credentials"
 fi

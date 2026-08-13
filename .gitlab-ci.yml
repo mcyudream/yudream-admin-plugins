@@ -224,6 +224,8 @@ publish:plugin-jars:
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
   dependencies:
     - package:plugins
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/publish-plugin-jars.sh
@@ -252,6 +254,8 @@ verify:published-plugin-jars:
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
   dependencies:
     - package:plugins
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/verify-published-plugin-jars.sh
