@@ -11,8 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class JoinVerificationService {
+    private static final Logger LOGGER = Logger.getLogger(JoinVerificationService.class.getName());
     private static final Set<String> DECIDED = ConcurrentHashMap.newKeySet();
     private final AutomationPolicyService policies;
     private final FrameworkServices framework;
@@ -30,7 +33,10 @@ public class JoinVerificationService {
             framework.ai().chat(new PluginAiChatRequest("只输出 ALLOW 或 REJECT。根据入群验证文本判断是否可通过，无法确认时输出 REJECT。", comment,
                     blank(policy.providerCode()), blank(policy.modelCode()), List.of(),
                     new PluginAiExecutionContext(null, event.userId(), event.connectionId(), event.channelId(), event.messageId(), "GROUP_JOIN_VERIFICATION", requestId, List.of(), List.of()), false))
-                    .whenComplete((result, error) -> decide(event, error == null && result != null && "ALLOW".equalsIgnoreCase(result.content().trim()) ? Decision.APPROVE : policy.failClosed() ? Decision.REJECT : Decision.UNDECIDED));
+                    .whenComplete((result, error) -> {
+                        if (error != null) LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] group join verification AI fallback failed: connection=" + event.connectionId() + ", channel=" + event.channelId(), error);
+                        decide(event, error == null && result != null && "ALLOW".equalsIgnoreCase(result.content().trim()) ? Decision.APPROVE : policy.failClosed() ? Decision.REJECT : Decision.UNDECIDED);
+                    });
             return;
         }
         decide(event, decision == Decision.UNDECIDED && policy.failClosed() ? Decision.REJECT : decision);
@@ -44,6 +50,7 @@ public class JoinVerificationService {
         framework.messagingRaw().invoke(event.connectionId(), approve ? "accept_group_request" : "reject_group_request",
                 groupRequestPayload(event, requestId)).whenComplete((ignored, error) -> {
             if (error != null) {
+                LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] group request decision send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", decision=" + decision, error);
                 DECIDED.remove(decisionKey);
                 return;
             }

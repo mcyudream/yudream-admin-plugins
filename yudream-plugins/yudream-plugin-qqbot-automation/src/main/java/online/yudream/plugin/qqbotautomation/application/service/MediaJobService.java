@@ -30,6 +30,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class MediaJobService {
     private static final String DEFAULT_DOCKER_ENDPOINT = "http://127.0.0.1";
@@ -38,6 +40,7 @@ public class MediaJobService {
     private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
+    private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
     private final FrameworkServices framework;
@@ -55,8 +58,12 @@ public class MediaJobService {
         if (!policy.enabled() || !policy.mediaEnabled()) return;
         Matcher matcher = MEDIA_LINK.matcher(event.content() == null ? "" : event.content());
         if (!matcher.find()) return;
-        start(UUID.randomUUID().toString(), event.connectionId(), event.channelId(), matcher.group(), policy,
-                new DeliveryTarget(event.connectionId(), event.platform(), event.selfId(), event.channelId(), replyTo(event), event.selfId()), "EVENT");
+        try {
+            start(UUID.randomUUID().toString(), event.connectionId(), event.channelId(), matcher.group(), policy,
+                    new DeliveryTarget(event.connectionId(), event.platform(), event.selfId(), event.channelId(), replyTo(event), event.selfId()), "EVENT");
+        } catch (Exception error) {
+            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] media job start failed: connection=" + event.connectionId() + ", channel=" + event.channelId(), error);
+        }
     }
 
     /**
@@ -134,12 +141,21 @@ public class MediaJobService {
     private void start(String id, String connectionId, String channelId, String sourceUrl, AutomationPolicy policy,
                        DeliveryTarget target, String trigger) {
         save(id, connectionId, channelId, sourceUrl, trigger, "QUEUED", null, null);
-        MediaRequest request = request(policy, sourceUrl);
+        LOGGER.info("[YuDreamAdmin] [QQ 群自动化] media job queued: id=" + id + ", trigger=" + trigger);
+        MediaRequest request;
+        try {
+            request = request(policy, sourceUrl);
+        } catch (Exception error) {
+            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] media job request failed: id=" + id + ", source=" + sourceUrl, error);
+            save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
+            return;
+        }
         resolveMediaWithRetry(request, 3).whenComplete((media, error) -> {
                     if (error != null || media == null || media.deliveryUri().isBlank()) {
                         if (isDouyinImageDownload(request, error)) {
                             sendDouyinImagePost(request, target).whenComplete((ignored, imageError) -> {
                                 if (imageError != null) {
+                                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media image post failed: id=" + id, imageError);
                                     save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(imageError));
                                     return;
                                 }
@@ -147,15 +163,18 @@ public class MediaJobService {
                             });
                             return;
                         }
+                        LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media job failed: id=" + id + ", source=" + sourceUrl, error);
                         save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
                         return;
                     }
                     deliver(request, target, media).whenComplete((delivery, sendError) -> {
                         if (sendError != null) {
+                            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media job send failed: id=" + id, sendError);
                             save(id, connectionId, channelId, sourceUrl, trigger, "SEND_FAILED", media.downloadUrl(), sanitize(sendError));
                             return;
                         }
                         if (delivery.commentError() != null) saveCommentError(id, sanitize(delivery.commentError()));
+                        LOGGER.info("[YuDreamAdmin] [QQ 群自动化] media job completed: id=" + id);
                         save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", media.downloadUrl(), null);
                     });
                 });
@@ -210,10 +229,16 @@ public class MediaJobService {
                     List<Map<String, Object>> messages = new ArrayList<>(images.stream()
                             .map(uri -> forwardNode(nickname, userId, Map.of("type", "image", "data", Map.of("uri", uri))))
                             .toList());
-                    return localizeDouyinAudio(douyinAudioUrl(data)).handle((audioUri, ignored) -> audioUri)
+                    return localizeDouyinAudio(douyinAudioUrl(data)).handle((audioUri, error) -> {
+                                if (error != null) LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin audio localization failed", error);
+                                return audioUri;
+                            })
                             .thenCompose(audioUri -> {
                                 return fetchDouyinCommentsForMedia(request, data.path("aweme_id").asText(), target)
-                                        .exceptionally(ignored -> List.of())
+                                        .exceptionally(error -> {
+                                            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin comments fetch failed", error);
+                                            return List.of();
+                                        })
                                         .thenCompose(comments -> {
                                             messages.addAll(comments);
                                             return sendForward(target, messages, "Douyin media and comments",
@@ -260,7 +285,10 @@ public class MediaJobService {
                 .thenCompose(this::localizeDouyinAudio)
                 .thenCompose(audioUri -> sendDouyinRecord(target, audioUri))
                 // Audio is an enhancement. A failed download or record send must not fail delivered media/comments.
-                .exceptionally(ignored -> null);
+                .exceptionally(error -> {
+                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin audio delivery failed", error);
+                    return null;
+                });
     }
 
     private CompletionStage<?> sendDouyinRecord(DeliveryTarget target, String audioUrl) {
@@ -268,7 +296,10 @@ public class MediaJobService {
         return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
                 new PluginMessageContent(PluginMessageContent.Type.AUDIO, audioUrl,
                         List.of(new PluginMessageContent.Attachment(audioUrl, "douyin-audio.mp3", "audio/mpeg")), Map.of())))
-                .exceptionally(ignored -> null);
+                .exceptionally(error -> {
+                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin record send failed", error);
+                    return null;
+                });
     }
 
     private JsonNode douyinMetadata(HttpResponse<String> response) {
