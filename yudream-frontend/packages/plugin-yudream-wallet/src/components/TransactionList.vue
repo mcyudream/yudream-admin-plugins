@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import type { WalletTransaction } from '../types'
-import { FaTable, FaTag } from '@yudream/components'
+import { FaCard, FaResponsiveTable, FaTag } from '@yudream/components'
 
 defineProps<{ model: WalletPluginModel, items: WalletTransaction[] }>()
 
@@ -18,7 +18,7 @@ const columns: TableColumn<WalletTransaction>[] = [
 </script>
 
 <template>
-  <FaTable
+  <FaResponsiveTable
     row-key="id"
     table-root-class="max-w-full overflow-x-auto rounded-lg"
     table-class="min-w-[1050px]"
@@ -47,5 +47,38 @@ const columns: TableColumn<WalletTransaction>[] = [
     </template>
     <template #cell-businessNo="{ row }">{{ row.original.businessNo || '-' }}</template>
     <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
-  </FaTable>
+    <template #card="{ row }">
+      <FaCard class="w-full">
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-base font-semibold">{{ row.businessNo || '-' }}</span>
+            <div class="flex gap-1">
+              <FaTag>{{ model.transactionLabel(row.type) }}</FaTag>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1 text-sm">
+            <div v-if="row.source" class="flex gap-2">
+              <span class="shrink-0 text-secondary-foreground/60">来源</span>
+              <span class="break-all">{{ model.sourceLabel(row.source) }}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="shrink-0 text-secondary-foreground/60">金额</span>
+              <span class="break-all">{{ model.assetSymbol(row.assetCode) }}{{ model.formatAmount(row.amount, row.assetCode) }}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="shrink-0 text-secondary-foreground/60">用户</span>
+              <span class="break-all">
+                <template v-if="row.type === 'TRANSFER'">{{ model.userLabel(row.fromUser, row.fromUserId) }} → {{ model.userLabel(row.toUser, row.toUserId) }}</template>
+                <template v-else>{{ model.userLabel(row.toUser || row.fromUser, row.toUserId || row.fromUserId) }}</template>
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <span class="shrink-0 text-secondary-foreground/60">时间</span>
+              <span>{{ model.formatTime(row.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </FaCard>
+    </template>
+  </FaResponsiveTable>
 </template>

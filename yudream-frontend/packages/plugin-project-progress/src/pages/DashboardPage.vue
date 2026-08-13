@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
 import { computed } from 'vue'
-import { FaButton, FaTable, FaTag } from '@yudream/components'
+import { FaButton, FaCard, FaResponsiveTable, FaTag } from '@yudream/components'
 import ProgressPanel from '../components/ProgressPanel.vue'
 
 defineProps<{
@@ -68,7 +68,7 @@ const detailColumns = computed<TableColumn<ProjectWorkDetail>[]>(() => [
         <div class="pp-progress-line">
           <span :style="{ width: `${model.completion}%` }" />
         </div>
-        <FaTable
+        <FaResponsiveTable
           row-key="id"
           table-root-class="max-w-full overflow-x-auto rounded-lg"
           table-class="min-w-[760px]"
@@ -98,7 +98,23 @@ const detailColumns = computed<TableColumn<ProjectWorkDetail>[]>(() => [
               </span>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-base font-semibold">{{ row.title }}</span>
+                  <div class="flex gap-1">
+                    <FaTag variant="secondary">{{ model.statusLabel(row.statusCode) }}</FaTag>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">负责人</span><span class="break-all">{{ model.userOptionsForIds(row.assigneeUserIds).map(user => model.userLabel(user)).join('、') || '未分配' }}</span></div>
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">验收人</span><span class="break-all">{{ model.userOptionsForIds(row.acceptorUserIds).map(user => model.userLabel(user)).join('、') || '项目负责人' }}</span></div>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </ProgressPanel>
     </section>
 

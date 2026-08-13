@@ -4,15 +4,16 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
   FaButton,
+  FaCard,
   FaIcon,
   FaInput,
   FaModal,
   FaPageHeader,
   FaPageMain,
   FaProgress,
+  FaResponsiveTable,
   FaSelect,
   FaSwitch,
-  FaTable,
   FaTag,
   useFaModal,
 } from '@yudream/components'
@@ -84,6 +85,10 @@ function confirmDelete(map: MapAdmin) {
     onConfirm: () => model.removeMap(map),
   })
 }
+
+function mapStateTag(state: MapAdmin['state']) {
+  return MAP_STATE_META[state]
+}
 </script>
 
 <template>
@@ -95,7 +100,7 @@ function confirmDelete(map: MapAdmin) {
   </FaPageHeader>
 
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       row-key="id"
       table-root-class="max-w-full overflow-x-auto rounded-lg"
       table-class="min-w-[960px]"
@@ -115,8 +120,8 @@ function confirmDelete(map: MapAdmin) {
       <template #cell-state="{ row }">
         <div class="grid min-w-[180px] gap-1">
           <div class="flex items-center gap-2">
-            <FaTag :variant="MAP_STATE_META[row.original.state].variant">
-              {{ MAP_STATE_META[row.original.state].label }}
+            <FaTag :variant="mapStateTag(row.original.state).variant">
+              {{ mapStateTag(row.original.state).label }}
             </FaTag>
             <span v-if="row.original.state === 'FAILED' && row.original.message" class="min-w-0 truncate text-xs text-muted-foreground" :title="row.original.message">
               {{ row.original.message }}
@@ -176,7 +181,62 @@ function confirmDelete(map: MapAdmin) {
           {{ model.loading.value ? '加载中…' : '暂无地图，点击右上角「新建地图」开始' }}
         </span>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ row.name }}</span>
+              <div class="flex gap-1">
+                <FaTag :variant="mapStateTag(row.state).variant">
+                  {{ mapStateTag(row.state).label }}
+                </FaTag>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">维度</span>
+                <span class="break-all">{{ dimensionLabel(row.dimension) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">Tile 数</span>
+                <span class="break-all">高精 {{ row.hiresTiles }} / 低清 {{ row.lowresTiles }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">渲染时间</span>
+                <span>{{ formatTime(row.renderedAt) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton
+                size="sm"
+                variant="outline"
+                :disabled="row.state === 'RENDERING'"
+                :loading="model.operating.value === row.id"
+                @click="model.triggerRender(row)"
+              >
+                渲染
+              </FaButton>
+              <FaButton
+                size="sm"
+                variant="outline"
+                :disabled="row.state !== 'READY'"
+                @click="viewMap()"
+              >
+                查看
+              </FaButton>
+              <FaButton
+                size="sm"
+                variant="destructive"
+                :disabled="row.state === 'RENDERING'"
+                @click="confirmDelete(row)"
+              >
+                删除
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaModal v-model="model.createOpen.value" title="新建地图">
       <div class="grid gap-4">

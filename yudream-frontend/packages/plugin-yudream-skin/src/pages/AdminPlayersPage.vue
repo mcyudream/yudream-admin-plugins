@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -203,7 +203,7 @@ function shortHash(hash?: string) {
     <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增角色</FaButton>
   </FaPageHeader>
   <FaPageMain><div class="skin-admin-table-page">
-    <FaTable
+    <FaResponsiveTable
       row-key="uuid"
       table-root-class="skin-admin-player-table-root rounded-lg overflow-hidden"
       table-class="skin-admin-player-table"
@@ -267,7 +267,47 @@ function shortHash(hash?: string) {
           </FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ row.name }}</span>
+              <div class="flex gap-1">
+                <FaTag :variant="row.skinHash || row.capeHash ? 'default' : 'secondary'">
+                  {{ row.skinHash || row.capeHash ? '已配置' : '待换装' }}
+                </FaTag>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">系统用户</span>
+                <span class="break-all">{{ ownerText(row) }}</span>
+              </div>
+              <div v-if="row.skinHash" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">皮肤</span>
+                <span class="break-all">{{ model.textureName(row.skinHash) }}</span>
+              </div>
+              <div v-if="row.capeHash" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">披风</span>
+                <span class="break-all">{{ model.textureName(row.capeHash) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                <span>{{ model.dateText(row.lastModified) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton variant="outline" size="sm" @click="openEdit(row)">
+                编辑
+              </FaButton>
+              <FaButton variant="destructive" size="sm" @click="confirmDelete(row)">
+                删除
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pagination.page"

@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import type { WalletAsset } from '../types'
 import { ref } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSwitch, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSwitch, FaResponsiveTable, FaTag, useFaModal } from '@yudream/components'
 
 const props = defineProps<{ model: WalletPluginModel }>()
 const modal = useFaModal()
@@ -27,12 +27,44 @@ async function saveAsset() { await props.model.saveAsset(); formVisible.value = 
     <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增币种</FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable v-loading="model.loading" row-key="code" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1050px]" border stripe column-visibility :columns="assetColumns" :data="model.managedAssets" empty-text="暂无币种">
+    <FaResponsiveTable v-loading="model.loading" row-key="code" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1050px]" border stripe column-visibility :columns="assetColumns" :data="model.managedAssets" empty-text="暂无币种">
       <template #cell-type="{ row }"><FaTag>{{ row.original.money ? '货币' : '积分' }}</FaTag></template>
       <template #cell-transferEnabled="{ row }"><FaTag>{{ row.original.transferEnabled ? '允许' : '关闭' }}</FaTag></template>
       <template #cell-enabled="{ row }"><FaTag>{{ row.original.enabled ? '启用' : '停用' }}</FaTag></template>
       <template #cell-operation="{ row }"><div class="flex-center gap-2"><FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton><FaButton size="sm" variant="destructive" :loading="model.saving" @click="confirmDeleteAsset(row.original)">删除</FaButton></div></template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ row.name }} ({{ row.code }})</span>
+              <div class="flex gap-1">
+                <FaTag>{{ row.money ? '货币' : '积分' }}</FaTag>
+                <FaTag>{{ row.transferEnabled ? '允许' : '关闭' }}</FaTag>
+                <FaTag>{{ row.enabled ? '启用' : '停用' }}</FaTag>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div v-if="row.symbol" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">符号</span>
+                <span class="break-all">{{ row.symbol }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">精度</span>
+                <span class="break-all">{{ row.scale }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">最低转账</span>
+                <span class="break-all">{{ row.minTransferAmount ?? '-' }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+              <FaButton size="sm" variant="destructive" :loading="model.saving" @click="confirmDeleteAsset(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
     <FaPagination v-model:page="model.assetPager.page" v-model:size="model.assetPager.size" :total="model.assetPager.total" class="mt-3" @page-change="onAssetPage" @size-change="onAssetSize" />
 
     <FaModal v-model="formVisible" title="币种配置" show-cancel-button class="sm:max-w-2xl" :confirm-loading="model.saving" @confirm="saveAsset">

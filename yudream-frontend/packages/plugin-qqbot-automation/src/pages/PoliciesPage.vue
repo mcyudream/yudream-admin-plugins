@@ -3,13 +3,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import {
   FaAlert,
   FaButton,
+  FaCard,
   FaDrawer,
   FaIcon,
   FaPageHeader,
   FaPageMain,
   FaPagination,
   FaSelect,
-  FaTable,
+  FaResponsiveTable,
   FaTag,
   useFaModal,
   useFaToast,
@@ -292,7 +293,7 @@ onMounted(async () => {
           </FaButton>
         </div>
 
-        <FaTable
+        <FaResponsiveTable
           v-loading="loading"
           row-key="channelId"
           table-root-class="overflow-hidden rounded-lg"
@@ -314,7 +315,37 @@ onMounted(async () => {
               <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-base font-semibold">{{ groupName(row.channelId) }}</span>
+                  <div class="flex gap-1">
+                    <FaTag :variant="policyState(row).variant">{{ policyState(row).label }}</FaTag>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">群聊 ID</span>
+                    <span class="break-all">{{ row.channelId }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">覆盖字段</span>
+                    <span>{{ countOverrides(row) }} 项</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">媒体解析</span>
+                    <span>{{ mediaState(row) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
 
         <FaPagination
           v-if="connectionId"

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import {
   FaAlert,
   FaButton,
+  FaCard,
   FaIcon,
   FaInput,
   FaModal,
@@ -10,7 +11,7 @@ import {
   FaPageMain,
   FaPagination,
   FaSelect,
-  FaTable,
+  FaResponsiveTable,
   FaTag,
   useFaModal,
   useFaToast,
@@ -249,7 +250,7 @@ onMounted(load)
     <FaPageMain class="space-y-4">
       <FaAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
 
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         row-key="id"
         table-root-class="overflow-hidden rounded-lg"
@@ -275,7 +276,37 @@ onMounted(load)
           </div>
         </template>
         <template #cell-createdAt="{ row }">{{ formatTime(row.original.createdAt) }}</template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <a class="break-all text-base font-semibold text-primary hover:underline" :href="row.sourceUrl" target="_blank" rel="noreferrer">{{ row.sourceUrl }}</a>
+                <div class="flex gap-1">
+                  <FaTag :variant="statusVariant(row.status)">{{ statusLabel(row.status) }}</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">连接</span>
+                  <span class="break-all">{{ row.connectionId }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">群聊</span>
+                  <span class="break-all">{{ row.channelId }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">触发方式</span>
+                  <span>{{ triggerLabel(row.trigger) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">创建时间</span>
+                  <span>{{ formatTime(row.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination v-model:page="page" v-model:size="size" :total="total" class="mt-3" />
     </FaPageMain>

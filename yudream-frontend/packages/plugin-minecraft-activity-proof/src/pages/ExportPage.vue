@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ActivityProofModel } from '../composables/useActivityProof'
 import type { ActivityProofParticipant } from '../types'
-import { FaButton, FaCheckbox, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTable } from '@yudream/components'
+import { FaButton, FaCard, FaCheckbox, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaResponsiveTable } from '@yudream/components'
 import { computed } from 'vue'
 import ProofPanel from '../components/ProofPanel.vue'
 
@@ -109,11 +109,44 @@ async function participantPageChanged() { await props.model.reloadServerData() }
         <span>{{ model.selectedCount }} 人待导出</span>
         <span>{{ model.unmatchedCount }} 人未匹配学生信息</span>
       </div>
-      <FaTable row-key="playerId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1000px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
+      <FaResponsiveTable row-key="playerId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1000px]" border stripe column-visibility :columns="participantColumns" :data="model.participants">
         <template #cell-selected="{ row }"><FaCheckbox :model-value="model.selectedPlayerIds.includes(row.original.playerId)" @update:model-value="model.togglePlayer(row.original)" /></template>
         <template #cell-player="{ row }"><strong>{{ row.original.playerName }}</strong><div>{{ row.original.playerId }}</div></template>
         <template #cell-online="{ row }">{{ model.minutes(row.original.effectiveOnlineMillis) }}</template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.playerName }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">玩家 ID</span>
+                  <span class="break-all">{{ row.playerId }}</span>
+                </div>
+                <div v-if="row.studentName" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">姓名</span>
+                  <span class="break-all">{{ row.studentName }}</span>
+                </div>
+                <div v-if="row.studentNo" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">学号</span>
+                  <span class="break-all">{{ row.studentNo }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">有效在线</span>
+                  <span>{{ model.minutes(row.effectiveOnlineMillis) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <label class="flex items-center gap-2">
+                  <FaCheckbox :model-value="model.selectedPlayerIds.includes(row.playerId)" @update:model-value="model.togglePlayer(row)" />
+                  <span class="text-sm">选择导出</span>
+                </label>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="model.participantPager.page" v-model:size="model.participantPager.size" :total="model.participantPager.total" class="mt-3" @page-change="participantPageChanged" @size-change="participantPageChanged" />
     </ProofPanel>
 

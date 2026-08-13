@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import type { SkinClosetItem } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, useFaModal } from '@yudream/components'
 
 const props = defineProps<{ model: SkinPluginModel }>()
 const modal = useFaModal()
@@ -100,7 +100,7 @@ function confirmDelete(item: SkinClosetItem) {
     <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增衣柜项</FaButton>
   </FaPageHeader>
   <FaPageMain><div class="skin-admin-table-page">
-    <FaTable
+    <FaResponsiveTable
       row-key="id"
       table-root-class="max-w-full overflow-x-auto rounded-lg"
       table-class="min-w-[920px]"
@@ -137,7 +137,34 @@ function confirmDelete(item: SkinClosetItem) {
           <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ row.itemName || model.textureName(row.textureHash) }}</span>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">用户</span>
+                <span class="break-all">{{ model.userName(row.userId) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">材质</span>
+                <span class="break-all">{{ model.textureName(row.textureHash) }}</span>
+              </div>
+              <div v-if="row.createdAt !== undefined" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">创建时间</span>
+                <span>{{ model.dateText(row.createdAt) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" @click="openEdit(row)">重命名</FaButton>
+              <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pagination.page"

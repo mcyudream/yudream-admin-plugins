@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
-import { FaButton, FaFileUpload, FaModal, FaPagination, FaTable, FaTag, FaTextarea } from '@yudream/components'
+import { FaButton, FaCard, FaFileUpload, FaModal, FaPagination, FaResponsiveTable, FaTag, FaTextarea } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EvidenceFileList from '../components/EvidenceFileList.vue'
@@ -101,14 +101,38 @@ function localUploadRequest() {
           <span>完成任务后提交验收，通过后才计入完成进度</span>
         </div>
       </header>
-      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1310px]" border stripe column-visibility :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
+      <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1310px]" border stripe column-visibility :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div><div v-if="row.original.acceptanceSummary || row.original.acceptanceFiles.length" class="pp-material-box mt-3"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
         <template #cell-status="{ row }"><div class="pp-chip-list"><FaTag variant="secondary">{{ model.detailStatusLabel(row.original) }}</FaTag><FaTag v-if="row.original.pendingAcceptance">待验收</FaTag></div></template>
         <template #cell-assignment="{ row }">{{ model.assignmentLabel(row.original) }}</template>
         <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
         <template #cell-operation="{ row }"><div class="pp-actions"><FaButton size="sm" variant="outline" @click="goCheckIn(row.original.projectId)">项目打卡</FaButton><FaButton v-if="model.canMinecraftCheckIn(row.original)" size="sm" variant="outline" @click="model.minecraftCheckIn(row.original.projectId)">MC 打卡</FaButton><FaButton size="sm" :disabled="!model.canSubmitAcceptance(row.original)" :loading="model.saving" @click="openSubmitAcceptance(row.original)">提交验收</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.title }}</span>
+                <div class="flex gap-1">
+                  <FaTag variant="secondary">{{ model.detailStatusLabel(row) }}</FaTag>
+                  <FaTag v-if="row.pendingAcceptance">待验收</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">项目</span><span class="break-all">{{ model.projectName(row.projectId) }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">分配方式</span><span class="break-all">{{ model.assignmentLabel(row) }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">截止时间</span><span class="break-all">{{ model.formatTime(row.dueAt) }}</span></div>
+                <div v-if="row.description" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">说明</span><span class="break-all">{{ row.description }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="goCheckIn(row.projectId)">项目打卡</FaButton>
+                <FaButton v-if="model.canMinecraftCheckIn(row)" size="sm" variant="outline" @click="model.minecraftCheckIn(row.projectId)">MC 打卡</FaButton>
+                <FaButton size="sm" :disabled="!model.canSubmitAcceptance(row)" :loading="model.saving" @click="openSubmitAcceptance(row)">提交验收</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.myTasks.length" class="mt-3" />
     </section>
 

@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { AuthlibEndpoint } from '../types'
 import type { AuthlibPluginModel } from '../composables/useAuthlibPlugin'
-import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaTable, FaTag } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaResponsiveTable, FaTag } from '@yudream/components'
 
 defineProps<{ model: AuthlibPluginModel }>()
 
@@ -46,7 +46,7 @@ const columns: TableColumn<AuthlibEndpoint>[] = [
         </FaCard>
       </div>
 
-      <FaTable
+      <FaResponsiveTable
         v-loading="model.loading"
         row-key="path"
         table-root-class="authlib-endpoint-table-root rounded-lg overflow-hidden"
@@ -70,7 +70,25 @@ const columns: TableColumn<AuthlibEndpoint>[] = [
           <FaTag :variant="row.original.method === 'GET' ? 'secondary' : 'default'">{{ row.original.method }}</FaTag>
         </template>
         <template #cell-path="{ row }"><code>{{ row.original.path }}</code></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold break-all">{{ row.path }}</span>
+                <div class="flex gap-1">
+                  <FaTag :variant="row.method === 'GET' ? 'secondary' : 'default'">{{ row.method }}</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.note" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">用途</span>
+                  <span class="break-all">{{ row.note }}</span>
+                </div>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </FaPageMain>
   </section>
 </template>

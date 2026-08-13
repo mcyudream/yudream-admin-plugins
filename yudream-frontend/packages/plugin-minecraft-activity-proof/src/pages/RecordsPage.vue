@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ActivityProofModel } from '../composables/useActivityProof'
 import type { ActivityProofExportRecord } from '../types'
-import { FaButton, FaFileUpload, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable } from '@yudream/components'
+import { FaButton, FaCard, FaFileUpload, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaResponsiveTable } from '@yudream/components'
 import { ref } from 'vue'
 
 const props = defineProps<{
@@ -30,7 +30,7 @@ async function pageChanged() { await props.model.loadRecords() }
       </FaButton>
     </FaPageHeader>
     <FaPageMain>
-      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1200px]" border stripe column-visibility :columns="columns" :data="model.exports">
+      <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1200px]" border stripe column-visibility :columns="columns" :data="model.exports">
         <template #toolbar><FaSearchBar class="w-full"><FaButton variant="outline" :loading="model.loading" @click="model.loadRecords"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></FaSearchBar></template>
         <template #cell-file="{ row }"><strong>{{ row.original.outputFilename }}</strong><div>{{ row.original.serverName || row.original.serverId }}</div></template>
         <template #cell-participants="{ row }">{{ row.original.participantCount }} 人<span v-if="row.original.unmatchedCount"> / {{ row.original.unmatchedCount }} 未匹配</span></template>
@@ -44,7 +44,40 @@ async function pageChanged() { await props.model.loadRecords() }
             <FaButton size="sm" variant="destructive" @click="model.deleteExportRecord(row.original)">删除</FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.outputFilename }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.activityName" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">活动</span>
+                  <span class="break-all">{{ row.activityName }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">参与人数</span>
+                  <span>{{ row.participantCount }} 人<span v-if="row.unmatchedCount"> / {{ row.unmatchedCount }} 未匹配</span></span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">盖章 PDF</span>
+                  <span>{{ row.stampedPdfReady ? row.stampedPdfFilename : '未上传' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">生成时间</span>
+                  <span>{{ model.formatTime(row.generatedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="model.openDownload(row)">下载 Word</FaButton>
+                <FaButton v-if="row.stampedPdfReady" size="sm" variant="outline" @click="model.openStampedPdf(row)">下载 PDF</FaButton>
+                <FaFileUpload v-model="uploadFiles" :max="1" :before-upload="file => file.type === 'application/pdf'" :http-request="options => model.uploadStampedPdfFile(row, options.file)" description="上传 PDF" />
+                <FaButton size="sm" variant="destructive" @click="model.deleteExportRecord(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="model.exportsPager.page" v-model:size="model.exportsPager.size" :total="model.exportsPager.total" class="mt-3" @page-change="pageChanged" @size-change="pageChanged" />
     </FaPageMain>
   </section>

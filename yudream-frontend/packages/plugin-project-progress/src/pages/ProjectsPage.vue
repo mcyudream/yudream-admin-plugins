@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectProgressProject } from '../types'
-import { FaButton, FaCheckboxGroup, FaInput, FaModal, FaNumberField, FaPagination, FaSelect, FaSwitch, FaTable, FaTag, FaTextarea, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaCheckboxGroup, FaInput, FaModal, FaNumberField, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, FaTag, FaTextarea, useFaModal } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PeoplePicker from '../components/PeoplePicker.vue'
@@ -37,7 +37,7 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
   <section class="pp-page">
     <section class="pp-toolbar"><div><span>项目配置</span><h2>项目管理</h2></div><div class="pp-actions"><FaButton variant="outline" :loading="model.loading" @click="model.load">刷新</FaButton><FaButton @click="createProject">新建项目</FaButton></div></section>
     <section class="pp-panel">
-      <FaTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1530px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无项目">
+      <FaResponsiveTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1530px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无项目">
         <template #cell-project="{ row }"><strong>{{ row.original.name }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无描述' }}</div></template>
         <template #cell-status="{ row }"><FaTag :variant="row.original.enabled ? 'default' : 'secondary'">{{ row.original.enabled ? '启用中' : '已停用' }}</FaTag></template>
         <template #cell-managers="{ row }"><div class="pp-chip-list"><FaTag v-for="user in model.userOptionsForIds(row.original.managerUserIds)" :key="user.id" variant="secondary">{{ model.userLabel(user) }}</FaTag></div></template>
@@ -46,7 +46,30 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
         <template #cell-server="{ row }">{{ row.original.minecraftPolicy.enabled ? model.serverLabel(row.original.minecraftPolicy.serverId) : '未启用' }}</template>
         <template #cell-updatedAt="{ row }">{{ model.formatTime(row.original.updatedAt) }}</template>
         <template #cell-operation="{ row }"><div class="pp-actions"><FaButton size="sm" variant="outline" @click="openProject(row.original)">查看</FaButton><FaButton size="sm" variant="outline" @click="editProject(row.original)">编辑</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.name }}</span>
+                <div class="flex gap-1">
+                  <FaTag :variant="row.enabled ? 'default' : 'secondary'">{{ row.enabled ? '启用中' : '已停用' }}</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.description" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">描述</span><span class="break-all">{{ row.description }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">负责人</span><span class="break-all">{{ model.userOptionsForIds(row.managerUserIds).map(user => model.userLabel(user)).join('、') }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">成员</span><span class="break-all">{{ model.projectMemberCount(row) }} 人</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">更新时间</span><span class="break-all">{{ model.formatTime(row.updatedAt) }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openProject(row)">查看</FaButton>
+                <FaButton size="sm" variant="outline" @click="editProject(row)">编辑</FaButton>
+                <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.projects.length" class="mt-3" />
     </section>
 

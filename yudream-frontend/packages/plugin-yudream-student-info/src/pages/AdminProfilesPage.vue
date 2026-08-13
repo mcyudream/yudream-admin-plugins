@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { StudentProfile } from '../types'
-import { FaButton, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { useAdminStudentProfiles } from '../composables/useAdminStudentProfiles'
 
@@ -59,7 +59,7 @@ onMounted(model.load)
     </FaPageHeader>
 
     <FaPageMain>
-      <FaTable
+      <FaResponsiveTable
         v-loading="model.loading"
         row-key="userId"
         table-root-class="max-w-full overflow-x-auto rounded-lg"
@@ -103,7 +103,39 @@ onMounted(model.load)
             <FaButton size="sm" variant="destructive" :loading="model.deletingUserId === row.original.userId" @click="confirmDelete(row.original)">删除</FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ model.displayName(row) }}</span>
+                <span class="text-xs text-secondary-foreground/60">ID {{ row.userId }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.studentNo" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">学号</span>
+                  <span class="break-all">{{ row.studentNo }}</span>
+                </div>
+                <div v-if="row.className" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">班级</span>
+                  <span class="break-all">{{ row.className }}</span>
+                </div>
+                <div v-if="row.college" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">学院</span>
+                  <span class="break-all">{{ row.college }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                  <span>{{ model.formatTime(row.updatedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                <FaButton size="sm" variant="destructive" :loading="model.deletingUserId === row.userId" @click="confirmDelete(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="model.pagination.page"

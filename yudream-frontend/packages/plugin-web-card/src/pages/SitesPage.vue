@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { FaAlert, FaButton, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaSwitch, FaTable, FaTextarea, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, FaTextarea, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { CardTemplate, ParseRules, Site, SiteRouteRule } from '../types'
@@ -113,12 +113,31 @@ onMounted(load)
     <FaPageHeader title="站点与子链接规则" description="一个域名可维护多套子链接匹配、字段解析和卡片模板。"><FaButton @click="create"><FaIcon name="i-ri:add-line"/>新增站点</FaButton></FaPageHeader>
     <FaPageMain class="space-y-4">
       <FaAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>
-      <FaTable v-loading="loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1040px]" border stripe :columns="columns" :data="rows">
+      <FaResponsiveTable v-loading="loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1040px]" border stripe :columns="columns" :data="rows">
         <template #cell-hosts="{row}">{{ row.original.hosts.join(', ') }}</template>
         <template #cell-pattern="{row}"><span class="pattern-cell">{{ patterns[row.original.id] || '加载中' }}</span></template>
         <template #cell-enabled="{row}"><div class="status-toggle"><FaSwitch :model-value="row.original.enabled" :disabled="toggling===row.original.id" @update:model-value="toggle(row.original)"/><small>{{ row.original.enabled ? '已启用' : '已停用' }}</small></div></template>
         <template #cell-operation="{row}"><div class="row-actions"><FaButton size="sm" variant="outline" @click="edit(row.original)">管理规则</FaButton><FaButton size="sm" variant="destructive" @click="remove(row.original)">删除</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.name }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">允许域名</span><span class="break-all">{{ row.hosts.join(', ') }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">子链接规则</span><span class="break-all">{{ patterns[row.id] || '加载中' }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">类型</span><span>{{ row.responseType }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">状态</span><span>{{ row.enabled ? '已启用' : '已停用' }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="edit(row)">管理规则</FaButton>
+                <FaButton size="sm" variant="destructive" @click="remove(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="page" v-model:size="size" :total="total" class="mt-3" @page-change="load" @size-change="load"/>
     </FaPageMain>
 

@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/c
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaSwitch, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaSwitch, FaTag, useFaModal } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -203,7 +203,7 @@ function formatSize(size?: number) {
     <FaButton @click="openUpload"><FaIcon name="i-ri:upload-cloud-2-line" />上传材质</FaButton>
   </FaPageHeader>
   <FaPageMain><div class="skin-admin-table-page">
-    <FaTable
+    <FaResponsiveTable
       row-key="hash"
       table-root-class="skin-admin-texture-table-root rounded-lg overflow-hidden"
       table-class="skin-admin-texture-table"
@@ -269,7 +269,43 @@ function formatSize(size?: number) {
           <FaButton variant="destructive" size="sm" :loading="model.saving === `admin-texture:${row.original.hash}`" @click="confirmDelete(row.original)">删除</FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ row.name }}</span>
+              <div class="flex gap-1">
+                <FaTag :variant="row.publicAccess ? 'default' : 'secondary'">
+                  {{ row.publicAccess ? '公开' : '私有' }}
+                </FaTag>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                <span>{{ textureKind(row) }}</span>
+              </div>
+              <div v-if="row.uploaderId" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">上传人</span>
+                <span class="break-all">{{ model.userName(row.uploaderId) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                <span>{{ formatSize(row.size) }}</span>
+              </div>
+              <div v-if="row.uploadedAt !== undefined" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">上传时间</span>
+                <span>{{ model.dateText(row.uploadedAt) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton variant="outline" size="sm" :loading="model.saving === `admin-texture:${row.hash}`" @click="openEdit(row)">编辑</FaButton>
+              <FaButton variant="destructive" size="sm" :loading="model.saving === `admin-texture:${row.hash}`" @click="confirmDelete(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pagination.page"

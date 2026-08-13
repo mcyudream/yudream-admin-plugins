@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectMemberStats } from '../types'
 import { computed } from 'vue'
-import { FaButton, FaIcon, FaSelect, FaTable } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaResponsiveTable, FaSelect } from '@yudream/components'
 
 const props = defineProps<{
   model: ProjectProgressModel
@@ -94,7 +94,7 @@ function userFor(userId: string) {
           <span>统计口径：完成按细分当前完成状态，通过/退回按验收处理记录计数</span>
         </div>
       </header>
-      <FaTable
+      <FaResponsiveTable
         row-key="userId"
         table-root-class="pp-fa-table-root"
         table-class="pp-fa-table"
@@ -111,7 +111,22 @@ function userFor(userId: string) {
         <template #cell-lastActivityAt="{ row }">
           {{ model.formatTime(row.original.lastActivityAt) }}
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ model.userLabel(userFor(row.userId)) }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">分配细分</span><span class="break-all">{{ row.assignedDetails }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">已完成</span><span class="break-all">{{ row.completedDetails }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">打卡</span><span class="break-all">{{ row.checkIns }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">最近活动</span><span class="break-all">{{ model.formatTime(row.lastActivityAt) }}</span></div>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </section>
   </section>
 </template>

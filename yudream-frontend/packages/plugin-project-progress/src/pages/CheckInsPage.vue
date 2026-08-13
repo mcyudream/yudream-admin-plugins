@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectCheckIn } from '../types'
-import { FaButton, FaFileUpload, FaInput, FaPagination, FaRadioGroup, FaSelect, FaTable, FaTag, FaTextarea, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaFileUpload, FaInput, FaPagination, FaRadioGroup, FaResponsiveTable, FaSelect, FaTag, FaTextarea, useFaModal } from '@yudream/components'
 import { computed, reactive, watch } from 'vue'
 
 const props = defineProps<{ model: ProjectProgressModel }>()
@@ -81,14 +81,37 @@ function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete 
 
       <section class="pp-panel">
         <header class="pp-panel-head"><div><h3>项目打卡记录</h3><span>{{ model.checkIns.length }} 条记录</span></div></header>
-        <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+        <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[900px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
           <template #cell-user="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
           <template #cell-type="{ row }"><FaTag variant="secondary">{{ typeLabel(row.original.type) }}</FaTag></template>
           <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
           <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
           <template #cell-reviewStatus="{ row }"><FaTag :variant="row.original.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.original.reviewStatus) }}</FaTag></template>
           <template #cell-operation="{ row }"><div class="flex-center gap-2"><FaButton v-if="row.original.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row.original)">Reject</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">Delete</FaButton></div></template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-base font-semibold">{{ model.userLabel(model.usersById[row.userId]) }}</span>
+                  <div class="flex gap-1">
+                    <FaTag variant="secondary">{{ typeLabel(row.type) }}</FaTag>
+                    <FaTag :variant="row.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.reviewStatus) }}</FaTag>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">说明</span><span class="break-all">{{ row.summary || '无说明' }}</span></div>
+                  <div v-if="row.location" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">位置</span><span class="break-all">{{ row.location.address }}</span></div>
+                  <div v-if="row.minecraft" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">MC 在线</span><span class="break-all">{{ model.serverLabel(row.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.minecraft.effectiveOnlineMillis) }}</span></div>
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">时间</span><span class="break-all">{{ model.formatTime(row.createdAt) }}</span></div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton v-if="row.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row)">Reject</FaButton>
+                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">Delete</FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
         <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.checkIns.length" class="mt-3" />
       </section>
     </section>

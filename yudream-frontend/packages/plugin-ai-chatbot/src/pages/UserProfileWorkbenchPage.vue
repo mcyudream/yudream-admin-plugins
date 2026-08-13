@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
+import { FaButton, FaCard, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import type { ActivityEvent, ActivityFilters, ActivityTimelinePoint, MemoryProfile, ProfileObservation } from '../types'
@@ -312,11 +312,33 @@ onMounted(() => loadUsers())
 
           <section class="upw-card">
             <div class="upw-card-head"><h3>最近互动事件</h3><span class="upw-hint">仅元数据，不含消息正文</span></div>
-            <FaTable row-key="id" table-root-class="overflow-x-auto" table-class="min-w-[560px]" :columns="eventColumns" :data="events" empty-text="暂无互动事件">
+            <FaResponsiveTable row-key="id" table-root-class="overflow-x-auto" table-class="min-w-[560px]" :columns="eventColumns" :data="events" empty-text="暂无互动事件">
               <template #cell-occurredAt="{ row }">{{ formatDateTime(row.original.occurredAt) }}</template>
               <template #cell-mode="{ row }">{{ row.original.mode === 'MENTION' ? '@触发' : (row.original.mode === 'RANDOM' ? '随机' : '—') }}</template>
               <template #cell-result="{ row }"><FaTag :variant="row.original.success ? 'default' : 'destructive'">{{ row.original.success ? '成功' : '失败' }}</FaTag></template>
-            </FaTable>
+              <template #card="{ row }">
+                <FaCard class="w-full">
+                  <div class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-base font-semibold">{{ formatDateTime(row.occurredAt) }}</span>
+                      <div class="flex gap-1">
+                        <FaTag :variant="row.success ? 'default' : 'destructive'">{{ row.success ? '成功' : '失败' }}</FaTag>
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">事件</span>
+                        <span class="break-all">{{ row.type }}</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">触发</span>
+                        <span>{{ row.mode === 'MENTION' ? '@触发' : (row.mode === 'RANDOM' ? '随机' : '—') }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </FaCard>
+              </template>
+            </FaResponsiveTable>
             <FaPagination v-model:page="eventPager.page" v-model:size="eventPager.size" :total="eventPager.total" class="mt-3" @page-change="loadEvents" @size-change="loadEvents" />
           </section>
         </div>

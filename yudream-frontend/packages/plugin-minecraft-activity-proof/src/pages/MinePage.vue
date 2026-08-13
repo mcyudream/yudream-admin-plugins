@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ActivityProofModel } from '../composables/useActivityProof'
 import type { ActivityProofExportRecord } from '../types'
-import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTable } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable } from '@yudream/components'
 
 const props = defineProps<{
   model: ActivityProofModel
@@ -20,10 +20,32 @@ async function pageChanged() { await props.model.loadMine() }
   <section class="proof-page">
     <FaPageHeader title="我的活动证明"><FaButton variant="outline" :loading="model.loading" @click="model.loadMine"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></FaPageHeader>
     <FaPageMain>
-      <FaTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="columns" :data="model.myExports">
+      <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="columns" :data="model.myExports">
         <template #cell-uploadedAt="{ row }">{{ model.formatTime(row.original.stampedPdfUploadedAt) }}</template>
         <template #cell-operation="{ row }"><FaButton size="sm" variant="outline" @click="model.openStampedPdf(row.original)">下载 PDF</FaButton></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.activityName }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.serverName" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">服务器</span>
+                  <span class="break-all">{{ row.serverName }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">盖章时间</span>
+                  <span>{{ model.formatTime(row.stampedPdfUploadedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="model.openStampedPdf(row)">下载 PDF</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="model.myExportsPager.page" v-model:size="model.myExportsPager.size" :total="model.myExportsPager.total" class="mt-3" @page-change="pageChanged" @size-change="pageChanged" />
     </FaPageMain>
   </section>

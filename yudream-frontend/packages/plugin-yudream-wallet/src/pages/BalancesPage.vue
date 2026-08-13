@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import type { WalletBalance } from '../types'
 import { computed, ref } from 'vue'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTextarea } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaResponsiveTable, FaTextarea } from '@yudream/components'
 
 const props = defineProps<{ model: WalletPluginModel }>()
 const changeVisible = ref(false)
@@ -28,7 +28,7 @@ function onSizeChange() { props.model.balancePager.page = 1; props.model.loadAdm
     <FaButton @click="openChange"><FaIcon name="i-ri:exchange-funds-line" />余额处理</FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="model.loading"
       :columns="columns"
       :data="model.adminBalances"
@@ -51,7 +51,34 @@ function onSizeChange() { props.model.balancePager.page = 1; props.model.loadAdm
       <template #cell-balance="{ row }">{{ model.assetSymbol(row.original.assetCode) }}{{ model.formatAmount(row.original.balance, row.original.assetCode) }}</template>
       <template #cell-historical="{ row }">{{ model.assetSymbol(row.original.assetCode) }}{{ model.formatAmount(row.original.historicalTotalAmount, row.original.assetCode) }}</template>
       <template #cell-updatedAt="{ row }">{{ model.formatTime(row.original.updatedAt) }}</template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-semibold">{{ model.userLabel(row.user, row.userId) }}</span>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div v-if="row.user?.email" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">邮箱</span>
+                <span class="break-all">{{ row.user?.email }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">币种</span>
+                <span class="break-all">{{ model.assetName(row.assetCode) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">余额</span>
+                <span class="break-all">{{ model.assetSymbol(row.assetCode) }}{{ model.formatAmount(row.balance, row.assetCode) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                <span>{{ model.formatTime(row.updatedAt) }}</span>
+              </div>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
     <FaPagination v-model:page="model.balancePager.page" v-model:size="model.balancePager.size" :total="model.balancePager.total" class="mt-3" @page-change="onPageChange" @size-change="onSizeChange" />
 
     <FaModal v-model="changeVisible" title="余额处理" description="为指定用户执行入账或扣账操作。" show-cancel-button :show-confirm-button="false" class="sm:max-w-2xl">

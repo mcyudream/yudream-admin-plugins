@@ -3,7 +3,7 @@ import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
 import { DatePicker as ADatePicker } from '@arco-design/web-vue'
-import { FaButton, FaInput, FaModal, FaNumberField, FaPagination, FaRadioGroup, FaSelect, FaTable, FaTag, FaTextarea, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaInput, FaModal, FaNumberField, FaPagination, FaRadioGroup, FaResponsiveTable, FaSelect, FaTag, FaTextarea, useFaModal } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import EvidenceFileList from '../components/EvidenceFileList.vue'
 import PeoplePicker from '../components/PeoplePicker.vue'
@@ -52,7 +52,7 @@ function confirmDelete(detail: ProjectWorkDetail) {
     <section class="pp-toolbar"><div><span>任务拆分</span><h2>工作细节</h2></div><div class="pp-actions"><FaSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" /><FaButton variant="outline" :loading="model.loading" @click="model.load">刷新</FaButton><FaButton variant="outline" :disabled="!model.details.length" @click="model.exportDetails">导出</FaButton><FaButton :disabled="!model.selectedProjectId" @click="createDetail">新建细节</FaButton></div></section>
 
     <section class="pp-panel">
-      <FaTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1740px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无工作细节">
+      <FaResponsiveTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1740px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无工作细节">
         <template #cell-detail="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div><div v-if="row.original.acceptanceSummary || row.original.acceptanceFiles.length" class="pp-material-box mt-3"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
         <template #cell-status="{ row }"><div class="pp-chip-list"><FaTag variant="secondary">{{ model.detailStatusLabel(row.original) }}</FaTag><FaTag v-if="row.original.pendingAcceptance">待验收</FaTag></div></template>
         <template #cell-assignment="{ row }">{{ model.assignmentLabel(row.original) }}</template>
@@ -61,7 +61,33 @@ function confirmDelete(detail: ProjectWorkDetail) {
         <template #cell-published="{ row }"><FaTag :variant="row.original.published ? 'default' : 'secondary'">{{ row.original.published ? '已发布' : '草稿' }}</FaTag></template>
         <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
         <template #cell-operation="{ row }"><div class="pp-actions"><FaButton size="sm" variant="outline" @click="editDetail(row.original)">编辑</FaButton><FaButton size="sm" variant="outline" :disabled="row.original.published" @click="model.publish(row.original)">发布</FaButton><FaButton v-if="row.original.assignmentMode === 'RANDOM'" size="sm" variant="outline" @click="model.randomAssign(row.original)">随机分配</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.title }}</span>
+                <div class="flex gap-1">
+                  <FaTag variant="secondary">{{ model.detailStatusLabel(row) }}</FaTag>
+                  <FaTag v-if="row.pendingAcceptance">待验收</FaTag>
+                  <FaTag :variant="row.published ? 'default' : 'secondary'">{{ row.published ? '已发布' : '草稿' }}</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.description" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">说明</span><span class="break-all">{{ row.description }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">分配方式</span><span class="break-all">{{ model.assignmentLabel(row) }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">负责人</span><span class="break-all">{{ model.userOptionsForIds(row.assigneeUserIds).map(user => model.userLabel(user)).join('、') || '未分配' }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">截止时间</span><span class="break-all">{{ model.formatTime(row.dueAt) }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="editDetail(row)">编辑</FaButton>
+                <FaButton size="sm" variant="outline" :disabled="row.published" @click="model.publish(row)">发布</FaButton>
+                <FaButton v-if="row.assignmentMode === 'RANDOM'" size="sm" variant="outline" @click="model.randomAssign(row)">随机分配</FaButton>
+                <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.details.length" class="mt-3" />
     </section>
 

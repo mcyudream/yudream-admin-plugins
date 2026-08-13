@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
-import { FaButton, FaModal, FaPagination, FaTable, FaTag, FaTextarea } from '@yudream/components'
+import { FaButton, FaCard, FaModal, FaPagination, FaResponsiveTable, FaTag, FaTextarea } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import EvidenceFileList from '../components/EvidenceFileList.vue'
 
@@ -53,7 +53,7 @@ async function submitReview() {
 
     <section class="pp-panel">
       <header class="pp-panel-head"><div><h3>待验收任务</h3><span>只有已提交验收的任务会出现在这里</span></div></header>
-      <FaTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1490px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无待验收任务">
+      <FaResponsiveTable v-loading="model.loading" row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1490px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无待验收任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div></template>
         <template #cell-status="{ row }"><div class="pp-chip-list"><FaTag variant="secondary">{{ model.detailStatusLabel(row.original) }}</FaTag><FaTag>待验收</FaTag></div></template>
@@ -61,7 +61,30 @@ async function submitReview() {
         <template #cell-materials="{ row }"><div class="pp-material-box"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
         <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
         <template #cell-operation="{ row }"><div class="pp-actions"><FaButton size="sm" @click="openReview(row.original, true)">通过</FaButton><FaButton size="sm" variant="destructive" @click="openReview(row.original, false)">退回</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.title }}</span>
+                <div class="flex gap-1">
+                  <FaTag variant="secondary">{{ model.detailStatusLabel(row) }}</FaTag>
+                  <FaTag>待验收</FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">项目</span><span class="break-all">{{ model.projectName(row.projectId) }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">负责人</span><span class="break-all">{{ model.userOptionsForIds(row.assigneeUserIds).map(user => model.userLabel(user)).join('、') }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">截止时间</span><span class="break-all">{{ model.formatTime(row.dueAt) }}</span></div>
+                <div v-if="row.acceptanceSummary" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">验收说明</span><span class="break-all">{{ row.acceptanceSummary }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" @click="openReview(row, true)">通过</FaButton>
+                <FaButton size="sm" variant="destructive" @click="openReview(row, false)">退回</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.pendingAcceptance.length" class="mt-3" />
     </section>
 

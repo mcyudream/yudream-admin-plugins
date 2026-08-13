@@ -10,7 +10,7 @@ import {
   FaPageHeader,
   FaPageMain,
   FaProgress,
-  FaTable,
+  FaResponsiveTable,
   FaTag,
 } from '@yudream/components'
 import { ref } from 'vue'
@@ -60,6 +60,14 @@ function errorSummary(task: RenderTask): string {
 function openErrorDetail(task: RenderTask) {
   selectedTaskError.value = task
   errorDrawerOpen.value = true
+}
+
+function taskStateTag(state: RenderTask['state']) {
+  return TASK_STATE_META[state]
+}
+
+function renderPhaseLabel(phase: NonNullable<RenderTask['phase']>) {
+  return RENDER_PHASE_LABEL[phase]
 }
 </script>
 
@@ -133,7 +141,7 @@ function openErrorDetail(task: RenderTask) {
       <h3 class="mb-2 text-base font-semibold">
         渲染任务历史
       </h3>
-      <FaTable
+      <FaResponsiveTable
         row-key="id"
         table-root-class="max-w-full overflow-x-auto rounded-lg"
         table-class="min-w-[860px]"
@@ -146,13 +154,13 @@ function openErrorDetail(task: RenderTask) {
           <span class="font-mono text-xs">{{ row.original.id }}</span>
         </template>
         <template #cell-state="{ row }">
-          <FaTag :variant="TASK_STATE_META[row.original.state].variant">
-            {{ TASK_STATE_META[row.original.state].label }}
+          <FaTag :variant="taskStateTag(row.original.state).variant">
+            {{ taskStateTag(row.original.state).label }}
           </FaTag>
         </template>
         <template #cell-phase="{ row }">
           <span v-if="row.original.phase" class="text-sm text-muted-foreground">
-            {{ RENDER_PHASE_LABEL[row.original.phase] }}
+            {{ renderPhaseLabel(row.original.phase) }}
           </span>
           <span v-else class="text-sm text-muted-foreground">-</span>
         </template>
@@ -191,7 +199,39 @@ function openErrorDetail(task: RenderTask) {
         <template #empty>
           <span class="text-muted-foreground">暂无渲染任务，点击右上角「触发渲染」开始</span>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ row.id }}</span>
+                <div class="flex gap-1">
+                  <FaTag :variant="taskStateTag(row.state).variant">
+                    {{ taskStateTag(row.state).label }}
+                  </FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.phase" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">阶段</span>
+                  <span class="break-all">{{ renderPhaseLabel(row.phase) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">进度</span>
+                  <span class="break-all">{{ model.taskProgress(row) }}% · {{ row.doneTiles }} / {{ row.totalTiles }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">创建时间</span>
+                  <span>{{ formatTime(row.createdAt) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">完成时间</span>
+                  <span>{{ formatTime(row.finishedAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaDrawer
         v-model="errorDrawerOpen"

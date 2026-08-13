@@ -4,6 +4,7 @@ import {
   FaAlert,
   FaButton,
   FaButtonGroup,
+  FaCard,
   FaIcon,
   FaInput,
   FaLabel,
@@ -11,8 +12,8 @@ import {
   FaPageHeader,
   FaPageMain,
   FaPagination,
+  FaResponsiveTable,
   FaSelect,
-  FaTable,
   FaTag,
   useFaModal,
   useFaToast,
@@ -446,7 +447,7 @@ onMounted(load)
           </div>
           <FaTag>{{ templateTotal }} 个模板</FaTag>
         </div>
-        <FaTable
+        <FaResponsiveTable
           v-loading="loading"
           row-key="id"
           table-root-class="rounded-lg overflow-hidden"
@@ -466,7 +467,26 @@ onMounted(load)
               </FaButton>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-base font-semibold">{{ row.name }}</span>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">站点</span><span class="break-all">{{ sites.find(site => site.id === row.siteId)?.name || row.siteId }}</span></div>
+                  <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">更新时间</span><span>{{ dateTime(row.updatedAt) }}</span></div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" @click="editTemplate(row)">编辑</FaButton>
+                  <FaButton size="sm" variant="destructive" title="删除模板" @click="removeTemplate(row)">
+                    <FaIcon name="i-ri:delete-bin-line" />
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
         <FaPagination
           v-model:page="templatePage"
           v-model:size="templateSize"
@@ -587,7 +607,7 @@ onMounted(load)
       class="version-modal"
       :footer="false"
     >
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         row-key="id"
         table-root-class="rounded-lg overflow-hidden"
@@ -609,7 +629,32 @@ onMounted(load)
             回滚
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">版本 {{ row.version }}</span>
+                <div class="flex gap-1">
+                  <FaTag v-if="row.id === current?.publishedVersionId">已发布</FaTag>
+                  <FaTag v-else-if="row.id === current?.draftVersionId">当前草稿</FaTag>
+                  <span v-else>历史版本</span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">来源</span><span class="break-all">{{ row.origin }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">变更说明</span><span class="break-all">{{ row.summary }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">创建时间</span><span>{{ dateTime(row.createdAt) }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="rollback(row)">
+                  <FaIcon name="i-ri:arrow-go-back-line" />
+                  回滚
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination
         v-model:page="versionPage"
         v-model:size="versionSize"

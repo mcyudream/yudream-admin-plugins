@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { FaAlert, FaButton, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaSwitch, FaTable, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { GroupBinding, Option, Site } from '../types'
@@ -41,13 +41,32 @@ onMounted(load)
     <FaPageHeader title="定时推送目标" description="仅供定时采集任务主动推送使用。即时链接始终回复到用户发送链接的原群。"><FaButton @click="create"><FaIcon name="i-ri:add-line"/>新增目标</FaButton></FaPageHeader>
     <FaPageMain class="space-y-4">
       <FaAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>
-      <FaTable v-loading="loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe :columns="columns" :data="rows">
+      <FaResponsiveTable v-loading="loading" row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe :columns="columns" :data="rows">
         <template #cell-siteId="{row}">{{ sites.find(value => value.id === row.original.siteId)?.name || row.original.siteId }}</template>
         <template #cell-connectionId="{row}">{{ connections.find(value => value.id === row.original.connectionId)?.name || row.original.connectionId }}</template>
         <template #cell-channelId="{row}">{{ row.original.channelId }}</template>
         <template #cell-enabled="{row}"><div class="status-toggle"><FaSwitch :model-value="row.original.enabled" :disabled="toggling===row.original.id" @update:model-value="toggle(row.original)"/><small>{{ row.original.enabled ? '已启用' : '已停用' }}</small></div></template>
         <template #cell-operation="{row}"><div class="row-actions"><FaButton size="sm" variant="outline" @click="edit(row.original)">编辑</FaButton><FaButton size="sm" variant="destructive" @click="remove(row.original)">删除</FaButton></div></template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-base font-semibold">{{ sites.find(value => value.id === row.siteId)?.name || row.siteId }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">连接</span><span class="break-all">{{ connections.find(value => value.id === row.connectionId)?.name || row.connectionId }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">目标群</span><span class="break-all">{{ row.channelId }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">状态</span><span>{{ row.enabled ? '已启用' : '已停用' }}</span></div>
+                <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">冷却/秒</span><span>{{ row.cooldownSeconds }}</span></div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="edit(row)">编辑</FaButton>
+                <FaButton size="sm" variant="destructive" @click="remove(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination v-model:page="page" v-model:size="size" :total="total" class="mt-3" @page-change="load" @size-change="load"/>
     </FaPageMain>
     <FaModal v-model="open" title="定时推送目标" class="binding-modal" :show-cancel-button="true" :confirm-button-loading="saving" @confirm="save">
