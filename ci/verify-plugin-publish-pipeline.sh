@@ -82,8 +82,10 @@ require_pattern 'plugin_release_maven_pl_args' "tag packaging must derive the Ma
 require_pattern 'MAVEN_AM="-am"' "tag packaging must build selected modules with reactor dependencies via -am"
 grep -q 'plugin_release_only_enabled' ci/lib/plugin-jar-selection.sh \
   || fail "plugin jar selection must support explicit release-only filtering"
-grep -q 'plugin.yml version mismatch' ci/verify-plugin-release-selection.sh \
-  || fail "release selection validator must check selected plugin.yml versions against the tag version"
+grep -q 'not a stable SemVer' ci/verify-plugin-release-selection.sh \
+  || fail "release selection validator must reject non-stable-SemVer plugin.yml versions"
+grep -q 'plugin_release_jar_version' ci/verify-plugin-release-selection.sh \
+  || fail "release selection validator must read per-plugin versions from plugin.yml"
 require_pattern '^package:plugins:$' "plugin CI must keep package:plugins job"
 require_pattern 'PACKAGE_MAVEN_REPO' "plugin CI package job must use a dedicated clean Maven local repository"
 require_pattern 'sh ci/verify-plugin-jar-assets.sh' "plugin CI package job must verify plugin jar assets"
@@ -101,8 +103,18 @@ require_pattern '^verify:published-plugin-store:$' "plugin CI must verify the pu
 require_pattern 'sh ci/verify-published-plugin-store.sh' "plugin CI must re-read Raw plugin store metadata after upload"
 grep -q 'plugins/\${plugin_code}/versions/\${plugin_version}\.json' ci/lib/plugin-store-catalog.sh \
   || fail "store descriptors must use plugins/{code}/versions/{version}.json"
-grep -q 'JAR plugin.yml version for .*must equal release version' ci/lib/plugin-store-catalog.sh \
-  || fail "store publication must reject JAR plugin.yml/package version mismatches"
+grep -q 'plugin_release_jar_version' ci/publish-plugin-jars.sh \
+  || fail "plugin publishing must derive each artifact version from the jar plugin.yml"
+grep -q 'plugin_release_jar_version' ci/verify-published-plugin-jars.sh \
+  || fail "plugin publish verification must resolve per-plugin versions from plugin.yml"
+grep -q 'plugin-catalog "\$PACKAGE_VERSION"' ci/publish-plugin-jars.sh \
+  || fail "plugin-catalog manifest coordinate must keep the unique tag version"
+if grep -q 'must equal release version' ci/lib/plugin-store-catalog.sh ci/verify-published-plugin-store.sh; then
+  fail "plugin versions are independent of the tag; no tag equality checks may remain"
+fi
+if grep -q 'Dversion=\$PACKAGE_VERSION' ci/publish-plugin-jars.sh; then
+  fail "plugin jars must deploy with per-plugin plugin.yml versions, not the tag version"
+fi
 grep -q 'plugin_store_list_payload_files' ci/publish-plugin-store.sh \
   || fail "store payload must upload before indexes"
 grep -q 'plugin_store_list_plugin_indexes' ci/publish-plugin-store.sh \

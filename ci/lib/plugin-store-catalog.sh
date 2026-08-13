@@ -48,8 +48,8 @@ plugin_store_resolve_module_dir() {
 
 plugin_store_jar_dependencies() {
   jar_path=$1
-  package_version=$2
-  "$PLUGIN_STORE_PYTHON" - "$jar_path" "$package_version" <<'PY'
+  plugin_version=$2
+  "$PLUGIN_STORE_PYTHON" - "$jar_path" "$plugin_version" <<'PY'
 import re
 import subprocess
 import sys
@@ -281,10 +281,9 @@ plugin_store_copy_resource() {
 
 plugin_store_write_catalog() {
   output_dir=$1
-  package_version=$2
-  maven_public_url=$3
-  raw_store_url=$4
-  jar_list=$5
+  maven_public_url=$2
+  raw_store_url=$3
+  jar_list=$4
   records_file="$output_dir/records.tsv"
   resource_records="$output_dir/resources.tsv"
 
@@ -303,7 +302,8 @@ plugin_store_write_catalog() {
     [ -n "$plugin_code" ] || plugin_store_fail "JAR plugin.yml name is required: $jar_path" || return 1
     [ -n "$plugin_version" ] || plugin_store_fail "JAR plugin.yml version is required: $jar_path" || return 1
     [ -n "$plugin_main" ] || plugin_store_fail "JAR plugin.yml main is required: $jar_path" || return 1
-    [ "$plugin_version" = "$package_version" ] || plugin_store_fail "JAR plugin.yml version for $plugin_code ($plugin_version) must equal release version $package_version" || return 1
+    # Plugin versions are independent of the release tag: the descriptor
+    # releaseVersion and Maven coordinates always use this plugin.yml version.
 
     icon_path=
     license_json=
@@ -454,13 +454,12 @@ PY
 
 plugin_store_write_final_catalog() {
   output_dir=$1
-  package_version=$2
-  maven_public_url=$3
-  raw_store_url=$4
+  maven_public_url=$2
+  raw_store_url=$3
   jar_list="$output_dir/jars.txt"
   mkdir -p "$output_dir"
   write_final_plugin_jars "$ROOT_DIR" "$jar_list" || plugin_store_fail "no plugin jars found under dist/plugins or yudream-plugins/*/target" || return 1
-  plugin_store_write_catalog "$output_dir" "$package_version" "$maven_public_url" "$raw_store_url" "$jar_list"
+  plugin_store_write_catalog "$output_dir" "$maven_public_url" "$raw_store_url" "$jar_list"
 }
 
 plugin_store_list_files() {

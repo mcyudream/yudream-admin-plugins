@@ -105,27 +105,35 @@ case "$maven_args" in
 esac
 echo "[verify-plugin-release-selection] Maven reactor arguments: $maven_args -am"
 
-if [ -z "$PACKAGE_VERSION" ]; then
-  echo "[verify-plugin-release-selection] no CI_COMMIT_TAG/PLUGIN_PACKAGE_VERSION supplied; list-only validation OK"
-  exit 0
-fi
-
-echo "[verify-plugin-release-selection] checking selected jar plugin.yml versions against $PACKAGE_VERSION"
+# Plugin versions are independent of the release tag. When a release event is
+# selected (CI_COMMIT_TAG/PLUGIN_PACKAGE_VERSION), every selected module must
+# have a final jar whose plugin.yml version is a valid stable SemVer; without
+# a release event, jar checks run best-effort and the list validation stands.
 if ! plugin_release_only_enabled; then
   PLUGIN_RELEASE_ONLY=1
   export PLUGIN_RELEASE_ONLY
 fi
-write_final_plugin_jars "$ROOT_DIR" "$JAR_LIST" \
-  || fail "no selected plugin jars available to validate against version $PACKAGE_VERSION"
+
+if ! write_final_plugin_jars "$ROOT_DIR" "$JAR_LIST" 2>/dev/null; then
+  if [ -n "$PACKAGE_VERSION" ]; then
+    write_final_plugin_jars "$ROOT_DIR" "$JAR_LIST" \
+      || fail "no selected plugin jars available for release event $PACKAGE_VERSION"
+  fi
+  echo "[verify-plugin-release-selection] selected jars absent or incomplete locally; list-only validation OK"
+  exit 0
+fi
 command -v unzip >/dev/null 2>&1 || fail "unzip is required to read plugin.yml from selected jars"
 
+if [ -n "$PACKAGE_VERSION" ]; then
+  echo "[verify-plugin-release-selection] release event $PACKAGE_VERSION; validating per-plugin stable SemVer versions"
+else
+  echo "[verify-plugin-release-selection] validating per-plugin stable SemVer versions"
+fi
 while IFS= read -r jar_path; do
-  jar_version=$(unzip -p "$jar_path" plugin.yml 2>/dev/null \
-    | sed -n 's/^version:[[:space:]]*//p' | head -n 1 | tr -d '\r' \
-    | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^"//; s/"$//')
+  jar_version=$(plugin_release_jar_version "$jar_path")
   [ -n "$jar_version" ] || fail "unable to read plugin.yml version from selected jar: $jar_path"
-  [ "$jar_version" = "$PACKAGE_VERSION" ] \
-    || fail "plugin.yml version mismatch in $(basename "$jar_path"): $jar_version != $PACKAGE_VERSION"
+  printf '%s' "$jar_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    || fail "plugin.yml version in $(basename "$jar_path") is not a stable SemVer (prerelease/build metadata are not allowed): $jar_version"
   echo "[verify-plugin-release-selection]   $(basename "$jar_path") plugin.yml version $jar_version"
 done < "$JAR_LIST"
 

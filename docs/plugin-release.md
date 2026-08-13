@@ -70,8 +70,8 @@ packages:
 https://nexus.yudream.online/repository/maven-releases/online/yudream/plugins/
 ```
 
-每个插件使用 `online.yudream.plugins:<artifactId>:<tag version>:jar` 坐标。发布清单使用
-`online.yudream.plugins:plugin-catalog:<tag version>:tsv`，校验和使用同一制品的
+每个插件使用 `online.yudream.plugins:<artifactId>:<插件自身 plugin.yml version>:jar` 坐标；插件版本独立于 tag，tag 仅标记/触发发布事件。发布清单使用
+`online.yudream.plugins:plugin-catalog:<tag version>:tsv`（tag 版本在每次发布事件中必须唯一），校验和使用同一制品的
 `sha256` classifier（类型为 `txt`）。
 
 例如某个插件包会落到：

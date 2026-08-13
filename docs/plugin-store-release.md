@@ -31,7 +31,7 @@ plugins/project-progress/assets/screenshots/overview.png
 - `plugins/{pluginCode}/index.json` 是单插件索引，列出该插件的已发布版本及 descriptor。
 - `plugins/{pluginCode}/versions/{version}.json` 是版本 descriptor；发布脚本从最终 JAR 生成它。
 
-`pluginCode` 和 `version` 均从最终 JAR 内的 `plugin.yml` 读取，其中 `name` 是插件代码。每个被选中 JAR 的 `plugin.yml version` 必须与去掉可选 `v` 前缀后的 `CI_COMMIT_TAG`（或 `PLUGIN_PACKAGE_VERSION`）精确一致；否则脚本在上传前失败，避免 Raw descriptor、Maven 坐标和 JAR 内元数据漂移。未被本次 release 选中的插件不参与版本一致性检查，也不要求跟随升版。展示名称不能替代 `pluginCode` 作为目录名、依赖标识或查找键。
+`pluginCode` 和 `version` 均从最终 JAR 内的 `plugin.yml` 读取，其中 `name` 是插件代码。**插件版本独立于仓库 tag**：受保护的 `v*` tag 只是发布事件的标记/触发器，并作为 Maven `plugin-catalog` 清单坐标版本（tag 在每次发布事件中必须唯一）；每个被选中插件的 descriptor `releaseVersion`、Maven 坐标与 JAR 文件名一律使用该插件自己的 `plugin.yml version`（按既有版本规则与模块 `pom.xml` 同步），不与 tag 做任何相等性比较。未被本次 release 选中的插件不参与检查，也不要求跟随升版。展示名称不能替代 `pluginCode` 作为目录名、依赖标识或查找键。
 
 最终 JAR 的选择逻辑与 Maven 发布复用 `ci/lib/plugin-jar-selection.sh`：优先 `dist/plugins/` 中的最终包；不存在时才从各模块 `target/` 选择，并优先 `*-shaded.jar`。当启用 release-only 选择（见下节）时，仅保留属于本次 release 模块列表的 JAR，`-am` 顺带构建的依赖模块 JAR 不会进入暂存或发布。
 
@@ -43,7 +43,7 @@ Tag 发布是**显式选择性发布**：受保护的 `v*` tag 流水线只打�
 - Tag 打包使用 `mvn clean package -pl :<选中的 artifactId 列表> -am` 仅构建选中模块及其 reactor 依赖，随后只把选中模块的最终 JAR 复制进 `dist/plugins/`。
 - 同一选择同时驱动 Maven JAR 发布、Raw 商店 descriptor/catalog 生成以及两个发布后回读脚本；tag 上下文中这些脚本自动启用 release-only 选择。
 - 可用 `PLUGIN_RELEASE_MODULES`（逗号或空格分隔的 artifactId 列表）临时覆盖列表，或用 `PLUGIN_RELEASE_ONLY=1` 在非 tag 环境强制按列表选择；两者都经过同样的白名单/去重/非空校验。
-- 校验脚本：`sh ci/verify-plugin-release-selection.sh`。提供 `CI_COMMIT_TAG` 或 `PLUGIN_PACKAGE_VERSION` 时，还会读取每个选中 JAR 的 `plugin.yml version` 并要求与 tag 版本一致；未提供版本时仅校验列表本身（fixture/本地用法）。
+- 校验脚本：`sh ci/verify-plugin-release-selection.sh`。提供 `CI_COMMIT_TAG` 或 `PLUGIN_PACKAGE_VERSION`（发布事件）时，要求每个选中模块都有最终 JAR，且其 `plugin.yml version` 必须是稳定 SemVer（拒绝预发布/构建元数据）并逐插件打印版本列表；插件版本不需要等于 tag。未提供版本时仅校验列表本身（fixture/本地用法）。
 
 ## JSON 契约
 
@@ -124,8 +124,8 @@ Tag 发布流水线使用：
 
 | 变量 | 用途 |
 | --- | --- |
-| `CI_COMMIT_TAG` | 默认版本来源；脚本去掉前导 `v`。tag 上下文自动启用 release-only 选择。 |
-| `PLUGIN_PACKAGE_VERSION` | 可选地覆盖版本来源。 |
+| `CI_COMMIT_TAG` | 发布事件来源；脚本去掉前导 `v`，仅作为发布标记/触发器及 `plugin-catalog` 清单坐标版本，不与插件版本比较。tag 上下文自动启用 release-only 选择。 |
+| `PLUGIN_PACKAGE_VERSION` | 可选地覆盖发布事件来源，语义同上。 |
 | `PLUGIN_RELEASE_ONLY` | 为 `1` 时按 `release/plugins.txt` 限制打包/发布/回读范围；tag job 自动设置。 |
 | `PLUGIN_RELEASE_MODULES` | 可选地覆盖 `release/plugins.txt`（逗号或空格分隔 artifactId），仍受白名单/去重/非空校验。 |
 | `NEXUS_MAVEN_RELEASES_URL` | Maven JAR 发布地址。 |
@@ -158,7 +158,7 @@ sh ci/verify-published-plugin-store.sh
 `DRY_RUN` 用于在不上传、无需凭据且不访问网络的情况下检查选包、JSON/兼容性与依赖契约生成、资源规则和发布顺序。tag dry-run 与真实 tag 发布一样只处理 `release/plugins.txt`（或 `PLUGIN_RELEASE_MODULES`）选中的模块：
 
 ```powershell
-$env:CI_COMMIT_TAG='v1.0.3' # 必须与每个选中最终 JAR 内 plugin.yml version 一致
+$env:CI_COMMIT_TAG='v0.3.1' # 发布事件标记；不需要等于任何插件版本
 $env:PLUGIN_RELEASE_MODULES='yudream-plugin-web-card' # 可选：只 dry-run 指定模块
 $env:DRY_RUN='1'
 sh ci/verify-plugin-release-selection.sh
@@ -166,7 +166,7 @@ sh ci/publish-plugin-store.sh
 sh ci/verify-published-plugin-store.sh
 ```
 
-dry-run 仍需要可供选择的本地最终插件 JAR，且其内嵌 `plugin.yml version` 必须与指定版本一致。未选中的模块不检查版本，因此仓库中同时存在 `1.0.0` 与 `web-card` 的 `1.0.3` 等混合版本时，可用 `PLUGIN_RELEASE_MODULES` 或裁剪后的 `release/plugins.txt` 对目标子集做 dry-run；但未选中模块绝不会被打包、发布或写入商店索引。dry-run 不是线上发布成功的证明。
+dry-run 仍需要可供选择的本地最终插件 JAR，且每个选中 JAR 的 `plugin.yml version` 必须是稳定 SemVer；插件版本与 tag 无关，因此 `CI_COMMIT_TAG=v0.3.1` 搭配 `1.0.0` 版本的插件 JAR 也会通过。仓库中同时存在 `1.0.0` 与 `web-card` 的 `1.0.3` 等混合版本时，可用 `PLUGIN_RELEASE_MODULES` 或裁剪后的 `release/plugins.txt` 对目标子集做 dry-run；未选中模块绝不会被打包、发布或写入商店索引。dry-run 不是线上发布成功的证明。
 
 ## 发布后公开回读
 

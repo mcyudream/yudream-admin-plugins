@@ -42,18 +42,20 @@ PY
 printf '%s\n' "$JAR_PATH" > "$TMP_DIR/jars.txt"
 LEGACY_MODULE_DIR="$FIXTURE_ROOT/yudream-plugins/yudream-plugin-legacy"
 mkdir -p "$LEGACY_MODULE_DIR/src/main/resources"
-LEGACY_JAR_PATH="$TMP_DIR/yudream-plugin-legacy-1.2.3.jar"
+# Deliberately different from the example plugin version: plugin versions are
+# independent of each other and of any tag/release-event version.
+LEGACY_JAR_PATH="$TMP_DIR/yudream-plugin-legacy-0.9.0.jar"
 "$PLUGIN_STORE_PYTHON" - "$LEGACY_JAR_PATH" <<'PY'
 import sys
 import zipfile
 with zipfile.ZipFile(sys.argv[1], "w") as archive:
-    archive.writestr("plugin.yml", "name: legacy\nversion: 1.2.3\nmain: legacy.Main\n")
+    archive.writestr("plugin.yml", "name: legacy\nversion: 0.9.0\nmain: legacy.Main\n")
 PY
 printf '%s\n' "$LEGACY_JAR_PATH" >> "$TMP_DIR/jars.txt"
 
 ORIGINAL_ROOT_DIR=$ROOT_DIR
 ROOT_DIR=$FIXTURE_ROOT
-plugin_store_write_catalog "$TMP_DIR/catalog" "1.2.3" "https://maven.example" "https://raw.example" "$TMP_DIR/jars.txt" \
+plugin_store_write_catalog "$TMP_DIR/catalog" "https://maven.example" "https://raw.example" "$TMP_DIR/jars.txt" \
   || fail "catalog generation failed"
 ROOT_DIR=$ORIGINAL_ROOT_DIR
 
@@ -79,17 +81,18 @@ assert "compatibility" not in descriptor
 assert "dependencies" not in descriptor
 PY
 
-"$PLUGIN_STORE_PYTHON" - "$TMP_DIR/catalog/plugins/legacy/versions/1.2.3.json" <<'PY'
+"$PLUGIN_STORE_PYTHON" - "$TMP_DIR/catalog/plugins/legacy/versions/0.9.0.json" <<'PY'
 import json
 import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     descriptor = json.load(handle)
 assert descriptor["plugin"] == {
-    "code": "legacy", "version": "1.2.3", "main": "legacy.Main",
+    "code": "legacy", "version": "0.9.0", "main": "legacy.Main",
     "publisher": {"id": "yudream", "name": "YuDream", "url": "https://yudream.online", "verified": True},
     "compatibility": {"host": "^1.0.0", "spi": "^2.6.0", "frontendSdk": "^1.0.1"},
     "dependencies": [],
 }
+assert descriptor["releaseVersion"] == "0.9.0"
 assert "icon" not in descriptor["plugin"]
 PY
 

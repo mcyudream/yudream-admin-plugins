@@ -83,20 +83,26 @@ fetch_artifact() {
     org.apache.maven.plugins:maven-dependency-plugin:3.8.1:get -B -ntp
 }
 
+command -v unzip >/dev/null 2>&1 || fail "unzip is required to read per-plugin versions from plugin.yml"
+
+# Plugins publish with their own plugin.yml versions, independent of the tag.
 while IFS= read -r jar_path; do
   artifact_id=$(resolve_artifact_id "$jar_path") || fail "unable to map plugin jar to artifactId: $jar_path"
+  plugin_version=$(plugin_release_jar_version "$jar_path")
+  [ -n "$plugin_version" ] || fail "unable to read plugin.yml version from selected jar: $jar_path"
   sha256=$(sha256sum "$jar_path" | awk '{print $1}')
-  deployed_name="${artifact_id}-${PACKAGE_VERSION}.jar"
+  deployed_name="${artifact_id}-${plugin_version}.jar"
   printf '%s  %s\n' "$sha256" "$deployed_name" >> "$LOCAL_CHECKSUM"
-  printf '%s\t%s\t%s\t%s\n' "$artifact_id" "$PACKAGE_VERSION" "$sha256" "$deployed_name" >> "$LOCAL_MANIFEST"
-  fetch_artifact "online.yudream.plugins:${artifact_id}:${PACKAGE_VERSION}:jar"
+  printf '%s\t%s\t%s\t%s\n' "$artifact_id" "$plugin_version" "$sha256" "$deployed_name" >> "$LOCAL_MANIFEST"
+  fetch_artifact "online.yudream.plugins:${artifact_id}:${plugin_version}:jar"
   if [ -z "$DRY_RUN" ]; then
-    downloaded="$VERIFY_REPO/online/yudream/plugins/$artifact_id/$PACKAGE_VERSION/$deployed_name"
+    downloaded="$VERIFY_REPO/online/yudream/plugins/$artifact_id/$plugin_version/$deployed_name"
     [ -f "$downloaded" ] || fail "downloaded plugin jar is missing: $deployed_name"
     [ "$sha256" = "$(sha256sum "$downloaded" | awk '{print $1}')" ] || fail "downloaded jar checksum mismatch: $deployed_name"
   fi
 done < "$JAR_LIST"
 
+# The release manifest coordinate keeps the tag version.
 fetch_artifact "online.yudream.plugins:plugin-catalog:${PACKAGE_VERSION}:tsv"
 fetch_artifact "online.yudream.plugins:plugin-catalog:${PACKAGE_VERSION}:txt:sha256"
 

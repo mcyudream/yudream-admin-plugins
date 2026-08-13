@@ -35,7 +35,7 @@ fi
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 CATALOG_DIR="$TMP_DIR/catalog"
-plugin_store_write_final_catalog "$CATALOG_DIR" "$PACKAGE_VERSION" "$MAVEN_PUBLIC_URL" "$RAW_STORE_URL" \
+plugin_store_write_final_catalog "$CATALOG_DIR" "$MAVEN_PUBLIC_URL" "$RAW_STORE_URL" \
   || fail "unable to generate plugin store catalog"
 
 fetch_existing_index() {

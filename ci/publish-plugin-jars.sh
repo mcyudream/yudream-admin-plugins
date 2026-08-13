@@ -90,29 +90,37 @@ EOF
 deploy_file() {
   file_path=$1
   artifact_id=$2
-  packaging=$3
-  shift 3
+  artifact_version=$3
+  packaging=$4
+  shift 4
   if [ -n "$DRY_RUN" ]; then
-    echo "[publish-plugin-jars] dry-run deploy online.yudream.plugins:${artifact_id}:${PACKAGE_VERSION}:${packaging}"
+    echo "[publish-plugin-jars] dry-run deploy online.yudream.plugins:${artifact_id}:${artifact_version}:${packaging}"
     return 0
   fi
   NEXUS_MAVEN_PUBLIC_URL="$PUBLIC_URL" mvn -s "$SETTINGS_FILE" -N org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
     "-DrepositoryId=nexus-releases" "-Durl=$REPOSITORY_URL" \
     "-DgroupId=online.yudream.plugins" "-DartifactId=$artifact_id" \
-    "-Dversion=$PACKAGE_VERSION" "-Dpackaging=$packaging" "-Dfile=$file_path" \
+    "-Dversion=$artifact_version" "-Dpackaging=$packaging" "-Dfile=$file_path" \
     -DgeneratePom=true "$@" -B -ntp
 }
 
+command -v unzip >/dev/null 2>&1 || fail "unzip is required to read per-plugin versions from plugin.yml"
+
+# Each selected plugin deploys with its own plugin.yml version; the tag only
+# marks this release event and versions the plugin-catalog manifest below.
 while IFS= read -r jar_path; do
   artifact_id=$(resolve_artifact_id "$jar_path") || fail "unable to map plugin jar to artifactId: $jar_path"
+  plugin_version=$(plugin_release_jar_version "$jar_path")
+  [ -n "$plugin_version" ] || fail "unable to read plugin.yml version from selected jar: $jar_path"
   sha256=$(sha256sum "$jar_path" | awk '{print $1}')
-  deployed_name="${artifact_id}-${PACKAGE_VERSION}.jar"
+  deployed_name="${artifact_id}-${plugin_version}.jar"
   printf '%s  %s\n' "$sha256" "$deployed_name" >> "$CHECKSUM_PATH"
-  printf '%s\t%s\t%s\t%s\n' "$artifact_id" "$PACKAGE_VERSION" "$sha256" "$deployed_name" >> "$MANIFEST_PATH"
-  deploy_file "$jar_path" "$artifact_id" jar
+  printf '%s\t%s\t%s\t%s\n' "$artifact_id" "$plugin_version" "$sha256" "$deployed_name" >> "$MANIFEST_PATH"
+  deploy_file "$jar_path" "$artifact_id" "$plugin_version" jar
 done < "$JAR_LIST"
 
-deploy_file "$MANIFEST_PATH" plugin-catalog tsv \
+# The manifest coordinate keeps the tag version; tags are unique per release event.
+deploy_file "$MANIFEST_PATH" plugin-catalog "$PACKAGE_VERSION" tsv \
   "-Dfiles=$CHECKSUM_PATH" -Dclassifiers=sha256 -Dtypes=txt
 
-echo "[publish-plugin-jars] published Maven version $PACKAGE_VERSION to $REPOSITORY_URL"
+echo "[publish-plugin-jars] published release $PACKAGE_VERSION with per-plugin versions to $REPOSITORY_URL"

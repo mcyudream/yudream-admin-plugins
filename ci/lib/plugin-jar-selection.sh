@@ -5,6 +5,18 @@ plugin_release_fail() {
   return 1
 }
 
+# Reads the plugin's own version from plugin.yml inside a final jar. Plugin
+# versions are independent of the release tag; the tag only marks/triggers
+# the release event.
+plugin_release_jar_version() {
+  jar_path=$1
+  unzip -p "$jar_path" plugin.yml 2>/dev/null \
+    | sed -n 's/^version:[[:space:]]*//p' \
+    | head -n 1 \
+    | tr -d '\r' \
+    | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+
 # Release-only selection is requested explicitly: either PLUGIN_RELEASE_ONLY=1
 # (read release/plugins.txt) or a PLUGIN_RELEASE_MODULES override. A set but
 # empty/blank PLUGIN_RELEASE_MODULES is an error, not an implicit disable.

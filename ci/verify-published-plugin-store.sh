@@ -33,7 +33,7 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 CATALOG_DIR="$TMP_DIR/catalog"
 mkdir -p "$CATALOG_DIR"
-plugin_store_write_final_catalog "$CATALOG_DIR" "$PACKAGE_VERSION" "$MAVEN_PUBLIC_URL" "$RAW_STORE_URL" \
+plugin_store_write_final_catalog "$CATALOG_DIR" "$MAVEN_PUBLIC_URL" "$RAW_STORE_URL" \
   || fail "unable to generate local plugin store catalog"
 
 fetch_url() {
@@ -115,29 +115,27 @@ plugin_store_list_payload_files "$CATALOG_DIR" | while IFS= read -r catalog_path
   fi
 done
 
-while IFS="$(printf '\t')" read -r plugin_code record_package_version descriptor_path jar_sha256 maven_path; do
-  [ "$record_package_version" = "$PACKAGE_VERSION" ] \
-    || fail "unexpected catalog release version for $plugin_code: $record_package_version"
+while IFS="$(printf '\t')" read -r plugin_code record_plugin_version descriptor_path jar_sha256 maven_path; do
   if [ -z "$DRY_RUN" ]; then
     plugin_index="$TMP_DIR/plugin-index-${plugin_code}.json"
     root_index="$TMP_DIR/root-index.json"
     fetch_url "${RAW_STORE_URL%/}/plugins/${plugin_code}/index.json" "$plugin_index"
-    validate_index_contains_current "$plugin_index" "$plugin_code" "$record_package_version" "$descriptor_path" \
+    validate_index_contains_current "$plugin_index" "$plugin_code" "$record_plugin_version" "$descriptor_path" \
       || fail "published plugin index does not contain current version: $plugin_code"
     fetch_url "${RAW_STORE_URL%/}/index.json" "$root_index"
     validate_root_contains_current "$root_index" "$plugin_code" \
       || fail "published root index does not contain current plugin: $plugin_code"
   else
-    echo "[verify-published-plugin-store] dry-run verify plugin index plugins/${plugin_code}/index.json contains $record_package_version"
+    echo "[verify-published-plugin-store] dry-run verify plugin index plugins/${plugin_code}/index.json contains $record_plugin_version"
     echo "[verify-published-plugin-store] dry-run verify root index contains $plugin_code"
   fi
   jar_url="${MAVEN_PUBLIC_URL%/}/$maven_path"
-  downloaded_jar="$TMP_DIR/${plugin_code}-${record_package_version}.jar"
+  downloaded_jar="$TMP_DIR/${plugin_code}-${record_plugin_version}.jar"
   fetch_url "$jar_url" "$downloaded_jar"
   if [ -z "$DRY_RUN" ]; then
     downloaded_sha256=$(sha256sum "$downloaded_jar" | awk '{print $1}')
     [ "$jar_sha256" = "$downloaded_sha256" ] \
-      || fail "published Maven jar checksum mismatch: $plugin_code $record_package_version"
+      || fail "published Maven jar checksum mismatch: $plugin_code $record_plugin_version"
   fi
 done < "$CATALOG_DIR/records.tsv"
 
