@@ -13,6 +13,7 @@ import online.yudream.plugin.codextasknotify.interfaces.http.CodexTaskNotifyHttp
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @PluginSpec(
@@ -45,7 +46,7 @@ public class CodexTaskNotifyPlugin implements YuDreamPlugin {
             try {
                 sessions.expireDueSessions(System.currentTimeMillis());
             } catch (RuntimeException exception) {
-                LOGGER.warning("[Codex Task Notify] heartbeat watchdog scan failed");
+                LOGGER.log(Level.WARNING, "[Codex Task Notify] heartbeat watchdog scan failed", exception);
             }
         }, 15, 15, TimeUnit.SECONDS);
         context.onDispose(watchdog::shutdownNow);

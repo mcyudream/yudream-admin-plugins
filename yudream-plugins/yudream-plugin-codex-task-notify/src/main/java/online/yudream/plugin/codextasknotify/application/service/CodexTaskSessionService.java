@@ -9,6 +9,7 @@ import online.yudream.plugin.codextasknotify.infrastructure.repository.CodexTask
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class CodexTaskSessionService {
@@ -86,7 +87,7 @@ public class CodexTaskSessionService {
                     return null;
                 });
             } catch (RuntimeException exception) {
-                LOGGER.warning("[Codex Task Notify] heartbeat timeout notification failed for task " + candidate.taskId());
+                LOGGER.log(Level.WARNING, "[Codex Task Notify] heartbeat timeout notification failed for task " + candidate.taskId(), exception);
             }
         }
     }
