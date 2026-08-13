@@ -118,3 +118,9 @@
     flex: 1;
   }
 }
+
+@media (max-width: 768px) {
+  .student-info-detail div {
+    grid-template-columns: 1fr;
+  }
+}

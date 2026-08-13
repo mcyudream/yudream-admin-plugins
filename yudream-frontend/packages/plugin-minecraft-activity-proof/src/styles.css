@@ -91,6 +91,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid #edf1f4;
@@ -365,5 +366,12 @@
   .proof-toolbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .proof-inline,
+  .proof-map-form {
+    grid-template-columns: 1fr;
   }
 }

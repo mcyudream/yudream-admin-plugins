@@ -959,6 +959,7 @@
 .skin-detail-actions {
   display: inline-flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
@@ -1052,6 +1053,7 @@
 
 .skin-action-panel.skin-detail-panel > .skin-detail-head {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: flex-start;
   justify-content: space-between;
@@ -1788,7 +1790,8 @@
   }
 
   .skin-player-card__stats,
-  .skin-stats-card__grid {
+  .skin-stats-card__grid,
+  .skin-detail-meta {
     grid-template-columns: 1fr;
   }
 }

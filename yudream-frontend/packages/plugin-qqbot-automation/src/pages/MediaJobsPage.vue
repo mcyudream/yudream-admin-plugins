@@ -231,7 +231,7 @@ onMounted(load)
 <template>
   <section>
     <FaPageHeader title="媒体任务" description="查看群消息触发和手动测试的媒体解析任务。">
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <FaButton variant="outline" :disabled="loading" @click="load">
           <FaIcon name="i-lucide:refresh-cw" />
           刷新

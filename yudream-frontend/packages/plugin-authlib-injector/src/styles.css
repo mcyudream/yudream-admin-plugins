@@ -21,6 +21,7 @@
 .authlib-status-line,
 .authlib-table-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   justify-content: space-between;

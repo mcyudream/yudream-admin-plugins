@@ -66,6 +66,7 @@
 .world-map-toolbar-actions,
 .world-map-toolbar-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -237,6 +238,7 @@
 
 .world-map-marker-popup-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -374,5 +376,9 @@
   .world-map-hint {
     width: calc(100% - 24px);
     text-align: center;
+  }
+
+  .world-map-coordinate-form {
+    grid-template-columns: 1fr;
   }
 }
