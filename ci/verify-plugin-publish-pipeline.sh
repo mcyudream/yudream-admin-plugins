@@ -92,6 +92,7 @@ require_pattern '^verify:published-plugin-jars:$' "plugin CI must keep verify:pu
 require_pattern 'sh ci/verify-published-plugin-jars.sh' "plugin CI must re-read published plugin jars after upload"
 require_pattern '^publish:plugin-store:$' "plugin CI must publish the Raw plugin store"
 require_pattern 'job: publish:plugin-jars' "Raw store publication must wait for Maven JAR publication"
+require_pattern 'job: package:plugins' "Raw store publication and verification must need the package artifacts"
 require_pattern 'sh ci/publish-plugin-store.sh' "plugin CI must publish Raw plugin store metadata"
 require_pattern '^verify:published-plugin-store:$' "plugin CI must verify the published Raw plugin store"
 require_pattern 'sh ci/verify-published-plugin-store.sh' "plugin CI must re-read Raw plugin store metadata after upload"

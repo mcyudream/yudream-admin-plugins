@@ -226,10 +226,11 @@ publish:plugin-store:
   stage: publish-plugin
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
   resource_group: nexus-plugin-store-release
-  dependencies:
-    - package:plugins
   needs:
+    - job: package:plugins
+      artifacts: true
     - job: publish:plugin-jars
+      artifacts: false
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/publish-plugin-store.sh
@@ -250,10 +251,11 @@ verify:published-plugin-jars:
 verify:published-plugin-store:
   stage: verify-publish
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
-  dependencies:
-    - package:plugins
   needs:
+    - job: package:plugins
+      artifacts: true
     - job: publish:plugin-store
+      artifacts: false
   script:
     - export PLUGIN_RELEASE_ONLY=1
     - sh ci/verify-published-plugin-store.sh
