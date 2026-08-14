@@ -1,4 +1,4 @@
-﻿name: project-progress
+name: project-progress
 displayName: 项目进度
 description: 提供项目、成员和任务协作，支持任务分配、打卡、进度统计与验收退回。
 main: online.yudream.base.plugin.projectprogress.bootstrap.ProjectProgressPlugin
