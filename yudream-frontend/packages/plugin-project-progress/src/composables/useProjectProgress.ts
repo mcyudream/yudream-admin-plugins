@@ -769,7 +769,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     detailForm.candidateUserIds = [...detail.candidateUserIds]
     detailForm.assigneeUserIds = [...detail.assigneeUserIds]
     detailForm.acceptorUserIds = [...detail.acceptorUserIds]
-    detailForm.dueAt = detail.dueAt ? new Date(detail.dueAt).toISOString().slice(0, 16) : ''
+    const dueAtTimestamp = detail.dueAt ? toTimestamp(detail.dueAt) : null
+    detailForm.dueAt = dueAtTimestamp ? new Date(dueAtTimestamp).toISOString().slice(0, 16) : ''
     void resolveUsers([...detail.candidateUserIds, ...detail.assigneeUserIds, ...detail.acceptorUserIds])
   }
 
@@ -1126,11 +1127,16 @@ function toTimestamp(value?: number | string | null) {
     return null
   }
   if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 ? value : null
+    return Number.isFinite(value) && value > 0 ? (value < 10000000000 ? value * 1000 : value) : null
   }
-  const normalized = value.includes(' ') ? value.replace(' ', 'T') : value
+  const text = value.trim()
+  const numeric = Number(text)
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric < 10000000000 ? numeric * 1000 : numeric
+  }
+  const normalized = text.includes(' ') ? text.replace(' ', 'T') : text
   const timestamp = new Date(normalized).getTime()
-  return Number.isFinite(timestamp) ? timestamp : null
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null
 }
 
 function fileToBase64(file: File) {

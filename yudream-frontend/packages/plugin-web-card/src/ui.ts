@@ -14,7 +14,17 @@ export function errorText(cause: unknown, fallback: string) {
 export const uid = () => crypto.randomUUID()
 export function dateTime(value?: number | string) {
   if (value === undefined || value === null || value === '') return '-'
-  const normalized = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value
-  const date = new Date(normalized)
+  let timestamp: number
+  if (typeof value === 'number') {
+    timestamp = value
+  }
+  else {
+    const text = value.trim()
+    const numeric = Number(text)
+    timestamp = /^\d+$/.test(text) && Number.isFinite(numeric) ? numeric : Date.parse(text)
+  }
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
+  const ms = timestamp < 10000000000 ? timestamp * 1000 : timestamp
+  const date = new Date(ms)
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN', { hour12: false })
 }

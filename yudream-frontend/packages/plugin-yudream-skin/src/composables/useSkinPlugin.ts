@@ -809,12 +809,35 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     return user ? `${user.nickname || user.email}` : userId
   }
 
-  function dateText(value?: number | string) {
-    if (value === undefined || value === null || value === '') {
-      return '-'
+  function dateText(value?: number | string | number[] | Date | null) {
+    const timestamp = toTimestamp(value)
+    return timestamp > 0 ? new Date(timestamp).toLocaleString() : '-'
+  }
+
+  function toTimestamp(value?: number | string | number[] | Date | null): number {
+    if (value == null || value === '') {
+      return 0
     }
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+    if (value instanceof Date) {
+      return value.getTime()
+    }
+    if (Array.isArray(value)) {
+      const [year, month, day, hour = 0, minute = 0, second = 0, nano = 0] = value
+      return new Date(year, month - 1, day, hour, minute, second, Math.floor(nano / 1000000)).getTime()
+    }
+    if (typeof value === 'number') {
+      return value > 0 ? (value < 10000000000 ? value * 1000 : value) : 0
+    }
+    const text = value.trim()
+    if (!text) {
+      return 0
+    }
+    const numeric = Number(text)
+    if (Number.isFinite(numeric)) {
+      return numeric > 0 ? (numeric < 10000000000 ? numeric * 1000 : numeric) : 0
+    }
+    const parsed = Date.parse(text)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
   }
 
   async function fileToBase64(file: File) {

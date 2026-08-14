@@ -1,7 +1,9 @@
 /** Formats a millisecond timestamp; returns a placeholder for missing or invalid values. */
-export function formatDateTime(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value) || value <= 0) return '暂无'
-  const date = new Date(value)
+export function formatDateTime(value: number | string | null | undefined): string {
+  if (value == null || value === '') return '暂无'
+  const numeric = typeof value === 'number' ? value : Number(value.trim())
+  if (!Number.isFinite(numeric) || numeric <= 0) return '暂无'
+  const date = new Date(numeric < 10000000000 ? numeric * 1000 : numeric)
   if (Number.isNaN(date.getTime())) return '暂无'
   return date.toLocaleString('zh-CN', { hour12: false })
 }

@@ -44,11 +44,15 @@ export const RENDER_PHASE_LABEL: Record<RenderPhase, string> = {
 }
 
 export function formatTime(ts?: number | string): string {
-  if (!ts) {
+  if (ts === undefined || ts === null || ts === '') {
     return '—'
   }
   // 宿主统一把长整型序列化为字符串，这里归一为数字再构造日期
-  const d = new Date(Number(ts))
+  const numeric = typeof ts === 'number' ? ts : Number(ts.trim())
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '—'
+  }
+  const d = new Date(numeric < 10000000000 ? numeric * 1000 : numeric)
   if (Number.isNaN(d.getTime())) {
     return '—'
   }
