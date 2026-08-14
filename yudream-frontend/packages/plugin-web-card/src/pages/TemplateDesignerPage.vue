@@ -471,7 +471,7 @@ onMounted(load)
             <FaCard class="w-full">
               <div class="flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-base font-semibold">{{ row.name }}</span>
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
                 </div>
                 <div class="flex flex-col gap-1 text-sm">
                   <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">站点</span><span class="break-all">{{ sites.find(site => site.id === row.siteId)?.name || row.siteId }}</span></div>
@@ -633,7 +633,7 @@ onMounted(load)
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-base font-semibold">版本 {{ row.version }}</span>
+                <span class="min-w-0 break-words text-base font-semibold">版本 {{ row.version }}</span>
                 <div class="flex gap-1">
                   <FaTag v-if="row.id === current?.publishedVersionId">已发布</FaTag>
                   <FaTag v-else-if="row.id === current?.draftVersionId">当前草稿</FaTag>

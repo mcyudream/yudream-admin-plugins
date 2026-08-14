@@ -28,7 +28,7 @@ const columns: TableColumn<InheritanceRule>[] = [
         <FaCard class="w-full">
           <div class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-base font-semibold">币种匹配</span>
+              <span class="min-w-0 break-words text-base font-semibold">币种匹配</span>
               <FaInput v-model="row.assetPattern" class="w-36 shrink-0" />
             </div>
             <div class="flex flex-col gap-2 text-sm">

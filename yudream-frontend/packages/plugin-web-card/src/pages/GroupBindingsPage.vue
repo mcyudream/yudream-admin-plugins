@@ -51,7 +51,7 @@ onMounted(load)
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-base font-semibold">{{ sites.find(value => value.id === row.siteId)?.name || row.siteId }}</span>
+                <span class="min-w-0 break-words text-base font-semibold">{{ sites.find(value => value.id === row.siteId)?.name || row.siteId }}</span>
               </div>
               <div class="flex flex-col gap-1 text-sm">
                 <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">连接</span><span class="break-all">{{ connections.find(value => value.id === row.connectionId)?.name || row.connectionId }}</span></div>

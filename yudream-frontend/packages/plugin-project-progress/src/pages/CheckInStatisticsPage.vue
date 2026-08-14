@@ -62,7 +62,7 @@ async function selectProject(projectId: unknown) {
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-base font-semibold">{{ model.userLabel(model.usersById[row.userId]) }}</span>
+                <span class="min-w-0 break-words text-base font-semibold">{{ model.userLabel(model.usersById[row.userId]) }}</span>
               </div>
               <div class="flex flex-col gap-1 text-sm">
                 <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">总计</span><span class="break-all">{{ row.total }} 次</span></div>

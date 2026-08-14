@@ -36,7 +36,7 @@ onMounted(load)
         <FaCard class="w-full">
           <div class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-base font-semibold">{{ row.outTradeNo }}</span>
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.outTradeNo }}</span>
               <div class="flex gap-1">
                 <FaTag>{{ row.status }}</FaTag>
               </div>

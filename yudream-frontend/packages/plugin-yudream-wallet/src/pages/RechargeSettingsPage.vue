@@ -36,7 +36,7 @@ const columns: TableColumn<RechargeRuleForm>[] = [
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-base font-semibold">{{ model.assetName(row.assetCode) }} ({{ row.assetCode }})</span>
+                <span class="min-w-0 break-words text-base font-semibold">{{ model.assetName(row.assetCode) }} ({{ row.assetCode }})</span>
                 <div class="flex gap-1">
                   <FaSwitch v-model="row.enabled" />
                 </div>

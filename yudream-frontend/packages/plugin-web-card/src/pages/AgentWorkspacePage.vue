@@ -20,7 +20,7 @@ onMounted(load)
   <FaCard class="w-full">
     <div class="flex flex-col gap-3">
       <div class="flex items-center justify-between gap-2">
-        <span class="text-base font-semibold">{{ row.summary }}</span>
+        <span class="min-w-0 break-words text-base font-semibold">{{ row.summary }}</span>
       </div>
       <div class="flex flex-col gap-1 text-sm">
         <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">状态</span><span class="break-all">{{ row.status }}</span></div>

@@ -92,7 +92,7 @@ function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete 
             <FaCard class="w-full">
               <div class="flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-base font-semibold">{{ model.userLabel(model.usersById[row.userId]) }}</span>
+                  <span class="min-w-0 break-words text-base font-semibold">{{ model.userLabel(model.usersById[row.userId]) }}</span>
                   <div class="flex gap-1">
                     <FaTag variant="secondary">{{ typeLabel(row.type) }}</FaTag>
                     <FaTag :variant="row.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.reviewStatus) }}</FaTag>

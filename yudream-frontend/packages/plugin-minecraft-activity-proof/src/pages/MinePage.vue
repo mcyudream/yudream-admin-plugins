@@ -27,7 +27,7 @@ async function pageChanged() { await props.model.loadMine() }
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-base font-semibold">{{ row.activityName }}</span>
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.activityName }}</span>
               </div>
               <div class="flex flex-col gap-1 text-sm">
                 <div v-if="row.serverName" class="flex gap-2">
