@@ -11,6 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-authlib-injector</artifactId>
+    <version>1.1.0</version>
 
     <build>
         <resources>
