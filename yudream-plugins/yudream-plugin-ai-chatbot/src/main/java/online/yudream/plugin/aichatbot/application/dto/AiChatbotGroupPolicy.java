@@ -13,6 +13,7 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
                                     String profileProviderCode, String profileModelCode,
                                     int profileAnalysisMessageCount,
                                     int profileAutoAnalysisIntervalMinutes,
+                                    boolean groupToolOpenAccess,
                                     String mentionReplyInjection) {
     public static final String BUILTIN_AGENT_CODE = "builtin-group-chatbot";
 
@@ -45,6 +46,6 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
     public static AiChatbotGroupPolicy defaults(String connectionId, String channelId) {
         return new AiChatbotGroupPolicy(connectionId, channelId, true, 0.03d, 12, 16, 12, 30, 30,
                 null, null, "你是 YuDream 群聊助手，回答简短、友好、准确。", "",
-                false, false, 5, BUILTIN_AGENT_CODE, "", "", "", "", 20, 0, "");
+                false, false, 5, BUILTIN_AGENT_CODE, "", "", "", "", 20, 0, true, "");
     }
 }
