@@ -12,8 +12,9 @@ variables:
   NEXUS_MAVEN_RELEASES_URL: "https://nexus.yudream.online/repository/maven-releases"
   NEXUS_PLUGIN_STORE_URL: "https://nexus.yudream.online/repository/plugin-store-releases"
   NEXUS_NPM_PUBLIC_URL: "https://nexus.yudream.online/repository/npm-public/"
-  NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-  COREPACK_NPM_REGISTRY: "https://registry.npmjs.org/"
+  NPM_CONFIG_REGISTRY: "https://registry.npmmirror.com"
+  # corepack 不吃 npm/pnpm 的 registry 配置，必须跟随同一镜像源，否则下载 pnpm 本体时直连 npmjs 会随机失败
+  COREPACK_NPM_REGISTRY: "$NPM_CONFIG_REGISTRY"
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
   PACKAGE_MAVEN_REPO: "$CI_PROJECT_DIR/.m2/package-repository"
 
