@@ -14,7 +14,7 @@ class AiChatbotWorkflowDefinitionTest {
             var graph = new ObjectMapper().readTree(input);
             String nodes = graph.path("nodes").toString();
 
-            assertEquals(13, graph.path("nodes").size());
+            assertEquals(14, graph.path("nodes").size());
             assertTrue(nodes.contains("\"kind\":\"understand\""));
             assertTrue(nodes.contains("\"kind\":\"condition\""));
             assertTrue(nodes.contains("\"kind\":\"template\""));
@@ -24,6 +24,8 @@ class AiChatbotWorkflowDefinitionTest {
             // 工具分支：服务器状态、QQ 状态与历史等实时数据查询必须走工具调用，不得落入 wiki 检索
             assertTrue(nodes.contains("intent.route == 'tool'"));
             assertTrue(nodes.contains("\"toolMode\":\"AUTO\""));
+            // 兜底分支：wiki 无命中时回落普通群聊回复，而不是强行 wiki 作答
+            assertTrue(nodes.contains("wikiResult.count != null && wikiResult.count > 0"));
             // 意图节点必须容忍模型输出非严格 JSON（strictJson=false），避免整条群回复因解析失败而报错
             graph.path("nodes").forEach(node -> {
                 if ("understand".equals(node.path("data").path("kind").asText())) {

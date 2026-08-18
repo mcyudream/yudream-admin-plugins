@@ -71,9 +71,21 @@
       }
     },
     {
-      "id": "help-reply",
+      "id": "wiki-hit",
       "type": "agent",
       "position": { "x": 1400, "y": 160 },
+      "data": {
+        "kind": "condition",
+        "title": "知识库是否有答案",
+        "condition": "wikiResult.count != null && wikiResult.count > 0",
+        "inputVariable": "wikiResult",
+        "outputVariable": "wikiHit"
+      }
+    },
+    {
+      "id": "help-reply",
+      "type": "agent",
+      "position": { "x": 1680, "y": 80 },
       "data": {
         "kind": "llm",
         "title": "生成图文教程回复",
@@ -81,7 +93,7 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "toolMode": "NONE",
-        "prompt": "输入为知识库检索结果 JSON（hits 含 title、spaceName、content、images）。结合用户最新消息作答：有命中时给出步骤清晰、可直接照做的教程式回答，并注明来源页面标题与所属知识库名称；无命中或结果不相关时正常回答，并如实说明未检索到资料。不要输出图片链接或 Markdown 图片语法，相关配图会由系统直接发送到群里。",
+        "prompt": "输入为知识库检索结果 JSON（hits 含 title、spaceName、content、images），且已确认存在命中。结合用户最新消息给出步骤清晰、可直接照做的教程式回答，并注明来源页面标题与所属知识库名称。不要输出图片链接或 Markdown 图片语法，相关配图会由系统直接发送到群里。",
         "inputVariable": "wikiResult",
         "outputVariable": "answer"
       }
@@ -121,7 +133,7 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "toolMode": "AUTO",
-        "prompt": "用户的问题需要实时数据，必须优先调用已授权工具获取，禁止凭记忆编造状态、人数或记录。拿到工具结果后如实汇总作答；没有可用工具或工具报错时，如实说明无法查询，不要输出工具参数或 JSON。",
+        "prompt": "用户的问题可能需要实时数据，优先调用已授权工具获取，禁止凭记忆编造状态、人数或记录。拿到工具结果后如实汇总作答；如果现有工具无法回答这个问题或工具报错，不要生硬报错，像普通群聊一样基于已有知识自然回答，并在确实涉及实时数据时如实说明该部分暂时无法查询。不要输出工具参数或 JSON。",
         "inputVariable": "toolTask",
         "outputVariable": "answer"
       }
@@ -129,7 +141,7 @@
     {
       "id": "chat-task",
       "type": "agent",
-      "position": { "x": 1400, "y": 480 },
+      "position": { "x": 1960, "y": 320 },
       "data": {
         "kind": "template",
         "title": "组织回复任务",
@@ -141,7 +153,7 @@
     {
       "id": "chat-reply",
       "type": "agent",
-      "position": { "x": 1400, "y": 440 },
+      "position": { "x": 2240, "y": 320 },
       "data": {
         "kind": "llm",
         "title": "生成群聊回复",
@@ -156,7 +168,7 @@
     {
       "id": "end",
       "type": "agent",
-      "position": { "x": 1700, "y": 260 },
+      "position": { "x": 2520, "y": 260 },
       "data": { "kind": "end", "title": "输出群消息", "inputVariable": "answer" }
     }
   ],
@@ -172,7 +184,9 @@
     { "id": "route-tool-chat", "source": "route-tool", "target": "chat-task", "sourceHandle": "false" },
     { "id": "tool-task-reply", "source": "tool-task", "target": "tool-reply" },
     { "id": "tool-reply-end", "source": "tool-reply", "target": "end" },
-    { "id": "wiki-help-reply", "source": "wiki-search", "target": "help-reply" },
+    { "id": "wiki-search-hit", "source": "wiki-search", "target": "wiki-hit" },
+    { "id": "wiki-hit-help-reply", "source": "wiki-hit", "target": "help-reply", "sourceHandle": "true" },
+    { "id": "wiki-hit-chat", "source": "wiki-hit", "target": "chat-task", "sourceHandle": "false" },
     { "id": "chat-task-reply", "source": "chat-task", "target": "chat-reply" },
     { "id": "help-reply-end", "source": "help-reply", "target": "end" },
     { "id": "chat-reply-end", "source": "chat-reply", "target": "end" }
