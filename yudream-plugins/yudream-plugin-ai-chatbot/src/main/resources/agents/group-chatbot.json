@@ -17,13 +17,13 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "strictJson": false,
-        "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"reply|refuse\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\"}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse，否则 route=reply。",
+        "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"refuse|help|chat\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\",\"query\":\"用于知识库检索或回答的问题重述\",\"graphExpansion\":true|false}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse；当用户在求助，或询问教程、文档、操作步骤、排错方法及你不确定的项目事实时 route=help，且此时 graphExpansion 输出 true；其余闲聊、讨论 route=chat。",
         "inputVariable": "query",
         "outputVariable": "intent"
       }
     },
     {
-      "id": "route",
+      "id": "route-safety",
       "type": "agent",
       "position": { "x": 600, "y": 260 },
       "data": {
@@ -37,7 +37,7 @@
     {
       "id": "refusal",
       "type": "agent",
-      "position": { "x": 880, "y": 90 },
+      "position": { "x": 860, "y": 60 },
       "data": {
         "kind": "template",
         "title": "生成安全拒答",
@@ -47,21 +47,61 @@
       }
     },
     {
-      "id": "reply-task",
+      "id": "route-help",
       "type": "agent",
-      "position": { "x": 880, "y": 430 },
+      "position": { "x": 860, "y": 300 },
+      "data": {
+        "kind": "condition",
+        "title": "是否求助检索",
+        "condition": "intent.route == 'help'",
+        "inputVariable": "intent",
+        "outputVariable": "help"
+      }
+    },
+    {
+      "id": "wiki-search",
+      "type": "agent",
+      "position": { "x": 1120, "y": 160 },
+      "data": {
+        "kind": "tool",
+        "title": "检索 Wiki 知识库",
+        "toolCode": "wiki.search",
+        "inputVariable": "intent",
+        "outputVariable": "wikiResult"
+      }
+    },
+    {
+      "id": "help-reply",
+      "type": "agent",
+      "position": { "x": 1400, "y": 160 },
+      "data": {
+        "kind": "llm",
+        "title": "生成图文教程回复",
+        "providerCode": "runtime",
+        "modelCode": "default",
+        "allowModelOverride": true,
+        "toolMode": "NONE",
+        "prompt": "输入为知识库检索结果 JSON（hits 含 title、spaceName、content、images）。结合用户最新消息作答：有命中时给出步骤清晰、可直接照做的教程式回答，并注明来源页面标题与所属知识库名称；无命中或结果不相关时正常回答，并如实说明未检索到资料。不要输出图片链接或 Markdown 图片语法，相关配图会由系统直接发送到群里。",
+        "inputVariable": "wikiResult",
+        "outputVariable": "answer"
+      }
+    },
+    {
+      "id": "chat-task",
+      "type": "agent",
+      "position": { "x": 1120, "y": 440 },
       "data": {
         "kind": "template",
         "title": "组织回复任务",
         "template": "群聊主题：{{intent.topic}}\n建议风格：{{intent.style}}\n用户消息：{{query}}\n请结合运行时人设和历史上下文回复；需要时调用已授权插件工具。",
         "inputVariable": "intent",
-        "outputVariable": "replyTask"
+        "outputVariable": "chatTask"
       }
     },
     {
-      "id": "reply",
+      "id": "chat-reply",
       "type": "agent",
-      "position": { "x": 1160, "y": 430 },
+      "position": { "x": 1400, "y": 440 },
       "data": {
         "kind": "llm",
         "title": "生成群聊回复",
@@ -69,24 +109,28 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "prompt": "直接给出适合发送到群聊的最终回复，不要解释编排过程。",
-        "inputVariable": "replyTask",
+        "inputVariable": "chatTask",
         "outputVariable": "answer"
       }
     },
     {
       "id": "end",
       "type": "agent",
-      "position": { "x": 1430, "y": 260 },
+      "position": { "x": 1700, "y": 260 },
       "data": { "kind": "end", "title": "输出群消息", "inputVariable": "answer" }
     }
   ],
   "edges": [
     { "id": "start-intent", "source": "start", "target": "intent" },
-    { "id": "intent-route", "source": "intent", "target": "route" },
-    { "id": "route-refusal", "source": "route", "target": "refusal", "sourceHandle": "true" },
-    { "id": "route-reply", "source": "route", "target": "reply-task", "sourceHandle": "false" },
-    { "id": "reply-task-model", "source": "reply-task", "target": "reply" },
+    { "id": "intent-route-safety", "source": "intent", "target": "route-safety" },
+    { "id": "route-safety-refusal", "source": "route-safety", "target": "refusal", "sourceHandle": "true" },
+    { "id": "route-safety-route-help", "source": "route-safety", "target": "route-help", "sourceHandle": "false" },
     { "id": "refusal-end", "source": "refusal", "target": "end" },
-    { "id": "reply-end", "source": "reply", "target": "end" }
+    { "id": "route-help-wiki", "source": "route-help", "target": "wiki-search", "sourceHandle": "true" },
+    { "id": "route-help-chat", "source": "route-help", "target": "chat-task", "sourceHandle": "false" },
+    { "id": "wiki-help-reply", "source": "wiki-search", "target": "help-reply" },
+    { "id": "chat-task-reply", "source": "chat-task", "target": "chat-reply" },
+    { "id": "help-reply-end", "source": "help-reply", "target": "end" },
+    { "id": "chat-reply-end", "source": "chat-reply", "target": "end" }
   ]
 }

@@ -157,7 +157,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         String avatar = platformProfile.map(profile -> profile.avatar()).orElse("");
         activity(event, profileUserId, "REPLY_TRIGGERED", mode, true);
         if (userId != null) profileActivity(event, profileUserId, nickname, avatar, "OBSERVED");
-        if (mentioned && asksForTools(event.content())) { activity(event, profileUserId, "TOOL_SUMMARY", mode, true); reply(event, toolSummary(policy)); return CompletableFuture.completedFuture(null); }
+        if (mentioned && asksForTools(event.content())) { activity(event, profileUserId, "TOOL_SUMMARY", mode, true); reply(event, toolSummary()); return CompletableFuture.completedFuture(null); }
         if (mentioned && userId == null) { activity(event, "", "REPLY_REJECTED_UNBOUND", mode, false); reply(event, "请先绑定系统账号后再使用 AI 对话。"); return CompletableFuture.completedFuture(null); }
         List<PluginAiChatMessage> history = history(mentioned && userId != null ? "user-memory" : "group-history", mentioned && userId != null ? memoryId(event, userId) : groupId(event), mentioned && userId != null ? policy.personalContextLimit() : policy.groupContextLimit());
         if (userId != null && policy.longTermMemoryEnabled()) {
@@ -171,56 +171,28 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             }
         }
         if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
-        // 求助检索分支：被 @ 且带求助/提问意图时，先检索 Wiki 知识库并注入上下文，回复后把配图发到群里
-        List<AiChatbotWikiService.WikiHit> wikiHits = List.of();
-        boolean helpBranch = mentioned && policy.wikiHelpAvailable() && wiki.looksLikeHelp(event.content());
-        if (helpBranch) {
-            try {
-                wikiHits = wiki.search(policy.wikiSpaceSlug(), event.content());
-                if (!wikiHits.isEmpty()) { List<PluginAiChatMessage> enriched = new ArrayList<>(history); enriched.add(new PluginAiChatMessage("system", wikiContext(wikiHits))); history = enriched; }
-                activity(event, profileUserId, "WIKI_HELP_SEARCH", mode, !wikiHits.isEmpty());
-                LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki help branch: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", hits=" + wikiHits.size());
-            } catch (Exception error) {
-                wikiHits = List.of();
-                activity(event, profileUserId, "WIKI_HELP_SEARCH", mode, false);
-                LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] wiki help search failed: " + errorMessage(error), error);
-            }
-        }
-        boolean tutorial = !wikiHits.isEmpty();
-        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), allowedTools(policy, mentioned));
-        List<AiChatbotWikiService.WikiHit> branchHits = wikiHits;
-        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, tutorial), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
+        // 工具调用（含 Wiki 求助检索）全部由宿主 Agent 应用的工作流编排：插件不再自判定意图、自发起检索，
+        // 仅把本次运行许可的插件工具范围（* = 全部，由宿主按触发方式与权限码二次过滤）交给工作流。
+        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), List.of("*"));
+        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
             append("group-history", groupId(event), "assistant", result.content());
             if (mentioned && userId != null) { append("user-memory", memoryId(event, userId), "user", event.content()); append("user-memory", memoryId(event, userId), "assistant", result.content()); }
             activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, result.content());
-            if (!branchHits.isEmpty()) {
-                List<AiChatbotWikiService.WikiImage> images = wiki.collectImages(branchHits, policy.wikiImageLimit());
-                if (!images.isEmpty()) {
-                    int sent = wiki.sendImages(event.connectionId(), event.platform(), event.selfId(), event.channelId(), event.messageId(), images);
-                    activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, sent > 0);
-                    LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki help images sent: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", sent=" + sent + "/" + images.size());
-                }
+            // 工作流 wiki.search 工具节点命中的站内配图随工具结果回传，读出后以 QQ 图片消息发到群里
+            List<AiChatbotWikiService.WikiImage> images = wiki.imagesFromToolResults(result.toolResults(), WIKI_IMAGE_LIMIT);
+            if (!images.isEmpty()) {
+                int sent = wiki.sendImages(event.connectionId(), event.platform(), event.selfId(), event.channelId(), event.messageId(), images);
+                activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, sent > 0);
+                LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki images sent: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", sent=" + sent + "/" + images.size());
             }
             LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
         }).toCompletableFuture();
     }
 
-    private static final String WIKI_SEARCH_TOOL = "wiki.search";
-
-    /**
-     * 群策略勾选的工具名单，叠加 Wiki 求助开关自动附带的宿主公开检索工具（配置了固定知识库时）。
-     * 名单经 SPI 作为运行时许可工具传给宿主 Agent 运行：宿主原生工具由工作流节点注入，插件工具由网关注入。
-     */
-    private List<String> allowedTools(AiChatbotGroupPolicy policy, boolean mentioned) {
-        List<String> tools = new ArrayList<>(policy.enabledToolNames());
-        if (mentioned && policy.wikiHelpAvailable() && !policy.wikiSpaceSlug().isBlank() && !tools.contains(WIKI_SEARCH_TOOL)) {
-            tools.add(WIKI_SEARCH_TOOL);
-        }
-        return List.copyOf(tools);
-    }
+    private static final int WIKI_IMAGE_LIMIT = 3;
 
     private void activity(PluginEvent event, String userId, String type, String mode, boolean success) { try { activities.record(event.connectionId(), event.channelId(), event.userId(), userId, type, mode, success); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] activity recording failed: " + errorMessage(error), error); } }
     private void profileActivity(PluginEvent event, String userId, String nickname, String avatar, String outcome) { try { if ("OBSERVED".equals(outcome)) profiles.observe(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, event.content()); else profiles.recordReply(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, outcome); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] profile activity recording failed: " + errorMessage(error), error); } }
@@ -231,44 +203,19 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private boolean hasReply(PluginEvent event) { Object value = event.referrer().get("replyMessageId"); return value != null && !String.valueOf(value).isBlank(); }
     private String errorMessage(Throwable error) { Throwable cause = error; while (cause.getCause() != null) cause = cause.getCause(); String message = cause.getMessage(); return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message; }
     private boolean asksForTools(String content) { String value = content == null ? "" : content; return value.contains("哪些工具") || value.contains("什么工具") || value.contains("工具列表") || value.contains("能调用") || value.contains("可用工具"); }
-    private String toolSummary(AiChatbotGroupPolicy policy) {
-        List<String> enabled = policy.enabledToolNames();
-        if (enabled.isEmpty()) return "本群当前未启用 AI 工具。管理员可在 AI 群聊机器人配置中开启。";
-        List<String> lines = context.framework().ai().tools().stream().filter(tool -> enabled.contains(tool.name())).map(tool -> "- " + tool.title() + "：" + tool.description()).toList();
-        return lines.isEmpty() ? "本群配置的工具当前未注册或对应插件未启用。" : "本群已启用工具：\n" + String.join("\n", lines);
+    private String toolSummary() {
+        List<String> lines = context.framework().ai().tools().stream().map(tool -> "- " + tool.title() + "：" + tool.description()).toList();
+        return lines.isEmpty() ? "当前没有可用的 AI 工具。" : "当前可用工具（由 Agent 编排按需调用，无需在群里配置）：\n" + String.join("\n", lines);
     }
-    private String prompt(String mode, AiChatbotGroupPolicy policy, boolean tutorial) {
+    private String prompt(String mode, AiChatbotGroupPolicy policy) {
         String injection = "MENTION".equals(mode) && !policy.mentionReplyInjection().isBlank()
                 ? " " + policy.mentionReplyInjection().trim()
                 : "";
         return policy.systemPrompt() + (policy.persona().isBlank() ? "" : " 人设：" + policy.persona())
                 + injection
-                + wikiToolHint(mode, policy)
-                + (tutorial ? " 用户正在求助，已为你附上知识库检索到的相关内容。请结合内容给出步骤清晰、可直接照做的教程式回答；相关配图会直接发送到群里，你可以在回答中自然引用（如“详细界面见群内配图”），不要输出图片链接或 Markdown 图片语法。" : "")
                 + ("RANDOM".equals(mode) ? " 这是随机回复，不调用工具，不要打断正常交流。" : " 这是用户明确 @ 你，请优先回答当前用户的问题。");
     }
 
-    /** Wiki 求助开关 + 固定知识库标识时，引导模型在需要时主动调用宿主 wiki.search 工具（该工具已随运行时许可名单注入）。 */
-    private String wikiToolHint(String mode, AiChatbotGroupPolicy policy) {
-        if (!"MENTION".equals(mode) || !policy.wikiHelpAvailable() || policy.wikiSpaceSlug().isBlank()) {
-            return "";
-        }
-        return " 本群开通了 Wiki 检索工具 wiki.search（知识库标识 \"" + policy.wikiSpaceSlug().trim()
-                + "\"）；当用户问题涉及教程、文档、操作步骤或你不确定的项目事实时，先调用 wiki.search 检索"
-                + "（spaceSlug 用该标识，graphExpansion 传 true），再基于检索结果作答并注明来源页面。";
-    }
-
-    private String wikiContext(List<AiChatbotWikiService.WikiHit> hits) {
-        StringBuilder context = new StringBuilder("以下是与用户求助相关的知识库检索内容：\n");
-        int index = 1;
-        for (AiChatbotWikiService.WikiHit hit : hits) {
-            context.append(index++).append(". 《").append(hit.title()).append("》");
-            if (!hit.spaceName().isBlank()) context.append("（来自知识库「").append(hit.spaceName()).append("」）");
-            if (!hit.excerpt().isBlank()) context.append("：").append(hit.excerpt());
-            context.append('\n');
-        }
-        return context.toString();
-    }
     private String groupId(PluginEvent event) { return event.connectionId() + ":" + event.channelId(); }
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
     private void reply(PluginEvent event, String text) {

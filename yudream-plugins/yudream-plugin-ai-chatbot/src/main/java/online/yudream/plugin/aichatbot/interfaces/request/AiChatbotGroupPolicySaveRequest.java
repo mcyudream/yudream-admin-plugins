@@ -3,8 +3,7 @@ package online.yudream.plugin.aichatbot.interfaces.request;
 public record AiChatbotGroupPolicySaveRequest(String connectionId, String channelId, boolean enabled, double randomProbability,
                                                 int groupContextLimit, int personalContextLimit, int contextExpansionLimit,
                                                 int cooldownSeconds, int hourlyReplyLimit, String quietHoursStart,
-                                                String quietHoursEnd, String systemPrompt, String persona, java.util.List<String> enabledToolNames,
+                                                String quietHoursEnd, String systemPrompt, String persona,
                                                 boolean randomToolCallingEnabled, boolean longTermMemoryEnabled, int semanticMemoryTopK,
                                                 String agentCode, String providerCode, String modelCode,
-                                                String mentionReplyInjection,
-                                                String wikiSpaceSlug, boolean wikiHelpEnabled, int wikiImageLimit) { }
+                                                String mentionReplyInjection) { }

@@ -9,12 +9,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AiChatbotWorkflowDefinitionTest {
 
     @Test
-    void declaresIntentConditionRefusalAndReplyOrchestration() throws Exception {
+    void declaresSafetyIntentHelpBranchWikiToolAndReplyOrchestration() throws Exception {
         try (var input = getClass().getClassLoader().getResourceAsStream("agents/group-chatbot.json")) {
             var graph = new ObjectMapper().readTree(input);
+            String nodes = graph.path("nodes").toString();
 
-            assertEquals(7, graph.path("nodes").size());
-            assertTrue(graph.path("nodes").toString().contains("\"kind\":\"understand\""));
+            assertEquals(10, graph.path("nodes").size());
+            assertTrue(nodes.contains("\"kind\":\"understand\""));
+            assertTrue(nodes.contains("\"kind\":\"condition\""));
+            assertTrue(nodes.contains("\"kind\":\"template\""));
+            // 求助分支：安全意图之后接求助判定，命中进入 wiki.search 工具节点（编排内检索，插件配置不再承担）
+            assertTrue(nodes.contains("\"toolCode\":\"wiki.search\""));
+            assertTrue(nodes.contains("intent.route == 'help'"));
             // 意图节点必须容忍模型输出非严格 JSON（strictJson=false），避免整条群回复因解析失败而报错
             graph.path("nodes").forEach(node -> {
                 if ("understand".equals(node.path("data").path("kind").asText())) {
@@ -22,8 +28,6 @@ class AiChatbotWorkflowDefinitionTest {
                             "understand 节点必须显式声明 strictJson=false");
                 }
             });
-            assertTrue(graph.path("nodes").toString().contains("\"kind\":\"condition\""));
-            assertTrue(graph.path("nodes").toString().contains("\"kind\":\"template\""));
             assertTrue(graph.path("edges").toString().contains("\"sourceHandle\":\"true\""));
             assertTrue(graph.path("edges").toString().contains("\"sourceHandle\":\"false\""));
         }

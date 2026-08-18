@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AiAgent, AiTool, GroupPolicy, Option } from '../types'
+import type { AiAgent, GroupPolicy, Option } from '../types'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaCheckboxGroup, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea } from '@yudream/components'
+import { FaButton, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import { resolveGroupAgentCode, toGroupAgentOptions } from '../config/group-agent-options'
 
@@ -13,20 +13,19 @@ const saving = ref(false)
 const loading = ref(false)
 const message = ref('')
 const policies = ref<GroupPolicy[]>([])
-const connections = ref<Option[]>([]), groups = ref<Option[]>([]), tools = ref<AiTool[]>([])
+const connections = ref<Option[]>([]), groups = ref<Option[]>([])
 const agents = ref<AiAgent[]>([])
 const connectionIds = ref<string[]>([]), channelIds = ref<string[]>([])
 const connectionOptions = computed(() => connections.value.map(item => ({ label: item.name, value: item.id })))
 const groupOptions = computed(() => groups.value.map(item => ({ label: `${item.name}（${item.id}）`, value: item.id })))
 const agentOptions = computed(() => toGroupAgentOptions(agents.value))
-const toolOptions = computed(() => tools.value.map(tool => ({ label: `${tool.title}：${tool.description}`, value: tool.name })))
-const form = reactive<PolicyForm>({ connectionId: '', channelId: '', enabled: true, randomProbability: 0.03, groupContextLimit: 12, personalContextLimit: 16, contextExpansionLimit: 12, cooldownSeconds: 30, hourlyReplyLimit: 30, quietHoursStart: '', quietHoursEnd: '', systemPrompt: '你是 YuDream 群聊助手，回答简短、友好、准确。', persona: '', enabledToolNames: [], randomToolCallingEnabled: false, longTermMemoryEnabled: false, semanticMemoryTopK: 5, agentCode: 'builtin-group-chatbot', mentionReplyInjection: '', wikiSpaceSlug: '', wikiHelpEnabled: false, wikiImageLimit: 3 })
+const form = reactive<PolicyForm>({ connectionId: '', channelId: '', enabled: true, randomProbability: 0.03, groupContextLimit: 12, personalContextLimit: 16, contextExpansionLimit: 12, cooldownSeconds: 30, hourlyReplyLimit: 30, quietHoursStart: '', quietHoursEnd: '', systemPrompt: '你是 YuDream 群聊助手，回答简短、友好、准确。', persona: '', randomToolCallingEnabled: false, longTermMemoryEnabled: false, semanticMemoryTopK: 5, agentCode: 'builtin-group-chatbot', mentionReplyInjection: '' })
 
 function apply(policy: GroupPolicy) { Object.assign(form, policy, { quietHoursStart: policy.quietHoursStart ?? '', quietHoursEnd: policy.quietHoursEnd ?? '' }) }
 async function loadPolicies() { loading.value = true; try { policies.value = await api.policies() } catch (error) { message.value = error instanceof Error ? error.message : '加载配置失败' } finally { loading.value = false } }
 async function loadPolicy() { if (connectionIds.value.length !== 1 || channelIds.value.length !== 1) { message.value = '读取已有配置时请选择一个连接和一个群聊'; return } loading.value = true; try { apply(await api.policy(connectionIds.value[0], channelIds.value[0])); message.value = '' } catch (error) { message.value = error instanceof Error ? error.message : '读取群配置失败' } finally { loading.value = false } }
 async function loadGroups() { channelIds.value = []; groups.value = connectionIds.value.length === 1 ? await api.groups(connectionIds.value[0]) : [] }
-async function loadOptions() { const [connectionValues, toolValues, agentValues] = await Promise.all([api.connections(), api.tools(), api.agents()]); connections.value = connectionValues; tools.value = toolValues; agents.value = agentValues; form.agentCode = resolveGroupAgentCode(agentOptions.value, form.agentCode) }
+async function loadOptions() { const [connectionValues, agentValues] = await Promise.all([api.connections(), api.agents()]); connections.value = connectionValues; agents.value = agentValues; form.agentCode = resolveGroupAgentCode(agentOptions.value, form.agentCode) }
 async function save() { saving.value = true; message.value = ''; try { const policy = { ...form, quietHoursStart: form.quietHoursStart || null, quietHoursEnd: form.quietHoursEnd || null }; if (connectionIds.value.length && channelIds.value.length) await api.saveBatch(connectionIds.value, channelIds.value, policy); else apply(await api.save(policy)); await loadPolicies(); message.value = '已保存，下一条群消息立即按新策略处理。' } catch (error) { message.value = error instanceof Error ? error.message : '保存失败' } finally { saving.value = false } }
 onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
 </script>
@@ -53,17 +52,8 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
             <label class="grid gap-2">Agent 应用<FaSelect v-model="form.agentCode" :options="agentOptions" placeholder="选择已发布 Agent" class="w-full" /></label>
           </div>
         </section>
-        <section class="grid gap-3 rounded border p-4"><h3>上下文、人设与工具</h3><div class="grid grid-cols-1 gap-3 md:grid-cols-3"><label class="grid gap-2">群聊上下文条数<FaInput v-model="form.groupContextLimit" type="number" /></label><label class="grid gap-2">个人上下文条数<FaInput v-model="form.personalContextLimit" type="number" /></label><label class="grid gap-2">扩展上下文条数<FaInput v-model="form.contextExpansionLimit" type="number" /></label><label class="grid gap-2">静默开始（HH:mm）<FaInput v-model="form.quietHoursStart" placeholder="22:30" /></label><label class="grid gap-2">静默结束（HH:mm）<FaInput v-model="form.quietHoursEnd" placeholder="08:00" /></label></div><label class="grid gap-2">系统提示词<FaTextarea v-model="form.systemPrompt" :rows="3" /></label><label class="grid gap-2">人设<FaTextarea v-model="form.persona" :rows="2" placeholder="例如：Minecraft 社群管理员，活泼但不过度打扰。" /></label><label class="grid gap-2">@ 回复注入<FaTextarea v-model="form.mentionReplyInjection" :rows="2" placeholder="仅在用户明确 @ 机器人时追加到提示词，例如：优先结合知识库回答并附上来源。" /></label><div class="grid gap-2"><strong>允许调用的工具</strong><FaCheckboxGroup v-model="form.enabledToolNames" :options="toolOptions" /><span v-if="!tools.length" class="text-sm text-muted-foreground">当前没有可配置工具。</span></div></section>
+        <section class="grid gap-3 rounded border p-4"><h3>上下文与人设</h3><div class="grid grid-cols-1 gap-3 md:grid-cols-3"><label class="grid gap-2">群聊上下文条数<FaInput v-model="form.groupContextLimit" type="number" /></label><label class="grid gap-2">个人上下文条数<FaInput v-model="form.personalContextLimit" type="number" /></label><label class="grid gap-2">扩展上下文条数<FaInput v-model="form.contextExpansionLimit" type="number" /></label><label class="grid gap-2">静默开始（HH:mm）<FaInput v-model="form.quietHoursStart" placeholder="22:30" /></label><label class="grid gap-2">静默结束（HH:mm）<FaInput v-model="form.quietHoursEnd" placeholder="08:00" /></label></div><label class="grid gap-2">系统提示词<FaTextarea v-model="form.systemPrompt" :rows="3" /></label><label class="grid gap-2">人设<FaTextarea v-model="form.persona" :rows="2" placeholder="例如：Minecraft 社群管理员，活泼但不过度打扰。" /></label><label class="grid gap-2">@ 回复注入<FaTextarea v-model="form.mentionReplyInjection" :rows="2" placeholder="仅在用户明确 @ 机器人时追加到提示词，例如：优先结合知识库回答并附上来源。" /></label><span class="text-sm text-muted-foreground">工具调用（含 Wiki 求助检索与配图）由所选 Agent 应用的工作流编排统一调度，无需在此配置。</span></section>
         <div class="flex justify-end"><FaButton type="submit" :loading="saving">保存配置</FaButton></div>
-        <section class="grid gap-3 rounded border p-4">
-          <h3>Wiki 求助检索</h3>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label class="grid gap-2">知识库标识（slug，留空检索全部公开知识库）<FaInput v-model="form.wikiSpaceSlug" placeholder="留空 = 全部；例如 tutorial" class="w-full" /></label>
-            <label class="grid gap-2">配图发送数量<FaNumberField v-model="form.wikiImageLimit" :min="1" :max="5" class="w-full" /></label>
-          </div>
-          <FaSwitch v-model="form.wikiHelpEnabled">启用求助检索分支（@机器人且带有求助/提问意图时自动检索知识库）</FaSwitch>
-          <span class="text-sm text-muted-foreground">命中后：检索内容注入回答上下文，回答按教程式输出；命中文档引用的站内图片会作为 QQ 图片消息发到群里，实现图文并茂。仅检索开启了「公开阅读」的知识库。配置了固定知识库标识时，还会自动为 Agent 注入 wiki.search 检索工具，非求助类问题模型也可主动检索该知识库。</span>
-        </section>
         <section class="grid gap-3 rounded border p-4"><h3>Tools and long-term memory</h3><div class="flex flex-wrap gap-4"><FaSwitch v-model="form.randomToolCallingEnabled">Allow tools in random replies</FaSwitch><FaSwitch v-model="form.longTermMemoryEnabled">Enable long-term vector memory</FaSwitch></div><label class="grid max-w-xs gap-2">Recall result limit<FaNumberField v-model="form.semanticMemoryTopK" :min="1" :max="20" /></label></section>
       </form>
       <aside class="grid content-start gap-2 rounded border p-4"><h3>已配置群聊</h3><button v-for="item in policies" :key="`${item.connectionId}:${item.channelId}`" type="button" class="rounded border px-3 py-2 text-left" @click="apply(item)">{{ item.connectionId }} / {{ item.channelId }}<br><small>{{ item.enabled ? '已启用' : '已停用' }}，随机 {{ item.randomProbability }}</small></button><span v-if="!policies.length" class="text-sm text-muted-foreground">尚未保存任何群配置。</span></aside>
