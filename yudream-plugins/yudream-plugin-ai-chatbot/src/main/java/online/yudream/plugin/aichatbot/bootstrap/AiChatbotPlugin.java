@@ -174,7 +174,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         // 工具调用（含 Wiki 求助检索）全部由宿主 Agent 应用的工作流编排：插件不再自判定意图、自发起检索，
         // 仅把本次运行许可的插件工具范围（* = 全部，由宿主按触发方式与权限码二次过滤）交给工作流。
         PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), List.of("*"));
-        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
+        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, userProfileSection(event, userId)), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
@@ -207,11 +207,55 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         List<String> lines = context.framework().ai().tools().stream().map(tool -> "- " + tool.title() + "：" + tool.description()).toList();
         return lines.isEmpty() ? "当前没有可用的 AI 工具。" : "当前可用工具（由 Agent 编排按需调用，无需在群里配置）：\n" + String.join("\n", lines);
     }
-    private String prompt(String mode, AiChatbotGroupPolicy policy) {
+    /**
+     * 回复时注入的用户画像：画像存在且启用时，把 AI 分析摘要/人格/互动风格/标签与管理员审核确认的事实
+     * 拼进系统提示词，让模型按当前用户的特点自适应调整回答内容与语气；读取失败静默降级。
+     */
+    private String userProfileSection(PluginEvent event, Long userId) {
+        if (userId == null) {
+            return "";
+        }
+        try {
+            AiChatbotMemoryProfile profile = profiles.find(event.connectionId(), event.channelId(), String.valueOf(userId));
+            if (profile == null || !profile.enabled()) {
+                return "";
+            }
+            StringBuilder section = new StringBuilder();
+            if (profile.summary() != null && !profile.summary().isBlank()) {
+                section.append(" 当前用户画像：").append(profile.summary());
+            }
+            if (profile.personality() != null && !profile.personality().isBlank()) {
+                section.append(" 人格特点：").append(profile.personality());
+            }
+            if (profile.interactionStyle() != null && !profile.interactionStyle().isBlank()) {
+                section.append(" 互动风格：").append(profile.interactionStyle());
+            }
+            if (profile.tags() != null && !profile.tags().isEmpty()) {
+                section.append(" 标签：").append(String.join("、", profile.tags()));
+            }
+            if (profile.facts() != null) {
+                List<String> facts = profile.facts().stream()
+                        .filter(fact -> fact.approved() && !"recent_message".equals(fact.key()) && fact.value() != null && !fact.value().isBlank())
+                        .limit(8)
+                        .map(fact -> factLabel(fact.key()) + "：" + fact.value())
+                        .toList();
+                if (!facts.isEmpty()) {
+                    section.append(" 已确认事实：").append(String.join("；", facts));
+                }
+            }
+            return section.toString();
+        }
+        catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private String prompt(String mode, AiChatbotGroupPolicy policy, String profileSection) {
         String injection = "MENTION".equals(mode) && !policy.mentionReplyInjection().isBlank()
                 ? " " + policy.mentionReplyInjection().trim()
                 : "";
         return policy.systemPrompt() + (policy.persona().isBlank() ? "" : " 人设：" + policy.persona())
+                + (profileSection == null ? "" : profileSection)
                 + injection
                 + ("RANDOM".equals(mode) ? " 这是随机回复，不调用工具，不要打断正常交流。" : " 这是用户明确 @ 你，请优先回答当前用户的问题。");
     }
