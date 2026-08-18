@@ -87,12 +87,28 @@ class AiChatbotMemoryProfileServiceTest {
         assertEquals("ai summary", analyzed.summary());
         assertEquals("开朗健谈", analyzed.personality());
         assertEquals("主动互动", analyzed.interactionStyle());
-        assertEquals(List.of("新标签"), analyzed.tags());
+        assertEquals(List.of("vip", "新标签"), analyzed.tags());
         assertTrue(analyzed.lastAnalyzedAt() > 0);
         assertEquals(1, analyzed.facts().stream().filter(fact -> fact.key().equals("interest")).count());
         assertEquals("Java", analyzed.facts().stream().filter(fact -> fact.key().equals("interest")).findFirst().orElseThrow().value());
         assertTrue(analyzed.facts().stream().anyMatch(fact -> fact.key().equals("habit") && !fact.approved()));
         assertTrue(analyzed.facts().stream().anyMatch(fact -> fact.key().equals("recent_message")));
+    }
+
+    @Test
+    void applyAnalysisCorrectsUnapprovedFactInsteadOfFossilizingIt() {
+        AiChatbotMemoryProfileService service = new AiChatbotMemoryProfileService(new InMemoryDocuments());
+        service.observe("milky", "100", "1", "qq-1", "Alice", "", "hello world");
+        service.applyAnalysis("milky:100:1", new AiChatbotProfileAnalysis("", "", "", List.of(),
+                List.of(new AiChatbotMemoryFact("interest", "足球", 0.6d, false, 0))));
+
+        AiChatbotMemoryProfile refined = service.applyAnalysis("milky:100:1", new AiChatbotProfileAnalysis("", "", "", List.of(),
+                List.of(new AiChatbotMemoryFact("interest", "篮球", 0.9d, false, 0))));
+
+        List<AiChatbotMemoryFact> interests = refined.facts().stream().filter(fact -> fact.key().equals("interest")).toList();
+        assertEquals(1, interests.size());
+        assertEquals("篮球", interests.getFirst().value());
+        assertFalse(interests.getFirst().approved());
     }
 
     @Test

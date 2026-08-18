@@ -43,19 +43,35 @@ public class AiChatbotMemoryProfileService {
         if (analysis == null) throw new IllegalArgumentException("分析结果无效");
         AiChatbotMemoryProfile current = get(id);
         long now = System.currentTimeMillis();
+        // 沉淀式合并：管理员已确认的事实与 recent_message 原始发言永远保留；AI 新产出的事实
+        // 对同 key 未确认旧事实做修正替换，对新 key 追加，避免持续分析时数据丢失或错误固化
         List<AiChatbotMemoryFact> facts = new ArrayList<>(current.facts().stream().filter(fact -> fact.approved() || RECENT_MESSAGE.equals(fact.key())).toList());
         Set<String> approvedKeys = new HashSet<>();
         facts.stream().filter(AiChatbotMemoryFact::approved).forEach(fact -> approvedKeys.add(fact.key()));
         for (AiChatbotMemoryFact fact : analysis.facts()) {
-            if (facts.size() >= MAX_FACTS) break;
             if (fact == null || !validFact(fact) || !STORED_FACT_KEYS.contains(fact.key()) || approvedKeys.contains(fact.key())) continue;
-            if (facts.stream().noneMatch(existing -> existing.key().equals(fact.key()))) facts.add(new AiChatbotMemoryFact(fact.key(), fact.value(), Math.clamp(fact.confidence(), 0d, 1d), false, now));
+            int existingIndex = -1;
+            for (int i = 0; i < facts.size(); i++) {
+                if (facts.get(i).key().equals(fact.key()) && !RECENT_MESSAGE.equals(facts.get(i).key())) { existingIndex = i; break; }
+            }
+            if (existingIndex >= 0) {
+                facts.set(existingIndex, new AiChatbotMemoryFact(fact.key(), fact.value(), Math.clamp(fact.confidence(), 0d, 1d), false, now));
+                continue;
+            }
+            if (facts.size() >= MAX_FACTS) break;
+            facts.add(new AiChatbotMemoryFact(fact.key(), fact.value(), Math.clamp(fact.confidence(), 0d, 1d), false, now));
+        }
+        // 标签取并集：AI 新标签追加在后，人工维护的标签不因分析丢失
+        List<String> tags = new ArrayList<>(current.tags());
+        for (String tag : analysis.tags()) {
+            if (!tags.contains(tag)) tags.add(tag);
+            if (tags.size() >= MAX_TAGS) break;
         }
         AiChatbotMemoryProfile updated = new AiChatbotMemoryProfile(current.id(), current.connectionId(), current.channelId(), current.userId(), current.platformUserId(), current.nickname(), current.avatar(), current.enabled(),
                 analysis.summary().isBlank() ? current.summary() : analysis.summary(),
                 analysis.personality().isBlank() ? current.personality() : analysis.personality(),
                 analysis.interactionStyle().isBlank() ? current.interactionStyle() : analysis.interactionStyle(),
-                analysis.tags().isEmpty() ? current.tags() : analysis.tags(),
+                List.copyOf(tags),
                 List.copyOf(facts), current.observedMessageCount(), current.replyTriggeredCount(), current.replyCompletedCount(), current.replyFailedCount(), current.lastActivityAt(), now, now);
         saveInternal(updated);
         return updated;
