@@ -58,11 +58,11 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
         <section class="grid gap-3 rounded border p-4">
           <h3>Wiki 求助检索</h3>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label class="grid gap-2">知识库标识（slug）<FaInput v-model="form.wikiSpaceSlug" placeholder="例如 tutorial" class="w-full" /></label>
+            <label class="grid gap-2">知识库标识（slug，留空检索全部公开知识库）<FaInput v-model="form.wikiSpaceSlug" placeholder="留空 = 全部；例如 tutorial" class="w-full" /></label>
             <label class="grid gap-2">配图发送数量<FaNumberField v-model="form.wikiImageLimit" :min="1" :max="5" class="w-full" /></label>
           </div>
           <FaSwitch v-model="form.wikiHelpEnabled">启用求助检索分支（@机器人且带有求助/提问意图时自动检索知识库）</FaSwitch>
-          <span class="text-sm text-muted-foreground">命中后：检索内容注入回答上下文，回答按教程式输出；命中文档引用的站内图片会作为 QQ 图片消息发到群里，实现图文并茂。知识库需开启「公开阅读」。</span>
+          <span class="text-sm text-muted-foreground">命中后：检索内容注入回答上下文，回答按教程式输出；命中文档引用的站内图片会作为 QQ 图片消息发到群里，实现图文并茂。仅检索开启了「公开阅读」的知识库。</span>
         </section>
         <section class="grid gap-3 rounded border p-4"><h3>Tools and long-term memory</h3><div class="flex flex-wrap gap-4"><FaSwitch v-model="form.randomToolCallingEnabled">Allow tools in random replies</FaSwitch><FaSwitch v-model="form.longTermMemoryEnabled">Enable long-term vector memory</FaSwitch></div><label class="grid max-w-xs gap-2">Recall result limit<FaNumberField v-model="form.semanticMemoryTopK" :min="1" :max="20" /></label></section>
       </form>

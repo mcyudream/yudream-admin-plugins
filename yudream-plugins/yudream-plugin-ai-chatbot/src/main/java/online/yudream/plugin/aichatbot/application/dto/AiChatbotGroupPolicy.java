@@ -74,9 +74,9 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
                 || ("RANDOM".equals(trigger) && randomToolCallingEnabled));
     }
 
-    /** 求助检索分支：仅在配置知识库标识且启用时生效 */
+    /** 求助检索分支：启用即生效；知识库标识留空时检索全部开放公开阅读的知识库 */
     public boolean wikiHelpAvailable() {
-        return wikiHelpEnabled && !wikiSpaceSlug.isBlank();
+        return wikiHelpEnabled;
     }
 
     public static AiChatbotGroupPolicy defaults(String connectionId, String channelId) {

@@ -238,6 +238,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         int index = 1;
         for (AiChatbotWikiService.WikiHit hit : hits) {
             context.append(index++).append(". 《").append(hit.title()).append("》");
+            if (!hit.spaceName().isBlank()) context.append("（来自知识库「").append(hit.spaceName()).append("」）");
             if (!hit.excerpt().isBlank()) context.append("：").append(hit.excerpt());
             context.append('\n');
         }

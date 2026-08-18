@@ -57,7 +57,7 @@ public class AiChatbotWikiService {
     }
 
     public record WikiImage(String url, String caption) { }
-    public record WikiHit(String title, String path, String excerpt, List<WikiImage> images) { }
+    public record WikiHit(String title, String path, String spaceName, String excerpt, List<WikiImage> images) { }
 
     /** 判断被 @ 的消息是否带有求助/检索意图 */
     public boolean looksLikeHelp(String content) {
@@ -68,7 +68,7 @@ public class AiChatbotWikiService {
         return value.length() >= 2 && HELP_INTENT.matcher(value).find();
     }
 
-    /** 检索公开知识库，返回去洗后的命中（标题、路径、摘要、图片） */
+    /** 检索公开知识库，返回去洗后的命中（标题、路径、摘要、图片）；spaceSlug 为空时检索全部开放公开阅读的知识库 */
     public List<WikiHit> search(String spaceSlug, String query) {
         String base = "http://127.0.0.1:" + framework.setting("server.port").orElse("8080");
         String body;
@@ -78,8 +78,11 @@ public class AiChatbotWikiService {
         catch (Exception error) {
             throw new IllegalStateException("检索请求构造失败", error);
         }
+        String path = spaceSlug == null || spaceSlug.isBlank()
+                ? "/api/public/wiki/search"
+                : "/api/public/wiki/" + URLEncoder.encode(spaceSlug, StandardCharsets.UTF_8) + "/search";
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(base + "/api/public/wiki/" + URLEncoder.encode(spaceSlug, StandardCharsets.UTF_8) + "/search"))
+                .uri(URI.create(base + path))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -126,6 +129,7 @@ public class AiChatbotWikiService {
             hits.add(new WikiHit(
                     node.path("title").asText(""),
                     node.path("path").asText(""),
+                    node.path("spaceName").asText(""),
                     truncate(node.path("content").asText(""), EXCERPT_LIMIT),
                     List.copyOf(images)));
             if (hits.size() >= MAX_HITS) {
