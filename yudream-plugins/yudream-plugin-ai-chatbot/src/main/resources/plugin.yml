@@ -2,7 +2,7 @@ name: ai-chatbot
 displayName: AI 群聊机器人
 description: 为 QQ 群提供可配置的 AI 对话、上下文记忆与受控插件工具调用，支持按规则触发和安全分流。
 main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
-version: 1.6.1
+version: 1.6.2
 agents:
   - code: builtin-group-chatbot
     name: AI 群聊机器人 Agent
