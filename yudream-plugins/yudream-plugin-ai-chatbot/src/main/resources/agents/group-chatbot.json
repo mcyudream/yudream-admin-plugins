@@ -16,6 +16,7 @@
         "providerCode": "runtime",
         "modelCode": "default",
         "allowModelOverride": true,
+        "strictJson": false,
         "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"reply|refuse\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\"}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse，否则 route=reply。",
         "inputVariable": "query",
         "outputVariable": "intent"
