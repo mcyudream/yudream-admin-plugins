@@ -37,7 +37,7 @@ public class AiChatbotPolicyService {
         String prompt = stringValue(doc.get("systemPrompt"));
         return new AiChatbotGroupPolicy(connectionId, channelId, boolValue(doc.get("enabled"), d.enabled()), doubleValue(doc.get("randomProbability"), d.randomProbability()),
                 intValue(doc.get("groupContextLimit"), d.groupContextLimit()), intValue(doc.get("personalContextLimit"), d.personalContextLimit()), intValue(doc.get("contextExpansionLimit"), d.contextExpansionLimit()),
-                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), stringList(doc.get("enabledToolNames")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("agentCode")), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")));
+                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), stringList(doc.get("enabledToolNames")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("agentCode")), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")), stringValue(doc.get("mentionReplyInjection")), stringValue(doc.get("wikiSpaceSlug")), boolValue(doc.get("wikiHelpEnabled"), false), intValue(doc.get("wikiImageLimit"), AiChatbotGroupPolicy.DEFAULT_WIKI_IMAGE_LIMIT));
     }
     private Map<String, Object> toDocument(AiChatbotGroupPolicy p) {
         Map<String, Object> v = new LinkedHashMap<>();
@@ -49,6 +49,9 @@ public class AiChatbotPolicyService {
         v.put("systemPrompt", p.systemPrompt()); v.put("persona", p.persona()); v.put("enabledToolNames", p.enabledToolNames()); v.put("randomToolCallingEnabled", p.randomToolCallingEnabled()); v.put("longTermMemoryEnabled", p.longTermMemoryEnabled()); v.put("semanticMemoryTopK", p.semanticMemoryTopK()); v.put("agentCode", p.agentCode());
         if (!p.providerCode().isBlank()) v.put("providerCode", p.providerCode());
         if (!p.modelCode().isBlank()) v.put("modelCode", p.modelCode());
+        if (!p.mentionReplyInjection().isBlank()) v.put("mentionReplyInjection", p.mentionReplyInjection());
+        if (!p.wikiSpaceSlug().isBlank()) v.put("wikiSpaceSlug", p.wikiSpaceSlug());
+        v.put("wikiHelpEnabled", p.wikiHelpEnabled()); v.put("wikiImageLimit", p.wikiImageLimit());
         v.put("updatedAt", System.currentTimeMillis()); return v;
     }
     private void validate(AiChatbotGroupPolicy p) {
@@ -56,6 +59,8 @@ public class AiChatbotPolicyService {
         if (p.randomProbability() < 0 || p.randomProbability() > 1) throw new IllegalArgumentException("随机回复概率必须在 0 到 1 之间");
         range(p.groupContextLimit(), "群聊上下文条数", 32); range(p.personalContextLimit(), "个人上下文条数", 32); range(p.contextExpansionLimit(), "上下文扩展条数", 32); range(p.cooldownSeconds(), "冷却时间", 3600); range(p.hourlyReplyLimit(), "每小时回复上限", 1000);
         time(p.quietHoursStart()); time(p.quietHoursEnd());
+        if (p.wikiSpaceSlug().length() > 100) throw new IllegalArgumentException("Wiki 知识库标识不能超过 100 个字符");
+        if (p.wikiImageLimit() > AiChatbotGroupPolicy.MAX_WIKI_IMAGE_LIMIT) throw new IllegalArgumentException("Wiki 图片发送数量不能超过 " + AiChatbotGroupPolicy.MAX_WIKI_IMAGE_LIMIT);
     }
     private boolean inQuietHours(AiChatbotGroupPolicy p) { if (p.quietHoursStart() == null || p.quietHoursEnd() == null) return false; LocalTime s = LocalTime.parse(p.quietHoursStart()), e = LocalTime.parse(p.quietHoursEnd()), n = LocalTime.now(); return s.equals(e) || (s.isBefore(e) ? !n.isBefore(s) && n.isBefore(e) : !n.isBefore(s) || n.isBefore(e)); }
     private String id(String connectionId, String channelId) { return connectionId + ":" + channelId; }

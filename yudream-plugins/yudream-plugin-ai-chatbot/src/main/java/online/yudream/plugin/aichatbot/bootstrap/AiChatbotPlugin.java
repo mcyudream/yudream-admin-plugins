@@ -25,6 +25,7 @@ import online.yudream.plugin.aichatbot.application.service.AiChatbotAgentService
 import online.yudream.plugin.aichatbot.application.service.AiChatbotPolicyService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotMemoryProfileService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotProfileAnalysisService;
+import online.yudream.plugin.aichatbot.application.service.AiChatbotWikiService;
 import online.yudream.plugin.aichatbot.interfaces.controller.AiChatbotController;
 import online.yudream.plugin.aichatbot.interfaces.http.AiChatbotHttpFacade;
 import online.yudream.plugin.aichatbot.interfaces.tool.AiChatbotCurrentUserTool;
@@ -60,9 +61,10 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private AiChatbotMemoryProfileService profiles;
     private AiChatbotActivityService activities;
     private AiChatbotAgentService agents;
+    private AiChatbotWikiService wiki;
 
     @Override public void onEnable(PluginContext context) {
-        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); activities = new AiChatbotActivityService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai());
+        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); activities = new AiChatbotActivityService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai()); wiki = new AiChatbotWikiService(context.framework());
         context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, activities, new AiChatbotProfileAnalysisService(profiles, policies, context.framework().ai()), context.framework())));
         context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
@@ -169,14 +171,40 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             }
         }
         if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
+        // 求助检索分支：被 @ 且带求助/提问意图时，先检索 Wiki 知识库并注入上下文，回复后把配图发到群里
+        List<AiChatbotWikiService.WikiHit> wikiHits = List.of();
+        boolean helpBranch = mentioned && policy.wikiHelpAvailable() && wiki.looksLikeHelp(event.content());
+        if (helpBranch) {
+            try {
+                wikiHits = wiki.search(policy.wikiSpaceSlug(), event.content());
+                if (!wikiHits.isEmpty()) { List<PluginAiChatMessage> enriched = new ArrayList<>(history); enriched.add(new PluginAiChatMessage("system", wikiContext(wikiHits))); history = enriched; }
+                activity(event, profileUserId, "WIKI_HELP_SEARCH", mode, !wikiHits.isEmpty());
+                LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki help branch: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", hits=" + wikiHits.size());
+            } catch (Exception error) {
+                wikiHits = List.of();
+                activity(event, profileUserId, "WIKI_HELP_SEARCH", mode, false);
+                LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] wiki help search failed: " + errorMessage(error), error);
+            }
+        }
+        boolean tutorial = !wikiHits.isEmpty();
         PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), policy.enabledToolNames());
-        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
+        List<AiChatbotWikiService.WikiHit> branchHits = wikiHits;
+        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, tutorial), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
             append("group-history", groupId(event), "assistant", result.content());
             if (mentioned && userId != null) { append("user-memory", memoryId(event, userId), "user", event.content()); append("user-memory", memoryId(event, userId), "assistant", result.content()); }
-            activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, result.content()); LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
+            activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, result.content());
+            if (!branchHits.isEmpty()) {
+                List<AiChatbotWikiService.WikiImage> images = wiki.collectImages(branchHits, policy.wikiImageLimit());
+                if (!images.isEmpty()) {
+                    int sent = wiki.sendImages(event.connectionId(), event.platform(), event.selfId(), event.channelId(), event.messageId(), images);
+                    activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, sent > 0);
+                    LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki help images sent: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", sent=" + sent + "/" + images.size());
+                }
+            }
+            LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
         }).toCompletableFuture();
     }
 
@@ -195,9 +223,25 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         List<String> lines = context.framework().ai().tools().stream().filter(tool -> enabled.contains(tool.name())).map(tool -> "- " + tool.title() + "：" + tool.description()).toList();
         return lines.isEmpty() ? "本群配置的工具当前未注册或对应插件未启用。" : "本群已启用工具：\n" + String.join("\n", lines);
     }
-    private String prompt(String mode, AiChatbotGroupPolicy policy) {
+    private String prompt(String mode, AiChatbotGroupPolicy policy, boolean tutorial) {
+        String injection = "MENTION".equals(mode) && !policy.mentionReplyInjection().isBlank()
+                ? " " + policy.mentionReplyInjection().trim()
+                : "";
         return policy.systemPrompt() + (policy.persona().isBlank() ? "" : " 人设：" + policy.persona())
+                + injection
+                + (tutorial ? " 用户正在求助，已为你附上知识库检索到的相关内容。请结合内容给出步骤清晰、可直接照做的教程式回答；相关配图会直接发送到群里，你可以在回答中自然引用（如“详细界面见群内配图”），不要输出图片链接或 Markdown 图片语法。" : "")
                 + ("RANDOM".equals(mode) ? " 这是随机回复，不调用工具，不要打断正常交流。" : " 这是用户明确 @ 你，请优先回答当前用户的问题。");
+    }
+
+    private String wikiContext(List<AiChatbotWikiService.WikiHit> hits) {
+        StringBuilder context = new StringBuilder("以下是与用户求助相关的知识库检索内容：\n");
+        int index = 1;
+        for (AiChatbotWikiService.WikiHit hit : hits) {
+            context.append(index++).append(". 《").append(hit.title()).append("》");
+            if (!hit.excerpt().isBlank()) context.append("：").append(hit.excerpt());
+            context.append('\n');
+        }
+        return context.toString();
     }
     private String groupId(PluginEvent event) { return event.connectionId() + ":" + event.channelId(); }
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
