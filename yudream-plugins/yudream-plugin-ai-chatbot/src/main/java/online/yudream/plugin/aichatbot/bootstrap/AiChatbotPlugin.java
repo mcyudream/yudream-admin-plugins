@@ -61,15 +61,63 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private AiChatbotPolicyService policies;
     private AiChatbotMemoryProfileService profiles;
     private AiChatbotMessageLogService messageLogs;
+    private AiChatbotProfileAnalysisService analysis;
+    private java.util.concurrent.ScheduledExecutorService scheduler;
     private AiChatbotActivityService activities;
     private AiChatbotAgentService agents;
     private AiChatbotWikiService wiki;
 
     @Override public void onEnable(PluginContext context) {
         this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); messageLogs = new AiChatbotMessageLogService(context.documents()); activities = new AiChatbotActivityService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai()); wiki = new AiChatbotWikiService(context.framework());
-        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, activities, new AiChatbotProfileAnalysisService(profiles, policies, context.framework().ai(), messageLogs), context.framework())));
+        analysis = new AiChatbotProfileAnalysisService(profiles, policies, context.framework().ai(), messageLogs);
+        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, activities, analysis, context.framework())));
         context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
+        scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "ai-chatbot-profile-analysis");
+            thread.setDaemon(true);
+            return thread;
+        });
+        scheduler.scheduleWithFixedDelay(this::autoAnalyzeProfiles, 60, 60, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    @Override public void onDisable(PluginContext context) {
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
+        }
+    }
+
+    /** 定时画像更新：按各群策略间隔（0=关闭）自动分析证据充足且到期的启用画像。 */
+    private void autoAnalyzeProfiles() {
+        try {
+            long now = System.currentTimeMillis();
+            List<AiChatbotMemoryProfile> all = new ArrayList<>();
+            for (int page = 1; page <= 20; page++) {
+                var slice = profiles.page(page, 100);
+                if (slice.records().isEmpty()) break;
+                all.addAll(slice.records());
+                if (slice.records().size() < 100) break;
+            }
+            for (AiChatbotMemoryProfile profile : all) {
+                try {
+                    if (!profile.enabled()) continue;
+                    AiChatbotGroupPolicy policy = policies.get(profile.connectionId(), profile.channelId());
+                    int interval = policy.profileAutoAnalysisIntervalMinutes();
+                    if (interval <= 0) continue;
+                    if (profile.lastAnalyzedAt() > 0 && now - profile.lastAnalyzedAt() < interval * 60_000L) continue;
+                    if (analysis.evidenceCount(profile) < policy.profileAnalysisMessageCount()) continue;
+                    analysis.analyze(profile.id());
+                    LOGGER.info("[YuDreamAdmin] [AI Chatbot] auto profile analysis done: " + profile.id());
+                }
+                catch (Exception error) {
+                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] auto profile analysis failed: " + profile.id() + " - " + error.getMessage(), error);
+                }
+            }
+        }
+        catch (Exception error) {
+            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] auto profile analysis tick failed: " + error.getMessage(), error);
+        }
     }
 
     @PluginCommand(code = "ai-chatbot.clear", command = "清空AI记忆", name = "清空 AI 记忆", description = "清空当前群内的个人 AI 对话记忆", permission = USE_PERMISSION)

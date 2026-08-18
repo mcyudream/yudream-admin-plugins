@@ -8,4 +8,5 @@ public record AiChatbotGroupPolicySaveRequest(String connectionId, String channe
                                                 String agentCode, String providerCode, String modelCode,
                                                 String profileProviderCode, String profileModelCode,
                                                 Integer profileAnalysisMessageCount,
+                                                Integer profileAutoAnalysisIntervalMinutes,
                                                 String mentionReplyInjection) { }
