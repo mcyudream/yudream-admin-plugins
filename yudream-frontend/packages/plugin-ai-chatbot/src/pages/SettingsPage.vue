@@ -62,7 +62,7 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
             <label class="grid gap-2">配图发送数量<FaNumberField v-model="form.wikiImageLimit" :min="1" :max="5" class="w-full" /></label>
           </div>
           <FaSwitch v-model="form.wikiHelpEnabled">启用求助检索分支（@机器人且带有求助/提问意图时自动检索知识库）</FaSwitch>
-          <span class="text-sm text-muted-foreground">命中后：检索内容注入回答上下文，回答按教程式输出；命中文档引用的站内图片会作为 QQ 图片消息发到群里，实现图文并茂。仅检索开启了「公开阅读」的知识库。</span>
+          <span class="text-sm text-muted-foreground">命中后：检索内容注入回答上下文，回答按教程式输出；命中文档引用的站内图片会作为 QQ 图片消息发到群里，实现图文并茂。仅检索开启了「公开阅读」的知识库。配置了固定知识库标识时，还会自动为 Agent 注入 wiki.search 检索工具，非求助类问题模型也可主动检索该知识库。</span>
         </section>
         <section class="grid gap-3 rounded border p-4"><h3>Tools and long-term memory</h3><div class="flex flex-wrap gap-4"><FaSwitch v-model="form.randomToolCallingEnabled">Allow tools in random replies</FaSwitch><FaSwitch v-model="form.longTermMemoryEnabled">Enable long-term vector memory</FaSwitch></div><label class="grid max-w-xs gap-2">Recall result limit<FaNumberField v-model="form.semanticMemoryTopK" :min="1" :max="20" /></label></section>
       </form>

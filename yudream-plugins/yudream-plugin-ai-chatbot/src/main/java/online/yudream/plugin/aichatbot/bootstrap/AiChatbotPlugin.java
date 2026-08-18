@@ -187,7 +187,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             }
         }
         boolean tutorial = !wikiHits.isEmpty();
-        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), policy.enabledToolNames());
+        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), List.of(), allowedTools(policy, mentioned));
         List<AiChatbotWikiService.WikiHit> branchHits = wikiHits;
         return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, tutorial), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
             if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
@@ -206,6 +206,20 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             }
             LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
         }).toCompletableFuture();
+    }
+
+    private static final String WIKI_SEARCH_TOOL = "wiki.search";
+
+    /**
+     * 群策略勾选的工具名单，叠加 Wiki 求助开关自动附带的宿主公开检索工具（配置了固定知识库时）。
+     * 名单经 SPI 作为运行时许可工具传给宿主 Agent 运行：宿主原生工具由工作流节点注入，插件工具由网关注入。
+     */
+    private List<String> allowedTools(AiChatbotGroupPolicy policy, boolean mentioned) {
+        List<String> tools = new ArrayList<>(policy.enabledToolNames());
+        if (mentioned && policy.wikiHelpAvailable() && !policy.wikiSpaceSlug().isBlank() && !tools.contains(WIKI_SEARCH_TOOL)) {
+            tools.add(WIKI_SEARCH_TOOL);
+        }
+        return List.copyOf(tools);
     }
 
     private void activity(PluginEvent event, String userId, String type, String mode, boolean success) { try { activities.record(event.connectionId(), event.channelId(), event.userId(), userId, type, mode, success); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] activity recording failed: " + errorMessage(error), error); } }
@@ -229,8 +243,19 @@ public class AiChatbotPlugin implements YuDreamPlugin {
                 : "";
         return policy.systemPrompt() + (policy.persona().isBlank() ? "" : " 人设：" + policy.persona())
                 + injection
+                + wikiToolHint(mode, policy)
                 + (tutorial ? " 用户正在求助，已为你附上知识库检索到的相关内容。请结合内容给出步骤清晰、可直接照做的教程式回答；相关配图会直接发送到群里，你可以在回答中自然引用（如“详细界面见群内配图”），不要输出图片链接或 Markdown 图片语法。" : "")
                 + ("RANDOM".equals(mode) ? " 这是随机回复，不调用工具，不要打断正常交流。" : " 这是用户明确 @ 你，请优先回答当前用户的问题。");
+    }
+
+    /** Wiki 求助开关 + 固定知识库标识时，引导模型在需要时主动调用宿主 wiki.search 工具（该工具已随运行时许可名单注入）。 */
+    private String wikiToolHint(String mode, AiChatbotGroupPolicy policy) {
+        if (!"MENTION".equals(mode) || !policy.wikiHelpAvailable() || policy.wikiSpaceSlug().isBlank()) {
+            return "";
+        }
+        return " 本群开通了 Wiki 检索工具 wiki.search（知识库标识 \"" + policy.wikiSpaceSlug().trim()
+                + "\"）；当用户问题涉及教程、文档、操作步骤或你不确定的项目事实时，先调用 wiki.search 检索"
+                + "（spaceSlug 用该标识，graphExpansion 传 true），再基于检索结果作答并注明来源页面。";
     }
 
     private String wikiContext(List<AiChatbotWikiService.WikiHit> hits) {
