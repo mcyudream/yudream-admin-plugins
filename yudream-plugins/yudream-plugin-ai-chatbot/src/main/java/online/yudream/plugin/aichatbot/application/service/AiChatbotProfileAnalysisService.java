@@ -34,10 +34,16 @@ public class AiChatbotProfileAnalysisService {
     private final AiChatbotMemoryProfileService profiles;
     private final AiChatbotPolicyService policies;
     private final PluginAiService ai;
-    public AiChatbotProfileAnalysisService(AiChatbotMemoryProfileService profiles, AiChatbotPolicyService policies, PluginAiService ai) { this.profiles = Objects.requireNonNull(profiles, "profiles"); this.policies = Objects.requireNonNull(policies, "policies"); this.ai = Objects.requireNonNull(ai, "ai"); }
+    private final AiChatbotMessageLogService messageLogs;
+    private final java.util.Random random = new java.util.Random();
+    public AiChatbotProfileAnalysisService(AiChatbotMemoryProfileService profiles, AiChatbotPolicyService policies, PluginAiService ai) { this(profiles, policies, ai, null); }
+    public AiChatbotProfileAnalysisService(AiChatbotMemoryProfileService profiles, AiChatbotPolicyService policies, PluginAiService ai, AiChatbotMessageLogService messageLogs) { this.profiles = Objects.requireNonNull(profiles, "profiles"); this.policies = Objects.requireNonNull(policies, "policies"); this.ai = Objects.requireNonNull(ai, "ai"); this.messageLogs = messageLogs; }
     public AiChatbotMemoryProfile analyze(String profileId) {
         AiChatbotMemoryProfile profile = profiles.get(profileId);
-        List<AiChatbotProfileObservation> observations = profiles.observations(profile.id());
+        AiChatbotGroupPolicy policy = policies.get(profile.connectionId(), profile.channelId());
+        int sampleSize = policy.profileAnalysisMessageCount();
+        // 证据源一：机器人互动观察（随机回复、@ 消息），超限随机抽取
+        List<AiChatbotProfileObservation> observations = randomCap(profiles.observations(profile.id()), sampleSize);
         if (observations.isEmpty()) {
             // 兼容新版之前建立的画像：回退使用用户本人发言的 recent_message 事实作为证据
             observations = profile.facts().stream()
@@ -45,12 +51,28 @@ public class AiChatbotProfileAnalysisService {
                     .map(fact -> new AiChatbotProfileObservation(fact.value(), fact.updatedAt()))
                     .toList();
         }
-        if (observations.isEmpty()) throw new IllegalArgumentException("该用户暂无可分析的发言证据，请先让该用户在群里与机器人互动");
-        AiChatbotGroupPolicy policy = policies.get(profile.connectionId(), profile.channelId());
-        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations), blankToNull(policy.effectiveProfileProviderCode()), blankToNull(policy.effectiveProfileModelCode()), List.of(), null, false);
+        // 证据源二：近一天群消息库随机抽取，超限同样随机抽样
+        List<AiChatbotMessageLogService.LoggedMessage> recentMessages = messageLogs == null
+                ? List.of()
+                : messageLogs.sample(profile.connectionId(), profile.channelId(), profile.userId(), sampleSize);
+        if (observations.isEmpty() && recentMessages.isEmpty()) throw new IllegalArgumentException("该用户暂无可分析的发言证据，请先让该用户在群里发言或与机器人互动");
+        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations, recentMessages), blankToNull(policy.effectiveProfileProviderCode()), blankToNull(policy.effectiveProfileModelCode()), List.of(), null, false);
         PluginAiChatResponse response = await(ai.chat(request));
         if (response == null || response.content() == null || response.content().isBlank()) throw new IllegalStateException("画像分析失败：AI 未返回内容，请检查宿主的默认 AI 模型配置");
         return profiles.applyAnalysis(profile.id(), parse(response.content()));
+    }
+    /** 批量分析的证据条数：互动观察 + 近一天消息库合计，用于“条数小于配置数则不分析”判定。 */
+    public long evidenceCount(AiChatbotMemoryProfile profile) {
+        long observations = profiles.observations(profile.id()).size();
+        long messages = messageLogs == null ? 0 : messageLogs.countRecent(profile.connectionId(), profile.channelId(), profile.userId());
+        return observations + messages;
+    }
+    private <T> List<T> randomCap(List<T> source, int limit) {
+        if (source == null || source.isEmpty()) return List.of();
+        if (source.size() <= limit) return source;
+        List<T> shuffled = new ArrayList<>(source);
+        java.util.Collections.shuffle(shuffled, random);
+        return List.copyOf(shuffled.subList(0, limit));
     }
     AiChatbotProfileAnalysis parse(String content) {
         JsonNode root;
@@ -61,7 +83,7 @@ public class AiChatbotProfileAnalysisService {
     private List<String> tags(JsonNode node) { LinkedHashSet<String> result = new LinkedHashSet<>(); if (node != null && node.isArray()) for (JsonNode item : node) { if (!item.isTextual()) continue; String tag = item.asText().trim(); if (tag.isBlank()) continue; result.add(tag.substring(0, Math.min(tag.length(), MAX_TAG_LENGTH))); if (result.size() >= MAX_TAGS) break; } return List.copyOf(result); }
     private List<AiChatbotMemoryFact> facts(JsonNode node) { List<AiChatbotMemoryFact> result = new ArrayList<>(); if (node != null && node.isArray()) for (JsonNode item : node) { if (!item.isObject()) continue; String key = factKey(item.get("key")); String value = text(item.get("value"), MAX_FACT_VALUE_LENGTH); if (value.isBlank()) continue; double confidence = item.has("confidence") && item.get("confidence").isNumber() ? Math.clamp(item.get("confidence").asDouble(), 0d, 1d) : 0.6d; if (result.stream().noneMatch(fact -> fact.key().equals(key))) result.add(new AiChatbotMemoryFact(key, value, confidence, false, 0)); if (result.size() >= MAX_FACTS) break; } return result; }
     private String factKey(JsonNode node) { String key = node != null && node.isTextual() ? node.asText().trim().toLowerCase(Locale.ROOT) : ""; return FACT_KEYS.contains(key) ? key : "note"; }
-    private String userPrompt(AiChatbotMemoryProfile profile, List<AiChatbotProfileObservation> observations) { StringBuilder builder = new StringBuilder("用户昵称：").append(profile.nickname().isBlank() ? "未知" : profile.nickname()).append("\n历史画像：").append(profile.summary().isBlank() ? "无" : profile.summary()).append("\n发言片段（最新在前，每条已截断）："); observations.forEach(observation -> builder.append("\n- ").append(observation.content())); return builder.toString(); }
+    private String userPrompt(AiChatbotMemoryProfile profile, List<AiChatbotProfileObservation> observations, List<AiChatbotMessageLogService.LoggedMessage> recentMessages) { StringBuilder builder = new StringBuilder("用户昵称：").append(profile.nickname().isBlank() ? "未知" : profile.nickname()).append("\n历史画像：").append(profile.summary().isBlank() ? "无" : profile.summary()); if (!observations.isEmpty()) { builder.append("\n发言片段（来自与该用户的互动记录，随机抽取）："); observations.forEach(observation -> builder.append("\n- ").append(observation.content())); } if (!recentMessages.isEmpty()) { builder.append("\n近期群聊发言（近 24 小时随机抽取）："); recentMessages.forEach(message -> builder.append("\n- ").append(message.content())); } return builder.toString(); }
     private String extractJson(String content) { String value = content == null ? "" : content.trim(); int start = value.indexOf('{'), end = value.lastIndexOf('}'); if (start < 0 || end <= start) throw new IllegalStateException("画像分析结果缺少 JSON 内容"); return value.substring(start, end + 1); }
     private PluginAiChatResponse await(CompletionStage<PluginAiChatResponse> stage) { try { return stage.toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS); } catch (Exception error) { Throwable cause = error instanceof java.util.concurrent.ExecutionException && error.getCause() != null ? error.getCause() : error; throw new IllegalStateException("画像分析调用失败：" + (cause.getMessage() == null || cause.getMessage().isBlank() ? cause.getClass().getSimpleName() : cause.getMessage()), cause); } }
     private static String text(JsonNode node, int max) { String value = node != null && node.isTextual() ? node.asText().trim() : ""; return value.substring(0, Math.min(value.length(), max)); }

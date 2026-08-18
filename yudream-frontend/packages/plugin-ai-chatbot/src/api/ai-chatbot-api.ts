@@ -31,6 +31,7 @@ export function createAiChatbotApi(sdk: YuDreamPluginSdk) {
     setMemoryProfileEnabled: (id: string, enabled: boolean) => sdk.http.request<MemoryProfile>(`/admin/memory-profile/enabled?id=${encodeURIComponent(id)}&enabled=${enabled}`, { method: 'POST' }),
     deleteMemoryProfile: (id: string) => sdk.http.request('/admin/memory-profile?id=' + encodeURIComponent(id), { method: 'DELETE' }),
     analyzeMemoryProfile: (id: string) => sdk.http.post<MemoryProfile>(`/admin/memory-profile/analyze?id=${encodeURIComponent(id)}`),
+    analyzeAllMemoryProfiles: () => sdk.http.post<{ total: number; analyzed: number; skipped: number; failed: number; failures: string[] }>('/admin/memory-profiles/analyze-all'),
     profileObservations: (id: string) => sdk.http.get<ProfileObservation[]>(`/admin/memory-profile/observations?id=${encodeURIComponent(id)}`),
     activityOverview: (filters: ActivityFilters) => sdk.http.get<ActivityOverview>('/admin/statistics/overview' + query(filters)),
     activityTimeline: (filters: ActivityFilters) => sdk.http.get<ActivityTimelinePoint[]>('/admin/statistics/timeline' + query(filters)),

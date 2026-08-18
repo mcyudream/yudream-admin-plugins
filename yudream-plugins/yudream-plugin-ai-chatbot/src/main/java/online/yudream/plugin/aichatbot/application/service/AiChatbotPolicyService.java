@@ -37,7 +37,7 @@ public class AiChatbotPolicyService {
         String prompt = stringValue(doc.get("systemPrompt"));
         return new AiChatbotGroupPolicy(connectionId, channelId, boolValue(doc.get("enabled"), d.enabled()), doubleValue(doc.get("randomProbability"), d.randomProbability()),
                 intValue(doc.get("groupContextLimit"), d.groupContextLimit()), intValue(doc.get("personalContextLimit"), d.personalContextLimit()), intValue(doc.get("contextExpansionLimit"), d.contextExpansionLimit()),
-                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("agentCode")), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")), stringValue(doc.get("profileProviderCode")), stringValue(doc.get("profileModelCode")), stringValue(doc.get("mentionReplyInjection")));
+                intValue(doc.get("cooldownSeconds"), d.cooldownSeconds()), intValue(doc.get("hourlyReplyLimit"), d.hourlyReplyLimit()), nullable(doc.get("quietHoursStart")), nullable(doc.get("quietHoursEnd")), prompt.isBlank() ? d.systemPrompt() : prompt, stringValue(doc.get("persona")), boolValue(doc.get("randomToolCallingEnabled"), false), boolValue(doc.get("longTermMemoryEnabled"), false), intValue(doc.get("semanticMemoryTopK"), d.semanticMemoryTopK()), stringValue(doc.get("agentCode")), stringValue(doc.get("providerCode")), stringValue(doc.get("modelCode")), stringValue(doc.get("profileProviderCode")), stringValue(doc.get("profileModelCode")), intValue(doc.get("profileAnalysisMessageCount"), d.profileAnalysisMessageCount()), stringValue(doc.get("mentionReplyInjection")));
     }
     private Map<String, Object> toDocument(AiChatbotGroupPolicy p) {
         Map<String, Object> v = new LinkedHashMap<>();
@@ -51,6 +51,7 @@ public class AiChatbotPolicyService {
         if (!p.modelCode().isBlank()) v.put("modelCode", p.modelCode());
         if (!p.profileProviderCode().isBlank()) v.put("profileProviderCode", p.profileProviderCode());
         if (!p.profileModelCode().isBlank()) v.put("profileModelCode", p.profileModelCode());
+        v.put("profileAnalysisMessageCount", p.profileAnalysisMessageCount());
         if (!p.mentionReplyInjection().isBlank()) v.put("mentionReplyInjection", p.mentionReplyInjection());
         v.put("updatedAt", System.currentTimeMillis()); return v;
     }

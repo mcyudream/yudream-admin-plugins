@@ -24,6 +24,7 @@ import online.yudream.plugin.aichatbot.application.service.AiChatbotActivityServ
 import online.yudream.plugin.aichatbot.application.service.AiChatbotAgentService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotPolicyService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotMemoryProfileService;
+import online.yudream.plugin.aichatbot.application.service.AiChatbotMessageLogService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotProfileAnalysisService;
 import online.yudream.plugin.aichatbot.application.service.AiChatbotWikiService;
 import online.yudream.plugin.aichatbot.interfaces.controller.AiChatbotController;
@@ -59,13 +60,14 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private PluginContext context;
     private AiChatbotPolicyService policies;
     private AiChatbotMemoryProfileService profiles;
+    private AiChatbotMessageLogService messageLogs;
     private AiChatbotActivityService activities;
     private AiChatbotAgentService agents;
     private AiChatbotWikiService wiki;
 
     @Override public void onEnable(PluginContext context) {
-        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); activities = new AiChatbotActivityService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai()); wiki = new AiChatbotWikiService(context.framework());
-        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, activities, new AiChatbotProfileAnalysisService(profiles, policies, context.framework().ai()), context.framework())));
+        this.context = context; policies = new AiChatbotPolicyService(context.documents()); profiles = new AiChatbotMemoryProfileService(context.documents()); messageLogs = new AiChatbotMessageLogService(context.documents()); activities = new AiChatbotActivityService(context.documents()); agents = new AiChatbotAgentService(context.framework().ai()); wiki = new AiChatbotWikiService(context.framework());
+        context.registerHttpController(new AiChatbotController(new AiChatbotHttpFacade(policies, profiles, activities, new AiChatbotProfileAnalysisService(profiles, policies, context.framework().ai(), messageLogs), context.framework())));
         context.registerAiTool(new AiChatbotCurrentUserTool(context.framework().users()));
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), this::onMessage);
     }
@@ -87,7 +89,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             if (!profile.enabled()) { reply(event, "你的画像已被管理员停用，如有疑问请联系管理员。"); return; }
             Map<String, Object> variables = new LinkedHashMap<>();
             variables.put("nickname", profile.nickname() == null || profile.nickname().isBlank() ? "QQ " + event.userId() : profile.nickname());
-            variables.put("avatar", profile.avatar() == null ? "" : profile.avatar());
+            variables.put("avatar", avatarDataUri(profile.avatar() == null ? "" : profile.avatar()));
             variables.put("summary", profile.summary() == null ? "" : profile.summary());
             variables.put("personality", profile.personality() == null ? "" : profile.personality());
             variables.put("interactionStyle", profile.interactionStyle() == null ? "" : profile.interactionStyle());
@@ -116,6 +118,41 @@ public class AiChatbotPlugin implements YuDreamPlugin {
         }
     }
 
+    /**
+     * 头像远程地址渲染服务器通常取不到（QQ 头像防盗链/外网不可达），渲染前下载并转 base64 data URI；
+     * 失败返回空串，模板按昵称首字母兜底。
+     */
+    private String avatarDataUri(String url) {
+        if (url == null || url.isBlank()) return "";
+        if (url.startsWith("data:")) return url;
+        try {
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) java.net.URI.create(url).toURL().openConnection();
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(8000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+            connection.setRequestProperty("Referer", "");
+            try (java.io.InputStream input = connection.getInputStream()) {
+                java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                byte[] chunk = new byte[8192];
+                int read, total = 0;
+                while ((read = input.read(chunk)) != -1) {
+                    total += read;
+                    if (total > 2 * 1024 * 1024) return "";
+                    buffer.write(chunk, 0, read);
+                }
+                if (total == 0) return "";
+                String mime = connection.getContentType();
+                if (mime == null || !mime.startsWith("image/")) mime = "image/jpeg";
+                return "data:" + mime.split(";")[0].trim() + ";base64," + Base64.getEncoder().encodeToString(buffer.toByteArray());
+            }
+        }
+        catch (Exception error) {
+            LOGGER.log(Level.FINE, "[YuDreamAdmin] [AI Chatbot] avatar fetch failed: " + url + " - " + error.getMessage());
+            return "";
+        }
+    }
+
     private String factLabel(String key) {
         return switch (key == null ? "" : key) {
             case "preference" -> "偏好";
@@ -131,6 +168,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private void onMessage(PluginEvent event) {
         if (event.userId() == null || event.userId().equals(event.selfId()) || event.content() == null || event.content().isBlank()) return;
         activity(event, "", "MESSAGE_RECEIVED", "", true);
+        messageLogs.log(event.connectionId(), event.channelId(), String.valueOf(event.userId()), "", event.content());
         String key = groupId(event);
         CompletableFuture<Void> next = groupQueues.compute(key, (ignored, tail) -> {
             CompletableFuture<Void> previous = tail == null ? CompletableFuture.completedFuture(null) : tail.exceptionally(error -> null);

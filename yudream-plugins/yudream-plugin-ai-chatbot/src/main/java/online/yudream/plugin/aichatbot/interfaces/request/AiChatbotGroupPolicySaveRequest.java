@@ -7,4 +7,5 @@ public record AiChatbotGroupPolicySaveRequest(String connectionId, String channe
                                                 boolean randomToolCallingEnabled, boolean longTermMemoryEnabled, int semanticMemoryTopK,
                                                 String agentCode, String providerCode, String modelCode,
                                                 String profileProviderCode, String profileModelCode,
+                                                Integer profileAnalysisMessageCount,
                                                 String mentionReplyInjection) { }

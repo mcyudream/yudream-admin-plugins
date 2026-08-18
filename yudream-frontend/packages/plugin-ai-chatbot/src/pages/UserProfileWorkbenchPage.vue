@@ -178,7 +178,7 @@ onMounted(() => loadUsers())
           </div>
           <div class="upw-user-list">
             <button v-for="user in filteredUsers" :key="user.id" type="button" class="upw-user-card" :class="{ active: user.id === selectedId }" @click="select(user)">
-              <span class="upw-avatar" :style="avatarStyle(user)">{{ initial(user) }}<img v-if="user.avatar && !avatarErrors[user.id]" :src="user.avatar" alt="" @error="avatarErrors[user.id] = true"></span>
+              <span class="upw-avatar" :style="avatarStyle(user)">{{ initial(user) }}<img referrerpolicy="no-referrer" v-if="user.avatar && !avatarErrors[user.id]" :src="user.avatar" alt="" @error="avatarErrors[user.id] = true"></span>
               <span class="upw-user-main">
                 <span class="upw-user-name">
                   <strong>{{ displayName(user) }}</strong>
@@ -201,7 +201,7 @@ onMounted(() => loadUsers())
 
         <div v-if="profile" v-loading="detailLoading" class="upw-detail">
           <section class="upw-hero">
-            <span class="upw-avatar large" :style="avatarStyle(profile)">{{ initial(profile) }}<img v-if="profile.avatar && !avatarErrors[profile.id]" :src="profile.avatar" alt="" @error="avatarErrors[profile.id] = true"></span>
+            <span class="upw-avatar large" :style="avatarStyle(profile)">{{ initial(profile) }}<img referrerpolicy="no-referrer" v-if="profile.avatar && !avatarErrors[profile.id]" :src="profile.avatar" alt="" @error="avatarErrors[profile.id] = true"></span>
             <div class="upw-hero-main">
               <div class="upw-hero-title">
                 <h2>{{ displayName(profile) }}</h2>

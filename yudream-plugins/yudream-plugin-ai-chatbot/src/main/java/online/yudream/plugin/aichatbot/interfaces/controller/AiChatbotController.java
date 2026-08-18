@@ -37,6 +37,8 @@ public class AiChatbotController {
     public PluginHttpResponse deleteProfile(PluginHttpRequest request) { return http.deleteProfile(request); }
     @PluginHttpEndpoint(method = "POST", path = "/admin/memory-profile/analyze", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse analyzeProfile(PluginHttpRequest request) { return http.analyzeProfile(request); }
+    @PluginHttpEndpoint(method = "POST", path = "/admin/memory-profiles/analyze-all", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse analyzeAllProfiles(PluginHttpRequest request) { return http.analyzeAllProfiles(request); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profile/observations", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse profileObservations(PluginHttpRequest request) { return http.profileObservations(request); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/statistics/overview", permission = AiChatbotPlugin.MANAGE_PERMISSION)

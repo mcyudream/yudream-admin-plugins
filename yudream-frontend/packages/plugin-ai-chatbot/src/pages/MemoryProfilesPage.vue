@@ -25,6 +25,7 @@ const editableFacts = ref<Required<MemoryFact>[]>([])
 const tagInput = ref('')
 const saving = ref(false)
 const analyzing = ref(false)
+const analyzingAll = ref(false)
 const avatarErrors = reactive<Record<string, boolean>>({})
 
 const systemFacts = computed(() => (selected.value?.facts || []).filter(fact => fact.key === SYSTEM_FACT_KEY))
@@ -47,6 +48,16 @@ function hue(value: string) { let hash = 0; for (const char of value) hash = (ha
 function avatarStyle(profile: Profile) { const h = hue(profile.id || displayName(profile)); return { background: `hsl(${h} 62% 92%)`, color: `hsl(${h} 55% 38%)` } }
 function tagStyle(tag: string) { const h = hue(tag); return { background: `hsl(${h} 70% 94%)`, color: `hsl(${h} 55% 35%)` } }
 
+async function analyzeAll() {
+  analyzingAll.value = true
+  try {
+    const result = await api.analyzeAllMemoryProfiles()
+    toast.success(`批量分析完成：成功 ${result.analyzed}，跳过 ${result.skipped}（证据不足或已停用），失败 ${result.failed}`)
+    await load()
+  }
+  catch { toast.error('批量分析失败') }
+  finally { analyzingAll.value = false }
+}
 async function load() {
   loading.value = true
   try { const page = await api.memoryProfiles(pager.page, pager.size); rows.value = (page.records || []).map(normalizeProfile); pager.total = page.total || 0 }
@@ -124,13 +135,14 @@ onMounted(load)
   <section class="mp">
     <template v-if="view === 'list'">
       <FaPageHeader title="记忆画像管理" description="维护每位用户的画像内容：摘要、标签与事实档案。">
+        <FaButton variant="outline" :loading="analyzingAll" @click="analyzeAll">一键分析全部</FaButton>
         <FaButton variant="outline" :loading="loading" @click="load">刷新</FaButton>
       </FaPageHeader>
       <FaPageMain>
         <div v-if="rows.length" v-loading="loading" class="mp-grid">
           <article v-for="row in rows" :key="row.id" class="mp-card">
             <header class="mp-card-head">
-              <span class="mp-avatar" :style="avatarStyle(row)">{{ initial(row) }}<img v-if="row.avatar && !avatarErrors[row.id]" :src="row.avatar" alt="" @error="avatarErrors[row.id] = true"></span>
+              <span class="mp-avatar" :style="avatarStyle(row)">{{ initial(row) }}<img referrerpolicy="no-referrer" v-if="row.avatar && !avatarErrors[row.id]" :src="row.avatar" alt="" @error="avatarErrors[row.id] = true"></span>
               <div class="mp-card-title">
                 <strong>{{ displayName(row) }}</strong>
                 <span class="mp-sub">QQ {{ row.platformUserId || '—' }}</span>
@@ -171,7 +183,7 @@ onMounted(load)
         <div class="mp-review">
           <aside class="mp-side">
             <div class="mp-side-head">
-              <span class="mp-avatar large" :style="avatarStyle(selected)">{{ initial(selected) }}<img v-if="selected.avatar && !avatarErrors[selected.id]" :src="selected.avatar" alt="" @error="avatarErrors[selected.id] = true"></span>
+              <span class="mp-avatar large" :style="avatarStyle(selected)">{{ initial(selected) }}<img referrerpolicy="no-referrer" v-if="selected.avatar && !avatarErrors[selected.id]" :src="selected.avatar" alt="" @error="avatarErrors[selected.id] = true"></span>
               <strong>{{ displayName(selected) }}</strong>
               <span class="mp-pill" :class="selected.enabled ? 'on' : 'off'">{{ selected.enabled ? '已启用' : '已停用' }}</span>
             </div>
