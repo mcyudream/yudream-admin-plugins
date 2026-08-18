@@ -47,7 +47,7 @@ public class AiChatbotProfileAnalysisService {
         }
         if (observations.isEmpty()) throw new IllegalArgumentException("该用户暂无可分析的发言证据，请先让该用户在群里与机器人互动");
         AiChatbotGroupPolicy policy = policies.get(profile.connectionId(), profile.channelId());
-        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations), blankToNull(policy.providerCode()), blankToNull(policy.modelCode()), List.of(), null, false);
+        PluginAiChatRequest request = new PluginAiChatRequest(SYSTEM_PROMPT, userPrompt(profile, observations), blankToNull(policy.effectiveProfileProviderCode()), blankToNull(policy.effectiveProfileModelCode()), List.of(), null, false);
         PluginAiChatResponse response = await(ai.chat(request));
         if (response == null || response.content() == null || response.content().isBlank()) throw new IllegalStateException("画像分析失败：AI 未返回内容，请检查宿主的默认 AI 模型配置");
         return profiles.applyAnalysis(profile.id(), parse(response.content()));

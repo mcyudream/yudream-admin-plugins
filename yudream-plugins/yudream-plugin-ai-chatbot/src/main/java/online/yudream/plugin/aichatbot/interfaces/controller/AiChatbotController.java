@@ -23,6 +23,8 @@ public class AiChatbotController {
     public PluginHttpResponse groups(PluginHttpRequest request) { return http.groups(request); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/options/agents", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse agents(PluginHttpRequest request) { return http.agents(); }
+    @PluginHttpEndpoint(method = "GET", path = "/admin/options/ai-providers", permission = AiChatbotPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse aiProviders(PluginHttpRequest request) { return http.aiProviders(); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profiles", permission = AiChatbotPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse profiles(PluginHttpRequest request) { return http.profiles(request); }
     @PluginHttpEndpoint(method = "GET", path = "/admin/memory-profile", permission = AiChatbotPlugin.MANAGE_PERMISSION)

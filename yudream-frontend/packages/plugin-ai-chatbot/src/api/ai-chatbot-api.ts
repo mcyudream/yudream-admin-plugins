@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { ActivityEventPage, ActivityFilters, ActivityHeatmapCell, ActivityOverview, ActivityTimelinePoint, ActivityUserSummary, AiAgent, GroupPolicy, MemoryProfile, MemoryProfilePage, MemoryProfileUpdate, Option, ProfileObservation } from '../types'
+import type { ActivityEventPage, ActivityFilters, ActivityHeatmapCell, ActivityOverview, ActivityTimelinePoint, ActivityUserSummary, AiAgent, AiProviderOption, GroupPolicy, MemoryProfile, MemoryProfilePage, MemoryProfileUpdate, Option, ProfileObservation } from '../types'
 
 function query(filters: ActivityFilters) {
   const values = new URLSearchParams()
@@ -24,6 +24,7 @@ export function createAiChatbotApi(sdk: YuDreamPluginSdk) {
     connections: () => sdk.http.get<Option[]>('/admin/options/connections'),
     groups: (connectionId: string) => sdk.http.get<Option[]>(`/admin/options/groups?connectionId=${encodeURIComponent(connectionId)}`),
     agents: () => sdk.http.get<AiAgent[]>('/admin/options/agents'),
+    aiProviders: () => sdk.http.get<AiProviderOption[]>('/admin/options/ai-providers'),
     memoryProfiles: (page: number, size: number) => sdk.http.get<MemoryProfilePage>(`/admin/memory-profiles?page=${page}&size=${size}`),
     memoryProfile: (id: string) => sdk.http.get<MemoryProfile>('/admin/memory-profile?id=' + encodeURIComponent(id)),
     saveMemoryProfile: (profile: MemoryProfileUpdate) => sdk.http.request<MemoryProfile>('/admin/memory-profile', { method: 'PUT', data: profile }),

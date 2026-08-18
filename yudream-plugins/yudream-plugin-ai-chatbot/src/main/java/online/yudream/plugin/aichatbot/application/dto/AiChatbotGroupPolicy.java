@@ -10,6 +10,7 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
                                     String systemPrompt, String persona,
                                     boolean randomToolCallingEnabled, boolean longTermMemoryEnabled, int semanticMemoryTopK,
                                     String agentCode, String providerCode, String modelCode,
+                                    String profileProviderCode, String profileModelCode,
                                     String mentionReplyInjection) {
     public static final String BUILTIN_AGENT_CODE = "builtin-group-chatbot";
 
@@ -17,8 +18,19 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
         agentCode = agentCode == null || agentCode.isBlank() ? BUILTIN_AGENT_CODE : agentCode.trim();
         providerCode = providerCode == null ? "" : providerCode.trim();
         modelCode = modelCode == null ? "" : modelCode.trim();
+        profileProviderCode = profileProviderCode == null ? "" : profileProviderCode.trim();
+        profileModelCode = profileModelCode == null ? "" : profileModelCode.trim();
         persona = persona == null ? "" : persona;
         mentionReplyInjection = mentionReplyInjection == null ? "" : mentionReplyInjection.trim();
+    }
+
+    /** 记忆画像分析模型：未单独配置时跟随对话模型，对话模型也未配时由宿主默认模型处理 */
+    public String effectiveProfileProviderCode() {
+        return profileProviderCode.isBlank() ? providerCode : profileProviderCode;
+    }
+
+    public String effectiveProfileModelCode() {
+        return profileModelCode.isBlank() ? modelCode : profileModelCode;
     }
 
     /** @ 回复始终允许工具调用；随机回复仅在显式开启时允许（工具范围由宿主按触发方式与权限码过滤） */
@@ -29,6 +41,6 @@ public record AiChatbotGroupPolicy(String connectionId, String channelId, boolea
     public static AiChatbotGroupPolicy defaults(String connectionId, String channelId) {
         return new AiChatbotGroupPolicy(connectionId, channelId, true, 0.03d, 12, 16, 12, 30, 30,
                 null, null, "你是 YuDream 群聊助手，回答简短、友好、准确。", "",
-                false, false, 5, BUILTIN_AGENT_CODE, "", "", "");
+                false, false, 5, BUILTIN_AGENT_CODE, "", "", "", "", "");
     }
 }

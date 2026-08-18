@@ -1,14 +1,10 @@
 name: ai-chatbot
-displayName: AI 群聊机器人
-description: 为 QQ 群提供可配置的 AI 对话、上下文记忆与受控插件工具调用，支持按规则触发和安全分流。
-main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
-version: 1.4.0
+displayName: AI 缇よ亰鏈哄櫒浜?description: 涓?QQ 缇ゆ彁渚涘彲閰嶇疆鐨?AI 瀵硅瘽銆佷笂涓嬫枃璁板繂涓庡彈鎺ф彃浠跺伐鍏疯皟鐢紝鏀寔鎸夎鍒欒Е鍙戝拰瀹夊叏鍒嗘祦銆?main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
+version: 1.5.0
 agents:
   - code: builtin-group-chatbot
-    name: AI 群聊机器人 Agent
-    description: 用于群聊意图分析、安全分流、上下文回复和插件工具调用
-    icon: i-ri:robot-2-line
-    systemPrompt: 你是 YuDream 群聊机器人。回答简短、友好、准确，遵守调用方提供的群聊上下文、人设、权限和工具范围。
-    workflow: agents/group-chatbot.json
+    name: AI 缇よ亰鏈哄櫒浜?Agent
+    description: 鐢ㄤ簬缇よ亰鎰忓浘鍒嗘瀽銆佸畨鍏ㄥ垎娴併€佷笂涓嬫枃鍥炲鍜屾彃浠跺伐鍏疯皟鐢?    icon: i-ri:robot-2-line
+    systemPrompt: 浣犳槸 YuDream 缇よ亰鏈哄櫒浜恒€傚洖绛旂畝鐭€佸弸濂姐€佸噯纭紝閬靛畧璋冪敤鏂规彁渚涚殑缇よ亰涓婁笅鏂囥€佷汉璁俱€佹潈闄愬拰宸ュ叿鑼冨洿銆?    workflow: agents/group-chatbot.json
     tools:
       - wiki.search

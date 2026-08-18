@@ -81,8 +81,9 @@ public class AiChatbotWikiService {
     }
 
     /**
-     * 把站内图片读出来并以 QQ 图片消息发到群里；返回成功发送的张数。
+     * 把站内图片读出来发到群里，每张图一条消息且消息内同时携带针对问题的描述文字与图片分段（图文混排）。
      * 图片经 /api/files/{id}/content 地址解析出文件 ID，走平台文件存储读取，无需外网可达。
+     * 描述取自页面 Markdown 图片的 alt 文本（即该图说明），缺失时退化为“相关配图”。
      */
     public int sendImages(String connectionId, String platform, String selfId, String channelId, String messageId,
                           List<WikiImage> images) {
@@ -103,8 +104,10 @@ public class AiChatbotWikiService {
                 }
                 String uri = "base64://" + Base64.getEncoder().encodeToString(bytes);
                 Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
+                String description = image.caption() == null || image.caption().isBlank() ? "相关配图" : "配图：" + image.caption();
                 framework.messaging().send(new PluginMessageRequest(connectionId, platform, selfId, channelId,
-                        new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, referrer)));
+                        new PluginMessageContent(PluginMessageContent.Type.TEXT, description,
+                                List.of(new PluginMessageContent.Attachment(uri, description, "image/png")), referrer)));
                 sent++;
             }
             catch (Exception error) {
