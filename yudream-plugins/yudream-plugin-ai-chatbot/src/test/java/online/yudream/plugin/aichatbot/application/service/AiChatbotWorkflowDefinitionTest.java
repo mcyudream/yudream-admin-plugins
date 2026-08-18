@@ -14,13 +14,16 @@ class AiChatbotWorkflowDefinitionTest {
             var graph = new ObjectMapper().readTree(input);
             String nodes = graph.path("nodes").toString();
 
-            assertEquals(10, graph.path("nodes").size());
+            assertEquals(13, graph.path("nodes").size());
             assertTrue(nodes.contains("\"kind\":\"understand\""));
             assertTrue(nodes.contains("\"kind\":\"condition\""));
             assertTrue(nodes.contains("\"kind\":\"template\""));
             // 求助分支：安全意图之后接求助判定，命中进入 wiki.search 工具节点（编排内检索，插件配置不再承担）
             assertTrue(nodes.contains("\"toolCode\":\"wiki.search\""));
             assertTrue(nodes.contains("intent.route == 'help'"));
+            // 工具分支：服务器状态、QQ 状态与历史等实时数据查询必须走工具调用，不得落入 wiki 检索
+            assertTrue(nodes.contains("intent.route == 'tool'"));
+            assertTrue(nodes.contains("\"toolMode\":\"AUTO\""));
             // 意图节点必须容忍模型输出非严格 JSON（strictJson=false），避免整条群回复因解析失败而报错
             graph.path("nodes").forEach(node -> {
                 if ("understand".equals(node.path("data").path("kind").asText())) {

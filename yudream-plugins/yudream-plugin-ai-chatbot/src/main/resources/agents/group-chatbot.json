@@ -17,7 +17,7 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "strictJson": false,
-        "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"refuse|help|chat\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\",\"query\":\"用于知识库检索或回答的问题重述\",\"graphExpansion\":true|false}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse；当用户在求助，或询问教程、文档、操作步骤、排错方法及你不确定的项目事实时 route=help，且此时 graphExpansion 输出 true；其余闲聊、讨论 route=chat。",
+        "prompt": "分析群聊消息，仅输出 JSON：{\"route\":\"refuse|help|tool|chat\",\"topic\":\"主题\",\"style\":\"回复风格\",\"reason\":\"分流原因\",\"query\":\"用于知识库检索或回答的问题重述\",\"graphExpansion\":true|false}。仅当请求明显危险、越权或要求泄露敏感信息时 route=refuse；当请求需要调用工具获取实时/动态数据或执行操作时 route=tool，例如服务器状态、在线人数、玩家或 QQ 号对应的状态与历史记录查询、执行插件指令等；当用户在求助，或询问教程、文档、操作步骤、排错方法及你不确定的项目事实时 route=help，且此时 graphExpansion 输出 true；其余闲聊、讨论 route=chat。",
         "inputVariable": "query",
         "outputVariable": "intent"
       }
@@ -87,9 +87,49 @@
       }
     },
     {
+      "id": "route-tool",
+      "type": "agent",
+      "position": { "x": 1120, "y": 320 },
+      "data": {
+        "kind": "condition",
+        "title": "是否工具查询",
+        "condition": "intent.route == 'tool'",
+        "inputVariable": "intent",
+        "outputVariable": "tool"
+      }
+    },
+    {
+      "id": "tool-task",
+      "type": "agent",
+      "position": { "x": 1400, "y": 320 },
+      "data": {
+        "kind": "template",
+        "title": "组织工具查询任务",
+        "template": "用户消息：{{query}}\n该请求需要实时数据，请调用合适的已授权工具（如服务器状态、玩家/QQ 状态与历史等）获取数据后回答。",
+        "inputVariable": "query",
+        "outputVariable": "toolTask"
+      }
+    },
+    {
+      "id": "tool-reply",
+      "type": "agent",
+      "position": { "x": 1660, "y": 320 },
+      "data": {
+        "kind": "llm",
+        "title": "调用工具并回复",
+        "providerCode": "runtime",
+        "modelCode": "default",
+        "allowModelOverride": true,
+        "toolMode": "AUTO",
+        "prompt": "用户的问题需要实时数据，必须优先调用已授权工具获取，禁止凭记忆编造状态、人数或记录。拿到工具结果后如实汇总作答；没有可用工具或工具报错时，如实说明无法查询，不要输出工具参数或 JSON。",
+        "inputVariable": "toolTask",
+        "outputVariable": "answer"
+      }
+    },
+    {
       "id": "chat-task",
       "type": "agent",
-      "position": { "x": 1120, "y": 440 },
+      "position": { "x": 1400, "y": 480 },
       "data": {
         "kind": "template",
         "title": "组织回复任务",
@@ -127,7 +167,11 @@
     { "id": "route-safety-route-help", "source": "route-safety", "target": "route-help", "sourceHandle": "false" },
     { "id": "refusal-end", "source": "refusal", "target": "end" },
     { "id": "route-help-wiki", "source": "route-help", "target": "wiki-search", "sourceHandle": "true" },
-    { "id": "route-help-chat", "source": "route-help", "target": "chat-task", "sourceHandle": "false" },
+    { "id": "route-help-route-tool", "source": "route-help", "target": "route-tool", "sourceHandle": "false" },
+    { "id": "route-tool-task", "source": "route-tool", "target": "tool-task", "sourceHandle": "true" },
+    { "id": "route-tool-chat", "source": "route-tool", "target": "chat-task", "sourceHandle": "false" },
+    { "id": "tool-task-reply", "source": "tool-task", "target": "tool-reply" },
+    { "id": "tool-reply-end", "source": "tool-reply", "target": "end" },
     { "id": "wiki-help-reply", "source": "wiki-search", "target": "help-reply" },
     { "id": "chat-task-reply", "source": "chat-task", "target": "chat-reply" },
     { "id": "help-reply-end", "source": "help-reply", "target": "end" },
