@@ -2,6 +2,6 @@ name: world-map
 displayName: 世界地图
 description: 将 Minecraft 世界存档渲染为可浏览的 3D 地图，支持渲染任务、公开访问、标注和地点介绍图层。
 main: online.yudream.plugin.worldmap.bootstrap.WorldMapPlugin
-version: 1.1.0
+version: 1.1.1
 softdepend:
   - minecraft-server
