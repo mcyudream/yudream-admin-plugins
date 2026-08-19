@@ -3,18 +3,18 @@
     <div v-if="title || controls" class="skin-preview__toolbar">
       <strong>{{ title }}</strong>
       <div v-if="controls" class="skin-preview__actions">
-        <button type="button" :class="{ active: rotateEnabled }" title="旋转" @click="rotateEnabled = !rotateEnabled">
+        <FaButton size="icon-sm" :variant="rotateEnabled ? 'default' : 'outline'" title="旋转" @click="rotateEnabled = !rotateEnabled">
           <span class="i-ri:anticlockwise-2-line" />
-        </button>
-        <button type="button" title="切换动作" @click="nextAnimation">
+        </FaButton>
+        <FaButton size="sm" variant="outline" title="切换动作" @click="nextAnimation">
           {{ animationLabel }}
-        </button>
-        <button
+        </FaButton>
+        <FaButton
           v-for="item in backgrounds"
           :key="item.label"
-          type="button"
-          class="skin-preview__swatch"
-          :class="{ active: backgroundValue === item.value }"
+          size="icon-sm"
+          variant="outline"
+          :class="{ 'ring-2 ring-primary': backgroundValue === item.value }"
           :style="{ backgroundColor: item.color }"
           :title="item.label"
           @click="backgroundValue = item.value"
@@ -56,6 +56,7 @@
 <script setup lang="ts">
 import type { SkinViewer } from 'skinview3d'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { FaButton } from '@yudream/components'
 import { SkinView3d, type CapeOptions, type SkinOptions } from 'vue-skinview3d'
 import { IdleAnimation, RunningAnimation, WalkingAnimation } from 'vue-skinview3d/animations'
 
