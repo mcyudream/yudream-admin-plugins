@@ -1,20 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaCard, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
+import { useRouter } from 'vue-router'
+import { FaAvatar, FaButton, FaCard, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import type { ActivityEvent, ActivityFilters, ActivityTimelinePoint, MemoryProfile, ProfileObservation } from '../types'
 import { formatDateTime, formatPercent } from '../utils/format'
 
 const FACT_LABELS: Record<string, string> = { preference: '偏好', interest: '兴趣', identity: '身份', note: '备注', habit: '习惯', topic: '话题', emotion: '情绪', recent_message: '最近消息' }
-const FACT_COLORS: Record<string, string> = { preference: '#7c3aed', interest: '#0284c7', identity: '#059669', note: '#64748b', habit: '#d97706', topic: '#db2777', emotion: '#dc2626', recent_message: '#94a3b8' }
-const HEAT_COLORS = ['#f1f5f9', '#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8']
+interface FactTone { text: string; border: string }
+const PRIMARY_TONE: FactTone = { text: 'rgb(var(--primary-6))', border: 'rgb(var(--primary-6) / 0.45)' }
+const FACT_TONES: Record<string, FactTone> = {
+  preference: PRIMARY_TONE,
+  interest: { text: 'rgb(var(--success-6))', border: 'rgb(var(--success-6) / 0.45)' },
+  identity: { text: 'rgb(var(--warning-6))', border: 'rgb(var(--warning-6) / 0.45)' },
+  note: { text: 'var(--color-text-2)', border: 'var(--color-border-3)' },
+  habit: { text: 'rgb(var(--warning-6))', border: 'rgb(var(--warning-6) / 0.45)' },
+  topic: PRIMARY_TONE,
+  emotion: { text: 'rgb(var(--danger-6))', border: 'rgb(var(--danger-6) / 0.45)' },
+  recent_message: { text: 'var(--color-text-3)', border: 'var(--color-border-2)' },
+}
+const DEFAULT_FACT_TONE: FactTone = { text: 'var(--color-text-2)', border: 'var(--color-border-3)' }
+const HEAT_COLORS = ['var(--color-fill-2)', 'rgb(var(--primary-6) / 0.25)', 'rgb(var(--primary-6) / 0.5)', 'rgb(var(--primary-6) / 0.75)', 'rgb(var(--primary-6))']
 const CALENDAR_WEEKS = 15
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createAiChatbotApi(props.sdk)
 const toast = useFaToast()
-const avatarErrors = reactive<Record<string, boolean>>({})
+const router = useRouter()
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 const users = ref<MemoryProfile[]>([])
@@ -82,9 +95,8 @@ function toIsoDate(date: Date) {
 }
 function displayName(user: MemoryProfile) { return user.nickname || `用户 ${user.platformUserId || user.userId || ''}`.trim() || '未命名用户' }
 function initial(user: MemoryProfile) { return displayName(user).slice(0, 1).toUpperCase() }
-function hue(value: string) { let hash = 0; for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) % 360; return hash }
-function avatarStyle(user: MemoryProfile) { const h = hue(user.id || displayName(user)); return { background: `hsl(${h} 62% 92%)`, color: `hsl(${h} 55% 38%)` } }
-function tagStyle(tag: string) { const h = hue(tag); return { background: `hsl(${h} 70% 94%)`, color: `hsl(${h} 55% 35%)` } }
+function factTone(key: string): FactTone { return FACT_TONES[key] || DEFAULT_FACT_TONE }
+function goMemoryProfiles() { router.push('/platform/plugins/ai-chatbot/admin/memory-profiles') }
 function heatColor(count: number) {
   if (count <= 0) return HEAT_COLORS[0]
   const level = Math.min(4, 1 + Math.floor((count / maxCalendarCount.value) * 3))
@@ -178,15 +190,15 @@ onMounted(() => loadUsers())
           </div>
           <div class="upw-user-list">
             <button v-for="user in filteredUsers" :key="user.id" type="button" class="upw-user-card" :class="{ active: user.id === selectedId }" @click="select(user)">
-              <span class="upw-avatar" :style="avatarStyle(user)">{{ initial(user) }}<img referrerpolicy="no-referrer" v-if="user.avatar && !avatarErrors[user.id]" :src="user.avatar" alt="" @error="avatarErrors[user.id] = true"></span>
+              <FaAvatar :src="user.avatar || ''" :fallback="initial(user)" class="upw-avatar" />
               <span class="upw-user-main">
                 <span class="upw-user-name">
                   <strong>{{ displayName(user) }}</strong>
-                  <span v-if="user.enabled === false" class="upw-pill off">已停用</span>
+                  <FaTag v-if="user.enabled === false" variant="secondary">已停用</FaTag>
                 </span>
                 <span class="upw-user-sub">{{ user.platformUserId || user.userId || '—' }}</span>
                 <span v-if="user.tags?.length" class="upw-user-tags">
-                  <span v-for="tag in user.tags.slice(0, 3)" :key="tag" class="upw-mini-tag" :style="tagStyle(tag)">{{ tag }}</span>
+                  <FaTag v-for="tag in user.tags.slice(0, 3)" :key="tag" variant="secondary">{{ tag }}</FaTag>
                   <span v-if="user.tags.length > 3" class="upw-user-sub">+{{ user.tags.length - 3 }}</span>
                 </span>
               </span>
@@ -201,11 +213,11 @@ onMounted(() => loadUsers())
 
         <div v-if="profile" v-loading="detailLoading" class="upw-detail">
           <section class="upw-hero">
-            <span class="upw-avatar large" :style="avatarStyle(profile)">{{ initial(profile) }}<img referrerpolicy="no-referrer" v-if="profile.avatar && !avatarErrors[profile.id]" :src="profile.avatar" alt="" @error="avatarErrors[profile.id] = true"></span>
+            <FaAvatar :src="profile.avatar || ''" :fallback="initial(profile)" class="upw-avatar large" />
             <div class="upw-hero-main">
               <div class="upw-hero-title">
                 <h2>{{ displayName(profile) }}</h2>
-                <span class="upw-pill" :class="profile.enabled === false ? 'off' : 'on'">{{ profile.enabled === false ? '画像已停用' : '画像已启用' }}</span>
+                <FaTag :variant="profile.enabled === false ? 'secondary' : 'default'">{{ profile.enabled === false ? '画像已停用' : '画像已启用' }}</FaTag>
               </div>
               <p class="upw-hero-sub">QQ {{ profile.platformUserId || '—' }} · 群 {{ profile.channelId || '—' }} · 最后活跃 {{ relativeTime(profile.lastActivityAt) }}</p>
               <div class="upw-hero-stats">
@@ -221,7 +233,7 @@ onMounted(() => loadUsers())
             </div>
             <div class="upw-hero-actions">
               <FaButton :loading="analyzing" @click="analyze">重新分析画像</FaButton>
-              <a class="upw-link" :href="`/platform/plugins/ai-chatbot/admin/memory-profiles`">管理画像</a>
+              <FaButton variant="link" @click="goMemoryProfiles">管理画像</FaButton>
             </div>
           </section>
 
@@ -249,7 +261,7 @@ onMounted(() => loadUsers())
           <section class="upw-card">
             <div class="upw-card-head"><h3>标签</h3><span class="upw-hint">由 AI 分析或人工维护</span></div>
             <div v-if="profile.tags?.length" class="upw-tags">
-              <span v-for="tag in profile.tags" :key="tag" class="upw-tag" :style="tagStyle(tag)">{{ tag }}</span>
+              <FaTag v-for="tag in profile.tags" :key="tag" variant="secondary">{{ tag }}</FaTag>
             </div>
             <p v-else class="upw-empty small">暂无标签</p>
           </section>
@@ -277,7 +289,7 @@ onMounted(() => loadUsers())
             <div class="upw-card-head"><h3>事实档案</h3><span class="upw-hint">已批准 {{ approvedFacts.length }} 条 · 待审阅 {{ pendingFacts.length }} 条</span></div>
             <div v-if="approvedFacts.length" class="upw-facts">
               <div v-for="(fact, index) in approvedFacts" :key="index" class="upw-fact">
-                <span class="upw-fact-type" :style="{ color: FACT_COLORS[fact.key] || '#64748b', borderColor: FACT_COLORS[fact.key] || '#cbd5e1' }">{{ FACT_LABELS[fact.key] || fact.key }}</span>
+                <span class="upw-fact-type" :style="{ color: factTone(fact.key).text, borderColor: factTone(fact.key).border }">{{ FACT_LABELS[fact.key] || fact.key }}</span>
                 <span class="upw-fact-value">{{ fact.value }}</span>
                 <span class="upw-fact-meta">
                   <i class="upw-confidence"><i :style="{ width: `${Math.round((fact.confidence ?? 1) * 100)}%` }" /></i>
@@ -289,7 +301,7 @@ onMounted(() => loadUsers())
               <h4>待审阅（AI 建议）</h4>
               <div class="upw-facts">
                 <div v-for="(fact, index) in pendingFacts" :key="index" class="upw-fact pending">
-                  <span class="upw-fact-type" :style="{ color: FACT_COLORS[fact.key] || '#64748b', borderColor: FACT_COLORS[fact.key] || '#cbd5e1' }">{{ FACT_LABELS[fact.key] || fact.key }}</span>
+                  <span class="upw-fact-type" :style="{ color: factTone(fact.key).text, borderColor: factTone(fact.key).border }">{{ FACT_LABELS[fact.key] || fact.key }}</span>
                   <span class="upw-fact-value">{{ fact.value }}</span>
                   <span class="upw-fact-meta">{{ Math.round((fact.confidence ?? 1) * 100) }}%</span>
                 </div>

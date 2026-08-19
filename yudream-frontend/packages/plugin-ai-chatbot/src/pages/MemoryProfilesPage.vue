@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { MemoryFact, MemoryProfile } from '../types'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FaButton, FaInput, FaPageHeader, FaPageMain, FaPagination, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
+import { FaAvatar, FaButton, FaInput, FaPageHeader, FaPageMain, FaPagination, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import FactsEditor from '../components/FactsEditor.vue'
 import { formatDateTime, formatPercent } from '../utils/format'
@@ -26,7 +26,6 @@ const tagInput = ref('')
 const saving = ref(false)
 const analyzing = ref(false)
 const analyzingAll = ref(false)
-const avatarErrors = reactive<Record<string, boolean>>({})
 
 const systemFacts = computed(() => (selected.value?.facts || []).filter(fact => fact.key === SYSTEM_FACT_KEY))
 
@@ -44,9 +43,6 @@ function normalizeProfile(profile: MemoryProfile): Profile {
 }
 function displayName(profile: Profile) { return profile.nickname || profile.platformUserId || profile.userId || '未命名用户' }
 function initial(profile: Profile) { return displayName(profile).slice(0, 1).toUpperCase() }
-function hue(value: string) { let hash = 0; for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) % 360; return hash }
-function avatarStyle(profile: Profile) { const h = hue(profile.id || displayName(profile)); return { background: `hsl(${h} 62% 92%)`, color: `hsl(${h} 55% 38%)` } }
-function tagStyle(tag: string) { const h = hue(tag); return { background: `hsl(${h} 70% 94%)`, color: `hsl(${h} 55% 35%)` } }
 
 async function analyzeAll() {
   analyzingAll.value = true
@@ -142,16 +138,16 @@ onMounted(load)
         <div v-if="rows.length" v-loading="loading" class="mp-grid">
           <article v-for="row in rows" :key="row.id" class="mp-card">
             <header class="mp-card-head">
-              <span class="mp-avatar" :style="avatarStyle(row)">{{ initial(row) }}<img referrerpolicy="no-referrer" v-if="row.avatar && !avatarErrors[row.id]" :src="row.avatar" alt="" @error="avatarErrors[row.id] = true"></span>
+              <FaAvatar :src="row.avatar || ''" :fallback="initial(row)" class="mp-avatar" />
               <div class="mp-card-title">
                 <strong>{{ displayName(row) }}</strong>
                 <span class="mp-sub">QQ {{ row.platformUserId || '—' }}</span>
               </div>
-              <span class="mp-pill" :class="row.enabled ? 'on' : 'off'">{{ row.enabled ? '已启用' : '已停用' }}</span>
+              <FaTag :variant="row.enabled ? 'default' : 'secondary'">{{ row.enabled ? '已启用' : '已停用' }}</FaTag>
             </header>
             <p class="mp-summary" :class="{ empty: !row.summary && !row.personality }">{{ row.personality || row.summary || '暂无画像内容，点击审阅后可由 AI 生成或人工维护。' }}</p>
             <div v-if="row.tags.length" class="mp-tags">
-              <span v-for="tag in row.tags.slice(0, 4)" :key="tag" class="mp-tag" :style="tagStyle(tag)">{{ tag }}</span>
+              <FaTag v-for="tag in row.tags.slice(0, 4)" :key="tag" variant="secondary">{{ tag }}</FaTag>
               <span v-if="row.tags.length > 4" class="mp-sub">+{{ row.tags.length - 4 }}</span>
             </div>
             <div class="mp-meta">
@@ -183,9 +179,9 @@ onMounted(load)
         <div class="mp-review">
           <aside class="mp-side">
             <div class="mp-side-head">
-              <span class="mp-avatar large" :style="avatarStyle(selected)">{{ initial(selected) }}<img referrerpolicy="no-referrer" v-if="selected.avatar && !avatarErrors[selected.id]" :src="selected.avatar" alt="" @error="avatarErrors[selected.id] = true"></span>
+              <FaAvatar :src="selected.avatar || ''" :fallback="initial(selected)" class="mp-avatar large" />
               <strong>{{ displayName(selected) }}</strong>
-              <span class="mp-pill" :class="selected.enabled ? 'on' : 'off'">{{ selected.enabled ? '已启用' : '已停用' }}</span>
+              <FaTag :variant="selected.enabled ? 'default' : 'secondary'">{{ selected.enabled ? '已启用' : '已停用' }}</FaTag>
             </div>
             <dl class="mp-info">
               <div><dt>QQ</dt><dd>{{ selected.platformUserId || '—' }}</dd></div>
@@ -218,10 +214,7 @@ onMounted(load)
             <section class="mp-panel">
               <h3>标签 <span class="mp-hint">最多 {{ MAX_TAGS }} 个，回车添加</span></h3>
               <div class="mp-tag-editor">
-                <span v-for="tag in draft.tags" :key="tag" class="mp-tag editable" :style="tagStyle(tag)">
-                  {{ tag }}
-                  <button type="button" class="mp-tag-remove" title="移除标签" @click="removeTag(tag)">×</button>
-                </span>
+                <FaTag v-for="tag in draft.tags" :key="tag" variant="secondary" closable @close="removeTag(tag)">{{ tag }}</FaTag>
                 <FaInput v-model="tagInput" class="mp-tag-input" placeholder="输入标签后回车" @keydown="onTagKeydown" @blur="addTag" />
               </div>
             </section>
