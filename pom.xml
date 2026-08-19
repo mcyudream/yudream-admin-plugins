@@ -94,4 +94,45 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <!--
+          开发模式：把运行时依赖导出到 target/plugin-dev/lib，
+          供宿主 yudream.platform.plugin.dev-mode 直接从 target/classes 目录加载插件，
+          省去打包 JAR 与拷贝重启。provided 作用域（SPI、插件间 api）由宿主/提供者 ClassLoader 链提供，不会导出。
+        -->
+        <profile>
+            <id>dev-export</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-dependency-plugin</artifactId>
+                            <version>3.8.1</version>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>dev-export-libs</id>
+                                <phase>process-classes</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/plugin-dev/lib</outputDirectory>
+                                    <includeScope>runtime</includeScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

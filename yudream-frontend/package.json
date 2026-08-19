@@ -7,7 +7,8 @@
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
-    "build": "pnpm -r --filter=@yudream/plugin-* run build"
+    "build": "pnpm -r --filter=@yudream/plugin-* run build",
+    "watch": "pnpm -r --parallel --filter=@yudream/plugin-* exec vite build --watch"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
