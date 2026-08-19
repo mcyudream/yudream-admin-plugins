@@ -2,4 +2,4 @@ name: qqbot-automation
 displayName: QQ 群自动化
 description: 为 QQ 群配置自动化策略，处理入群申请验证及群消息中的媒体链接任务。
 main: online.yudream.plugin.qqbotautomation.bootstrap.QqbotAutomationPlugin
-version: 1.1.0
+version: 1.1.1

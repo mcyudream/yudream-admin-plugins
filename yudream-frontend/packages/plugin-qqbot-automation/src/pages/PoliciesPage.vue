@@ -251,7 +251,7 @@ onMounted(async () => {
           <div class="space-y-2">
             <label class="text-sm font-medium">QQ 连接</label>
             <FaSelect
-              class="w-72"
+              class="w-full sm:w-72"
               placeholder="选择连接"
               :model-value="connectionId"
               :options="connectionOptions"
@@ -297,7 +297,6 @@ onMounted(async () => {
           v-loading="loading"
           row-key="channelId"
           table-root-class="overflow-hidden rounded-lg"
-          table-class="min-w-[800px]"
           border
           stripe
           column-visibility

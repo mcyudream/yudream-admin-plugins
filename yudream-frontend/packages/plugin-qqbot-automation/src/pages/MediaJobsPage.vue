@@ -254,7 +254,7 @@ onMounted(load)
         v-loading="loading"
         row-key="id"
         table-root-class="overflow-hidden rounded-lg"
-        table-class="min-w-[1080px]"
+        table-class="min-w-[860px]"
         border
         stripe
         column-visibility
@@ -280,8 +280,8 @@ onMounted(load)
           <FaCard class="w-full">
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <a class="break-all text-base font-semibold text-primary hover:underline" :href="row.sourceUrl" target="_blank" rel="noreferrer">{{ row.sourceUrl }}</a>
-                <div class="flex gap-1">
+                <a class="min-w-0 break-all text-base font-semibold text-primary hover:underline" :href="row.sourceUrl" target="_blank" rel="noreferrer">{{ row.sourceUrl }}</a>
+                <div class="flex shrink-0 gap-1">
                   <FaTag :variant="statusVariant(row.status)">{{ statusLabel(row.status) }}</FaTag>
                 </div>
               </div>
