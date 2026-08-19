@@ -264,15 +264,16 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
             if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
             if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
-            append("group-history", groupId(event), "assistant", result.content());
-            if (mentioned && userId != null) { append("user-memory", memoryId(event, userId), "user", event.content()); append("user-memory", memoryId(event, userId), "assistant", result.content()); }
-            activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, result.content());
-            // 工作流 wiki.search 工具节点命中的站内配图随工具结果回传，读出后以 QQ 图片消息发到群里
+            // AI 已把确实相关的配图标记嵌入回答；只发送被标记选中的图片，未选择的检索图片不再外发。
             List<AiChatbotWikiService.WikiImage> images = wiki.imagesFromToolResults(result.toolResults(), WIKI_IMAGE_LIMIT);
-            if (!images.isEmpty()) {
-                int sent = wiki.sendImages(event.connectionId(), event.platform(), event.selfId(), event.channelId(), event.messageId(), images);
-                activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, sent > 0);
-                LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki images sent: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", sent=" + sent + "/" + images.size());
+            AiChatbotWikiService.WikiRichMessage richMessage = wiki.richMessage(result.content(), images);
+            String historyContent = wiki.plainText(richMessage);
+            append("group-history", groupId(event), "assistant", historyContent);
+            if (mentioned && userId != null) { append("user-memory", memoryId(event, userId), "user", event.content()); append("user-memory", memoryId(event, userId), "assistant", historyContent); }
+            activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, richMessage);
+            if (richMessage.imageCount() > 0) {
+                activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, true);
+                LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki images embedded: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", count=" + richMessage.imageCount());
             }
             LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
         }).toCompletableFuture();
@@ -353,6 +354,18 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
         } catch (Exception error) {
             LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+        }
+    }
+
+    private void reply(PluginEvent event, AiChatbotWikiService.WikiRichMessage message) {
+        if (message == null || message.attachments().isEmpty()) {
+            reply(event, message == null ? "" : message.content());
+            return;
+        }
+        try {
+            context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, message.content(), message.attachments(), event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+        } catch (Exception error) {
+            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] rich reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
         }
     }
 }

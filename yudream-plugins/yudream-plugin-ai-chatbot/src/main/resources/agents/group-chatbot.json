@@ -41,7 +41,7 @@
       "data": {
         "kind": "template",
         "title": "生成安全拒答",
-        "template": "这个请求我不能直接执行。原因：{{intent.reason}}。可以换一个不涉及敏感信息或越权操作的问题。",
+        "template": "这个请求我不能直接执行。原因：{{intent?.reason ?: '请求存在风险'}}。可以换一个不涉及敏感信息或越权操作的问题。",
         "inputVariable": "intent",
         "outputVariable": "answer"
       }
@@ -93,7 +93,7 @@
         "modelCode": "default",
         "allowModelOverride": true,
         "toolMode": "NONE",
-        "prompt": "输入为知识库检索结果 JSON（hits 含 title、spaceName、content、images），且已确认存在命中。结合用户最新消息给出步骤清晰、可直接照做的教程式回答，并注明来源页面标题与所属知识库名称。不要输出图片链接或 Markdown 图片语法，相关配图会由系统直接发送到群里。",
+        "prompt": "输入为知识库检索结果 JSON（hits 含 title、spaceName、content、images）。结合用户最新消息给出步骤清晰、可直接照做的教程式回答，并注明来源页面标题与所属知识库名称。每张候选图片都提供全局 index、url、alt（原文图注）与 generatedCaption（视觉模型生成描述），必须把页面内容、用户问题和这两类图片描述放在一起判断相关性。只有图片确实支撑对应步骤时才排版：在相关步骤后的独立一行写 [[wiki-image:index]]（index 必须是候选 images[].index 的数值），下一行写“图注：一句面向用户的说明”；没有足够匹配的图片时一张都不要引用。最多使用 3 张，宁缺毋滥。禁止输出图片 URL 或 Markdown 图片语法。",
         "inputVariable": "wikiResult",
         "outputVariable": "answer"
       }
@@ -145,7 +145,7 @@
       "data": {
         "kind": "template",
         "title": "组织回复任务",
-        "template": "群聊主题：{{intent.topic}}\n建议风格：{{intent.style}}\n用户消息：{{query}}\n请结合运行时人设和历史上下文回复；需要时调用已授权插件工具。",
+        "template": "群聊主题：{{intent?.topic ?: ''}}\n建议风格：{{intent?.style ?: ''}}\n用户消息：{{query}}\n请结合运行时人设和历史上下文回复；需要时调用已授权插件工具。",
         "inputVariable": "intent",
         "outputVariable": "chatTask"
       }

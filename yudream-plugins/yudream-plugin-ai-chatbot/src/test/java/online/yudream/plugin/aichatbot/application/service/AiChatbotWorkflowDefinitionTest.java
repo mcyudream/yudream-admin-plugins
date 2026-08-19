@@ -26,6 +26,11 @@ class AiChatbotWorkflowDefinitionTest {
             assertTrue(nodes.contains("\"toolMode\":\"AUTO\""));
             // 兜底分支：wiki 无命中时回落普通群聊回复，而不是强行 wiki 作答
             assertTrue(nodes.contains("wikiResult.count != null && wikiResult.count > 0"));
+            // 图文教程由 AI 在同一回答内显式选择图片位置，未选中的检索图片不外发
+            assertTrue(nodes.contains("[[wiki-image:index]]"));
+            assertTrue(nodes.contains("generatedCaption"));
+            // 意图兜底模板必须使用安全导航，模型输出缺字段时不得抛出 SpEL 属性错误
+            assertTrue(nodes.contains("intent?.topic ?: ''"));
             // 意图节点必须容忍模型输出非严格 JSON（strictJson=false），避免整条群回复因解析失败而报错
             graph.path("nodes").forEach(node -> {
                 if ("understand".equals(node.path("data").path("kind").asText())) {
