@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { ActivityProofModel } from '../composables/useActivityProof'
 import type { ActivityProofParticipant } from '../types'
-import { FaButton, FaCard, FaCheckbox, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaResponsiveTable } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaCheckbox, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTag, FaResponsiveTable } from '@yudream/components'
 import { computed } from 'vue'
 import ProofPanel from '../components/ProofPanel.vue'
 
@@ -23,28 +23,21 @@ async function participantPageChanged() { await props.model.reloadServerData() }
 
 <template>
   <section class="proof-page">
-    <FaPageHeader title="活动证明导出" />
+    <FaPageHeader title="活动证明导出">
+      <FaTag :variant="model.status?.dependencies.minecraftReady ? 'default' : 'secondary'">MC</FaTag>
+      <FaTag :variant="model.status?.dependencies.studentInfoReady ? 'default' : 'secondary'">学生</FaTag>
+      <FaTag :variant="model.status?.dependencies.wordTemplateReady ? 'default' : 'secondary'">模板能力</FaTag>
+      <FaTag :variant="model.settings?.templateReady ? 'default' : 'secondary'">模板</FaTag>
+    </FaPageHeader>
     <FaPageMain>
-    <section class="proof-toolbar">
-      <div>
-        <span>Word Export</span>
-        <h2>活动证明导出</h2>
-      </div>
-      <div class="proof-state">
-        <span :class="{ ok: model.status?.dependencies.minecraftReady }">MC</span>
-        <span :class="{ ok: model.status?.dependencies.studentInfoReady }">学生</span>
-        <span :class="{ ok: model.status?.dependencies.wordTemplateReady }">模板能力</span>
-        <span :class="{ ok: model.settings?.templateReady }">模板</span>
-      </div>
-    </section>
-
-    <section v-if="model.status && !model.ready" class="proof-warning">
-      <span class="i-ri:error-warning-line" />
-      <span v-if="!model.status.dependencies.minecraftReady">请先启用 Minecraft 服务器插件。</span>
-      <span v-else-if="!model.status.dependencies.studentInfoReady">请先启用学生信息插件。</span>
-      <span v-else-if="!model.status.dependencies.wordTemplateReady">请先在能力管理中启用 Word 模板能力。</span>
-      <span v-else-if="!model.settings?.templateReady">请选择 Word 模板。</span>
-    </section>
+    <FaAlert v-if="model.status && !model.ready" icon="i-ri:error-warning-line" title="导出前请先完成准备">
+      <template #description>
+        <span v-if="!model.status.dependencies.minecraftReady">请先启用 Minecraft 服务器插件。</span>
+        <span v-else-if="!model.status.dependencies.studentInfoReady">请先启用学生信息插件。</span>
+        <span v-else-if="!model.status.dependencies.wordTemplateReady">请先在能力管理中启用 Word 模板能力。</span>
+        <span v-else-if="!model.settings?.templateReady">请选择 Word 模板。</span>
+      </template>
+    </FaAlert>
 
     <section class="proof-grid single">
       <ProofPanel title="导出参数" eyebrow="Export">
