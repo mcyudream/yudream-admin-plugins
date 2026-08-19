@@ -119,11 +119,11 @@
 .mp-system-fact span { font-size: 11px; color: var(--color-text-3, #94a3b8); }
 .mp-savebar { position: sticky; bottom: 12px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 12px 16px; background: var(--color-bg-2, #fff); border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 12px; box-shadow: 0 4px 16px rgb(15 23 42 / 0.08); }
 .fe { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.fe-row { min-width: 0; padding: 12px 14px; border: 1px solid var(--color-border-2, var(--color-border-2, #e5e7eb)); border-radius: 10px; background: var(--color-fill-1, #fafbfc); }
-.fe-line { display: grid; grid-template-columns: minmax(100px, .32fr) minmax(0, 1fr) 30px; gap: 10px; align-items: center; min-width: 0; }
+.fe-row { min-width: 0; padding: 12px 14px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 10px; background: var(--color-fill-1, #fafbfc); }
+.fe-line { display: grid; grid-template-columns: 128px minmax(0, 1fr) 30px; gap: 10px; align-items: center; min-width: 0; }
 .fe-select, .fe-value { display: block; box-sizing: border-box; width: 100%; min-width: 0; }
-.fe-select { padding: 7px 8px; font-size: 13px; border: 1px solid var(--color-border-2, var(--color-border-2, #e5e7eb)); border-radius: 8px; background: var(--color-bg-2, var(--color-bg-2, #fff)); }
-.fe-value { padding: 7px 10px; font-size: 13px; border: 1px solid var(--color-border-2, var(--color-border-2, #e5e7eb)); border-radius: 8px; outline: none; background: var(--color-bg-2, var(--color-bg-2, #fff)); }
+.fe-select { box-sizing: border-box; height: 34px; padding: 0 8px; font-size: 13px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 8px; background: var(--color-bg-2, #fff); color: var(--color-text-1, #1f2937); }
+.fe-value { box-sizing: border-box; height: 34px; padding: 0 10px; font-size: 13px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 8px; outline: none; background: var(--color-bg-2, #fff); }
 .fe-value:focus { border-color: rgb(var(--primary-6)); }
 .fe-delete { width: 28px; height: 28px; font-size: 16px; line-height: 1; color: var(--color-text-3, #94a3b8); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
 .fe-delete:hover { color: rgb(var(--danger-6, 245 63 63)); background: rgb(var(--danger-6, 245 63 63) / 0.1); }
@@ -136,7 +136,7 @@
 .fe-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .fe-count { font-size: 12px; color: var(--color-text-3, #94a3b8); }
 
-@media (max-width: 600px) {
+@media (max-width: 720px) {
   .mp-panel, .mp-side { padding: 14px; }
   .mp-actions > * { flex: 1 1 auto; }
   .fe-line { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: 'select delete' 'value value'; align-items: start; }
