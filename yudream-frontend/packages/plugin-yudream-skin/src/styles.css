@@ -11,6 +11,18 @@
   --skin-surface-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
+/* 网格条目默认 min-width:auto，任何不可折行内容（如分页按钮行）都会把整页撑宽 */
+.skin-plugin > *,
+.skin-page > * {
+  min-width: 0;
+}
+
+/* 分页器按钮行默认 nowrap，移动端 min-content 超过容器宽度，允许折行并居中 */
+.skin-plugin [data-slot="pagination-content"] {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .skin-admin-layout {
   display: grid;
   gap: 16px;
@@ -99,6 +111,11 @@
   display: grid;
   min-width: 0;
   gap: 12px;
+}
+
+/* 隐式网格轨道最小值为 auto，表格/卡片等无类名子项也必须允许收缩，否则移动端整页被撑宽 */
+.skin-admin-table-page > * {
+  min-width: 0;
 }
 
 .skin-admin-filter-grid {
