@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { GroupBinding, Option, Site } from '../types'
@@ -75,11 +75,11 @@ onMounted(load)
         <div class="field"><FaLabel>连接</FaLabel><FaSelect v-model="form.connectionId" :options="connections.map(value => ({ label: value.name, value: value.id }))" placeholder="选择连接" @update:model-value="changeConnection"/></div>
         <div class="field"><FaLabel>目标群</FaLabel><FaSelect v-model="form.channelId" :options="groupOptions.map(value => ({ label: value.name, value: value.id }))" placeholder="选择群"/></div>
         <div class="two-columns"><div class="field"><FaLabel>静默开始</FaLabel><FaInput v-model="form.quietStart" placeholder="23:00"/></div><div class="field"><FaLabel>静默结束</FaLabel><FaInput v-model="form.quietEnd" placeholder="07:00"/></div></div>
-        <div class="two-columns"><div class="field"><FaLabel>冷却秒数</FaLabel><FaInput v-model.number="form.cooldownSeconds" type="number" min="0"/></div><div class="field"><FaLabel>每小时上限</FaLabel><FaInput v-model.number="form.hourlyLimit" type="number" min="0"/></div></div>
+        <div class="two-columns"><div class="field"><FaLabel>冷却秒数</FaLabel><FaNumberField v-model="form.cooldownSeconds" :min="0" class="w-full"/></div><div class="field"><FaLabel>每小时上限</FaLabel><FaNumberField v-model="form.hourlyLimit" :min="0" class="w-full"/></div></div>
         <FaSwitch v-model="form.enabled">启用定时推送</FaSwitch>
       </div>
     </FaModal>
   </section>
 </template>
 
-<style scoped>.status-toggle{display:flex;align-items:center;gap:8px}.status-toggle small{color:#667281}.row-actions{display:flex;flex-wrap:wrap;gap:8px}.binding-form{display:grid;gap:18px}.field{display:grid;gap:7px}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}.binding-modal{width:min(620px,calc(100vw - 32px))}@media(max-width:560px){.two-columns{grid-template-columns:1fr}}</style>
+<style scoped>.status-toggle{display:flex;align-items:center;gap:8px}.status-toggle small{color:var(--color-text-3)}.row-actions{display:flex;flex-wrap:wrap;gap:8px}.binding-form{display:grid;gap:18px}.field{display:grid;gap:7px}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}.binding-modal{width:min(620px,calc(100vw - 32px))}@media(max-width:560px){.two-columns{grid-template-columns:1fr}}</style>

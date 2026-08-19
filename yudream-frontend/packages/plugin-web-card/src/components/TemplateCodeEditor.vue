@@ -3,7 +3,7 @@ import { basicSetup } from 'codemirror'
 import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
 import { json } from '@codemirror/lang-json'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -22,6 +22,25 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const host = ref<HTMLElement>()
 let editor: EditorView | undefined
 let applyingExternalValue = false
+const themeCompartment = new Compartment()
+let themeObserver: MutationObserver | undefined
+
+function hostDark() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+}
+
+function editorTheme() {
+  return EditorView.theme({
+    '&': { height: '100%', minHeight: `${props.minHeight}px`, backgroundColor: 'var(--color-bg-2)', color: 'var(--color-text-1)', fontSize: '13px' },
+    '&.cm-focused': { outline: 'none' },
+    '.cm-scroller': { fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace', lineHeight: '1.65' },
+    '.cm-content': { padding: '14px 0', caretColor: 'var(--color-text-1)' },
+    '.cm-cursor': { borderLeftColor: 'var(--color-text-1)' },
+    '.cm-gutters': { backgroundColor: 'var(--color-fill-1)', color: 'var(--color-text-3)', borderRight: '1px solid var(--color-border-2)' },
+    '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--color-fill-2)' },
+    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, rgb(var(--primary-6)) 25%, transparent) !important' },
+  }, { dark: hostDark() })
+}
 
 function languageExtension() {
   if (props.language === 'html') return html()
@@ -41,15 +60,7 @@ function createEditor() {
         languageExtension(),
         EditorState.readOnly.of(props.readonly),
         EditorView.lineWrapping,
-        EditorView.theme({
-          '&': { height: '100%', minHeight: `${props.minHeight}px`, backgroundColor: '#fbfcfd', color: '#17212b', fontSize: '13px' },
-          '&.cm-focused': { outline: 'none' },
-          '.cm-scroller': { fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace', lineHeight: '1.65' },
-          '.cm-content': { padding: '14px 0' },
-          '.cm-gutters': { backgroundColor: '#f3f5f6', color: '#87909a', borderRight: '1px solid #e2e6e9' },
-          '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: '#edf3f6' },
-          '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: '#cfe0ec !important' },
-        }),
+        themeCompartment.of(editorTheme()),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged || applyingExternalValue) return
           emit('update:modelValue', update.state.doc.toString())
@@ -72,8 +83,17 @@ watch(() => [props.language, props.readonly, props.minHeight], () => {
   createEditor()
 })
 
-onMounted(createEditor)
-onBeforeUnmount(() => editor?.destroy())
+onMounted(() => {
+  createEditor()
+  themeObserver = new MutationObserver(() => {
+    editor?.dispatch({ effects: themeCompartment.reconfigure(editorTheme()) })
+  })
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+})
+onBeforeUnmount(() => {
+  themeObserver?.disconnect()
+  editor?.destroy()
+})
 </script>
 
 <template>
@@ -84,8 +104,8 @@ onBeforeUnmount(() => editor?.destroy())
 .template-code-editor {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #dfe4e7;
+  border: 1px solid var(--color-border-2);
   border-radius: 6px;
-  background: #fbfcfd;
+  background: var(--color-bg-2);
 }
 </style>

@@ -34,4 +34,4 @@ onMounted(load)
     </div>
   </FaCard>
 </template></FaResponsiveTable></FaPageMain></section></template>
-<style scoped>.conversation{min-height:280px;max-height:440px;overflow:auto;border:1px solid var(--border);padding:16px}.empty{display:grid;min-height:240px;place-items:center;color:#6b7280}.message{margin-bottom:14px;padding:12px;border-left:3px solid #4b83c3;background:#f5f7fa}.message.assistant{border-left-color:#2f8f68}.message p{margin:6px 0 0;white-space:pre-wrap}</style>
+<style scoped>.conversation{min-height:280px;max-height:440px;overflow:auto;border:1px solid var(--color-border-2);padding:16px}.empty{display:grid;min-height:240px;place-items:center;color:var(--color-text-3)}.message{margin-bottom:14px;padding:12px;border-left:3px solid rgb(var(--primary-6));background:var(--color-fill-1)}.message.assistant{border-left-color:rgb(var(--success-6))}.message p{margin:6px 0 0;white-space:pre-wrap}</style>

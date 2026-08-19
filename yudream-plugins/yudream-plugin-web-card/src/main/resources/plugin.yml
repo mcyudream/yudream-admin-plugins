@@ -2,7 +2,7 @@ name: web-card
 displayName: 网站卡片
 description: 安全抓取和解析网站内容，按模板生成并投递群聊卡片，支持定时采集与运行记录。
 main: online.yudream.plugin.webcard.bootstrap.WebCardPlugin
-version: 1.1.1
+version: 1.1.2
 agents:
   - code: builtin-web-card-studio
     name: 网站卡片设计 Agent
