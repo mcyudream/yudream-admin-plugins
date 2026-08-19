@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/c
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { FaButton, FaCard, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaSwitch, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaFileUpload, FaIcon, FaInput, FaModal, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaSwitch, FaTag, useFaModal } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -199,9 +199,6 @@ function formatSize(size?: number) {
 </script>
 
 <template>
-  <FaPageHeader title="材质管理" class="mb-0">
-    <FaButton @click="openUpload"><FaIcon name="i-ri:upload-cloud-2-line" />上传材质</FaButton>
-  </FaPageHeader>
   <FaPageMain><div class="skin-admin-table-page">
     <FaResponsiveTable
       row-key="hash"
@@ -220,6 +217,10 @@ function formatSize(size?: number) {
             <FaSelect v-model="search.type" :options="typeOptions" class="skin-admin-filter-grid__select" />
             <FaSelect v-model="search.visibility" :options="visibilityOptions" class="skin-admin-filter-grid__select" />
             <div class="skin-admin-filter-grid__actions">
+              <FaButton @click="openUpload">
+                <FaIcon name="i-ri:upload-cloud-2-line" />
+                上传材质
+              </FaButton>
               <FaButton variant="outline" @click="resetSearch">
                 重置
               </FaButton>

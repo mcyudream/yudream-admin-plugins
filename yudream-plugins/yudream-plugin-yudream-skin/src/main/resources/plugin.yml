@@ -2,4 +2,4 @@ name: yudream-skin
 displayName: YuDream 皮肤
 description: 提供 Minecraft 角色、皮肤、披风和衣柜管理，并兼容常用皮肤站公开接口与数据迁移。
 main: online.yudream.base.plugin.skin.bootstrap.YuDreamSkinPlugin
-version: 1.1.1
+version: 1.1.2

@@ -228,14 +228,8 @@
   box-shadow: var(--skin-surface-shadow);
 }
 
-.skin-command-bar span {
-  color: rgb(var(--primary-6));
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .skin-command-bar h2 {
-  margin: 4px 0 6px;
+  margin: 0 0 6px;
   color: var(--color-text-1);
   font-size: 22px;
   line-height: 1.25;
@@ -1704,9 +1698,18 @@
 }
 
 @media (max-width: 640px) {
+  .skin-page {
+    gap: 10px;
+  }
+
   .skin-command-bar {
     align-items: stretch;
     flex-direction: column;
+    padding: 12px 14px;
+  }
+
+  .skin-command-bar h2 {
+    font-size: 18px;
   }
 
   .skin-dashboard-hero {
