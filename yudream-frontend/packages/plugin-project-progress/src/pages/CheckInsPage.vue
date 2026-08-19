@@ -26,8 +26,8 @@ const columns: TableColumn<ProjectCheckIn>[] = [
 ]
 
 columns.push(
-  { id: 'reviewStatus', header: 'Status', width: 120 },
-  { id: 'operation', header: 'Actions', width: 180, fixed: 'right', align: 'center' },
+  { id: 'reviewStatus', header: '审核状态', width: 120 },
+  { id: 'operation', header: '操作', width: 180, fixed: 'right', align: 'center' },
 )
 
 watch(manualTypeOptions, (options) => {
@@ -47,9 +47,9 @@ function typeLabel(value: string) {
 
 function fileNames(files: ProjectCheckIn['files']) { return files.map(file => file.filename).join('、') }
 function localUploadRequest() { return Promise.resolve({}) }
-function reviewLabel(value: string) { return value === 'REJECTED' ? 'Rejected' : 'Approved' }
-function confirmReject(record: ProjectCheckIn) { modal.confirm({ title: 'Reject check-in', content: 'Reject this check-in record?', onConfirm: () => props.model.rejectCheckIn(record) }) }
-function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete check-in', content: 'This record cannot be restored after deletion.', onConfirm: () => props.model.deleteCheckIn(record) }) }
+function reviewLabel(value: string) { return value === 'REJECTED' ? '已驳回' : '已通过' }
+function confirmReject(record: ProjectCheckIn) { modal.confirm({ title: '驳回打卡', content: '确认驳回这条打卡记录吗？', onConfirm: () => props.model.rejectCheckIn(record) }) }
+function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: '删除打卡', content: '删除后无法恢复，确认删除这条打卡记录吗？', onConfirm: () => props.model.deleteCheckIn(record) }) }
 </script>
 
 <template>
@@ -87,7 +87,7 @@ function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete 
           <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
           <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
           <template #cell-reviewStatus="{ row }"><FaTag :variant="row.original.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.original.reviewStatus) }}</FaTag></template>
-          <template #cell-operation="{ row }"><div class="flex-center gap-2"><FaButton v-if="row.original.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row.original)">Reject</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">Delete</FaButton></div></template>
+          <template #cell-operation="{ row }"><div class="flex-center gap-2"><FaButton v-if="row.original.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row.original)">驳回</FaButton><FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton></div></template>
           <template #card="{ row }">
             <FaCard class="w-full">
               <div class="flex flex-col gap-3">
@@ -105,8 +105,8 @@ function confirmDelete(record: ProjectCheckIn) { modal.confirm({ title: 'Delete 
                   <div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">时间</span><span class="break-all">{{ model.formatTime(row.createdAt) }}</span></div>
                 </div>
                 <div class="flex flex-wrap gap-2 border-t pt-3">
-                  <FaButton v-if="row.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row)">Reject</FaButton>
-                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">Delete</FaButton>
+                  <FaButton v-if="row.reviewStatus !== 'REJECTED'" size="sm" variant="outline" @click="confirmReject(row)">驳回</FaButton>
+                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
                 </div>
               </div>
             </FaCard>

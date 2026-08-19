@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
+import { FaButton } from '@yudream/components'
 import ProgressPanel from '../components/ProgressPanel.vue'
 
 defineProps<{
@@ -14,7 +15,7 @@ defineProps<{
         <span>联动状态</span>
         <h2>插件状态</h2>
       </div>
-      <button type="button" @click="model.load">刷新状态</button>
+      <FaButton variant="outline" :loading="model.loading" @click="model.load">刷新状态</FaButton>
     </section>
 
     <ProgressPanel title="依赖能力" subtle="Minecraft 自动打卡已改为按项目配置，这里只显示联动能力是否可用">
