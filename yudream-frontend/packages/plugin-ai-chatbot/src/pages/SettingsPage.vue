@@ -56,8 +56,8 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
             <label class="grid gap-2">冷却秒数（仅随机回复）<FaNumberField v-model="form.cooldownSeconds" :min="1" :max="3600" class="w-full" /></label>
             <label class="grid gap-2">每小时上限<FaNumberField v-model="form.hourlyReplyLimit" :min="1" :max="1000" class="w-full" /></label>
             <label class="grid gap-2">Agent 应用<FaSelect v-model="form.agentCode" :options="agentOptions" placeholder="选择已发布 Agent" class="w-full" /></label>
-            <label class="grid gap-2">画像分析供应商<FaSelect :model-value="form.profileProviderCode" :options="profileProviderOptions" placeholder="跟随对话模型/宿主默认" class="w-full" @change="(value: unknown) => { form.profileProviderCode = typeof value === 'string' ? value : ''; form.profileModelCode = '' }" /></label>
-            <label class="grid gap-2">画像分析模型<FaSelect v-model="form.profileModelCode" :options="profileModelOptions" placeholder="选择模型" :disabled="!form.profileProviderCode" class="w-full" /></label>
+            <label class="grid min-w-0 gap-2">画像分析供应商<FaSelect :model-value="form.profileProviderCode" :options="profileProviderOptions" placeholder="跟随对话模型/宿主默认" class="w-full" @change="(value: unknown) => { form.profileProviderCode = typeof value === 'string' ? value : ''; form.profileModelCode = '' }" /></label>
+            <label class="grid min-w-0 gap-2">画像分析模型<FaSelect v-model="form.profileModelCode" :options="profileModelOptions" placeholder="选择模型" :disabled="!form.profileProviderCode" class="w-full" /></label>
             <label class="grid gap-2">画像分析消息数<FaNumberField v-model="form.profileAnalysisMessageCount" :min="1" :max="200" /><span class="text-xs text-muted-foreground">每次分析从互动记录与近一天消息库各随机抽取不超过该条数；一键分析全部时证据不足该条数的用户跳过</span></label>
             <label class="grid gap-2">画像自动更新间隔（分钟）<FaNumberField v-model="form.profileAutoAnalysisIntervalMinutes" :min="0" :max="10080" /><span class="text-xs text-muted-foreground">0 表示关闭；开启后插件每分钟检查一次，对证据充足且距上次分析超过该间隔的用户自动重新分析画像</span></label>
           </div>

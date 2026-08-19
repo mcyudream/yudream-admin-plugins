@@ -681,7 +681,7 @@ onMounted(load)
 .field-group { display: grid; min-width: 0; gap: 7px; }
 .mode-switch { align-self: end; }
 .context-actions { align-self: end; justify-content: flex-end; }
-.workspace-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(420px, .95fr); min-width: 0; }
+.workspace-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); min-width: 0; }
 .code-pane, .preview-pane { min-width: 0; padding: 20px; }
 .code-pane { border-right: 1px solid #e4e8eb; }
 .pane-header { min-height: 54px; margin-bottom: 16px; }
