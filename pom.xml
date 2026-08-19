@@ -19,6 +19,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <yudream.plugin.spi.version>2.6.0</yudream.plugin.spi.version>
         <jackson.version>2.20.0</jackson.version>
+        <!-- 插件间 provided 依赖在此统一锁定 provider 版本；消费方禁止用 ${project.version} 与自身版本锁步 -->
+        <yudream.plugin.yudream-skin.version>1.1.5</yudream.plugin.yudream-skin.version>
+        <yudream.plugin.wallet.version>1.1.1</yudream.plugin.wallet.version>
+        <yudream.plugin.minecraft-server.version>1.1.1</yudream.plugin.minecraft-server.version>
+        <yudream.plugin.student-info.version>1.1.1</yudream.plugin.student-info.version>
     </properties>
 
     <modules>
@@ -49,6 +54,26 @@
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-yudream-skin</artifactId>
+                <version>${yudream.plugin.yudream-skin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-wallet</artifactId>
+                <version>${yudream.plugin.wallet.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-minecraft-server</artifactId>
+                <version>${yudream.plugin.minecraft-server.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-student-info</artifactId>
+                <version>${yudream.plugin.student-info.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

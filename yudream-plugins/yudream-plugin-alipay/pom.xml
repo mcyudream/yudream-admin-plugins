@@ -25,7 +25,6 @@
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-wallet</artifactId>
-            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

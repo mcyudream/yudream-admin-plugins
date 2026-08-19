@@ -26,6 +26,7 @@
 - 禁止依赖、导入、复制或 vendoring 宿主的 `domain`、`application`、`infrastructure`、`interfaces`、`bootstrap`、宿主 Spring Bean、Mapper、Repository、DO、Controller、Request/Response、宿主前端 app 或本地宿主 workspace。
 - 禁止复制 SDK、共享组件或宿主源码到本仓。宿主缺能力时，先在宿主发布稳定 SPI/SDK 契约，再升级本仓依赖；不得用内部 import、私有 HTTP 客户端或直接 Spring Bean 绕过契约。
 - Maven SPI 版本仅在根 `pom.xml` 的 `yudream.plugin.spi.version` 管理。
+- 插件间 `provided` 依赖的 provider 版本仅在根 `pom.xml` 的 `yudream.plugin.<模块>.version` 属性与 `dependencyManagement` 管理；消费方模块禁止本地书写版本，尤其禁止 `${project.version}` 与自身版本锁步。
 - npm SDK/组件版本仅在 `yudream-frontend/pnpm-workspace.yaml` 的 catalog 管理；包内依赖使用 `catalog:`。
 - 契约版本必须先发布并确认 Nexus 可解析，再更新本仓版本；调整 catalog/依赖后必须同步更新 `pnpm-lock.yaml`。
 - 前端 workspace 只能保留 `packages/plugin-*`；禁止改回 `packages/*`。

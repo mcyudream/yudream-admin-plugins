@@ -34,7 +34,6 @@
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-minecraft-server</artifactId>
-            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
