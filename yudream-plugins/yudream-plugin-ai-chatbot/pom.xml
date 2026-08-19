@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>online.yudream.plugins</groupId><artifactId>yudream-admin-plugins</artifactId><version>1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>yudream-plugin-ai-chatbot</artifactId>
-  <version>1.6.6</version>
+  <version>1.6.7</version>
   <dependencies>
     <dependency><groupId>online.yudream.base</groupId><artifactId>yudream-plugin-spi</artifactId></dependency>
     <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>

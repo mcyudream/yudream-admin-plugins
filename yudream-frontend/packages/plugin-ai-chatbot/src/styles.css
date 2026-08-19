@@ -121,10 +121,11 @@
 .fe { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .fe-row { min-width: 0; padding: 12px 14px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 10px; background: var(--color-fill-1, #fafbfc); }
 .fe-line { display: grid; grid-template-columns: 128px minmax(0, 1fr) 30px; gap: 10px; align-items: center; min-width: 0; }
-.fe-select, .fe-value { display: block; box-sizing: border-box; width: 100%; min-width: 0; }
-.fe-select { box-sizing: border-box; height: 34px; padding: 0 8px; font-size: 13px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 8px; background: var(--color-bg-2, #fff); color: var(--color-text-1, #1f2937); }
-.fe-value { box-sizing: border-box; height: 34px; padding: 0 10px; font-size: 13px; border: 1px solid var(--color-border-2, #e5e7eb); border-radius: 8px; outline: none; background: var(--color-bg-2, #fff); }
-.fe-value:focus { border-color: rgb(var(--primary-6)); }
+.fe-select, .fe-value { box-sizing: border-box; width: 100%; min-width: 0; }
+/* FaSelect 触发器自身为 flex + items-center，FaInput 的高度/边框在内层 input 上；
+   这里只统一宽度与字体，禁止覆盖 display/height/padding，否则文字与图标失去垂直居中 */
+.fe-select { font-size: 13px; }
+.fe-value { font-size: 13px; }
 .fe-delete { width: 28px; height: 28px; font-size: 16px; line-height: 1; color: var(--color-text-3, #94a3b8); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
 .fe-delete:hover { color: rgb(var(--danger-6, 245 63 63)); background: rgb(var(--danger-6, 245 63 63) / 0.1); }
 .fe-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--color-text-3, #94a3b8); }
@@ -139,11 +140,10 @@
 @media (max-width: 720px) {
   .mp-panel, .mp-side { padding: 14px; }
   .mp-actions > * { flex: 1 1 auto; }
-  .fe-line { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: 'select delete' 'value value'; align-items: start; }
+  .fe-line { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: 'select delete' 'value value'; align-items: center; }
   .fe-select { grid-area: select; }
   .fe-value { grid-area: value; }
   .fe-delete { grid-area: delete; justify-self: end; }
-  .fe-sub { align-items: flex-start; }
   .upw-fact { grid-template-columns: 64px minmax(0, 1fr); }
   .upw-fact-meta { grid-column: 1 / -1; flex-wrap: wrap; white-space: normal; }
   .upw-hero { grid-template-columns: 1fr; }
