@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTextarea } from '@yudream/components'
 import BalanceGrid from '../components/BalanceGrid.vue'
 import TransactionList from '../components/TransactionList.vue'
@@ -8,11 +9,16 @@ import WalletPanel from '../components/WalletPanel.vue'
 
 const props = defineProps<{ model: WalletPluginModel }>()
 const assetOptions = computed(() => props.model.transferableAssets.map(asset => ({ label: `${asset.name} (${asset.code})`, value: asset.code })))
+const router = useRouter()
+
+function goRecharge() {
+  return router.push({ path: '/platform/plugins/yudream-wallet/recharge' })
+}
 </script>
 
 <template>
   <FaPageHeader title="我的钱包" class="mb-0">
-    <a v-if="model.hasRecharge" class="wallet-nav-button" href="/platform/plugins/yudream-wallet/recharge"><FaIcon name="i-ri:bank-card-line" />充值</a>
+    <FaButton v-if="model.hasRecharge" @click="goRecharge"><FaIcon name="i-ri:bank-card-line" />充值</FaButton>
   </FaPageHeader>
   <FaPageMain>
     <BalanceGrid :model="model" />
