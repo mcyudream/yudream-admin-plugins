@@ -2,7 +2,7 @@ name: minecraft-server
 displayName: Minecraft 服务器
 description: 管理 Minecraft 服务器、线路与周目，展示在线状态并统计玩家在线和挂机时长。
 main: online.yudream.base.plugin.minecraft.bootstrap.MinecraftServerPlugin
-version: 1.1.0
+version: 1.1.1
 softdepend:
   - yudream-wallet
   - yudream-skin

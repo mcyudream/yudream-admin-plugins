@@ -4,7 +4,6 @@ import type { MinecraftServer } from '../types'
 import type { MinecraftServerPluginModel } from '../composables/useMinecraftServerPlugin'
 import { useRouter } from 'vue-router'
 import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaTag, useFaModal } from '@yudream/components'
-import StatusPill from '../components/StatusPill.vue'
 
 const props = defineProps<{ model: MinecraftServerPluginModel }>()
 const router = useRouter()
@@ -40,7 +39,7 @@ function confirmToggleServer(server: MinecraftServer) {
     <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[980px]" border stripe column-visibility :columns="columns" :data="model.servers">
       <template #toolbar><FaSearchBar class="w-full"><div class="flex justify-end gap-2"><FaButton variant="outline" :loading="model.loading" @click="reload"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></div></FaSearchBar></template>
       <template #cell-name="{ row }"><div class="grid gap-1"><strong>{{ row.original.name }}</strong><span class="font-mono text-xs text-muted-foreground">ID: {{ row.original.id }}</span></div></template>
-      <template #cell-status="{ row }"><StatusPill :status="row.original.status?.status" /></template>
+      <template #cell-status="{ row }"><FaTag :variant="row.original.status?.status === 'ONLINE' ? 'default' : 'secondary'">{{ model.statusText(row.original.status?.status) }}</FaTag></template>
       <template #cell-enabled="{ row }">{{ row.original.enabled ? '启用' : '停用' }}</template>
       <template #cell-operation="{ row }"><div class="flex flex-wrap justify-center gap-2"><FaButton size="sm" :variant="row.original.enabled ? 'destructive' : 'outline'" :loading="model.saving" @click="confirmToggleServer(row.original)">{{ row.original.enabled ? '结束服务器' : '恢复运营' }}</FaButton><FaButton size="sm" variant="outline" @click="go('Editor', row.original.id)">编辑</FaButton><FaButton size="sm" variant="outline" @click="go('Seasons', row.original.id)">周目</FaButton><FaButton size="sm" variant="outline" @click="go('Operations', row.original.id)">操作记录</FaButton><FaButton size="sm" variant="outline" @click="go('Players', row.original.id)">玩家统计</FaButton></div></template>
       <template #card="{ row }">

@@ -79,7 +79,7 @@ async function uploadMarkdownImage(file: File): Promise<MarkdownUploadImage> {
       preview-theme="github"
       code-theme="github"
       :no-upload-img="!uploadImage"
-      :style="{ height: '460px' }"
+      :style="{ height: 'clamp(320px, 60vh, 460px)' }"
       @on-upload-img="handleUploadImg"
     />
   </div>
