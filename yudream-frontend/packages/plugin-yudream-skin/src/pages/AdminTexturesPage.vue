@@ -288,7 +288,7 @@ function formatSize(size?: number) {
               </div>
               <div v-if="row.uploaderId" class="flex gap-2">
                 <span class="shrink-0 text-secondary-foreground/60">上传人</span>
-                <span class="break-all">{{ model.userName(row.uploaderId) }}</span>
+                <span class="min-w-0 break-all">{{ model.userName(row.uploaderId) }}</span>
               </div>
               <div class="flex gap-2">
                 <span class="shrink-0 text-secondary-foreground/60">大小</span>
@@ -296,7 +296,7 @@ function formatSize(size?: number) {
               </div>
               <div v-if="row.uploadedAt !== undefined" class="flex gap-2">
                 <span class="shrink-0 text-secondary-foreground/60">上传时间</span>
-                <span>{{ model.dateText(row.uploadedAt) }}</span>
+                <span class="min-w-0 break-words">{{ model.dateText(row.uploadedAt) }}</span>
               </div>
             </div>
             <div class="flex flex-wrap gap-2 border-t pt-3">

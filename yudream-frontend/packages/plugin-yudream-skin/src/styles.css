@@ -1702,6 +1702,12 @@
     gap: 10px;
   }
 
+  /* 移动端材质卡片单列展示：两列在窄屏下最小 172px 轨道会挤压溢出 */
+  .skin-card-grid,
+  .skin-card-grid.closet {
+    grid-template-columns: 1fr;
+  }
+
   .skin-command-bar {
     align-items: stretch;
     flex-direction: column;
