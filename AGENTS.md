@@ -14,6 +14,7 @@
 - 前端远程包：`yudream-frontend/packages/plugin-{code}`。
 - 修改插件前，必须同时检查其前后端模块、`plugin.yml`、前端入口、Vite 配置与 Maven 打包配置。
 - 先参考行为最接近的现有插件；复杂 DDD 插件优先参考 `plugin-project-progress`。
+- 本地开发优先使用宿主插件开发模式（源码目录加载 + 监听热重载）与开发者调试抽屉（资产查看、指令模拟器、端点测试、Agent 追踪），流程见 `docs/plugin-dev-mode.md`，宿主侧机制见宿主仓 `docs/plugin-system/dev-mode.md`。
 - 保留用户已有的未提交修改。禁止覆盖、回退、格式化或重构与当前任务无关的文件。
 - 新增/修改功能前，先明确受影响的插件 code、权限、菜单、路由、HTTP API、数据范围、生命周期和打包产物。
 
