@@ -10,6 +10,7 @@ import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.ai.PluginAiChatMessage;
 import online.yudream.base.plugin.spi.system.ai.PluginAiChatRequest;
+import online.yudream.base.plugin.spi.system.ai.PluginAiChatResponse;
 import online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext;
 import online.yudream.base.plugin.spi.system.memory.PluginSemanticMemoryQuery;
 import online.yudream.base.plugin.spi.system.memory.PluginSemanticMemoryRecord;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
@@ -57,6 +59,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     public static final String MANAGE_PERMISSION = "plugin:ai-chatbot:manage";
     private static final Logger LOGGER = Logger.getLogger(AiChatbotPlugin.class.getName());
     private final Map<String, CompletableFuture<Void>> groupQueues = new ConcurrentHashMap<>();
+    private final QqSandboxHistory sandboxHistory = new QqSandboxHistory();
     private PluginContext context;
     private AiChatbotPolicyService policies;
     private AiChatbotMemoryProfileService profiles;
@@ -86,6 +89,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             scheduler.shutdownNow();
             scheduler = null;
         }
+        sandboxHistory.clear();
     }
 
     /** 定时画像更新：按各群策略间隔（0=关闭）自动分析证据充足且到期的启用画像。 */
@@ -215,9 +219,19 @@ public class AiChatbotPlugin implements YuDreamPlugin {
 
     private void onMessage(PluginEvent event) {
         if (event.userId() == null || event.userId().equals(event.selfId()) || event.content() == null || event.content().isBlank()) return;
-        activity(event, "", "MESSAGE_RECEIVED", "", true);
-        messageLogs.log(event.connectionId(), event.channelId(), String.valueOf(event.userId()), "", event.content());
-        String key = groupId(event);
+        QqSandboxSupport sandbox = QqSandboxSupport.from(event);
+        if (sandbox.active()) {
+            sandboxDiagnostic(sandbox, "state_isolation", Map.of(
+                    "skippedWrites", List.of("activity", "message-log", "profile", "reply-state", "semantic-memory"),
+                    "historyStore", "SESSION_LOCAL",
+                    "productionHistoryReadOnly", true,
+                    "policyConnectionId", sandbox.policyConnectionId()
+            ));
+        } else {
+            activity(event, "", "MESSAGE_RECEIVED", "", true);
+            messageLogs.log(event.connectionId(), event.channelId(), String.valueOf(event.userId()), "", event.content());
+        }
+        String key = sandbox.active() ? "sandbox:" + sandbox.sessionId() : groupId(event);
         CompletableFuture<Void> next = groupQueues.compute(key, (ignored, tail) -> {
             CompletableFuture<Void> previous = tail == null ? CompletableFuture.completedFuture(null) : tail.exceptionally(error -> null);
             return previous.thenCompose(value -> processMessage(event));
@@ -229,60 +243,163 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     }
 
     private CompletableFuture<Void> processMessage(PluginEvent event) {
-        AiChatbotGroupPolicy policy = policies.get(event.connectionId(), event.channelId());
+        QqSandboxSupport sandbox = QqSandboxSupport.from(event);
+        AiChatbotGroupPolicy policy = policies.get(sandbox.policyConnectionId(), event.channelId());
         boolean mentioned = mentions(event).contains(event.selfId());
-        append("group-history", groupId(event), "user", event.userId() + "：" + event.content());
-        boolean random = !mentioned && ThreadLocalRandom.current().nextDouble() < policy.randomProbability();
-        if ((!mentioned && !random) || !policies.allowReply(policy, System.currentTimeMillis(), mentioned)) return CompletableFuture.completedFuture(null);
-        String mode = mentioned ? "MENTION" : "RANDOM";
+        appendHistory(sandbox, "group-history", policyGroupId(sandbox, event), "user", event.userId() + "：" + event.content());
+        QqSandboxSupport.TriggerDecision trigger = sandbox.trigger(mentioned,
+                () -> ThreadLocalRandom.current().nextDouble() < policy.randomProbability(),
+                () -> policies.allowReply(policy, System.currentTimeMillis(), mentioned));
+        sandboxDiagnostic(sandbox, "trigger_result", Map.of(
+                "triggered", trigger.triggered(),
+                "mode", trigger.mode(),
+                "blockReason", trigger.blockReason()
+        ));
+        if (!trigger.triggered()) return CompletableFuture.completedFuture(null);
+        String mode = trigger.mode();
         LOGGER.info(() -> "[YuDreamAdmin] [AI Chatbot] reply triggered: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode);
         var platformProfile = context.framework().users().findByQq(event.userId());
         Long userId = platformProfile.map(profile -> profile.id()).orElse(null);
         String profileUserId = userId == null ? "" : String.valueOf(userId);
         String nickname = platformProfile.map(profile -> profile.nickname()).orElse("");
         String avatar = platformProfile.map(profile -> profile.avatar()).orElse("");
-        activity(event, profileUserId, "REPLY_TRIGGERED", mode, true);
-        if (userId != null) profileActivity(event, profileUserId, nickname, avatar, "OBSERVED");
-        if (mentioned && asksForTools(event.content())) { activity(event, profileUserId, "TOOL_SUMMARY", mode, true); reply(event, toolSummary()); return CompletableFuture.completedFuture(null); }
-        if (mentioned && userId == null) { activity(event, "", "REPLY_REJECTED_UNBOUND", mode, false); reply(event, "请先绑定系统账号后再使用 AI 对话。"); return CompletableFuture.completedFuture(null); }
-        List<PluginAiChatMessage> history = history(mentioned && userId != null ? "user-memory" : "group-history", mentioned && userId != null ? memoryId(event, userId) : groupId(event), mentioned && userId != null ? policy.personalContextLimit() : policy.groupContextLimit());
+        if (sandbox.persistentWritesAllowed()) activity(event, profileUserId, "REPLY_TRIGGERED", mode, true);
+        if (sandbox.persistentWritesAllowed() && userId != null) profileActivity(event, profileUserId, nickname, avatar, "OBSERVED");
+        if (mentioned && asksForTools(event.content())) { if (sandbox.persistentWritesAllowed()) activity(event, profileUserId, "TOOL_SUMMARY", mode, true); reply(event, toolSummary()); return CompletableFuture.completedFuture(null); }
+        if (mentioned && userId == null) {
+            if (sandbox.persistentWritesAllowed()) activity(event, "", "REPLY_REJECTED_UNBOUND", mode, false);
+            sandboxDiagnostic(sandbox, "trigger_blocked", Map.of("mode", mode, "blockReason", "UNBOUND"));
+            reply(event, "请先绑定系统账号后再使用 AI 对话。");
+            return CompletableFuture.completedFuture(null);
+        }
+        String historyCollection = mentioned && userId != null ? "user-memory" : "group-history";
+        String historyId = mentioned && userId != null ? policyMemoryId(sandbox, event, userId) : policyGroupId(sandbox, event);
+        List<PluginAiChatMessage> history = readHistory(sandbox, historyCollection, historyId,
+                mentioned && userId != null ? policy.personalContextLimit() : policy.groupContextLimit());
         if (userId != null && policy.longTermMemoryEnabled()) {
-            String namespace = groupId(event) + ":" + userId;
+            String namespace = policyGroupId(sandbox, event) + ":" + userId;
             try {
                 var hits = context.semanticMemory().search(new PluginSemanticMemoryQuery(namespace, event.content(), policy.providerCode(), policy.modelCode(), policy.semanticMemoryTopK())).toCompletableFuture().join();
                 if (!hits.isEmpty()) { history = new ArrayList<>(history); history.addAll(hits.stream().map(hit -> new PluginAiChatMessage("system", "相关长期记忆：" + hit.content())).toList()); }
-                context.semanticMemory().index(new PluginSemanticMemoryRecord(namespace, event.messageId() == null ? UUID.randomUUID().toString() : event.messageId(), event.content(), policy.providerCode(), policy.modelCode(), Map.of("qq", event.userId(), "timestamp", System.currentTimeMillis())));
+                if (sandbox.persistentWritesAllowed()) {
+                    context.semanticMemory().index(new PluginSemanticMemoryRecord(namespace, event.messageId() == null ? UUID.randomUUID().toString() : event.messageId(), event.content(), policy.providerCode(), policy.modelCode(), Map.of("qq", event.userId(), "timestamp", System.currentTimeMillis())));
+                }
             } catch (Exception error) {
                 LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] semantic memory failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
             }
         }
-        if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) { List<PluginAiChatMessage> expanded = new ArrayList<>(history("group-history", groupId(event), policy.contextExpansionLimit())); expanded.addAll(history); history = expanded; }
+        if (mentioned && userId != null && (mentions(event).stream().anyMatch(id -> !id.equals(event.selfId())) || hasReply(event))) {
+            List<PluginAiChatMessage> expanded = new ArrayList<>(readHistory(sandbox, "group-history", policyGroupId(sandbox, event), policy.contextExpansionLimit()));
+            expanded.addAll(history);
+            history = expanded;
+        }
         // 工具调用（含 Wiki 求助检索）全部由宿主 Agent 应用的工作流编排：插件不再自判定意图、自发起检索，
         // 仅把本次运行许可的插件工具范围（* = 全部，由宿主按触发方式与权限码二次过滤）交给工作流。
-        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, UUID.randomUUID().toString(), policy.groupToolOpenAccess() ? List.of("*") : List.of(), List.of("*"));
-        return agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, userProfileSection(event, userId)), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode))).handle((result, error) -> {
-            if (error != null) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error); reply(event, "AI 请求失败：" + errorMessage(error)); return (Void) null; }
-            if (result == null || result.content() == null || result.content().isBlank()) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content"); reply(event, "AI 未返回可发送的内容。"); return (Void) null; }
-            if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) { activity(event, profileUserId, "REPLY_FAILED", mode, false); profileActivity(event, profileUserId, nickname, avatar, "FAILED"); LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format"); reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"); return (Void) null; }
+        String traceId = UUID.randomUUID().toString();
+        PluginAiExecutionContext execution = new PluginAiExecutionContext(userId, event.userId(), event.connectionId(), event.channelId(), event.messageId(), mode, traceId, policy.groupToolOpenAccess() ? List.of("*") : List.of(), List.of("*"));
+        int historyMessageCount = history.size();
+        sandboxDiagnostic(sandbox, "agent_pending", Map.of(
+                "mode", mode,
+                "traceId", traceId,
+                "historyMessageCount", historyMessageCount,
+                "longTermMemoryEnabled", userId != null && policy.longTermMemoryEnabled()
+        ));
+        CompletionStage<PluginAiChatResponse> agentRun;
+        try {
+            agentRun = agents.run(policy, new PluginAiChatRequest(prompt(mode, policy, userProfileSection(event, userId)), event.content(), null, null, history, execution, policy.toolCallingEnabled(mode)));
+        } catch (RuntimeException error) {
+            agentRun = CompletableFuture.failedFuture(error);
+        }
+        CompletionStage<CompletionStage<Void>> completion = agentRun.handle((result, error) -> {
+            if (error != null) {
+                if (sandbox.persistentWritesAllowed()) {
+                    activity(event, profileUserId, "REPLY_FAILED", mode, false);
+                    profileActivity(event, profileUserId, nickname, avatar, "FAILED");
+                }
+                LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply failed: " + errorMessage(error), error);
+                return terminalAfterReply(sandbox, reply(event, "AI 请求失败：" + errorMessage(error)), "agent_error",
+                        Map.of("mode", mode, "traceId", traceId, "message", errorMessage(error)));
+            }
+            if (result == null || result.content() == null || result.content().isBlank()) {
+                if (sandbox.persistentWritesAllowed()) {
+                    activity(event, profileUserId, "REPLY_FAILED", mode, false);
+                    profileActivity(event, profileUserId, nickname, avatar, "FAILED");
+                }
+                LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: empty AI content");
+                return terminalAfterReply(sandbox, reply(event, "AI 未返回可发送的内容。"), "agent_error",
+                        Map.of("mode", mode, "traceId", traceId, "message", "EMPTY_CONTENT"));
+            }
+            if (result.content().contains("<tool_calls>") || result.content().contains("<invoke name=")) {
+                if (sandbox.persistentWritesAllowed()) {
+                    activity(event, profileUserId, "REPLY_FAILED", mode, false);
+                    profileActivity(event, profileUserId, nickname, avatar, "FAILED");
+                }
+                LOGGER.warning("[YuDreamAdmin] [AI Chatbot] reply failed: unrecognized tool call format");
+                return terminalAfterReply(sandbox, reply(event, "AI 服务返回了未识别的工具调用格式，本次操作未执行。请检查所选模型是否支持原生工具调用。"), "agent_error",
+                        Map.of("mode", mode, "traceId", traceId, "message", "UNRECOGNIZED_TOOL_CALL"));
+            }
             // AI 已把确实相关的配图标记嵌入回答；只发送被标记选中的图片，未选择的检索图片不再外发。
             List<AiChatbotWikiService.WikiImage> images = wiki.imagesFromToolResults(result.toolResults(), WIKI_IMAGE_LIMIT);
             AiChatbotWikiService.WikiRichMessage richMessage = wiki.richMessage(result.content(), images);
             String historyContent = wiki.plainText(richMessage);
-            append("group-history", groupId(event), "assistant", historyContent);
-            if (mentioned && userId != null) { append("user-memory", memoryId(event, userId), "user", event.content()); append("user-memory", memoryId(event, userId), "assistant", historyContent); }
-            activity(event, profileUserId, "REPLY_COMPLETED", mode, true); profileActivity(event, profileUserId, nickname, avatar, "COMPLETED"); policies.recordReply(policy, System.currentTimeMillis()); reply(event, richMessage);
+            appendHistory(sandbox, "group-history", policyGroupId(sandbox, event), "assistant", historyContent);
+            if (mentioned && userId != null) {
+                appendHistory(sandbox, "user-memory", policyMemoryId(sandbox, event, userId), "user", event.content());
+                appendHistory(sandbox, "user-memory", policyMemoryId(sandbox, event, userId), "assistant", historyContent);
+            }
+            if (sandbox.persistentWritesAllowed()) {
+                activity(event, profileUserId, "REPLY_COMPLETED", mode, true);
+                profileActivity(event, profileUserId, nickname, avatar, "COMPLETED");
+                policies.recordReply(policy, System.currentTimeMillis());
+            }
             if (richMessage.imageCount() > 0) {
-                activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, true);
+                if (sandbox.persistentWritesAllowed()) activity(event, profileUserId, "WIKI_HELP_IMAGES", mode, true);
                 LOGGER.info("[YuDreamAdmin] [AI Chatbot] wiki images embedded: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", count=" + richMessage.imageCount());
             }
-            LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode); return (Void) null;
-        }).toCompletableFuture();
+            CompletionStage<Void> replyCapture = reply(event, richMessage);
+            return terminalAfterReply(sandbox, replyCapture, "agent_complete", Map.of(
+                    "mode", mode,
+                    "traceId", traceId,
+                    "toolCount", result.toolResults().size(),
+                    "toolActions", result.toolResults().stream().map(tool -> tool.action() == null ? "" : tool.action()).filter(action -> !action.isBlank()).distinct().toList(),
+                    "historyMessageCount", historyMessageCount,
+                    "memoryPersisted", sandbox.persistentWritesAllowed() && mentioned && userId != null
+            )).thenRun(() -> LOGGER.info("[YuDreamAdmin] [AI Chatbot] reply completed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", mode=" + mode));
+        });
+        return completion.thenCompose(stage -> stage).toCompletableFuture();
     }
 
     private static final int WIKI_IMAGE_LIMIT = 3;
 
     private void activity(PluginEvent event, String userId, String type, String mode, boolean success) { try { activities.record(event.connectionId(), event.channelId(), event.userId(), userId, type, mode, success); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] activity recording failed: " + errorMessage(error), error); } }
+    private CompletionStage<Void> sandboxDiagnosticStage(QqSandboxSupport sandbox, String milestone, Map<String, Object> details) {
+        if (sandbox.persistentWritesAllowed()) return CompletableFuture.completedFuture(null);
+        try {
+            return sandbox.diagnostic(context.framework().messagingRaw(), milestone, details);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not change the chatbot flow when the sandbox channel is unavailable.
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+    private void sandboxDiagnostic(QqSandboxSupport sandbox, String milestone, Map<String, Object> details) {
+        sandboxDiagnosticStage(sandbox, milestone, details);
+    }
+    private CompletionStage<Void> terminalAfterReply(QqSandboxSupport sandbox, CompletionStage<Void> replyCapture,
+                                                     String milestone, Map<String, Object> details) {
+        return QqSandboxSupport.afterReply(replyCapture, () -> sandboxDiagnosticStage(sandbox, milestone, details));
+    }
     private void profileActivity(PluginEvent event, String userId, String nickname, String avatar, String outcome) { try { if ("OBSERVED".equals(outcome)) profiles.observe(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, event.content()); else profiles.recordReply(event.connectionId(), event.channelId(), userId, event.userId(), nickname, avatar, outcome); } catch (Exception error) { LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] profile activity recording failed: " + errorMessage(error), error); } }
+    private List<PluginAiChatMessage> readHistory(QqSandboxSupport sandbox, String collection, String id, int limit) {
+        if (sandbox.persistentWritesAllowed()) return history(collection, id, limit);
+        return sandboxHistory.read(sandbox.sessionId(), collection + ":" + id, limit, () -> history(collection, id, limit));
+    }
+    private void appendHistory(QqSandboxSupport sandbox, String collection, String id, String role, String content) {
+        if (sandbox.active()) {
+            sandboxHistory.append(sandbox.sessionId(), collection + ":" + id, role, content);
+        } else {
+            append(collection, id, role, content);
+        }
+    }
     private List<PluginAiChatMessage> history(String collection, String id, int limit) { return context.documents().findById(collection, id).map(doc -> toHistory(doc.get("messages"), limit)).orElse(List.of()); }
     private List<PluginAiChatMessage> toHistory(Object value, int limit) { if (!(value instanceof List<?> rows)) return List.of(); List<PluginAiChatMessage> result = new ArrayList<>(); for (Object row : rows) if (row instanceof Map<?, ?> map) result.add(new PluginAiChatMessage(String.valueOf(map.get("role")), String.valueOf(map.get("content")))); return result.size() > limit ? result.subList(result.size() - limit, result.size()) : result; }
     @SuppressWarnings("unchecked") private void append(String collection, String id, String role, String content) { List<Map<String, String>> values = new ArrayList<>(); context.documents().findById(collection, id).map(doc -> doc.get("messages")).filter(List.class::isInstance).map(List.class::cast).ifPresent(values::addAll); values.add(Map.of("role", role, "content", content)); if (values.size() > 32) values = new ArrayList<>(values.subList(values.size() - 32, values.size())); context.documents().save(collection, id, Map.of("messages", values, "updatedAt", System.currentTimeMillis())); }
@@ -348,24 +465,35 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     }
 
     private String groupId(PluginEvent event) { return event.connectionId() + ":" + event.channelId(); }
+    private String policyGroupId(QqSandboxSupport sandbox, PluginEvent event) { return sandbox.policyGroupId(event.channelId()); }
+    private String policyMemoryId(QqSandboxSupport sandbox, PluginEvent event, Long userId) { return policyGroupId(sandbox, event) + ":" + userId; }
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
-    private void reply(PluginEvent event, String text) {
+    private CompletionStage<Void> reply(PluginEvent event, String text) {
         try {
-            context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))))
+                    .handle((ignored, error) -> {
+                        if (error != null) LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+                        return (Void) null;
+                    });
         } catch (Exception error) {
             LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
-    private void reply(PluginEvent event, AiChatbotWikiService.WikiRichMessage message) {
+    private CompletionStage<Void> reply(PluginEvent event, AiChatbotWikiService.WikiRichMessage message) {
         if (message == null || message.attachments().isEmpty()) {
-            reply(event, message == null ? "" : message.content());
-            return;
+            return reply(event, message == null ? "" : message.content());
         }
         try {
-            context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, message.content(), message.attachments(), event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, message.content(), message.attachments(), event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))))
+                    .handle((ignored, error) -> {
+                        if (error != null) LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] rich reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+                        return (Void) null;
+                    });
         } catch (Exception error) {
             LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] rich reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
+            return CompletableFuture.completedFuture(null);
         }
     }
 }
