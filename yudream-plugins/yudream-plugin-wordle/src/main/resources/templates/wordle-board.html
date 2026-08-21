@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #wordle-card { display: inline-block; background: #ffffff; padding: 26px 30px; border-radius: 18px; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 24px; letter-spacing: 3px; color: #0d828e; }
+    .head .sub { font-size: 13px; color: #9a9a9a; }
+    .board { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .row { display: flex; gap: 8px; justify-content: center; }
+    .tile { width: 54px; height: 54px; border-radius: 8px; border: 2px solid #e4e4e4; background: #ffffff; display: grid; place-items: center; font-size: 26px; font-weight: 600; color: #333333; }
+    .tile.revealed { border-color: transparent; background: rgba(156, 163, 175, 0.08); }
+    .tile.exact { color: #1d9c9c; }
+    .tile.misplaced { color: #de7525; }
+    .tile.none { color: rgba(60, 60, 60, 0.35); }
+    .row.solved .tile { background: #1d9c9c; border-color: transparent; color: #ffffff; }
+    .foot { margin-top: 16px; display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: #9a9a9a; }
+    .foot .status { color: #0d828e; font-weight: 600; }
+    .foot .answer { color: #0d828e; font-weight: 700; }
+    .banner { margin-top: 10px; font-size: 14px; line-height: 1.7; color: #333333; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+<div id="wordle-card">
+  <div class="head">
+    <h1 th:text="${title}">猜词游戏</h1>
+    <span class="sub" th:text="${subtitle}">英文单词 · 词长 5</span>
+  </div>
+  <div class="board">
+    <div th:each="row : ${rows}" th:class="${row.solved} ? 'row solved' : 'row'">
+      <div th:each="tile : ${row.tiles}" th:class="'tile ' + ${tile.cls}"><span th:text="${tile.ch}"></span></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span class="status" th:text="${statusText}">进行中</span>
+    <span th:text="${progress}">第 0 / 10 次</span>
+    <span th:if="${finished}" class="answer" th:text="'答案 ' + ${answer}">答案</span>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+</div>
+</body>
+</html>

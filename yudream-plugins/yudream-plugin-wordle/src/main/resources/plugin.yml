@@ -1,0 +1,5 @@
+name: wordle
+displayName: 猜词游戏
+description: QQ 群 Wordle 猜词游戏，支持英文单词与四字成语两种模式，群内共享对局、战绩统计与排行榜，管理端提供词库与对局管理。
+main: online.yudream.base.plugin.wordle.bootstrap.WordlePlugin
+version: 1.1.1
