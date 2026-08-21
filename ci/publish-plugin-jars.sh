@@ -24,6 +24,8 @@ DRY_RUN="${DRY_RUN:-}"
 PACKAGE_VERSION=${PACKAGE_VERSION#v}
 
 [ -n "$PACKAGE_VERSION" ] || fail "CI_COMMIT_TAG or PLUGIN_PACKAGE_VERSION is required"
+plugin_release_validate_package_version "$PACKAGE_VERSION" \
+  || fail "release version is not deployable as the plugin-catalog Maven coordinate"
 if [ -z "$DRY_RUN" ]; then
   [ -n "${NEXUS_USERNAME:-}" ] || fail "NEXUS_USERNAME is required"
   [ -n "${NEXUS_PASSWORD:-}" ] || fail "NEXUS_PASSWORD is required"

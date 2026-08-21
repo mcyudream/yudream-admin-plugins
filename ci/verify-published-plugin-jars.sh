@@ -23,6 +23,8 @@ DRY_RUN="${DRY_RUN:-}"
 PACKAGE_VERSION=${PACKAGE_VERSION#v}
 
 [ -n "$PACKAGE_VERSION" ] || fail "CI_COMMIT_TAG or PLUGIN_PACKAGE_VERSION is required"
+plugin_release_validate_package_version "$PACKAGE_VERSION" \
+  || fail "release version is not deployable as the plugin-catalog Maven coordinate"
 
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM

@@ -13,6 +13,13 @@ fail() {
 PACKAGE_VERSION="${PLUGIN_PACKAGE_VERSION:-${CI_COMMIT_TAG:-}}"
 PACKAGE_VERSION=${PACKAGE_VERSION#v}
 
+# A malformed tag (e.g. v0,4,5-2 with IME commas) must fail here instead of at
+# the final plugin-catalog deploy; local runs without a release event skip it.
+if [ -n "$PACKAGE_VERSION" ]; then
+  plugin_release_validate_package_version "$PACKAGE_VERSION" \
+    || fail "release version is not deployable as the plugin-catalog Maven coordinate"
+fi
+
 FIXTURE_DIR=$(mktemp -d)
 JAR_LIST="$FIXTURE_DIR/jars.txt"
 trap 'rm -rf "$FIXTURE_DIR"' EXIT INT TERM

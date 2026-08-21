@@ -25,6 +25,8 @@ MAVEN_PUBLIC_URL="${NEXUS_MAVEN_PUBLIC_URL:-https://nexus.yudream.online/reposit
 DRY_RUN="${DRY_RUN:-}"
 
 [ -n "$PACKAGE_VERSION" ] || fail "CI_COMMIT_TAG or PLUGIN_PACKAGE_VERSION is required"
+plugin_release_validate_package_version "$PACKAGE_VERSION" \
+  || fail "release version is not deployable as the plugin-catalog Maven coordinate"
 plugin_store_select_python || fail "python3 or python is required"
 if [ -z "$DRY_RUN" ]; then
   [ -n "${NEXUS_USERNAME:-}" ] || fail "NEXUS_USERNAME is required"

@@ -17,6 +17,23 @@ plugin_release_jar_version() {
     | sed 's/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
 }
 
+# The plugin-catalog coordinate derives from the release tag, and
+# maven-deploy-plugin rejects versions containing \ / : " < > | ? * [ ] ( ) { } ,
+# — a tag typed with IME punctuation (e.g. v0,4,5-2) passes git but fails the
+# whole release at the final deploy step. Restrict to the safe charset.
+plugin_release_validate_package_version() {
+  version=$1
+  case $version in
+    "")
+      plugin_release_fail "release version is empty (CI_COMMIT_TAG or PLUGIN_PACKAGE_VERSION)"
+      return 1 ;;
+    *[!A-Za-z0-9._-]*)
+      plugin_release_fail "release version '$version' contains characters Maven deploy rejects (allowed: A-Z a-z 0-9 . _ -); check the tag for IME commas or other punctuation"
+      return 1 ;;
+  esac
+  return 0
+}
+
 # Release-only selection is requested explicitly: either PLUGIN_RELEASE_ONLY=1
 # (read release/plugins.txt) or a PLUGIN_RELEASE_MODULES override. A set but
 # empty/blank PLUGIN_RELEASE_MODULES is an error, not an implicit disable.
