@@ -1,0 +1,5 @@
+name: pony
+displayName: 小马归位
+description: QQ 群小马归位逻辑游戏，每行每列每种颜色各 1 匹小马且互不相邻，群内协作推理放马，棋盘图片实时展示，管理端提供对局记录与玩家战绩。
+main: online.yudream.base.plugin.pony.bootstrap.PonyPlugin
+version: 1.0.1

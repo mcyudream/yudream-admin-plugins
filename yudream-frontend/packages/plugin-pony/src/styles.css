@@ -1,0 +1,113 @@
+.pony-plugin {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pony-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.pony-stat-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
+}
+
+.pony-stat-card span,
+.pony-muted {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.pony-stat-card strong {
+  font-size: 24px;
+}
+
+.pony-help-card,
+.pony-panel-card,
+.pony-empty-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  margin-top: 14px;
+}
+
+.pony-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.pony-help-grid h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.pony-help-grid p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pony-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pony-filter-bar > * {
+  min-width: 160px;
+}
+
+.pony-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pony-mode-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pony-mode-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.pony-mode-row strong {
+  font-size: 20px;
+}
+
+.pony-empty-card {
+  justify-items: center;
+  text-align: center;
+  padding: 40px 18px;
+}
+
+.pony-empty-card h3 {
+  margin: 0;
+}
+
+.pony-empty-card p {
+  margin: 0;
+  color: var(--color-text-3);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.pony-empty-card code,
+.pony-help-grid code {
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  padding: 1px 6px;
+}

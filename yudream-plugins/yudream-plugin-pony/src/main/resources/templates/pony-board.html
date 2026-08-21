@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #pony-card { display: inline-block; background: #f7f8fc; padding: 24px 28px; border-radius: 20px; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 24px; letter-spacing: 2px; color: #33415c; }
+    .head .sub { font-size: 13px; color: #9aa0b4; }
+    .meta { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 14px; }
+    .meta .hearts { letter-spacing: 2px; }
+    .meta .status { color: #5b7fff; font-weight: 600; font-size: 13px; }
+    .rules { margin-top: 6px; font-size: 12px; color: #9aa0b4; }
+    .board { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; }
+    .row { display: flex; gap: 5px; align-items: center; }
+    .rlabel { width: 22px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7194; }
+    .cell { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; font-size: 22px; font-weight: 700; color: #ffffff; }
+    .cell.x { font-size: 20px; }
+    .cell.reveal { opacity: 0.55; }
+    .region-0 { background: #f6c65b; }
+    .region-1 { background: #f3a8bd; }
+    .region-2 { background: #93a7d8; }
+    .region-3 { background: #9ed4e6; }
+    .region-4 { background: #d5dc6e; }
+    .region-5 { background: #ef8b7c; }
+    .region-6 { background: #93d3bd; }
+    .region-7 { background: #c3aede; }
+    .region-8 { background: #f2a266; }
+    .clabels { display: flex; gap: 5px; margin-top: 6px; }
+    .clabels .clabel { width: 44px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7194; }
+    .banner { margin-top: 12px; font-size: 14px; line-height: 1.7; color: #33415c; white-space: pre-wrap; max-width: 560px; }
+  </style>
+</head>
+<body>
+<div id="pony-card">
+  <div class="head">
+    <h1 th:text="${title}">小马归位</h1>
+    <span class="sub" th:text="${subtitle}">8×8 · 剩余 8 匹</span>
+  </div>
+  <div class="meta">
+    <span class="hearts" th:text="${hearts}">❤️❤️❤️</span>
+    <span class="status" th:text="${statusText}">进行中</span>
+  </div>
+  <div class="rules">每行、每列、每种颜色各 1 匹小马 · 小马不能相邻（含斜角）</div>
+  <div class="board">
+    <div class="row" th:each="row : ${rows}">
+      <span class="rlabel" th:text="${row.label}">8</span>
+      <div th:each="cell : ${row.cells}" th:class="'cell ' + ${cell.cls}" th:text="${cell.ch}"></div>
+    </div>
+    <div class="clabels">
+      <span class="rlabel"></span>
+      <span class="clabel" th:each="c : ${colLabels}" th:text="${c}">1</span>
+    </div>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+</div>
+</body>
+</html>
