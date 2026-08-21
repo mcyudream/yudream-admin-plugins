@@ -8,7 +8,10 @@ import online.yudream.base.plugin.wordle.application.dto.WordleGameView;
 import online.yudream.base.plugin.wordle.application.dto.WordleOverview;
 import online.yudream.base.plugin.wordle.application.dto.WordlePlayerView;
 import online.yudream.base.plugin.wordle.domain.Guess;
+import online.yudream.base.plugin.wordle.domain.IdiomHint;
 import online.yudream.base.plugin.wordle.domain.LetterState;
+import online.yudream.base.plugin.wordle.domain.Pinyin;
+import online.yudream.base.plugin.wordle.domain.PinyinLookup;
 import online.yudream.base.plugin.wordle.domain.WordEntry;
 import online.yudream.base.plugin.wordle.domain.WordEntryRepository;
 import online.yudream.base.plugin.wordle.domain.WordleEvaluator;
@@ -34,15 +37,18 @@ public class WordleAppService {
     private final WordlePlayerRepository players;
     private final WordEntryRepository words;
     private final WordBank wordBank;
+    private final PinyinLookup pinyin;
     private final FrameworkServices framework;
     private final Map<String, Object> channelLocks = new ConcurrentHashMap<>();
 
     public WordleAppService(WordleGameRepository games, WordlePlayerRepository players,
-                            WordEntryRepository words, WordBank wordBank, FrameworkServices framework) {
+                            WordEntryRepository words, WordBank wordBank, PinyinLookup pinyin,
+                            FrameworkServices framework) {
         this.games = games;
         this.players = players;
         this.words = words;
         this.wordBank = wordBank;
+        this.pinyin = pinyin;
         this.framework = framework;
     }
 
@@ -112,6 +118,9 @@ public class WordleAppService {
             Guess guess = new Guess(word, states, userIdString(userId), event.userId(), System.currentTimeMillis());
             game.addGuess(guess);
             String line = guess.tiles() + "  " + word;
+            if (game.getMode() == WordleMode.IDIOM) {
+                line += "\n" + WordleEvaluator.idiomHintLine(WordleEvaluator.evaluateIdiom(game.getAnswer(), word, pinyin));
+            }
             if (WordleEvaluator.isSolved(states)) {
                 game.win(event.userId(), userIdString(userId), System.currentTimeMillis());
                 games.save(game);
@@ -167,7 +176,7 @@ public class WordleAppService {
             WordleGame game = found.get();
             StringBuilder reply = new StringBuilder("🎮 进行中的对局：").append(describe(game))
                     .append("\n进度：").append(game.getGuesses().size()).append("/").append(game.getMaxGuesses());
-            for (String line : WordleEvaluator.renderBoard(game)) {
+            for (String line : WordleEvaluator.renderBoard(game, pinyin)) {
                 reply.append("\n").append(line);
             }
             if (game.getGuesses().isEmpty()) {
@@ -236,23 +245,36 @@ public class WordleAppService {
                 return null;
             }
             WordleGame game = found.get();
+            boolean idiom = game.getMode() == WordleMode.IDIOM;
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Guess guess : game.getGuesses()) {
                 boolean solved = WordleEvaluator.isSolved(guess.states());
+                List<IdiomHint> hints = idiom ? WordleEvaluator.evaluateIdiom(game.getAnswer(), guess.word(), pinyin) : List.of();
                 List<Map<String, Object>> tiles = new ArrayList<>();
                 String[] chars = guess.word().codePoints()
                         .mapToObj(codePoint -> new String(Character.toChars(codePoint)))
                         .toArray(String[]::new);
                 for (int i = 0; i < chars.length; i++) {
                     String display = game.getMode() == WordleMode.ENGLISH ? chars[i].toUpperCase(java.util.Locale.ROOT) : chars[i];
-                    tiles.add(Map.of("ch", display, "cls", "revealed " + tileClass(guess.states().get(i))));
+                    Map<String, Object> tile = new java.util.HashMap<>();
+                    tile.put("ch", display);
+                    tile.put("cls", "revealed " + tileClass(guess.states().get(i)));
+                    // 宿主 SpringEL 读取 Map 缺失键会抛异常，py 键必须始终存在（无拼音提示时为 null）
+                    tile.put("py", idiom && i < hints.size() && hints.get(i).pinyin() != null
+                            ? pinyinParts(hints.get(i)) : null);
+                    tiles.add(tile);
                 }
                 rows.add(Map.of("solved", solved, "tiles", tiles));
             }
             for (int i = game.getGuesses().size(); i < game.getMaxGuesses(); i++) {
                 List<Map<String, Object>> tiles = new ArrayList<>();
                 for (int j = 0; j < game.length(); j++) {
-                    tiles.add(Map.of("ch", "", "cls", "empty"));
+                    Map<String, Object> tile = new java.util.HashMap<>();
+                    tile.put("ch", "");
+                    tile.put("cls", "empty");
+                    // 同上文：py 键必须始终存在，避免模板读取缺失键抛 SpringEL 异常
+                    tile.put("py", null);
+                    tiles.add(tile);
                 }
                 rows.add(Map.of("solved", false, "tiles", tiles));
             }
@@ -260,6 +282,7 @@ public class WordleAppService {
             Map<String, Object> variables = new java.util.HashMap<>();
             variables.put("title", game.getMode() == WordleMode.IDIOM ? "猜成语" : "猜单词");
             variables.put("subtitle", describe(game));
+            variables.put("idiom", idiom);
             variables.put("rows", rows);
             variables.put("progress", "第 " + game.getGuesses().size() + " / " + game.getMaxGuesses() + " 次");
             variables.put("statusText", statusText(game));
@@ -270,6 +293,40 @@ public class WordleAppService {
             variables.put("banner", banner);
             return variables;
         }
+    }
+
+    /** 调号矢量形状取自汉兜（https://github.com/antfu/handle，MIT），下标即声调 1-4。 */
+    private static final String[] TONE_MARK_PATHS = {
+            null,
+            "M3.35 8C2.60442 8 2 8.60442 2 9.35V10.35C2 11.0956 2.60442 11.7 3.35 11.7H17.35C18.0956 11.7 18.7 11.0956 18.7 10.35V9.35C18.7 8.60442 18.0956 8 17.35 8H3.35Z",
+            "M16.581 3.71105C16.2453 3.27254 15.6176 3.18923 15.1791 3.52498L3.26924 12.6439C2.83073 12.9796 2.74743 13.6073 3.08318 14.0458L4.29903 15.6338C4.63478 16.0723 5.26244 16.1556 5.70095 15.8199L17.6108 6.70095C18.0493 6.3652 18.1327 5.73754 17.7969 5.29903L16.581 3.71105Z",
+            "M1.70711 7.70712C1.31658 7.3166 1.31658 6.68343 1.70711 6.29291L2.41421 5.5858C2.80474 5.19528 3.4379 5.19528 3.82843 5.5858L9.31502 11.0724C9.70555 11.4629 10.3387 11.4629 10.7292 11.0724L16.2158 5.5858C16.6064 5.19528 17.2395 5.19528 17.63 5.5858L18.3372 6.29291C18.7277 6.68343 18.7277 7.3166 18.3372 7.70712L10.7292 15.315C10.3387 15.7056 9.70555 15.7056 9.31502 15.315L1.70711 7.70712Z",
+            "M4.12282 3.71105C4.45857 3.27254 5.08623 3.18923 5.52474 3.52498L17.4346 12.6439C17.8731 12.9796 17.9564 13.6073 17.6207 14.0458L16.4048 15.6338C16.0691 16.0723 15.4414 16.1556 15.0029 15.8199L3.09303 6.70095C2.65452 6.3652 2.57122 5.73754 2.90697 5.29903L4.12282 3.71105Z"
+    };
+
+    /**
+     * 棋盘格内的拼音提示（汉兜风格）：声母整块、韵母逐字母、声调以调号标在对应元音字母上方，
+     * 声母/韵母/声调按命中状态独立着色。所有键始终存在（无值时为 null），模板可安全读取。
+     */
+    private Map<String, Object> pinyinParts(IdiomHint hint) {
+        Pinyin pinyin = hint.pinyin();
+        Map<String, Object> py = new java.util.HashMap<>();
+        py.put("init", pinyin.hasInitial() ? pinyin.initial() : null);
+        py.put("initCls", tileClass(hint.initialState()));
+        py.put("finCls", tileClass(hint.finalState()));
+        String toneCls = tileClass(hint.toneState());
+        int markIndex = pinyin.toneMarkIndex();
+        String fin = pinyin.finalPart();
+        List<Map<String, Object>> letters = new ArrayList<>();
+        for (int i = 0; i < fin.length(); i++) {
+            Map<String, Object> letter = new java.util.HashMap<>();
+            letter.put("ch", String.valueOf(fin.charAt(i)));
+            letter.put("tone", i == markIndex ? TONE_MARK_PATHS[pinyin.tone()] : null);
+            letter.put("toneCls", toneCls);
+            letters.add(letter);
+        }
+        py.put("fin", letters);
+        return py;
     }
 
     private String tileClass(LetterState state) {

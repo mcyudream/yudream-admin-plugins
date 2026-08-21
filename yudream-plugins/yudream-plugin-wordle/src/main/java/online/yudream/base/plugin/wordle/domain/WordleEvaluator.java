@@ -50,13 +50,115 @@ public final class WordleEvaluator {
     public static String tiles(List<LetterState> states) {
         StringBuilder builder = new StringBuilder();
         for (LetterState state : states) {
-            switch (state) {
-                case CORRECT -> builder.append("🟩");
-                case PRESENT -> builder.append("🟨");
-                case ABSENT -> builder.append("⬜");
-            }
+            builder.append(square(state));
         }
         return builder.toString();
+    }
+
+    /**
+     * 成语模式音节判定：汉字本身沿用逐字规则，声母、韵母、声调各自独立做两遍法匹配。
+     * 猜测字或答案字缺拼音数据时，该字所有音节状态记 ABSENT 且提示中展示占位符。
+     */
+    public static List<IdiomHint> evaluateIdiom(String answer, String guess, PinyinLookup lookup) {
+        List<LetterState> charStates = evaluate(answer, guess);
+        int length = charStates.size();
+        List<Pinyin> answerPinyin = lookup.ofWord(answer);
+        List<Pinyin> guessPinyin = lookup.ofWord(guess);
+        LetterState[] initialStates = matchComponents(component(answerPinyin, length, Part.INITIAL),
+                component(guessPinyin, length, Part.INITIAL), length);
+        LetterState[] finalStates = matchComponents(component(answerPinyin, length, Part.FINAL),
+                component(guessPinyin, length, Part.FINAL), length);
+        LetterState[] toneStates = matchComponents(component(answerPinyin, length, Part.TONE),
+                component(guessPinyin, length, Part.TONE), length);
+        String[] chars = guess.codePoints().mapToObj(cp -> new String(Character.toChars(cp))).toArray(String[]::new);
+        List<IdiomHint> hints = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            hints.add(new IdiomHint(i < chars.length ? chars[i] : "",
+                    charStates.get(i), i < guessPinyin.size() ? guessPinyin.get(i) : null,
+                    initialStates[i], finalStates[i], toneStates[i]));
+        }
+        return List.copyOf(hints);
+    }
+
+    /**
+     * 成语猜测的文本音节提示行，例如：🔤 sān⬜⬜🟩 ｜ xīn🟩🟩🟩 ｜ èr⬜⬜ ｜ yì🟩🟩🟩
+     * 音节以带调号的标准拼音展示；色块依次对应声母（零声母省略）、韵母、声调。
+     */
+    public static String idiomHintLine(List<IdiomHint> hints) {
+        List<String> groups = new ArrayList<>();
+        for (IdiomHint hint : hints) {
+            Pinyin pinyin = hint.pinyin();
+            if (pinyin == null) {
+                groups.add("?");
+                continue;
+            }
+            StringBuilder group = new StringBuilder(pinyin.markedSyllable());
+            if (pinyin.hasInitial()) {
+                group.append(square(hint.initialState()));
+            }
+            group.append(square(hint.finalState())).append(square(hint.toneState()));
+            groups.add(group.toString());
+        }
+        return "🔤 " + String.join(" ｜ ", groups);
+    }
+
+    private enum Part { INITIAL, FINAL, TONE }
+
+    private static List<String> component(List<Pinyin> pinyin, int length, Part part) {
+        List<String> components = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            Pinyin p = i < pinyin.size() ? pinyin.get(i) : null;
+            if (p == null) {
+                components.add(null);
+            } else {
+                components.add(switch (part) {
+                    case INITIAL -> p.hasInitial() ? p.initial() : null;
+                    case FINAL -> p.finalPart();
+                    case TONE -> String.valueOf(p.tone());
+                });
+            }
+        }
+        return components;
+    }
+
+    /**
+     * 与逐字判定相同的两遍法：先标同位置完全命中，再按答案剩余额度决定 PRESENT / ABSENT。
+     * null 分量（零声母或无拼音数据）不参与匹配。
+     */
+    private static LetterState[] matchComponents(List<String> answerComp, List<String> guessComp, int length) {
+        LetterState[] states = new LetterState[length];
+        Map<String, Integer> remaining = new HashMap<>();
+        for (int i = 0; i < length; i++) {
+            String g = i < guessComp.size() ? guessComp.get(i) : null;
+            String a = answerComp.get(i);
+            if (g != null && g.equals(a)) {
+                states[i] = LetterState.CORRECT;
+            } else if (a != null) {
+                remaining.merge(a, 1, Integer::sum);
+            }
+        }
+        for (int i = 0; i < length; i++) {
+            if (states[i] == LetterState.CORRECT) {
+                continue;
+            }
+            String g = i < guessComp.size() ? guessComp.get(i) : null;
+            int count = g == null ? 0 : remaining.getOrDefault(g, 0);
+            if (count > 0) {
+                states[i] = LetterState.PRESENT;
+                remaining.put(g, count - 1);
+            } else {
+                states[i] = LetterState.ABSENT;
+            }
+        }
+        return states;
+    }
+
+    private static String square(LetterState state) {
+        return switch (state) {
+            case CORRECT -> "🟩";
+            case PRESENT -> "🟨";
+            case ABSENT -> "⬜";
+        };
     }
 
     public static boolean isSolved(List<LetterState> states) {
@@ -132,10 +234,13 @@ public final class WordleEvaluator {
         return mode == WordleMode.ENGLISH ? value.toLowerCase(java.util.Locale.ROOT) : value;
     }
 
-    public static List<String> renderBoard(WordleGame game) {
+    public static List<String> renderBoard(WordleGame game, PinyinLookup lookup) {
         List<String> lines = new ArrayList<>();
         for (Guess guess : game.getGuesses()) {
             lines.add(guess.tiles() + "  " + guess.word());
+            if (game.getMode() == WordleMode.IDIOM && lookup != null) {
+                lines.add(idiomHintLine(evaluateIdiom(game.getAnswer(), guess.word(), lookup)));
+            }
         }
         return lines;
     }

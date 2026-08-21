@@ -11,6 +11,7 @@ import online.yudream.base.plugin.wordle.domain.WordleGameRepository;
 import online.yudream.base.plugin.wordle.domain.WordleMode;
 import online.yudream.base.plugin.wordle.domain.WordlePlayer;
 import online.yudream.base.plugin.wordle.domain.WordlePlayerRepository;
+import online.yudream.base.plugin.wordle.infrastructure.PinyinDictionary;
 import online.yudream.base.plugin.wordle.infrastructure.WordBank;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class WordleAppServiceTest {
         FrameworkServices framework = (FrameworkServices) Proxy.newProxyInstance(
                 WordleAppServiceTest.class.getClassLoader(), new Class<?>[]{FrameworkServices.class},
                 (proxy, method, args) -> null);
-        appService = new WordleAppService(games, players, words, new WordBank(words), framework);
+        appService = new WordleAppService(games, players, words, new WordBank(words), new PinyinDictionary(), framework);
     }
 
     @Test
@@ -241,8 +242,62 @@ class WordleAppServiceTest {
         assertEquals(true, rows.get(1).get("solved"));
     }
 
+    /**
+     * 回归：宿主 SpringEL 读取 Map 缺失键会抛「Exception evaluating SpringEL expression」，
+     * 因此每个 tile（含空行、英文模式）都必须始终包含 py 键。
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void boardVariablesTilesAlwaysExposePinyinKey() {
+        appService.startGame(event("10001"), 100L, WordleMode.IDIOM, 4, false);
+        WordleGame game = games.findActive("conn-1", "8888").orElseThrow();
+        String probe = game.getAnswer().equals("画蛇添足") ? "守株待兔" : "画蛇添足";
+        appService.guess(event("10001"), 100L, probe);
+
+        Map<String, Object> vars = appService.boardVariables(event("10001"), null);
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) vars.get("rows");
+        assertEquals(game.getMaxGuesses(), rows.size());
+        List<Map<String, Object>> guessedTiles = (List<Map<String, Object>>) rows.get(0).get("tiles");
+        for (Map<String, Object> tile : guessedTiles) {
+            assertTrue(tile.containsKey("py"), "已猜测格必须始终包含 py 键");
+            Object py = tile.get("py");
+            if (py != null) {
+                Map<String, Object> pyMap = (Map<String, Object>) py;
+                assertTrue(pyMap.containsKey("init") && pyMap.containsKey("initCls")
+                        && pyMap.containsKey("finCls") && pyMap.containsKey("fin"), "拼音提示必须包含 init/initCls/fin/finCls 键");
+                for (Map<String, Object> letter : (List<Map<String, Object>>) pyMap.get("fin")) {
+                    assertTrue(letter.containsKey("ch") && letter.containsKey("tone") && letter.containsKey("toneCls"),
+                            "韵母字母必须包含 ch/tone/toneCls 键");
+                }
+            }
+        }
+        for (int r = 1; r < rows.size(); r++) {
+            for (Map<String, Object> tile : (List<Map<String, Object>>) rows.get(r).get("tiles")) {
+                assertTrue(tile.containsKey("py"), "空行格必须始终包含 py 键");
+                assertNull(tile.get("py"));
+            }
+        }
+
+        appService.endGame(event("10001"));
+        appService.startGame(event("10001", "9999"), 100L, WordleMode.ENGLISH, null, false);
+        WordleGame english = games.findActive("conn-1", "9999").orElseThrow();
+        String englishProbe = english.getAnswer().equals("apple") ? "brick" : "apple";
+        appService.guess(event("10001", "9999"), 100L, englishProbe);
+        rows = (List<Map<String, Object>>) appService.boardVariables(event("10001", "9999"), null).get("rows");
+        for (Map<String, Object> row : rows) {
+            for (Map<String, Object> tile : (List<Map<String, Object>>) row.get("tiles")) {
+                assertTrue(tile.containsKey("py"), "英文模式格也必须始终包含 py 键");
+                assertNull(tile.get("py"));
+            }
+        }
+    }
+
     private PluginEvent event(String qq) {
-        return new PluginEvent("seq", "message_receive", "milky", qq, "8888", "", null, null,
+        return event(qq, "8888");
+    }
+
+    private PluginEvent event(String qq, String channelId) {
+        return new PluginEvent("seq", "message_receive", "milky", qq, channelId, "", null, null,
                 Map.of(), null, null, "conn-1", "self-1", "msg-1");
     }
 

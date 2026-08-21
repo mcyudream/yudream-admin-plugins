@@ -16,7 +16,18 @@
     .tile.exact { color: #1d9c9c; }
     .tile.misplaced { color: #de7525; }
     .tile.none { color: rgba(60, 60, 60, 0.35); }
+    .board.idiom .tile { height: 74px; }
+    .tile.idiom { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+    .tile.idiom .zi { font-size: 24px; line-height: 1; }
+    .tile .py { display: flex; align-items: baseline; gap: 2px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; font-weight: 500; line-height: 1.2; padding-top: 8px; }
+    .py .fin { display: flex; }
+    .py .letter { position: relative; }
+    .py .letter svg { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); width: 0.72em; display: block; }
+    .py .exact { color: #1d9c9c; }
+    .py .misplaced { color: #de7525; }
+    .py .none { color: rgba(60, 60, 60, 0.35); }
     .row.solved .tile { background: #1d9c9c; border-color: transparent; color: #ffffff; }
+    .row.solved .py .init, .row.solved .py .fin, .row.solved .py svg { color: rgba(255, 255, 255, 0.9); }
     .foot { margin-top: 16px; display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: #9a9a9a; }
     .foot .status { color: #0d828e; font-weight: 600; }
     .foot .answer { color: #0d828e; font-weight: 700; }
@@ -29,9 +40,12 @@
     <h1 th:text="${title}">猜词游戏</h1>
     <span class="sub" th:text="${subtitle}">英文单词 · 词长 5</span>
   </div>
-  <div class="board">
+  <div th:class="'board' + (${idiom} ? ' idiom' : '')">
     <div th:each="row : ${rows}" th:class="${row.solved} ? 'row solved' : 'row'">
-      <div th:each="tile : ${row.tiles}" th:class="'tile ' + ${tile.cls}"><span th:text="${tile.ch}"></span></div>
+      <div th:each="tile : ${row.tiles}" th:class="'tile ' + ${tile.cls} + (${tile.py != null} ? ' idiom' : '')">
+        <span class="zi" th:text="${tile.ch}"></span>
+        <span class="py" th:if="${tile.py != null}"><span th:if="${tile.py.init != null}" th:class="'init ' + ${tile.py.initCls}" th:text="${tile.py.init}"></span><span th:class="'fin ' + ${tile.py.finCls}"><span class="letter" th:each="letter : ${tile.py.fin}"><svg th:if="${letter.tone != null}" viewBox="0 0 20 20" th:class="${letter.toneCls}"><path th:attr="d=${letter.tone}" fill="currentColor"></path></svg><span th:text="${letter.ch}"></span></span></span></span>
+      </div>
     </div>
   </div>
   <div class="foot">

@@ -13,6 +13,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.wordle.application.WordleAppService;
 import online.yudream.base.plugin.wordle.domain.WordleMode;
+import online.yudream.base.plugin.wordle.infrastructure.PinyinDictionary;
 import online.yudream.base.plugin.wordle.infrastructure.WordBank;
 import online.yudream.base.plugin.wordle.infrastructure.repository.WordleDocumentGameRepository;
 import online.yudream.base.plugin.wordle.infrastructure.repository.WordleDocumentPlayerRepository;
@@ -27,8 +28,8 @@ import java.util.Map;
 @PluginSpec(
         code = WordlePlugin.CODE,
         name = "wordle",
-        version = "1.1.1",
-        description = "QQ 群 Wordle 猜词游戏：群内共享对局，支持英文单词与四字成语两种模式、困难模式、战绩统计与排行榜。"
+        version = "1.2.2",
+        description = "QQ 群 Wordle 猜词游戏：群内共享对局，支持英文单词与四字成语两种模式（成语带拼音声母/韵母/声调提示）、困难模式、战绩统计与排行榜。"
 )
 @PluginPermissions({
         @PluginPermission(code = WordlePlugin.USE_PERMISSION, name = "参与猜词游戏", module = "平台插件", description = "查看自己的猜词战绩"),
@@ -104,6 +105,7 @@ public class WordlePlugin implements YuDreamPlugin {
                 new WordleDocumentPlayerRepository(documents),
                 words,
                 new WordBank(words),
+                new PinyinDictionary(),
                 context.framework());
         WordleHttpFacade http = new WordleHttpFacade(appService);
         context.registerHttpController(new WordleAdminController(http));
@@ -199,6 +201,7 @@ public class WordlePlugin implements YuDreamPlugin {
                 /猜词战绩 — 查看个人战绩（需 /绑定 系统账号）
                 /猜词排行 — 查看总胜场排行榜
                 🟩 字母与位置都正确 🟨 含有该字母但位置不对 ⬜ 答案中不存在
+                成语模式额外标注拼音：每个字以标准带调拼音展示，声母、韵母、声调按命中状态分别着色（🟩 位置正确 🟨 答案中存在 ⬜ 不存在）；文本 🔤 行的色块顺序同样为声母（零声母省略）、韵母、声调。
                 困难模式：必须沿用已猜出的绿色位置与黄色字母。""");
     }
 
