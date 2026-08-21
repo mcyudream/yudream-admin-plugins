@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-fog-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .stage-wrap { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .icon-box { width: 132px; height: 132px; border-radius: 12px; border: 2px solid #4a463d; background: #24222b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .icon-box img { width: 96px; height: 96px; image-rendering: pixelated; }
+    .icon-box.revealed { border-color: #6bb7c9; background: #1f2c33; }
+    .stage-name { font-size: 15px; font-weight: 700; color: #cfe6ec; }
+    .pips { display: flex; gap: 5px; }
+    .pip { width: 26px; height: 8px; border-radius: 4px; background: #2a2822; border: 1px solid #4a463d; }
+    .pip.on { background: #6bb7c9; border-color: #6bb7c9; }
+    .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 12px; color: #8f887a; justify-content: center; flex-wrap: wrap; }
+    .meta .hl { color: #6bb7c9; font-weight: 600; }
+    .records { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .rec { display: flex; align-items: center; gap: 8px; background: #24221c; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #d8d2c2; }
+    .rec img { width: 24px; height: 24px; image-rendering: pixelated; }
+    .rec .noicon { width: 24px; height: 24px; display: inline-block; }
+    .rec .zh { font-weight: 600; }
+    .rec .tag { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; }
+    .rec.found .tag { background: #2f5a68; color: #d2ecf2; }
+    .rec.miss .tag { background: #40373a; color: #b9a9ad; }
+    .rec .qq { color: #6b6557; font-size: 11px; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-fog-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 迷雾猜物</h1>
+    <span class="sub" th:text="${subtitle}">看破迷雾 · 认出图标 · JE 1.20.5</span>
+  </div>
+  <div class="stage-wrap">
+    <div th:class="${ended} ? 'icon-box revealed' : 'icon-box'">
+      <img th:if="${targetIcon != null}" th:src="${targetIcon}" th:style="'filter: ' + ${iconFilter} + ';'" alt="">
+    </div>
+    <div class="stage-name" th:text="${ended} ? ('目标：' + ${targetZh}) : ('迷雾阶段 ' + ${stage} + '/' + ${maxStage})">迷雾阶段 0/5</div>
+    <div class="pips">
+      <span th:each="i : ${#numbers.sequence(0, maxStage - 1)}" th:class="${i < stage} ? 'pip on' : 'pip'"></span>
+    </div>
+  </div>
+  <div class="meta">
+    <span>已猜 <span class="hl" th:text="${guessCount}">0</span> 次</span>
+    <span th:if="${won}">胜者 <span class="hl" th:text="'QQ ' + ${winnerQq}">QQ</span></span>
+    <span th:if="${lost}" class="hl">目标已揭晓</span>
+  </div>
+  <div class="records" th:if="${!records.isEmpty()}">
+    <div th:each="rec : ${records}" th:class="'rec ' + ${rec.cls}">
+      <img th:if="${rec.icon != null}" th:src="${rec.icon}" alt="">
+      <span th:if="${rec.icon == null}" class="noicon"></span>
+      <span class="zh" th:text="${rec.zh}">钻石</span>
+      <span class="qq" th:text="${rec.qq}">123456</span>
+      <span class="tag" th:text="${rec.label}">不对</span>
+    </div>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">/迷雾 &lt;物品名&gt; 猜目标 · /结束迷雾 投降 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

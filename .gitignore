@@ -14,3 +14,6 @@ settings.xml
 
 # 本地集成测试物料（存档/客户端 jar/截图），勿入库
 .fixtures/
+
+# mcguess 资产管线下载缓存
+yudream-plugins/yudream-plugin-mcguess/tools/.cache/

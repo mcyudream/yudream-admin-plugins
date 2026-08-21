@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-spot-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .craft { display: flex; align-items: center; gap: 18px; margin-top: 16px; justify-content: center; }
+    .target { width: 86px; height: 86px; border-radius: 8px; border: 2px solid #6bb7c9; background: #1f2c33; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .target img { width: 48px; height: 48px; image-rendering: pixelated; }
+    .target .name { font-size: 11px; color: #cfe6ec; max-width: 82px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .arrow { font-size: 26px; color: #6bb7c9; }
+    .grid { display: grid; grid-template-columns: repeat(3, 72px); grid-template-rows: repeat(3, 72px); gap: 5px; }
+    .cell { width: 72px; height: 72px; border-radius: 6px; border: 2px solid #4a463d; background: #2a2822; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+    .cell .idx { position: absolute; top: 2px; left: 5px; font-size: 10px; color: #57523f; }
+    .cell.empty { background: #141310; border-color: #26241f; }
+    .cell img { width: 38px; height: 38px; image-rendering: pixelated; }
+    .cell .name { font-size: 10px; color: #cfe6ec; max-width: 66px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .cell.wrong { background: #40373a; border-color: #e06060; box-shadow: 0 0 6px #e06060; }
+    .cell .fix { position: absolute; bottom: 1px; right: 4px; font-size: 9px; color: #e8a0a0; }
+    .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 12px; color: #8f887a; justify-content: center; flex-wrap: wrap; }
+    .meta .hl { color: #6bb7c9; font-weight: 600; }
+    .reveal { margin-top: 10px; text-align: center; font-size: 13px; color: #e8a0a0; }
+    .records { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .rec { display: flex; align-items: center; gap: 8px; background: #24221c; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #d8d2c2; }
+    .rec .tag { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; }
+    .rec.found .tag { background: #2f5a68; color: #d2ecf2; }
+    .rec.miss .tag { background: #40373a; color: #b9a9ad; }
+    .rec .qq { color: #6b6557; font-size: 11px; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-spot-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 配方找茬</h1>
+    <span class="sub" th:text="${subtitle}">指出被掉包的一格 · JE 1.20.5</span>
+  </div>
+  <div class="craft">
+    <div class="target">
+      <img th:if="${targetIcon != null}" th:src="${targetIcon}" alt="">
+      <span class="name" th:text="${targetZh}">蛋糕</span>
+    </div>
+    <div class="arrow">⇦</div>
+    <div class="grid">
+      <div th:each="cell : ${cells}" th:class="'cell' + (${cell.empty} ? ' empty' : '') + (${cell.wrong} ? ' wrong' : '')">
+        <span class="idx" th:if="${!cell.empty}" th:text="${cell.cell}">1</span>
+        <th:block th:if="${!cell.empty}">
+          <img th:if="${cell.icon != null}" th:src="${cell.icon}" alt="">
+          <span class="name" th:text="${cell.zh}">小麦</span>
+        </th:block>
+        <span class="fix" th:if="${cell.wrong}" th:text="'应为 ' + ${cell.correctZh}">应为 糖</span>
+      </div>
+    </div>
+  </div>
+  <div class="reveal" th:if="${ended}" th:text="'错误格：' + ${wrongCell} + ' 号格，应为「' + ${correctZh} + '」'">错误格：5 号格</div>
+  <div class="meta">
+    <span th:if="${won}">胜者 <span class="hl" th:text="'QQ ' + ${winnerQq}">QQ</span></span>
+    <span th:if="${lost}" class="hl">已揭晓</span>
+  </div>
+  <div class="records" th:if="${!records.isEmpty()}">
+    <div th:each="rec : ${records}" th:class="'rec ' + ${rec.cls}">
+      <span class="qq" th:text="${rec.qq}">123456</span>
+      <span th:text="${rec.label}">指认 5 号格</span>
+      <span class="tag" th:text="${rec.cls == 'found'} ? '正确' : '不对'">正确</span>
+    </div>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">/找茬 &lt;1-9&gt; 指出错误格 · /结束找茬 投降 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

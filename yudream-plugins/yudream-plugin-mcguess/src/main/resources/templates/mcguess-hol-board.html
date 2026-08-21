@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-hol-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .duel { display: flex; align-items: center; gap: 16px; margin-top: 18px; justify-content: center; }
+    .item { width: 128px; height: 128px; border-radius: 10px; border: 2px solid #4a463d; background: #2a2822; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+    .item img { width: 56px; height: 56px; image-rendering: pixelated; }
+    .item .name { font-size: 12px; color: #cfe6ec; max-width: 120px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .item .score { font-size: 17px; font-weight: 700; color: #6bb7c9; }
+    .item.unknown { border-color: #6bb7c9; background: #1f2c33; }
+    .item.unknown .q { font-size: 30px; font-weight: 700; color: #6bb7c9; }
+    .vs { font-size: 24px; font-weight: 700; color: #57523f; }
+    .meta { margin-top: 14px; display: flex; gap: 12px; font-size: 12px; color: #8f887a; justify-content: center; }
+    .meta .hl { color: #6bb7c9; font-weight: 600; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; max-width: 340px; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-hol-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 比大小</h1>
+    <span class="sub" th:text="${subtitle}">Higher or Lower · JE 1.20.5</span>
+  </div>
+  <div class="duel">
+    <div class="item">
+      <img th:if="${aIcon != null}" th:src="${aIcon}" alt="">
+      <span class="name" th:text="${aZh}">木棍</span>
+      <span class="score" th:text="${aScore} + ' 次'">123 次</span>
+    </div>
+    <div class="vs">VS</div>
+    <div class="item unknown">
+      <img th:if="${bIcon != null}" th:src="${bIcon}" alt="">
+      <span class="name" th:text="${bZh}">钻石剑</span>
+      <span class="q">?</span>
+    </div>
+  </div>
+  <div class="meta">
+    <span>当前连胜 <span class="hl" th:text="${streak}">0</span></span>
+    <span>历史最佳 <span class="hl" th:text="${best}">0</span></span>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">/高 或 /低 作答 · 答对连胜 +1，答错清零 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-bingo-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .board { margin-top: 16px; display: grid; grid-template-columns: repeat(5, 74px); grid-template-rows: repeat(5, 74px); gap: 5px; }
+    .cell { width: 74px; height: 74px; border-radius: 6px; border: 2px solid #4a463d; background: #2a2822; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+    .cell .no { position: absolute; top: 2px; left: 5px; font-size: 10px; color: #57523f; }
+    .cell img { width: 34px; height: 34px; image-rendering: pixelated; }
+    .cell .name { font-size: 10px; color: #cfe6ec; max-width: 68px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .cell.claimed { background: #1f2c33; border-color: #6bb7c9; }
+    .cell.claimed .by { position: absolute; bottom: 1px; right: 4px; font-size: 9px; color: #6bb7c9; max-width: 66px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .cell.win { background: #2f5a68; border-color: #e8ddc0; box-shadow: 0 0 6px #6bb7c9; }
+    .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 12px; color: #8f887a; justify-content: center; flex-wrap: wrap; }
+    .meta .hl { color: #6bb7c9; font-weight: 600; }
+    .records { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+    .rec { display: flex; align-items: center; gap: 8px; background: #24221c; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #d8d2c2; }
+    .rec img { width: 24px; height: 24px; image-rendering: pixelated; }
+    .rec .noicon { width: 24px; height: 24px; display: inline-block; }
+    .rec .zh { font-weight: 600; }
+    .rec .tag { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; }
+    .rec.found .tag { background: #2f5a68; color: #d2ecf2; }
+    .rec.miss .tag { background: #40373a; color: #b9a9ad; }
+    .rec .qq { color: #6b6557; font-size: 11px; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-bingo-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 宾果</h1>
+    <span class="sub" th:text="${subtitle}">连成一线即胜 · JE 1.20.5</span>
+  </div>
+  <div class="board">
+    <div th:each="cell : ${cells}" th:class="'cell' + (${cell.claimed} ? ' claimed' : '') + (${cell.win} ? ' win' : '')">
+      <span class="no" th:text="${cell.cell}">1</span>
+      <img th:if="${cell.icon != null}" th:src="${cell.icon}" alt="">
+      <span class="name" th:text="${cell.zh}">铁锭</span>
+      <span class="by" th:if="${cell.claimed}" th:text="${cell.claimerQq}">123456</span>
+    </div>
+  </div>
+  <div class="meta">
+    <span>已点亮 <span class="hl" th:text="${claimedCount + '/' + cellCount}">0/25</span></span>
+    <span th:if="${won}">BINGO！胜者 <span class="hl" th:text="'QQ ' + ${winnerQq}">QQ</span></span>
+    <span th:if="${lost}" class="hl">本局已结束</span>
+  </div>
+  <div class="records" th:if="${!records.isEmpty()}">
+    <div th:each="rec : ${records}" th:class="'rec ' + ${rec.cls}">
+      <img th:if="${rec.icon != null}" th:src="${rec.icon}" alt="">
+      <span th:if="${rec.icon == null}" class="noicon"></span>
+      <span class="zh" th:text="${rec.zh}">铁锭</span>
+      <span class="qq" th:text="${rec.qq}">123456</span>
+      <span class="tag" th:text="${rec.label}">点亮 5 号格</span>
+    </div>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">/宾果 &lt;物品名&gt; 点亮格子 · /结束宾果 投降 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-quiz-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .head .progress { margin-left: auto; font-size: 13px; color: #6bb7c9; font-weight: 700; }
+    .questions { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .q { background: #24221c; border: 2px solid #3d3a33; border-radius: 8px; padding: 8px 12px; }
+    .q.current { border-color: #6bb7c9; background: #1f2c33; }
+    .q.solved { opacity: 0.85; }
+    .q .line { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #d8d2c2; }
+    .q .line img { width: 28px; height: 28px; image-rendering: pixelated; }
+    .q .no { font-size: 12px; color: #57523f; font-weight: 700; }
+    .q .qtext { font-weight: 600; }
+    .q .ans { margin-left: auto; font-size: 13px; font-weight: 700; color: #6bb7c9; }
+    .q .solver { font-size: 11px; color: #8f887a; margin-top: 3px; }
+    .choices { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .choice { min-width: 64px; text-align: center; background: #2a2822; border: 2px solid #4a463d; border-radius: 6px; padding: 5px 10px; font-size: 14px; color: #d8d2c2; }
+    .choice .letter { color: #6bb7c9; font-weight: 700; margin-right: 4px; }
+    .choice.hit { border-color: #6bb7c9; background: #2f5a68; color: #d2ecf2; }
+    .scores { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .score { background: #24221c; border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #d8d2c2; }
+    .score .rank { color: #6bb7c9; font-weight: 700; margin-right: 4px; }
+    .score .pt { color: #8f887a; margin-left: 4px; }
+    .meta { margin-top: 12px; display: flex; gap: 12px; font-size: 12px; color: #8f887a; justify-content: center; flex-wrap: wrap; }
+    .meta .hl { color: #6bb7c9; font-weight: 600; }
+    .records { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .rec { display: flex; align-items: center; gap: 8px; background: #24221c; border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #d8d2c2; }
+    .rec .tag { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; }
+    .rec.found .tag { background: #2f5a68; color: #d2ecf2; }
+    .rec.miss .tag { background: #40373a; color: #b9a9ad; }
+    .rec .qq { color: #6b6557; font-size: 11px; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-quiz-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 快答</h1>
+    <span class="sub" th:text="${subtitle}">合成计数抢答 · JE 1.20.5</span>
+    <span class="progress" th:text="${progress}">第 1/5 题</span>
+  </div>
+  <div class="questions">
+    <div th:each="q : ${questions}" th:class="'q' + (${q.current} ? ' current' : '') + (${q.solved} ? ' solved' : '')">
+      <div class="line">
+        <span class="no" th:text="'Q' + ${q.index}">Q1</span>
+        <img th:if="${q.targetIcon != null}" th:src="${q.targetIcon}" alt="">
+        <span class="qtext" th:text="'合成 1 个「' + ${q.targetZh} + '」需要几个「' + ${q.ingredientZh} + '」？'">合成 1 个「钻石剑」需要几个「钻石」？</span>
+        <img th:if="${q.ingredientIcon != null}" th:src="${q.ingredientIcon}" alt="">
+        <span class="ans" th:if="${q.answer != null}" th:text="'= ' + ${q.answer}">= 11</span>
+      </div>
+      <div class="solver" th:if="${q.solved}" th:text="'首答：QQ ' + ${q.correctQq}">首答：QQ 123456</div>
+      <div class="choices" th:if="${q.choices != null}">
+        <span th:each="c : ${q.choices}" th:class="${c.hit} ? 'choice hit' : 'choice'">
+          <span class="letter" th:text="${c.letter}">A</span><span th:text="${c.value}">11</span>
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="scores" th:if="${!scores.isEmpty()}">
+    <span th:each="s : ${scores}" class="score">
+      <span class="rank" th:text="'#' + ${s.rank}">#1</span>
+      <span th:text="'QQ ' + ${s.qq}">QQ 123456</span>
+      <span class="pt" th:text="${s.score} + ' 分'">3 分</span>
+    </span>
+  </div>
+  <div class="meta">
+    <span th:if="${won}">胜者 <span class="hl" th:text="'QQ ' + ${winnerQq}">QQ</span></span>
+    <span th:if="${lost}" class="hl">本局已结束</span>
+  </div>
+  <div class="records" th:if="${!records.isEmpty()}">
+    <div th:each="rec : ${records}" th:class="'rec ' + ${rec.cls}">
+      <span class="qq" th:text="${rec.qq}">123456</span>
+      <span th:text="${rec.label}">第 1 题选 A</span>
+      <span class="tag" th:text="${rec.cls == 'found'} ? '答对' : '答错'">答对</span>
+    </div>
+  </div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">/快答 &lt;A-D&gt; 抢答 · /结束快答 投降 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #mcguess-collection-card { display: inline-block; background: #1b1a17; padding: 22px 26px; border-radius: 16px; border: 2px solid #3d3a33; }
+    .head { display: flex; align-items: baseline; gap: 12px; }
+    .head h1 { margin: 0; font-size: 23px; letter-spacing: 2px; color: #6bb7c9; text-shadow: 0 1px 0 #000; }
+    .head .sub { font-size: 12px; color: #8f887a; }
+    .owner { margin-top: 10px; font-size: 14px; color: #d8d2c2; }
+    .owner .name { font-weight: 700; color: #cfe6ec; }
+    .progress-wrap { margin-top: 10px; width: 420px; }
+    .progress-bar { height: 12px; border-radius: 6px; background: #2a2822; border: 1px solid #4a463d; overflow: hidden; }
+    .progress-inner { height: 100%; background: #6bb7c9; }
+    .progress-text { margin-top: 5px; font-size: 12px; color: #8f887a; }
+    .progress-text .hl { color: #6bb7c9; font-weight: 700; }
+    .grid { margin-top: 14px; display: grid; grid-template-columns: repeat(9, 46px); gap: 5px; }
+    .cell { width: 46px; height: 46px; border-radius: 6px; border: 2px solid #4a463d; background: #2a2822; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+    .cell img { width: 30px; height: 30px; image-rendering: pixelated; }
+    .recent-note { margin-top: 8px; font-size: 11px; color: #6b6557; }
+    .banner { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #e8ddc0; white-space: pre-wrap; }
+    .foot { margin-top: 12px; font-size: 11px; color: #6b6557; text-align: center; }
+  </style>
+</head>
+<body>
+<div id="mcguess-collection-card">
+  <div class="head">
+    <h1 th:text="${title}">MC 物品图鉴</h1>
+    <span class="sub" th:text="${subtitle}">游玩各模式收集物品 · JE 1.20.5</span>
+  </div>
+  <div class="owner">收藏家：<span class="name" th:text="${nickname}">QQ 123456</span></div>
+  <div class="progress-wrap">
+    <div class="progress-bar">
+      <div class="progress-inner" th:style="'width: ' + ${total > 0 ? (collected * 100 / total) : 0} + '%;'"></div>
+    </div>
+    <div class="progress-text">已收集 <span class="hl" th:text="${collected}">0</span> / <span th:text="${total}">0</span> 件带图标物品</div>
+  </div>
+  <div class="grid" th:if="${!recent.isEmpty()}">
+    <div th:each="item : ${recent}" class="cell" th:title="${item.zh}">
+      <img th:if="${item.icon != null}" th:src="${item.icon}" th:alt="${item.zh}">
+    </div>
+  </div>
+  <div class="recent-note" th:if="${recentNote != null}" th:text="${recentNote}">仅展示最近收集的物品</div>
+  <div class="banner" th:if="${banner != null and !banner.isEmpty()}" th:text="${banner}"></div>
+  <div class="foot">游玩获胜 / 宾果点亮 / 快答答对均可收集 · /图鉴排行 查看榜单 · 图标素材 ccvaults.com</div>
+</div>
+</body>
+</html>

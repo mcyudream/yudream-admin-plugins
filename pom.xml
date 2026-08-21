@@ -43,6 +43,7 @@
         <module>yudream-plugins/yudream-plugin-web-card</module>
         <module>yudream-plugins/yudream-plugin-wordle</module>
         <module>yudream-plugins/yudream-plugin-pony</module>
+        <module>yudream-plugins/yudream-plugin-mcguess</module>
     </modules>
 
     <dependencyManagement>

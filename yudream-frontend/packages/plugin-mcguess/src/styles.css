@@ -1,0 +1,105 @@
+.mcguess-plugin {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.mcguess-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.mcguess-stat-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
+}
+
+.mcguess-stat-card span,
+.mcguess-muted {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.mcguess-stat-card strong {
+  font-size: 24px;
+}
+
+.mcguess-today-card,
+.mcguess-help-card,
+.mcguess-empty-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  margin-top: 14px;
+}
+
+.mcguess-today-card h3,
+.mcguess-help-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.mcguess-today-card p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.mcguess-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.mcguess-help-grid h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.mcguess-help-grid p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mcguess-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.mcguess-filter-bar > * {
+  min-width: 160px;
+}
+
+.mcguess-empty-card {
+  justify-items: center;
+  text-align: center;
+  padding: 40px 18px;
+}
+
+.mcguess-empty-card h3 {
+  margin: 0;
+}
+
+.mcguess-empty-card p {
+  margin: 0;
+  color: var(--color-text-3);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.mcguess-empty-card code,
+.mcguess-help-grid code {
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
