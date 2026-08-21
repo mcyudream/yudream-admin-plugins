@@ -52,7 +52,7 @@ import java.util.Map;
 @PluginSpec(
         code = McguessPlugin.CODE,
         name = "mcguess",
-        version = "2.1.0",
+        version = "2.1.1",
         description = "QQ 群 MC 猜谜（JE 1.20.5）：猜物（配方树推理）、猜生物（条件填格子）、猜合成（反向填配方）、"
                 + "迷雾（图标渐显）、快答（合成计数抢答）、宾果（5x5 连线）、找茬（配方找错格）、比大小（出现次数连胜）"
                 + "与物品图鉴收集；群回合制共享进度、结束后可立即再开新局，支持智能匹配、提示、战绩排行与图片棋盘。"

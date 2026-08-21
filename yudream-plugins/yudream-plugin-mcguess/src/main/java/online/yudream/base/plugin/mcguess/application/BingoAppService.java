@@ -104,10 +104,13 @@ public class BingoAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             BingoGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局宾果已结束。发送 /宾果 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局结果已在结束消息中公布）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
-            return "🎱 MC 宾果进行中：已点亮 " + game.claimedCount() + "/25 格。"
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🎱 MC 宾果进行中：已点亮 " + game.claimedCount() + "/25 格。"
                     + "\n格子只显示图标，看图标发送 /宾果 <物品名> 点亮格子，任意一整行 / 整列 / 对角线连成即胜；/结束宾果 投降。";
         }
     }

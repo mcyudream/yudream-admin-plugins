@@ -50,10 +50,13 @@ public class MobAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             MobGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局猜生物已结束（填入 " + game.filledCount() + "/9 格）。发送 /猜生物 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局参考答案已在结束消息中揭晓）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
-            return "🧬 MC 猜生物进行中：已填 " + game.filledCount() + "/9 格，剩余 ❤️ ×" + game.getHearts() + "。"
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🧬 MC 猜生物进行中：已填 " + game.filledCount() + "/9 格，剩余 ❤️ ×" + game.getHearts() + "。"
                     + "\n发送 /猜生物 <1-9> <生物名> 填格，/结束猜生物 投降揭晓。";
         }
     }

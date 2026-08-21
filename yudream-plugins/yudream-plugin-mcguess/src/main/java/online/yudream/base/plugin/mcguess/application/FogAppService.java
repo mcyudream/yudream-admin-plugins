@@ -97,10 +97,13 @@ public class FogAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             FogGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局迷雾已结束，目标是「" + zhOf(game.getTargetId()) + "」。发送 /迷雾 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局答案已在结束消息中揭晓）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
-            return "🌫️ MC 迷雾猜物进行中：已猜 " + game.getGuesses().size() + " 次，迷雾阶段 "
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🌫️ MC 迷雾猜物进行中：已猜 " + game.getGuesses().size() + " 次，迷雾阶段 "
                     + game.getStage() + "/" + FogGame.MAX_STAGE + "。"
                     + "\n发送 /迷雾 <物品名> 参与，/结束迷雾 投降揭晓。";
         }

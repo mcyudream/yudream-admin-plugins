@@ -95,11 +95,13 @@ public class SpotAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             SpotGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局找茬已结束，错误格是 " + game.getWrongCell() + " 号格（应为「"
-                        + zhOf(game.getCorrectId()) + "」）。发送 /找茬 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局答案已在结束消息中揭晓）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
-            return "🔍 MC 配方找茬进行中：「" + zhOf(game.getTargetId()) + "」的合成配方有一格被掉包了，"
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🔍 MC 配方找茬进行中：「" + zhOf(game.getTargetId()) + "」的合成配方有一格被掉包了，"
                     + "已指认 " + game.getGuesses().size() + " 次。"
                     + "\n发送 /找茬 <1-9> 指出错误格，/结束找茬 投降揭晓。";
         }

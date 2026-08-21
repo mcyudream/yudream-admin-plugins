@@ -128,13 +128,15 @@ public class McguessAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             McguessGame game = latestGame(event);
+            // 裸指令在上一局结束后直接开新局（终局答案已在结束消息中揭晓）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
+            }
             McRecipe recipe = catalog.recipeOf(game.getTargetId()).orElse(null);
             long gridTotal = recipe == null ? 0 : recipe.grid().stream().filter(Objects::nonNull).distinct().count();
-            if (!game.isPlaying()) {
-                return "🏁 上一局目标「" + zhOf(game.getTargetId()) + "」已揭晓（共猜 " + game.getGuesses().size()
-                        + " 次）。发送 /猜物 <物品名> 开始新一局！";
-            }
-            return "🎯 MC 猜物进行中：已猜 " + game.getGuesses().size() + " 次，配方格已揭示 "
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🎯 MC 猜物进行中：已猜 " + game.getGuesses().size() + " 次，配方格已揭示 "
                     + game.getRevealed().size() + "/" + gridTotal + "。"
                     + "\n发送 /猜物 <物品名> 参与，/猜物格子 <1-9> 查看已揭示格的配方，/结束猜物 投降揭晓。";
         }

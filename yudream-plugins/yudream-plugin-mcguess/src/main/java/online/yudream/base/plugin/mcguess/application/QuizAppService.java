@@ -113,12 +113,15 @@ public class QuizAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             QuizGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局快答已结束。" + scoreboardText(game) + "\n发送 /快答 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局计分已在结束消息中公布）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
             int index = game.currentQuestionIndex();
             Question question = game.getQuestions().get(index);
-            return "⚡ MC 快答进行中：第 " + (index + 1) + "/" + game.questionCount() + " 题——"
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "⚡ MC 快答进行中：第 " + (index + 1) + "/" + game.questionCount() + " 题——"
                     + "合成 1 个「" + zhOf(question.targetId()) + "」总共需要几个「" + zhOf(question.ingredientId())
                     + "」？\n选项：" + choicesText(question)
                     + "\n发送 /快答 A-D 抢答，/结束快答 投降。" + scoreboardText(game);
@@ -178,8 +181,10 @@ public class QuizAppService {
                 row.put("solved", solved);
                 row.put("current", current);
                 row.put("correctQq", game.correctQqOf(i));
+                // SpringEL 读取 Map 缺失键会直接抛异常，choices 键必须始终存在（不展示选项时为 null）
+                List<Map<String, Object>> choiceRows = null;
                 if (current || (ended && !solved)) {
-                    List<Map<String, Object>> choiceRows = new ArrayList<>();
+                    choiceRows = new ArrayList<>();
                     List<Integer> choices = question.choices();
                     for (int c = 0; c < choices.size(); c++) {
                         Map<String, Object> choice = new HashMap<>();
@@ -188,8 +193,8 @@ public class QuizAppService {
                         choice.put("hit", ended && choices.get(c) == question.answer());
                         choiceRows.add(choice);
                     }
-                    row.put("choices", choiceRows);
                 }
+                row.put("choices", choiceRows);
                 questionRows.add(row);
             }
 

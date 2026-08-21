@@ -50,10 +50,13 @@ public class RecipeAppService {
         }
         synchronized (support.lockFor(event.connectionId(), event.channelId())) {
             RecipeGame game = latestGame(event);
-            if (!game.isPlaying()) {
-                return "🏁 上一局猜合成已结束，目标是「" + zhOf(game.getTargetId()) + "」。发送 /猜合成 开始新一局！";
+            // 裸指令在上一局结束后直接开新局（终局目标已在结束消息中揭晓）
+            boolean restarted = !game.isPlaying();
+            if (restarted) {
+                game = activeGame(event, null);
             }
-            return "🧪 MC 猜合成进行中：目标是「" + zhOf(game.getTargetId()) + "」，配方原料格已揭示 "
+            return (restarted ? "🎬 新一局开始！\n" : "")
+                    + "🧪 MC 猜合成进行中：目标是「" + zhOf(game.getTargetId()) + "」，配方原料格已揭示 "
                     + game.revealedSlotCount() + "/" + game.ingredientSlotCount() + "。"
                     + "\n发送 /猜合成 <1-9> <物品名> 填格，/结束猜合成 投降揭晓。";
         }
