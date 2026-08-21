@@ -15,3 +15,5 @@ yudream-plugin-ai-chatbot
 yudream-plugin-qqbot-automation
 yudream-plugin-world-map
 yudream-plugin-web-card
+yudream-plugin-pony
+yudream-plugin-wordle
