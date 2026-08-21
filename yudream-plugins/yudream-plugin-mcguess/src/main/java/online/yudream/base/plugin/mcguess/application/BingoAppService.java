@@ -20,8 +20,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * MC 宾果用例编排（群回合制）：5x5 共享棋盘 25 格不同物品，玩家报物品名点亮格子
- * （智能匹配），率先点亮任意一整行 / 整列 / 对角线者获胜。
+ * MC 宾果用例编排（群回合制）：5x5 共享棋盘 25 格不同物品，格子只显示图标与序号，
+ * 玩家看图报物品名点亮格子（智能匹配），率先点亮任意一整行 / 整列 / 对角线者获胜；
+ * 格名在点亮后揭晓，本局结束时全部揭晓。
  */
 public class BingoAppService {
 
@@ -107,7 +108,7 @@ public class BingoAppService {
                 return "🏁 上一局宾果已结束。发送 /宾果 开始新一局！";
             }
             return "🎱 MC 宾果进行中：已点亮 " + game.claimedCount() + "/25 格。"
-                    + "\n发送 /宾果 <物品名> 点亮格子，任意一整行 / 整列 / 对角线连成即胜；/结束宾果 投降。";
+                    + "\n格子只显示图标，看图标发送 /宾果 <物品名> 点亮格子，任意一整行 / 整列 / 对角线连成即胜；/结束宾果 投降。";
         }
     }
 
@@ -141,13 +142,16 @@ public class BingoAppService {
 
             List<Map<String, Object>> cellRows = new ArrayList<>();
             List<String> cells = game.getCells();
+            boolean revealAll = won || lost;
             for (int i = 0; i < cells.size(); i++) {
                 int cellNo = i + 1;
+                boolean claimed = game.isClaimed(cellNo);
                 Map<String, Object> cellRow = new HashMap<>();
                 cellRow.put("cell", cellNo);
-                cellRow.put("zh", zhOf(cells.get(i)));
+                // 未点亮的格子隐藏物品名，玩家只能从图标辨认；点亮或本局结束后揭晓
+                cellRow.put("zh", claimed || revealAll ? zhOf(cells.get(i)) : null);
                 cellRow.put("icon", icons.dataUri(cells.get(i)));
-                cellRow.put("claimed", game.isClaimed(cellNo));
+                cellRow.put("claimed", claimed);
                 cellRow.put("claimerQq", game.claimerQqOf(cellNo));
                 cellRow.put("win", game.getWinCells().contains(i));
                 cellRows.add(cellRow);
@@ -155,7 +159,7 @@ public class BingoAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 宾果");
-            variables.put("subtitle", "报物品名点亮格子 · 连成一线即胜 · JE 1.20.5");
+            variables.put("subtitle", "看图标认物品点亮格子 · 连成一线即胜 · JE 1.20.5");
             variables.put("cells", cellRows);
             variables.put("claimedCount", game.claimedCount());
             variables.put("cellCount", BingoGame.CELL_COUNT);

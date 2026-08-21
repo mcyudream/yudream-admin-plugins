@@ -371,7 +371,7 @@ public class McguessPlugin implements YuDreamPlugin {
 
     // ---------------------------------------------------------------- 宾果（5x5 连线）
 
-    @PluginCommand(code = "mcguess.bingo", command = "宾果", name = "点亮宾果格", description = "报物品名点亮宾果棋盘对应格子，例如 /宾果 铁锭；不带参数时查看本局棋盘", allowAnonymous = true)
+    @PluginCommand(code = "mcguess.bingo", command = "宾果", name = "点亮宾果格", description = "看图标猜出物品名点亮宾果棋盘对应格子，例如 /宾果 铁锭；不带参数时查看本局棋盘", allowAnonymous = true)
     public void bingo(PluginCommandContext command, PluginContext context) {
         try {
             String input = command.arguments().isEmpty() ? null : String.join(" ", command.arguments());
@@ -484,8 +484,8 @@ public class McguessPlugin implements YuDreamPlugin {
                 /快答 <A-D> — 抢答当前题目，例如 /快答 B；不带参数查看局面与计分板
                 /结束快答 — 投降并公布全部答案
 
-                【宾果】5x5 共享棋盘 25 格不同物品，报物品名点亮对应格子（智能匹配），
-                率先点亮任意一整行 / 整列 / 对角线者获胜。
+                【宾果】5x5 共享棋盘 25 格不同物品，格子只显示图标，看图报物品名点亮
+                对应格子（智能匹配），率先点亮任意一整行 / 整列 / 对角线者获胜；格名点亮后揭晓。
                 /宾果 <物品名> — 点亮格子，例如 /宾果 铁锭；不带参数查看本局棋盘
                 /结束宾果 — 投降结束本局
 

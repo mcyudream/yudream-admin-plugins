@@ -42,7 +42,7 @@
     <div th:each="cell : ${cells}" th:class="'cell' + (${cell.claimed} ? ' claimed' : '') + (${cell.win} ? ' win' : '')">
       <span class="no" th:text="${cell.cell}">1</span>
       <img th:if="${cell.icon != null}" th:src="${cell.icon}" alt="">
-      <span class="name" th:text="${cell.zh}">铁锭</span>
+      <span class="name" th:if="${cell.zh != null}" th:text="${cell.zh}">铁锭</span>
       <span class="by" th:if="${cell.claimed}" th:text="${cell.claimerQq}">123456</span>
     </div>
   </div>

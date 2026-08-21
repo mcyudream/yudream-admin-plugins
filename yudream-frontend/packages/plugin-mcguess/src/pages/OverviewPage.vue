@@ -88,7 +88,7 @@ const overview = () => props.model.overview
         </div>
         <div>
           <h4><FaIcon name="i-ri:grid-line" />MC 宾果</h4>
-          <p>全群共享 5x5 物品棋盘，说出棋盘上的物品名即可认领该格；率先连成任意一整行、整列或对角线者获胜。</p>
+          <p>全群共享 5x5 物品棋盘，格子只显示图标、不显示名称；看图标说出物品名即可认领该格（认领后揭晓名称），率先连成任意一整行、整列或对角线者获胜。</p>
           <p><code>/宾果 钻石</code> 认领格子，<code>/结束宾果</code> 提前结束。</p>
         </div>
         <div>
