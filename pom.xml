@@ -41,6 +41,8 @@
         <module>yudream-plugins/yudream-plugin-codex-task-notify</module>
         <module>yudream-plugins/yudream-plugin-world-map</module>
         <module>yudream-plugins/yudream-plugin-web-card</module>
+        <module>yudream-plugins/yudream-plugin-wordle</module>
+        <module>yudream-plugins/yudream-plugin-pony</module>
     </modules>
 
     <dependencyManagement>
