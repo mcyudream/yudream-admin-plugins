@@ -17,3 +17,4 @@ yudream-plugin-world-map
 yudream-plugin-web-card
 yudream-plugin-pony
 yudream-plugin-wordle
+yudream-plugin-mcguess
