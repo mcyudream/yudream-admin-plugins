@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>online.yudream.plugins</groupId><artifactId>yudream-admin-plugins</artifactId><version>1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
+  <artifactId>yudream-plugin-mc-wiki</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency><groupId>online.yudream.base</groupId><artifactId>yudream-plugin-spi</artifactId></dependency>
+    <dependency><groupId>online.yudream.plugins</groupId><artifactId>yudream-plugin-mc-wiki-api</artifactId></dependency>
+    <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.11.4</version><scope>test</scope></dependency>
+  </dependencies>
+  <build>
+    <resources>
+      <resource><directory>src/main/resources</directory></resource>
+      <resource><directory>../../yudream-frontend/packages/plugin-mc-wiki/dist</directory><targetPath>META-INF/yudream-plugin/frontend/mc-wiki</targetPath><filtering>false</filtering></resource>
+    </resources>
+    <plugins>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <!-- 只把自身 api 模块打进 JAR：provider JAR 必须携带稳定 *.api 包，consumer 仍以 provided 依赖独立 api 构件 -->
+              <artifactSet>
+                <includes>
+                  <include>online.yudream.plugins:yudream-plugin-mc-wiki-api</include>
+                </includes>
+              </artifactSet>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
