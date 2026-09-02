@@ -1,0 +1,5 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": { "allowJs": false, "strict": true, "noEmit": true, "moduleResolution": "Bundler", "module": "ESNext", "target": "ES2022", "skipLibCheck": true, "ignoreDeprecations": "6.0" },
+  "include": ["src/**/*.ts", "src/**/*.vue"]
+}

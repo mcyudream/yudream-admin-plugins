@@ -1,0 +1,9 @@
+{
+  "name": "@yudream/plugin-mc-wiki",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0", "build": "vite build" },
+  "dependencies": { "@yudream/components": "catalog:", "@yudream/plugin-sdk": "catalog:", "vue": "catalog:" },
+  "devDependencies": { "@vitejs/plugin-vue": "catalog:", "@vue/tsconfig": "catalog:", "typescript": "catalog:", "vite": "catalog:", "vue-tsc": "catalog:" }
+}

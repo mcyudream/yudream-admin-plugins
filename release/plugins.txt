@@ -18,3 +18,4 @@ yudream-plugin-web-card
 yudream-plugin-pony
 yudream-plugin-wordle
 yudream-plugin-mcguess
+yudream-plugin-mc-wiki
