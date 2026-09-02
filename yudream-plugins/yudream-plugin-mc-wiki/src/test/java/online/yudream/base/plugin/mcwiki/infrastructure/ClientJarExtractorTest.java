@@ -82,5 +82,61 @@ class ClientJarExtractorTest {
         // 扁平原料清单仍保留 "#tag" 形式（检索/展示语义不变）
         assertTrue(chest.ingredients().contains("#minecraft:planks"));
     }
+    @Test void dualJarTakesDataFromServerJarAndKeepsClientNames() throws Exception {
+        // 真实 1.13+ 结构：客户端 JAR 只有 assets/，data/（配方、tag、战利品表）在服务端 JAR
+        Path clientJar=Files.createTempFile("mc-wiki-fixture-client", ".jar");
+        try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(clientJar))){
+            put(zip,"assets/minecraft/lang/en_us.json","{\"item.minecraft.apple\":\"Apple\"}");
+            put(zip,"assets/minecraft/blockstates/stone.json","{\"variants\":{\"\":{\"model\":\"minecraft:block/stone\"}}}");
+        }
+        Path serverJar=Files.createTempFile("mc-wiki-fixture-server", ".jar");
+        try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(serverJar))){
+            put(zip,"data/minecraft/recipes/apple.json","{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:stone\"}],\"result\":{\"id\":\"minecraft:apple\",\"count\":2}}");
+            put(zip,"data/minecraft/tags/items/planks.json","{\"replace\":false,\"values\":[\"minecraft:oak_planks\"]}");
+            put(zip,"data/minecraft/loot_tables/entities/zombie.json","{\"pools\":[]}");
+        }
+        ClientJarExtractor.Extraction result=new ClientJarExtractor(new ObjectMapper()).extract(clientJar,serverJar,null);
+        assertEquals("Apple",result.names().get("item.minecraft.apple").en());
+        assertEquals(1,result.recipes().size());
+        assertEquals("minecraft:apple",result.recipes().getFirst().resultId());
+        assertTrue(result.tags().contains("items/planks"));
+        assertTrue(result.entityIds().contains("zombie"));
+        assertTrue(result.blockstates().containsKey("stone"));
+        assertTrue(result.diagnostics().isEmpty(),String.join(",",result.diagnostics()));
+    }
+    @Test void dualJarServerRecipeWinsOverClientRecipeWithSameId() throws Exception {
+        Path clientJar=Files.createTempFile("mc-wiki-fixture-client-dup", ".jar");
+        try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(clientJar))){
+            put(zip,"assets/minecraft/lang/en_us.json","{}");
+            put(zip,"data/minecraft/recipes/apple.json","{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:stone\"}],\"result\":{\"id\":\"minecraft:apple\",\"count\":1}}");
+        }
+        Path serverJar=Files.createTempFile("mc-wiki-fixture-server-dup", ".jar");
+        try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(serverJar))){
+            put(zip,"data/minecraft/recipes/apple.json","{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:stone\"}],\"result\":{\"id\":\"minecraft:apple\",\"count\":4}}");
+        }
+        ClientJarExtractor.Extraction result=new ClientJarExtractor(new ObjectMapper()).extract(clientJar,serverJar,null);
+        assertEquals(1,result.recipes().size());
+        assertEquals(4,result.recipes().getFirst().resultCount());
+    }
+    @Test void layout121SingularFoldersAreParsed() throws Exception {
+        // 1.21 起 data 目录单数化：recipe/、tags/item/、tags/block/、loot_table/
+        Path serverJar=Files.createTempFile("mc-wiki-fixture-121", ".jar");
+        try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(serverJar))){
+            put(zip,"data/minecraft/tags/item/planks.json","{\"replace\":false,\"values\":[\"minecraft:oak_planks\"]}");
+            put(zip,"data/minecraft/tags/block/logs.json","{\"replace\":false,\"values\":[\"minecraft:oak_log\"]}");
+            put(zip,"data/minecraft/recipe/chest.json","{\"type\":\"minecraft:crafting_shaped\",\"key\":{\"#\":{\"tag\":\"minecraft:planks\"}},\"pattern\":[\"###\",\"# #\",\"###\"],\"result\":{\"id\":\"minecraft:chest\",\"count\":1}}");
+            put(zip,"data/minecraft/loot_table/entities/zombie.json","{\"pools\":[]}");
+        }
+        ClientJarExtractor.Extraction result=new ClientJarExtractor(new ObjectMapper()).extract(serverJar);
+        assertTrue(result.diagnostics().isEmpty(),String.join(",",result.diagnostics()));
+        assertEquals(1,result.recipes().size());
+        ClientJarExtractor.RecipeRecord chest=result.recipes().getFirst();
+        assertEquals("chest",chest.id());
+        assertEquals("minecraft:oak_planks",chest.grid().get(0));
+        // tag id 规范化为复数形式，与旧版本输出一致
+        assertTrue(result.tags().contains("items/planks"));
+        assertTrue(result.tags().contains("blocks/logs"));
+        assertTrue(result.entityIds().contains("zombie"));
+    }
     private static void put(ZipOutputStream zip,String path,String content)throws Exception{zip.putNextEntry(new ZipEntry(path));zip.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));zip.closeEntry();}
 }
