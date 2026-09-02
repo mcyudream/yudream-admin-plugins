@@ -20,6 +20,10 @@ public interface McWikiApi {
     Optional<McMobEntry> getMob(String version, String entityId);
     Optional<byte[]> getTexture(String version, String kind, String path);
     String getTextureCdnKey(String version, String kind, String path);
+    /** 共享渲染图（mc-assets 256px，全版本共用）：item/block 取背包渲染，entity 优先等轴回退平面；未覆盖或渲染资产未一键更新时为空。 */
+    Optional<byte[]> getRender(String namespacedId, String kind);
+    /** 共享渲染资产是否覆盖该 id（内存名称索引判断，适合批量构建目录）；渲染资产未一键更新时恒为 false。 */
+    boolean hasRender(String namespacedId, String kind);
 
     record Page<T>(List<T> records, long total, int page, int size) {}
     record McVersionInfo(String id, String type, String releaseTime, String url, boolean latest) {}

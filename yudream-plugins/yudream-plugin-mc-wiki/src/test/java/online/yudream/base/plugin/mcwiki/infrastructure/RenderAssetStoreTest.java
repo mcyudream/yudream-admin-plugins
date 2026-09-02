@@ -68,6 +68,18 @@ class RenderAssetStoreTest {
         assertTrue(second.render("minecraft:stone","item").isEmpty(),"下架的渲染图必须被清理");
     }
 
+    @Test void hasRenderFollowsMetaIndexAndFallbacks() throws Exception {
+        byte[] zip=zipball("ccc0003",Map.of("item-assets/APPLE.png",new byte[]{1},"item-assets/HANGING_SIGN.png",new byte[]{4},"entity-assets/flat/COW.png",new byte[]{2}),"readme");
+        RenderAssetStore store=new RenderAssetStore(files,documents,url->zip);
+        assertFalse(store.hasRender("minecraft:apple","item"),"渲染资产未一键更新时恒为 false");
+        new JobService(documents,Runnable::run,(v,c)->store.update(c)).create(RenderAssetStore.JOB_VERSION);
+        assertTrue(store.hasRender("minecraft:apple","item"));
+        assertTrue(store.hasRender("minecraft:cow","entity"));
+        assertFalse(store.hasRender("minecraft:zombie","entity"),"没有任何形态渲染的生物不覆盖");
+        assertTrue(store.hasRender("minecraft:wall_hanging_sign","item"),"WALL_ 变种回退本体物品");
+        assertFalse(store.hasRender("minecraft:potted_oak_sapling","item"),"POTTED_ 本体无图时不覆盖");
+    }
+
     @Test void renderNameMapsIdsAndLegacyAliases() {
         RenderAssetStore store=new RenderAssetStore(files,documents,url->new byte[0]);
         assertEquals("ACACIA_BOAT",store.renderName("minecraft:acacia_boat"));

@@ -62,7 +62,7 @@ public final class McWikiPlugin implements YuDreamPlugin {
         PublishedWikiQueryService query = new PublishedWikiQueryService(resources, publication, renders, catalogs);
         JobService jobService = new JobService(context.documents(), jobs, (version, control) -> { if (RenderAssetStore.JOB_VERSION.equals(version)) renders.update(control); else pipeline.run(version, control); });
         McWikiHttpFacade facade = new McWikiHttpFacade(versionService, jobService, query, resources, publication, context.files(), renders, catalogs);
-        context.exposeService(online.yudream.base.plugin.mcwiki.api.McWikiApi.class, new online.yudream.base.plugin.mcwiki.application.DefaultMcWikiApi(versionService, resources, publication, assetService, catalogs));
+        context.exposeService(online.yudream.base.plugin.mcwiki.api.McWikiApi.class, new online.yudream.base.plugin.mcwiki.application.DefaultMcWikiApi(versionService, resources, publication, assetService, catalogs, renders));
         context.registerHttpController(new McWikiAdminController(facade));
         context.registerHttpController(new McWikiPublicController(query, assetService, new online.yudream.base.plugin.mcwiki.infrastructure.WikiIconRenderer(assetService), renders));
     }

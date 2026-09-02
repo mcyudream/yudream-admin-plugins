@@ -24,7 +24,7 @@
         <yudream.plugin.wallet.version>1.1.1</yudream.plugin.wallet.version>
         <yudream.plugin.minecraft-server.version>1.1.1</yudream.plugin.minecraft-server.version>
         <yudream.plugin.student-info.version>1.1.1</yudream.plugin.student-info.version>
-        <yudream.plugin.mc-wiki.version>1.1.1</yudream.plugin.mc-wiki.version>
+        <yudream.plugin.mc-wiki.version>1.2.0</yudream.plugin.mc-wiki.version>
     </properties>
 
     <modules>

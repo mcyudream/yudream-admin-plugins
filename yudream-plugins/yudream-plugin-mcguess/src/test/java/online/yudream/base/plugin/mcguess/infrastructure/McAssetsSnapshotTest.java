@@ -35,7 +35,7 @@ class McAssetsSnapshotTest {
                         List.of("minecraft:stone"), Arrays.asList("minecraft:stone", null, null, null, null, null, null, null, null)),
                 recipe("chest", "minecraft:crafting_shaped", "minecraft:chest", 1,
                         List.of("#minecraft:planks"), shapedGrid));
-        McCatalog catalog = new McAssetsSnapshot("1.20.6", List.of(item("minecraft:chest")), recipes).catalog();
+        McCatalog catalog = new McAssetsSnapshot("1.20.6", List.of(item("minecraft:chest")), recipes).catalog(new StubMcWikiApi());
         McRecipe chest = catalog.recipeOf("minecraft:chest").orElseThrow();
         assertEquals(9, chest.grid().size());
         assertEquals("minecraft:oak_planks", chest.grid().get(0));
@@ -47,7 +47,7 @@ class McAssetsSnapshotTest {
     void legacyDataWithoutGridFallsBackToFlatIngredientsSkippingTags() {
         McWikiApi.McRecipe legacy = recipe("iron_ingot_from_block", "minecraft:crafting_shapeless", "minecraft:iron_ingot", 9,
                 List.of("#minecraft:storage_blocks", "minecraft:iron_block"), List.of());
-        McCatalog catalog = new McAssetsSnapshot("1.20.6", List.of(item("minecraft:iron_ingot")), List.of(legacy)).catalog();
+        McCatalog catalog = new McAssetsSnapshot("1.20.6", List.of(item("minecraft:iron_ingot")), List.of(legacy)).catalog(new StubMcWikiApi());
         McRecipe recipe = catalog.recipeOf("minecraft:iron_ingot").orElseThrow();
         assertEquals(9, recipe.grid().size());
         assertEquals("minecraft:iron_block", recipe.grid().get(0));
@@ -65,7 +65,7 @@ class McAssetsSnapshotTest {
                                 "minecraft:oak_planks", null, "minecraft:oak_planks",
                                 "minecraft:oak_planks", "minecraft:oak_planks", "minecraft:oak_planks")));
         McCatalog catalog = new McAssetsSnapshot("1.20.6",
-                List.of(item("minecraft:oak_log"), item("minecraft:oak_planks"), item("minecraft:chest")), recipes).catalog();
+                List.of(item("minecraft:oak_log"), item("minecraft:oak_planks"), item("minecraft:chest")), recipes).catalog(new StubMcWikiApi());
         assertTrue(catalog.guessTargetCount() > 0);
         assertTrue(catalog.treeOf("minecraft:chest").nodeCount() >= 3);
         assertDoesNotThrow(() -> catalog.randomTarget(new Random(42)));

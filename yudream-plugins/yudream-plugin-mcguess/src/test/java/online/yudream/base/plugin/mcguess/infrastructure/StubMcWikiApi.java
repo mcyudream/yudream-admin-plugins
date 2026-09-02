@@ -17,6 +17,8 @@ public class StubMcWikiApi implements McWikiApi {
     public int recipesCalls;
     public final Map<String, McItemEntry> byId = new HashMap<>();
     public final Map<String, byte[]> textures = new HashMap<>();
+    /** 共享渲染资产桩，键为 namespacedId；模拟一键更新渲染资产后的覆盖集合。 */
+    public final Map<String, byte[]> renders = new HashMap<>();
 
     public Optional<String> publishedVersion() { return Optional.ofNullable(published); }
     public List<String> publishedVersions() { return publishedList != null ? publishedList : (published == null ? List.of() : List.of(published)); }
@@ -33,4 +35,6 @@ public class StubMcWikiApi implements McWikiApi {
     public Optional<McMobEntry> getMob(String version, String entityId) { return Optional.empty(); }
     public Optional<byte[]> getTexture(String version, String kind, String path) { return Optional.ofNullable(textures.get(kind + "/" + path)); }
     public String getTextureCdnKey(String version, String kind, String path) { return kind + "/" + path; }
+    public Optional<byte[]> getRender(String namespacedId, String kind) { return Optional.ofNullable(renders.get(namespacedId)); }
+    public boolean hasRender(String namespacedId, String kind) { return renders.containsKey(namespacedId); }
 }

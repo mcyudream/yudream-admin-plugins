@@ -91,6 +91,35 @@ public final class RenderAssetStore {
         return Optional.empty();
     }
 
+    /**
+     * 渲染覆盖判断，走元信息里名称清单的内存索引（适合批量构建目录，不产生文件 IO）；
+     * 渲染资产尚未一键更新过时恒为 false。回退规则与 render 保持一致。
+     */
+    public boolean hasRender(String namespacedId,String kind){
+        String name=renderName(namespacedId);
+        NameIndex index=names();
+        if("entity".equals(kind))return index.iso().contains(name)||index.flat().contains(name);
+        if(index.items().contains(name))return true;
+        if(name.startsWith("WALL_"))return index.items().contains(name.substring(5));
+        if(name.startsWith("POTTED_"))return index.items().contains(name.substring(7));
+        return false;
+    }
+
+    private record NameIndex(Set<String> items, Set<String> flat, Set<String> iso) {}
+    private volatile NameIndex nameIndex;
+    private NameIndex names(){
+        NameIndex index=nameIndex;
+        if(index==null)synchronized(this){
+            index=nameIndex;
+            if(index==null){
+                Map<String,Object> meta=documents.findById(COLLECTION,META_ID).orElse(Map.of());
+                index=new NameIndex(Set.copyOf(strings(meta.get("itemNames"))),Set.copyOf(strings(meta.get("flatNames"))),Set.copyOf(strings(meta.get("isoNames"))));
+                nameIndex=index;
+            }
+        }
+        return index;
+    }
+
     /** 一键更新：下载 zipball → 写入文件库 → 清理下架渲染 → 更新元信息。 */
     public void update(JobService.Control control){
         control.progress("DOWNLOAD",0,4,"正在下载 mc-assets 渲染资产包");
@@ -127,6 +156,7 @@ public final class RenderAssetStore {
         meta.put("items",items); meta.put("entitiesFlat",flat); meta.put("entitiesIsometric",iso); meta.put("updatedAt",System.currentTimeMillis());
         meta.put("itemNames",List.copyOf(itemNames)); meta.put("flatNames",List.copyOf(flatNames)); meta.put("isoNames",List.copyOf(isoNames));
         documents.save(COLLECTION,META_ID,meta);
+        nameIndex=new NameIndex(Set.copyOf(itemNames),Set.copyOf(flatNames),Set.copyOf(isoNames));
         control.log("INFO","渲染资产更新完成：物品 "+items+"、生物平面 "+flat+"、生物等轴 "+iso+"（源 "+commit+"，Minecraft "+gameVersion+"）");
     }
 

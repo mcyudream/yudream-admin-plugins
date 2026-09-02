@@ -3,14 +3,15 @@ package online.yudream.base.plugin.mcwiki.application;
 import java.util.List;
 import java.util.Optional;
 import online.yudream.base.plugin.mcwiki.api.McWikiApi;
+import online.yudream.base.plugin.mcwiki.infrastructure.RenderAssetStore;
 import online.yudream.base.plugin.mcwiki.infrastructure.WikiAssetService;
 import online.yudream.base.plugin.mcwiki.infrastructure.WikiCatalogIndex;
 import online.yudream.base.plugin.mcwiki.infrastructure.WikiPublicationRepository;
 import online.yudream.base.plugin.mcwiki.infrastructure.WikiResourceRepository;
 
 public final class DefaultMcWikiApi implements McWikiApi {
-    private final WikiVersionService versions; private final WikiResourceRepository resources; private final WikiPublicationRepository publication; private final WikiAssetService assets; private final WikiCatalogIndex catalogs;
-    public DefaultMcWikiApi(WikiVersionService versions, WikiResourceRepository resources, WikiPublicationRepository publication, WikiAssetService assets, WikiCatalogIndex catalogs){this.versions=versions;this.resources=resources;this.publication=publication;this.assets=assets;this.catalogs=catalogs;}
+    private final WikiVersionService versions; private final WikiResourceRepository resources; private final WikiPublicationRepository publication; private final WikiAssetService assets; private final WikiCatalogIndex catalogs; private final RenderAssetStore renders;
+    public DefaultMcWikiApi(WikiVersionService versions, WikiResourceRepository resources, WikiPublicationRepository publication, WikiAssetService assets, WikiCatalogIndex catalogs, RenderAssetStore renders){this.versions=versions;this.resources=resources;this.publication=publication;this.assets=assets;this.catalogs=catalogs;this.renders=renders;}
     public Optional<String> publishedVersion(){return publication.current();}
     public List<String> publishedVersions(){return publication.published();}
     public List<McVersionInfo> listVersions(boolean releaseOnly){return versions.list(1,200).records().stream().filter(v->!releaseOnly||"release".equals(v.type())).toList();}
@@ -24,4 +25,6 @@ public final class DefaultMcWikiApi implements McWikiApi {
     public Optional<McMobEntry> getMob(String version,String id){return Optional.empty();}
     public Optional<byte[]> getTexture(String version,String kind,String path){return assets.read(version,kind,path);}
     public String getTextureCdnKey(String version,String kind,String path){return "textures/"+version+"/"+kind+"/"+path;}
+    public Optional<byte[]> getRender(String namespacedId,String kind){return renders.render(namespacedId,kind);}
+    public boolean hasRender(String namespacedId,String kind){return renders.hasRender(namespacedId,kind);}
 }

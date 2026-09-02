@@ -11,15 +11,16 @@ import online.yudream.base.plugin.mcguess.domain.McRecipe;
 import online.yudream.base.plugin.mcwiki.api.McWikiApi;
 import online.yudream.base.plugin.mcwiki.api.McWikiApi.McItemEntry;
 
-/** 物品与配方目录快照；由 {@link WikiCatalogSource} 懒加载，贴图字节由 {@link IconSupport} 按需拉取。 */
+/** 物品与配方目录快照；由 {@link WikiCatalogSource} 懒加载，渲染图字节由 {@link IconSupport} 按需拉取。 */
 public record McAssetsSnapshot(String versionId, List<McItemEntry> items, List<McWikiApi.McRecipe> recipes) {
     public static McAssetsSnapshot load(McWikiApi service, String versionId) {
         // 物品与配方各一次全量清单调用（provider 内存索引供给），取代逐物品配方查询的数万次往返
         return new McAssetsSnapshot(versionId, List.copyOf(service.items(versionId)), List.copyOf(service.recipes(versionId)));
     }
 
-    public McCatalog catalog() {
-        List<McItem> catalogItems = items.stream().map(item -> new McItem(item.namespacedId(), item.namespacedId(), item.nameZh() == null ? item.nameEn() : item.nameZh(), recipes.stream().anyMatch(recipe -> item.namespacedId().equals(recipe.resultId())), item.textureKey() != null)).toList();
+    /** 图标可用性走共享渲染资产库的内存名称索引（hasRender），不再依赖导入期写入的 textureKey。 */
+    public McCatalog catalog(McWikiApi service) {
+        List<McItem> catalogItems = items.stream().map(item -> new McItem(item.namespacedId(), item.namespacedId(), item.nameZh() == null ? item.nameEn() : item.nameZh(), recipes.stream().anyMatch(recipe -> item.namespacedId().equals(recipe.resultId())), service.hasRender(item.namespacedId(), item.kind()))).toList();
         // 领域侧按成品 id 查配方（recipeOf/treeOf），键必须是 resultId 而不是配方 id；
         // 同一成品有多个配方时优先合成台配方（有序 > 无序 > 熔炼等其他类型），同优先级保留先出现的
         Map<String, McRecipe> catalogRecipes = new LinkedHashMap<>();

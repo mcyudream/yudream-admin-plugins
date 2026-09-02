@@ -35,7 +35,7 @@ public final class WikiCatalogSource implements Supplier<McCatalog> {
                 if (catalog != null) return catalog;
                 throw new IllegalStateException("mc-wiki 尚未发布资源版本，请先在 mc-wiki 管理端导入并发布一个版本");
             }
-            catalog = McAssetsSnapshot.load(api.get(), version).catalog();
+            catalog = McAssetsSnapshot.load(api.get(), version).catalog(api.get());
             loadedVersion = version;
             return catalog;
         }
