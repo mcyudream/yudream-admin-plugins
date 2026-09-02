@@ -77,3 +77,18 @@ export interface GameFilters {
   mode: string
   status: string
 }
+
+export interface McguessSettings {
+  /** 钉住的 MC 数据版本（空串 = 跟随 mc-wiki 默认发布版本） */
+  gameVersion: string
+  /** 实际生效的数据版本；provider 不可用或从未发布时为 null */
+  effectiveVersion: string | null
+  /** mc-wiki 默认发布版本（最新发布） */
+  defaultVersion: string | null
+  /** mc-wiki 全部已发布版本（版本选择器 options） */
+  publishedVersions: string[]
+  /** 钉住的版本已被取消发布、当前降级回默认 */
+  pinnedMissing: boolean
+  /** mc-wiki provider 当前是否可用 */
+  providerAvailable: boolean
+}

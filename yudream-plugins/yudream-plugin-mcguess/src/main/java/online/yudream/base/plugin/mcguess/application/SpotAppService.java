@@ -155,7 +155,7 @@ public class SpotAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 配方找茬");
-            variables.put("subtitle", "配方有一格被掉包 · 指出错误格 · JE 1.20.5");
+            variables.put("subtitle", "配方有一格被掉包 · 指出错误格 · JE " + catalog.version());
             variables.put("targetZh", zhOf(game.getTargetId()));
             variables.put("targetIcon", icons.dataUri(game.getTargetId()));
             variables.put("cells", cellRows);

@@ -1,13 +1,52 @@
 <script setup lang="ts">
 import type { McguessPluginModel } from '../composables/useMcguessPlugin'
-import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaModal, FaPageHeader, FaPageMain, FaSelect } from '@yudream/components'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{ model: McguessPluginModel }>()
 const overview = () => props.model.overview
+
+const settings = computed(() => props.model.settings)
+const settingsVisible = ref(false)
+const selectedVersion = ref('')
+const saving = ref(false)
+
+const versionOptions = computed(() => {
+  const current = settings.value
+  if (!current) {
+    return []
+  }
+  return [
+    { label: current.defaultVersion ? `跟随默认（${current.defaultVersion}）` : '跟随默认', value: '' },
+    ...current.publishedVersions.map(version => ({
+      label: version === current.defaultVersion ? `${version}（mc-wiki 默认）` : version,
+      value: version,
+    })),
+  ]
+})
+const effectiveVersionLabel = computed(() => settings.value?.effectiveVersion ? `JE ${settings.value.effectiveVersion}` : '当前发布版本')
+
+function openSettings() {
+  selectedVersion.value = settings.value?.gameVersion ?? ''
+  settingsVisible.value = true
+}
+
+async function saveSettings() {
+  saving.value = true
+  try {
+    if (await props.model.saveSettings(selectedVersion.value)) {
+      settingsVisible.value = false
+    }
+  }
+  finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
   <FaPageHeader title="MC 猜谜总览" class="mb-0">
+    <FaButton variant="outline" @click="openSettings"><FaIcon name="i-ri:settings-3-line" />数据版本</FaButton>
     <FaButton variant="outline" :loading="model.loading" @click="model.loadOverview"><FaIcon name="i-ri:refresh-line" />刷新</FaButton>
   </FaPageHeader>
   <FaPageMain>
@@ -63,7 +102,7 @@ const overview = () => props.model.overview
       <div class="mcguess-help-grid">
         <div>
           <h4><FaIcon name="i-ri:treasure-map-line" />猜物</h4>
-          <p>系统随机选定目标 Minecraft 物品（JE 1.20.5），猜测区域是它的 3x3 合成配方。</p>
+          <p>系统随机选定目标 Minecraft 物品（{{ effectiveVersionLabel }}），猜测区域是它的 3x3 合成配方。</p>
           <p><code>/猜物 钻石剑</code> 提交猜测，命中配方树的物品会在对应格子揭示；<code>/猜物格子 1-9</code> 查看已揭示格的配方，<code>/猜物提示</code>（连续空猜 6 次解锁）随机揭示一格，<code>/结束猜物</code> 投降揭晓。</p>
         </div>
         <div>
@@ -108,5 +147,38 @@ const overview = () => props.model.overview
         </div>
       </div>
     </FaCard>
+
+    <FaModal
+      v-model="settingsVisible"
+      title="游戏数据版本"
+      description="物品、配方与图标数据来自 mc-wiki 已发布版本；保存后立即生效，新对局与棋盘将使用所选版本。"
+      :show-cancel-button="true"
+      :confirm-button-loading="saving"
+      @confirm="saveSettings"
+    >
+      <div class="grid gap-3">
+        <FaAlert
+          v-if="settings?.pinnedMissing"
+          title="钉住版本已被取消发布"
+          :description="`钉住的 ${settings.gameVersion} 已不在 mc-wiki 已发布列表中，当前降级为默认版本${settings.defaultVersion ? `（${settings.defaultVersion}）` : ''}；请重新选择。`"
+        />
+        <FaAlert
+          v-if="settings && !settings.providerAvailable"
+          variant="destructive"
+          title="mc-wiki 暂不可用"
+          description="无法读取已发布版本列表，请先在 mc-wiki 管理端确认插件已启用并完成导入发布。"
+        />
+        <FaSelect
+          v-model="selectedVersion"
+          :options="versionOptions"
+          placeholder="选择数据版本"
+          class="w-full"
+          :disabled="!versionOptions.length"
+        />
+        <p class="text-sm text-muted-foreground">
+          当前生效：{{ effectiveVersionLabel }}<span v-if="settings?.defaultVersion">（mc-wiki 默认 {{ settings.defaultVersion }}）</span>
+        </p>
+      </div>
+    </FaModal>
   </FaPageMain>
 </template>

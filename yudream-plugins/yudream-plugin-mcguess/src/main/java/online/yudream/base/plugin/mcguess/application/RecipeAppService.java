@@ -74,7 +74,7 @@ public class RecipeAppService {
             RecipeGame game = activeGame(event, userIdString);
             List<McItem> candidates = catalog.match(itemName);
             if (candidates.isEmpty()) {
-                return "没有找到 1.20.5 中名为「" + itemName.trim() + "」的物品。"
+                return "没有找到 " + catalog.version() + " 中名为「" + itemName.trim() + "」的物品。"
                         + "\n支持智能匹配：可忽略颜色词（红色/白色…）、主世界木质词（橡木/云杉…）与材质词（染色/磨制/切制）。";
             }
             McItem matched = pickCandidate(candidates, game, cell);
@@ -184,7 +184,7 @@ public class RecipeAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 猜合成");
-            variables.put("subtitle", "反向玩法 · 逐格填配方 · JE 1.20.5");
+            variables.put("subtitle", "反向玩法 · 逐格填配方 · JE " + catalog.version());
             variables.put("targetZh", target == null ? game.getTargetId() : target.zh());
             variables.put("targetIcon", target == null ? null : icons.dataUri(target.id()));
             variables.put("targetCount", recipe == null ? 1 : recipe.count());

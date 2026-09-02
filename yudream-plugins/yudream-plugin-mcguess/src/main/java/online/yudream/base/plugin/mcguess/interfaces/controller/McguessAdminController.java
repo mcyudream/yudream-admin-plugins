@@ -28,4 +28,14 @@ public class McguessAdminController {
     public PluginHttpResponse players(PluginHttpRequest request) {
         return http.players(request);
     }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/settings", permission = McguessPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse settings(PluginHttpRequest request) {
+        return http.settings();
+    }
+
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/settings", permission = McguessPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveSettings(PluginHttpRequest request) {
+        return http.saveSettings(request);
+    }
 }

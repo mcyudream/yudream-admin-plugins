@@ -7,12 +7,15 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Supplier;
 
 /**
  * 物品目录：全物品查询、中文名智能匹配、代表配方与合成树（距离 / 出现次数）计算。
- * 数据集由 tools/build_assets.py 生成，classpath 资源 mcguess/mcdata.json。
+ * 默认 eager 构造；{@link #lazy(Supplier)} 模式下每次访问经 source 解析实际目录，
+ * 使启用期零查询、mc-wiki 发布版本变化时可热切换，公开接口与行为不变。
  */
 public class McCatalog {
 
@@ -26,6 +29,10 @@ public class McCatalog {
     /** 智能匹配忽略的材质词。 */
     private static final List<String> MATERIAL_TOKENS = List.of("染色", "磨制", "切制");
 
+    /** 懒加载模式非 null：所有访问委托给 source 解析出的实际目录。 */
+    private final Supplier<McCatalog> source;
+    /** 目录数据对应的 MC 版本（如 1.20.6），用于棋盘字幕等展示；懒加载模式委托给实际目录。 */
+    private final String version;
     private final List<McItem> items;
     private final Map<String, McItem> byId;
     private final Map<String, McItem> byZh;
@@ -38,7 +45,9 @@ public class McCatalog {
     /** 全局出现分数（懒计算）：物品作为原料出现在全部合成树配方格中的总次数。 */
     private volatile Map<String, Integer> occurrenceScores;
 
-    public McCatalog(List<McItem> items, Map<String, McRecipe> recipes) {
+    public McCatalog(List<McItem> items, Map<String, McRecipe> recipes, String version) {
+        this.source = null;
+        this.version = version;
         this.items = List.copyOf(items);
         this.recipes = Map.copyOf(recipes);
         this.byId = new HashMap<>();
@@ -53,29 +62,65 @@ public class McCatalog {
             }
         }
         this.guessTargets = items.stream()
-                .filter(item -> item.craftable() && treeOf(item.id()).nodeCount() >= 3)
+                .filter(item -> item.craftable()
+                        && !isSelfReferential(recipes.get(item.id()))
+                        && treeOf(item.id()).nodeCount() >= 3)
                 .toList();
         this.iconItems = items.stream().filter(McItem::icon).toList();
     }
 
+    /**
+     * 增殖配方（如锻造模板：产物自身也是原料之一）不适合出题——猜物里自身格只能靠「猜中目标」
+     * 点亮而无法作为普通格揭示，提示还可能直接报出答案；猜合成/快答/找茬共用同一出题池。
+     */
+    private static boolean isSelfReferential(McRecipe recipe) {
+        return recipe != null && recipe.grid().contains(recipe.result());
+    }
+
+    private McCatalog(Supplier<McCatalog> source) {
+        this.source = source;
+        this.version = null;
+        this.items = null;
+        this.byId = null;
+        this.byZh = null;
+        this.byNormalizedZh = null;
+        this.recipes = null;
+        this.guessTargets = null;
+        this.iconItems = null;
+    }
+
+    /** 懒加载目录：构造时不触碰 source，首次方法调用才解析；source 须返回 eager 实例。 */
+    public static McCatalog lazy(Supplier<McCatalog> source) {
+        return new McCatalog(Objects.requireNonNull(source, "source"));
+    }
+
+    private McCatalog d() {
+        return source == null ? this : source.get();
+    }
+
+    /** 目录数据对应的 MC 版本（如 1.20.6）；懒加载模式委托给 source 解析出的实际目录。 */
+    public String version() {
+        return d().version;
+    }
+
     public List<McItem> items() {
-        return items;
+        return d().items;
     }
 
     public Map<String, McRecipe> recipes() {
-        return recipes;
+        return d().recipes;
     }
 
     public Optional<McItem> byId(String id) {
-        return Optional.ofNullable(byId.get(id));
+        return Optional.ofNullable(d().byId.get(id));
     }
 
     public Optional<McRecipe> recipeOf(String itemId) {
-        return Optional.ofNullable(recipes.get(itemId));
+        return Optional.ofNullable(d().recipes.get(itemId));
     }
 
     public int craftableCount() {
-        return recipes.size();
+        return d().recipes.size();
     }
 
     /**
@@ -87,7 +132,8 @@ public class McCatalog {
         if (input.isEmpty()) {
             return List.of();
         }
-        McItem exact = byZh.get(input);
+        McCatalog self = d();
+        McItem exact = self.byZh.get(input);
         if (exact != null) {
             return List.of(exact);
         }
@@ -95,7 +141,7 @@ public class McCatalog {
         if (normalized.isEmpty()) {
             return List.of();
         }
-        return byNormalizedZh.getOrDefault(normalized, List.of());
+        return self.byNormalizedZh.getOrDefault(normalized, List.of());
     }
 
     /** 归一化中文名：去除全部可忽略词，直到稳定。 */
@@ -118,16 +164,17 @@ public class McCatalog {
 
     /** 随机出题：从可合成且合成树非平凡的物品池中纯随机选取。 */
     public McItem randomTarget(Random random) {
-        return guessTargets.get(random.nextInt(guessTargets.size()));
+        McCatalog self = d();
+        return self.guessTargets.get(random.nextInt(self.guessTargets.size()));
     }
 
     public int guessTargetCount() {
-        return guessTargets.size();
+        return d().guessTargets.size();
     }
 
     /** 带图标的物品池（迷雾猜图标 / 宾果棋盘出题用）。 */
     public List<McItem> iconItems() {
-        return iconItems;
+        return d().iconItems;
     }
 
     /**
@@ -135,11 +182,12 @@ public class McCatalog {
      * 不含物品自身；无同族时返回空列表。
      */
     public List<McItem> familyOf(String itemId) {
-        McItem item = byId.get(itemId);
+        McCatalog self = d();
+        McItem item = self.byId.get(itemId);
         if (item == null) {
             return List.of();
         }
-        return byNormalizedZh.getOrDefault(normalizeZh(item.zh()), List.of()).stream()
+        return self.byNormalizedZh.getOrDefault(normalizeZh(item.zh()), List.of()).stream()
                 .filter(candidate -> !candidate.id().equals(itemId))
                 .toList();
     }
@@ -149,7 +197,7 @@ public class McCatalog {
      * 首次调用时遍历全部配方懒计算并缓存。
      */
     public int occurrenceScore(String itemId) {
-        return occurrenceScores().getOrDefault(itemId, 0);
+        return d().occurrenceScores().getOrDefault(itemId, 0);
     }
 
     private Map<String, Integer> occurrenceScores() {
@@ -159,7 +207,7 @@ public class McCatalog {
                 if (occurrenceScores == null) {
                     Map<String, Integer> scores = new HashMap<>();
                     for (String target : recipes.keySet()) {
-                        treeOf(target).occurrences().forEach((item, count) -> scores.merge(item, count, Integer::sum));
+                        computeTree(target).occurrences().forEach((item, count) -> scores.merge(item, count, Integer::sum));
                     }
                     occurrenceScores = Map.copyOf(scores);
                 }
@@ -174,7 +222,11 @@ public class McCatalog {
      * distance = 该物品到答案所需的合成次数（原料为 1，原料的原料为 2，不可达为 null）；
      * occurrences = 该物品在合成树全部配方格子中出现的次数。
      */
-    public synchronized TreeInfo treeOf(String targetId) {
+    public TreeInfo treeOf(String targetId) {
+        return d().computeTree(targetId);
+    }
+
+    private synchronized TreeInfo computeTree(String targetId) {
         TreeInfo cached = treeCache.get(targetId);
         if (cached != null) {
             return cached;

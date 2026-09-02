@@ -58,7 +58,7 @@ public class McguessAppService {
             McItem target = catalog.byId(game.getTargetId()).orElseThrow();
             List<McItem> candidates = catalog.match(rawInput);
             if (candidates.isEmpty()) {
-                return "没有找到 1.20.5 中名为「" + rawInput.trim() + "」的物品。"
+                return "没有找到 " + catalog.version() + " 中名为「" + rawInput.trim() + "」的物品。"
                         + "\n支持智能匹配：可忽略颜色词（红色/白色…）、主世界木质词（橡木/云杉…）与材质词（染色/磨制/切制）。";
             }
             McCatalog.TreeInfo tree = catalog.treeOf(game.getTargetId());
@@ -134,7 +134,7 @@ public class McguessAppService {
                 game = activeGame(event, null);
             }
             McRecipe recipe = catalog.recipeOf(game.getTargetId()).orElse(null);
-            long gridTotal = recipe == null ? 0 : recipe.grid().stream().filter(Objects::nonNull).distinct().count();
+            long gridTotal = recipe == null ? 0 : guessableCellCount(recipe, game.getTargetId());
             return (restarted ? "🎬 新一局开始！\n" : "")
                     + "🎯 MC 猜物进行中：已猜 " + game.getGuesses().size() + " 次，配方格已揭示 "
                     + game.getRevealed().size() + "/" + gridTotal + "。"
@@ -202,6 +202,10 @@ public class McguessAppService {
             }
             List<String> hidden = new ArrayList<>();
             for (String ingredient : recipe.get().ingredients()) {
+                // 增殖配方的自引用格（如锻造模板）不能作为提示候选——报它就等于报答案
+                if (ingredient.equals(game.getTargetId())) {
+                    continue;
+                }
                 if (!game.getRevealed().contains(ingredient) && !hidden.contains(ingredient)) {
                     hidden.add(ingredient);
                 }
@@ -255,11 +259,10 @@ public class McguessAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 猜物");
-            variables.put("subtitle", "随机出题 · 群内回合制 · JE 1.20.5");
+            variables.put("subtitle", "随机出题 · 群内回合制 · JE " + catalog.version());
             variables.put("cells", recipe == null ? List.of() : recipeCells(recipe, ended ? true : null, game));
             variables.put("gridRevealed", game.getRevealed().size());
-            variables.put("gridTotal", recipe == null ? 0
-                    : recipe.grid().stream().filter(Objects::nonNull).distinct().count());
+            variables.put("gridTotal", recipe == null ? 0 : guessableCellCount(recipe, game.getTargetId()));
             variables.put("won", won);
             variables.put("lost", lost);
             variables.put("ended", ended);
@@ -384,6 +387,15 @@ public class McguessAppService {
             rows.add(row);
         }
         return rows;
+    }
+
+    /** 可猜测格数：3x3 中不同的原料数，不含增殖配方里产物自身所占格（那格只能靠猜中目标点亮）。 */
+    private static long guessableCellCount(McRecipe recipe, String targetId) {
+        return recipe.grid().stream()
+                .filter(Objects::nonNull)
+                .filter(id -> !id.equals(targetId))
+                .distinct()
+                .count();
     }
 
     private String collectionSuffix(List<String> added) {

@@ -52,7 +52,7 @@ function loadPage(name: string) {
   if (name === 'my-stats') {
     return model.loadMyStats()
   }
-  return model.loadOverview()
+  return Promise.all([model.loadOverview(), model.loadSettings()])
 }
 
 onMounted(() => loadPage(pageName.value))

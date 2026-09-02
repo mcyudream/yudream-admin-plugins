@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { GameFilters, McguessGameView, McguessMyStats, McguessOverview, McguessPlayerView } from '../types'
+import type { GameFilters, McguessGameView, McguessMyStats, McguessOverview, McguessPlayerView, McguessSettings } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMcguessApi } from '../api/mcguess-api'
@@ -12,6 +12,7 @@ export function useMcguessPlugin(sdk: YuDreamPluginSdk) {
   const games = ref<McguessGameView[]>([])
   const players = ref<McguessPlayerView[]>([])
   const myStats = ref<McguessMyStats | null>(null)
+  const settings = ref<McguessSettings | null>(null)
   const gamePager = reactive({ page: 1, size: 10, total: 0 })
   const playerPager = reactive({ page: 1, size: 10, total: 0 })
   const gameFilters = reactive<GameFilters>({ mode: '', status: '' })
@@ -121,12 +122,29 @@ export function useMcguessPlugin(sdk: YuDreamPluginSdk) {
     await run(async () => { myStats.value = await api.myStats() })
   }
 
+  async function loadSettings() {
+    await run(async () => { settings.value = await api.settings() })
+  }
+
+  async function saveSettings(gameVersion: string) {
+    try {
+      settings.value = await api.saveSettings(gameVersion)
+      toast.success('数据版本设置已保存，立即生效')
+      return true
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      return false
+    }
+  }
+
   return reactive({
     loading,
     overview,
     games,
     players,
     myStats,
+    settings,
     myStatsView,
     myStatsEmpty,
     winRate,
@@ -144,6 +162,8 @@ export function useMcguessPlugin(sdk: YuDreamPluginSdk) {
     applyGameFilters,
     loadPlayers,
     loadMyStats,
+    loadSettings,
+    saveSettings,
   })
 }
 

@@ -1,99 +1,55 @@
 package online.yudream.base.plugin.mcguess.domain;
 
-import online.yudream.base.plugin.mcguess.infrastructure.McDataLoader;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-/**
- * 基于真实数据集（mcguess/mcdata.json）验证目录加载、智能匹配与合成树计算。
- */
+/** 出题池与合成树：增殖配方（产物自身也是原料，如锻造模板）不进出题池，树构建不循环。 */
 class McCatalogTest {
 
-    private static McCatalog catalog;
-
-    @BeforeAll
-    static void load() {
-        catalog = McDataLoader.load(McCatalogTest.class.getClassLoader());
+    private static McItem item(String id, String zh, boolean craftable) {
+        return new McItem(id, id, zh, craftable, true);
     }
 
     @Test
-    void datasetCoversAllItems() {
-        assertTrue(catalog.items().size() > 1300, "应覆盖 1.20.5 全物品");
-        assertTrue(catalog.craftableCount() > 700, "应包含全部合成配方");
-        assertTrue(catalog.guessTargetCount() > 100, "随机出题候选池不能太小");
+    void selfReferentialDuplicationRecipeIsExcludedFromGuessTargets() {
+        // 下界合金升级锻造模板的增殖配方：1 模板 + 7 钻石 + 1 下界岩 → 2 模板，产物自身占一格。
+        // 树有 3 个节点，若没有自引用排除会进池——猜物中该格永远无法作为普通格揭示且提示会泄题。
+        McItem template = item("minecraft:netherite_upgrade_smithing_template", "下界合金升级", true);
+        McItem diamond = item("minecraft:diamond", "钻石", false);
+        McItem netherrack = item("minecraft:netherrack", "下界岩", false);
+        McRecipe duplication = new McRecipe(template.id(), List.of(
+                diamond.id(), template.id(), diamond.id(),
+                diamond.id(), netherrack.id(), diamond.id(),
+                diamond.id(), diamond.id(), diamond.id()), 2);
+        McCatalog catalog = new McCatalog(List.of(template, diamond, netherrack), Map.of(template.id(), duplication), "test");
+        assertEquals(0, catalog.guessTargetCount());
+        // 合成树仍可正常构建（visited 语义防循环）：自身距离 0，原料计数如实
+        McCatalog.TreeInfo tree = catalog.treeOf(template.id());
+        assertEquals(0, tree.distanceOf(template.id()));
+        assertEquals(1, tree.occurrencesOf(template.id()));
+        assertEquals(7, tree.occurrencesOf(diamond.id()));
+        assertEquals(1, tree.occurrencesOf(netherrack.id()));
     }
 
     @Test
-    void exactZhMatch() {
-        List<McItem> matched = catalog.match("钻石剑");
-        assertEquals(1, matched.size());
-        assertEquals("diamond_sword", matched.getFirst().id());
-    }
-
-    @Test
-    void smartMatchIgnoresColor() {
-        // 「红色羊毛」是精确物品名，精确匹配优先
-        List<McItem> exact = catalog.match("红色羊毛");
-        assertEquals(1, exact.size());
-        assertEquals("red_wool", exact.getFirst().id());
-        // 不带颜色的「羊毛」归一化后匹配全部颜色变体
-        List<McItem> wools = catalog.match("羊毛");
-        assertTrue(wools.size() >= 16, "羊毛应匹配全部颜色变体");
-        assertTrue(wools.stream().anyMatch(item -> item.id().equals("orange_wool")));
-        assertTrue(wools.stream().allMatch(item -> item.id().endsWith("_wool")));
-    }
-
-    @Test
-    void smartMatchIgnoresColorAndMaterial() {
-        // 「红色玻璃板」应匹配「紫色染色玻璃板」等染色玻璃板
-        List<McItem> panes = catalog.match("红色玻璃板");
-        assertTrue(panes.stream().anyMatch(item -> item.id().equals("purple_stained_glass_pane")));
-    }
-
-    @Test
-    void smartMatchIgnoresOverworldWood() {
-        // 「橡木木板」归一化后与「云杉木板」同族
-        assertEquals(McCatalog.normalizeZh("云杉木板"), McCatalog.normalizeZh("橡木木板"));
-        // 下界木材不参与忽略
-        assertEquals("绯红木板", McCatalog.normalizeZh("绯红木板"));
-        assertFalse(McCatalog.normalizeZh("绯红木板").equals(McCatalog.normalizeZh("橡木木板")));
-    }
-
-    @Test
-    void randomTargetPicksCraftableNonTrivialTarget() {
-        Random random = new Random(20260821L);
-        for (int i = 0; i < 20; i++) {
-            McItem target = catalog.randomTarget(random);
-            assertTrue(target.craftable(), "出题目标必须可合成");
-            assertTrue(catalog.treeOf(target.id()).nodeCount() >= 3, "出题目标的合成树必须非平凡");
-        }
-    }
-
-    @Test
-    void craftingTreeDistanceAndOccurrences() {
-        McCatalog.TreeInfo tree = catalog.treeOf("diamond_sword");
-        assertEquals(1, tree.distanceOf("diamond"));
-        assertEquals(1, tree.distanceOf("stick"));
-        // 出现次数统计整棵合成树：剑 2 颗 + 钻石块配方 9 颗 = 11
-        assertTrue(tree.occurrencesOf("diamond") >= 2);
-        assertEquals(1, tree.occurrencesOf("stick"));
-        assertNull(tree.distanceOf("dirt"), "无关物品不可达");
-    }
-
-    @Test
-    void recipeGridIsAnchored() {
-        McRecipe sword = catalog.recipeOf("diamond_sword").orElseThrow();
-        assertEquals(9, sword.grid().size());
-        assertEquals("diamond", sword.grid().get(0));
-        assertEquals("stick", sword.grid().get(6));
-        assertNull(sword.grid().get(1));
+    void normalCraftableChainStaysInGuessTargets() {
+        McItem log = item("minecraft:oak_log", "橡木原木", true);
+        McItem planks = item("minecraft:oak_planks", "橡木木板", true);
+        McItem chest = item("minecraft:chest", "箱子", true);
+        Map<String, McRecipe> recipes = Map.of(
+                planks.id(), new McRecipe(planks.id(), java.util.Arrays.asList(
+                        log.id(), null, null,
+                        null, null, null,
+                        null, null, null), 4),
+                chest.id(), new McRecipe(chest.id(), java.util.Arrays.asList(
+                        planks.id(), planks.id(), planks.id(),
+                        planks.id(), null, planks.id(),
+                        planks.id(), planks.id(), planks.id()), 1));
+        McCatalog catalog = new McCatalog(List.of(log, planks, chest), recipes, "test");
+        // 箱子树 3 节点（箱子/木板/原木）进池；木板树 2 节点、原木无配方，均不进池
+        assertEquals(1, catalog.guessTargetCount());
     }
 }

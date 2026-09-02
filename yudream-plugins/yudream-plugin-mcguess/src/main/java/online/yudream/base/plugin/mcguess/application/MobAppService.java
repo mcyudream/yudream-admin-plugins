@@ -73,7 +73,7 @@ public class MobAppService {
             MobGame game = activeGame(event, userIdString);
             Optional<McMobCatalog.McMob> matched = catalog.match(mobName);
             if (matched.isEmpty()) {
-                return "没有找到名为「" + mobName.trim() + "」的 Minecraft 生物（JE 1.20.5），检查下名字？" ;
+                return "没有找到名为「" + mobName.trim() + "」的 Minecraft 生物（JE " + catalog.version() + "），检查下名字？" ;
             }
             McMobCatalog.McMob mob = matched.get();
             if (game.isFilled(cell)) {
@@ -153,7 +153,7 @@ public class MobAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 猜生物");
-            variables.put("subtitle", "填格子 · 同盘不重复 · JE 1.20.5");
+            variables.put("subtitle", "填格子 · 同盘不重复 · JE " + catalog.version());
             List<Map<String, Object>> rows = new ArrayList<>();
             for (String code : game.getRowConds()) {
                 rows.add(Map.of("zh", condZh(code)));

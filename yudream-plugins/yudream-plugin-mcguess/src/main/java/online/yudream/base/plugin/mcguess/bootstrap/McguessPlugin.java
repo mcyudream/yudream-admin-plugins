@@ -5,6 +5,7 @@ import online.yudream.base.plugin.mcguess.application.CollectionService;
 import online.yudream.base.plugin.mcguess.application.FogAppService;
 import online.yudream.base.plugin.mcguess.application.HolAppService;
 import online.yudream.base.plugin.mcguess.application.McguessAppService;
+import online.yudream.base.plugin.mcguess.application.McguessSettingsService;
 import online.yudream.base.plugin.mcguess.application.McguessStatsService;
 import online.yudream.base.plugin.mcguess.application.McguessSupport;
 import online.yudream.base.plugin.mcguess.application.MobAppService;
@@ -23,6 +24,8 @@ import online.yudream.base.plugin.mcguess.domain.RecipeGameRepository;
 import online.yudream.base.plugin.mcguess.domain.SpotGameRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.IconSupport;
 import online.yudream.base.plugin.mcguess.infrastructure.McDataLoader;
+import online.yudream.base.plugin.mcguess.infrastructure.WikiCatalogSource;
+import online.yudream.base.plugin.mcwiki.api.McWikiApi;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentBingoGameRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentFogGameRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentGameRepository;
@@ -30,6 +33,7 @@ import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocum
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentPlayerRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentQuizGameRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentRecipeGameRepository;
+import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentSettingsRepository;
 import online.yudream.base.plugin.mcguess.infrastructure.repository.McguessDocumentSpotGameRepository;
 import online.yudream.base.plugin.mcguess.interfaces.controller.McguessAdminController;
 import online.yudream.base.plugin.mcguess.interfaces.controller.McguessUserController;
@@ -48,14 +52,17 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 @PluginSpec(
         code = McguessPlugin.CODE,
         name = "mcguess",
-        version = "2.1.1",
-        description = "QQ 群 MC 猜谜（JE 1.20.5）：猜物（配方树推理）、猜生物（条件填格子）、猜合成（反向填配方）、"
+        version = "3.0.0",
+        description = "QQ 群 MC 猜谜：猜物（配方树推理）、猜生物（条件填格子）、猜合成（反向填配方）、"
                 + "迷雾（图标渐显）、快答（合成计数抢答）、宾果（5x5 连线）、找茬（配方找错格）、比大小（出现次数连胜）"
                 + "与物品图鉴收集；群回合制共享进度、结束后可立即再开新局，支持智能匹配、提示、战绩排行与图片棋盘。"
+                + "物品数据版本由 mc-wiki 已发布版本供给，可在游戏概览设置中钉住或跟随默认。"
 )
 @PluginPermissions({
         @PluginPermission(code = McguessPlugin.USE_PERMISSION, name = "参与猜谜游戏", module = "平台插件", description = "查看自己的猜谜战绩"),
@@ -121,14 +128,19 @@ public class McguessPlugin implements YuDreamPlugin {
     private SpotAppService spotService;
     private CollectionService collectionService;
     private McguessStatsService statsService;
+    private McguessSettingsService settingsService;
 
     @Override
     public void onEnable(PluginContext context) {
         ClassLoader classLoader = getClass().getClassLoader();
         var documents = context.documents();
-        McCatalog catalog = McDataLoader.load(classLoader);
+        Supplier<Optional<McWikiApi>> wikiApi = () -> context.service("mc-wiki", McWikiApi.class);
+        this.settingsService = new McguessSettingsService(wikiApi, new McguessDocumentSettingsRepository(documents));
+        // 目录懒加载：启用期零查询，首次出题或生效数据版本变化时才经快照构建（物品、配方各一次调用）；
+        // 目录与图标消费同一生效版本（设置钉住优先，否则 mc-wiki 默认发布版本）
+        McCatalog catalog = McCatalog.lazy(new WikiCatalogSource(wikiApi, settingsService::effectiveVersion));
         McMobCatalog mobCatalog = McDataLoader.loadMobs(classLoader);
-        IconSupport icons = new IconSupport(classLoader);
+        IconSupport icons = new IconSupport(wikiApi, settingsService::effectiveVersion);
         McguessGameRepository itemGames = new McguessDocumentGameRepository(documents);
         MobGameRepository mobGames = new McguessDocumentMobGameRepository(documents);
         RecipeGameRepository recipeGames = new McguessDocumentRecipeGameRepository(documents);
@@ -149,7 +161,7 @@ public class McguessPlugin implements YuDreamPlugin {
         this.collectionService = new CollectionService(players, catalog, icons);
         this.statsService = new McguessStatsService(itemGames, mobGames, recipeGames,
                 fogGames, quizGames, bingoGames, spotGames, players, catalog, mobCatalog);
-        McguessHttpFacade http = new McguessHttpFacade(statsService);
+        McguessHttpFacade http = new McguessHttpFacade(statsService, settingsService);
         context.registerHttpController(new McguessAdminController(http));
         context.registerHttpController(new McguessUserController(http));
     }
@@ -456,8 +468,9 @@ public class McguessPlugin implements YuDreamPlugin {
 
     @PluginCommand(code = "mcguess.rules", command = "猜物规则", name = "玩法说明", description = "查看 MC 猜谜全部模式的玩法与指令", allowAnonymous = true)
     public void rules(PluginCommandContext command, PluginContext context) {
+        String dataset = settingsService.effectiveVersion().map(version -> "JE " + version).orElse("当前发布版本");
         reply(command, context, """
-                🎯 MC 猜谜玩法（群回合制，一局结束后可立即再开新局；JE 1.20.5 全物品数据集）
+                🎯 MC 猜谜玩法（群回合制，一局结束后可立即再开新局；%s 全物品数据集）
 
                 【猜物】系统随机选定目标物品，猜测区域是它的 3x3 合成配方。
                 /猜物 <物品名> — 提交猜测，例如 /猜物 钻石剑；不带参数查看本局棋盘
@@ -508,7 +521,7 @@ public class McguessPlugin implements YuDreamPlugin {
                 /猜物排行 — 排行榜前十（按总胜场）
 
                 猜物 / 猜合成 / 迷雾 / 宾果支持智能匹配：可忽略颜色词（红色/白色…）、主世界木质词（橡木/云杉…）与材质词（染色/磨制/切制），
-                例如「红色羊毛」可匹配「橙色羊毛」，「红色玻璃板」可匹配「紫色染色玻璃板」。""");
+                例如「红色羊毛」可匹配「橙色羊毛」，「红色玻璃板」可匹配「紫色染色玻璃板」。""".formatted(dataset));
     }
 
     // ---------------------------------------------------------------- 回复与棋盘渲染

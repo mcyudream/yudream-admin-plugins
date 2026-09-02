@@ -13,6 +13,8 @@ import java.util.Optional;
  */
 public class McMobCatalog {
 
+    /** 生物数据集对应的 MC 版本（来自 mcmobs.json 的 mcVersion 字段）。 */
+    private final String version;
     private final List<McMob> mobs;
     private final Map<String, McMob> byId;
     private final Map<String, McMob> byZh;
@@ -20,7 +22,8 @@ public class McMobCatalog {
     private final Map<String, McCondition> conditionByCode;
     private final Map<String, List<McMob>> candidatesByCondition;
 
-    public McMobCatalog(List<McMob> mobs, List<McCondition> conditions) {
+    public McMobCatalog(List<McMob> mobs, List<McCondition> conditions, String version) {
+        this.version = version;
         this.mobs = List.copyOf(mobs);
         this.conditions = List.copyOf(conditions);
         this.byId = new HashMap<>();
@@ -43,6 +46,11 @@ public class McMobCatalog {
             }
             candidatesByCondition.put(condition.code(), List.copyOf(candidates));
         }
+    }
+
+    /** 生物数据集对应的 MC 版本（来自 mcmobs.json 的 mcVersion 字段）。 */
+    public String version() {
+        return version;
     }
 
     public List<McMob> mobs() {

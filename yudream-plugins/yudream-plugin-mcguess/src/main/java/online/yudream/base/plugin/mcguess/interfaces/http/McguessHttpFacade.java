@@ -1,6 +1,8 @@
 package online.yudream.base.plugin.mcguess.interfaces.http;
 
+import online.yudream.base.plugin.mcguess.application.McguessSettingsService;
 import online.yudream.base.plugin.mcguess.application.McguessStatsService;
+import online.yudream.base.plugin.mcguess.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 
@@ -10,9 +12,11 @@ import java.util.Map;
 public class McguessHttpFacade {
 
     private final McguessStatsService statsService;
+    private final McguessSettingsService settingsService;
 
-    public McguessHttpFacade(McguessStatsService statsService) {
+    public McguessHttpFacade(McguessStatsService statsService, McguessSettingsService settingsService) {
         this.statsService = statsService;
+        this.settingsService = settingsService;
     }
 
     // ---------------------------------------------------------------- 用户端
@@ -35,6 +39,15 @@ public class McguessHttpFacade {
 
     public PluginHttpResponse players(PluginHttpRequest request) {
         return PluginHttpResponse.ok(statsService.searchPlayers(page(request), size(request)));
+    }
+
+    public PluginHttpResponse settings() {
+        return PluginHttpResponse.ok(settingsService.view());
+    }
+
+    public PluginHttpResponse saveSettings(PluginHttpRequest request) {
+        McguessSettingsSaveRequest body = JsonSupport.read(request.body(), McguessSettingsSaveRequest.class);
+        return PluginHttpResponse.ok(settingsService.save(body.gameVersion()));
     }
 
     // ---------------------------------------------------------------- 边界解析

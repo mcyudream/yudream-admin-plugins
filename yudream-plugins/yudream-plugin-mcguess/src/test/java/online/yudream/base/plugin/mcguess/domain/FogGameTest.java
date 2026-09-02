@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FogGameTest {
 
     private FogGame newGame() {
-        return new FogGame("g1", "conn", "qq", "chan", "diamond_sword", "10001", "u1", 1L);
+        return new FogGame("g1", "conn", "qq", "chan", "minecraft:diamond_sword", "10001", "u1", 1L);
     }
 
     @Test
@@ -39,10 +39,10 @@ class FogGameTest {
     @Test
     void hasGuessedTracksMatchedItems() {
         FogGame game = newGame();
-        assertFalse(game.hasGuessed("diamond"));
-        game.addGuess(new FogGame.FogGuess("钻石", "diamond", "钻石", FogGame.FogGuess.RESULT_MISS, "qq", "u", 2L));
-        assertTrue(game.hasGuessed("diamond"));
-        assertFalse(game.hasGuessed("stick"));
+        assertFalse(game.hasGuessed("minecraft:diamond"));
+        game.addGuess(new FogGame.FogGuess("钻石", "minecraft:diamond", "钻石", FogGame.FogGuess.RESULT_MISS, "qq", "u", 2L));
+        assertTrue(game.hasGuessed("minecraft:diamond"));
+        assertFalse(game.hasGuessed("minecraft:stick"));
         assertFalse(game.hasGuessed(null));
     }
 

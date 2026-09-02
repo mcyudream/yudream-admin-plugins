@@ -200,7 +200,7 @@ public class QuizAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 快答");
-            variables.put("subtitle", "合成计数抢答 · 每题首答 +1 分 · JE 1.20.5");
+            variables.put("subtitle", "合成计数抢答 · 每题首答 +1 分 · JE " + catalog.version());
             variables.put("questions", questionRows);
             variables.put("progress", game.isPlaying()
                     ? "第 " + (game.currentQuestionIndex() + 1) + "/" + game.questionCount() + " 题"

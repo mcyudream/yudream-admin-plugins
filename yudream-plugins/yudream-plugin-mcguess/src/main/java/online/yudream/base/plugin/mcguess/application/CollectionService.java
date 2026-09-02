@@ -56,7 +56,7 @@ public class CollectionService {
         }
         Map<String, Object> variables = new HashMap<>();
         variables.put("title", "MC 物品图鉴");
-        variables.put("subtitle", "游玩各模式收集物品 · JE 1.20.5");
+        variables.put("subtitle", "游玩各模式收集物品 · JE " + catalog.version());
         variables.put("nickname", player.getNickname() == null || player.getNickname().isBlank()
                 ? "QQ " + player.getQq() : player.getNickname());
         variables.put("collected", player.collectionSize());

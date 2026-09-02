@@ -60,7 +60,7 @@ public class FogAppService {
             FogGame game = activeGame(event, userIdString);
             List<McItem> candidates = catalog.match(rawInput);
             if (candidates.isEmpty()) {
-                return "没有找到 1.20.5 中名为「" + rawInput.trim() + "」的物品。"
+                return "没有找到 " + catalog.version() + " 中名为「" + rawInput.trim() + "」的物品。"
                         + "\n支持智能匹配：可忽略颜色词（红色/白色…）、主世界木质词（橡木/云杉…）与材质词（染色/磨制/切制）。";
             }
             McItem matched = pickCandidate(candidates, game);
@@ -146,7 +146,7 @@ public class FogAppService {
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("title", "MC 迷雾猜物");
-            variables.put("subtitle", "看破迷雾 · 认出图标 · JE 1.20.5");
+            variables.put("subtitle", "看破迷雾 · 认出图标 · JE " + catalog.version());
             variables.put("targetZh", ended && target != null ? target.zh() : "？？？");
             variables.put("targetIcon", target == null ? null : icons.dataUri(target.id()));
             variables.put("iconFilter", ended ? "none" : STAGE_FILTERS.get(game.getStage()));

@@ -109,7 +109,7 @@ public class HolAppService {
                 String b = player.getHolB();
                 Map<String, Object> vars = new HashMap<>();
                 vars.put("title", "MC 比大小");
-                vars.put("subtitle", "全部合成配方中出现次数 · Higher or Lower · JE 1.20.5");
+                vars.put("subtitle", "全部合成配方中出现次数 · Higher or Lower · JE " + catalog.version());
                 vars.put("aZh", zhOf(a));
                 vars.put("aIcon", icons.dataUri(a));
                 vars.put("aScore", catalog.occurrenceScore(a));

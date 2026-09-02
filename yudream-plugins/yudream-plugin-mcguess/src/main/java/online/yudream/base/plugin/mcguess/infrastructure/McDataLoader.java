@@ -2,59 +2,27 @@ package online.yudream.base.plugin.mcguess.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import online.yudream.base.plugin.mcguess.domain.McCatalog;
-import online.yudream.base.plugin.mcguess.domain.McItem;
 import online.yudream.base.plugin.mcguess.domain.McMobCatalog;
-import online.yudream.base.plugin.mcguess.domain.McRecipe;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * 加载插件数据集：mcguess/mcdata.json 物品与配方（tools/build_assets.py 生成）、
- * mcguess/mcmobs.json 手工精选生物数据集。
+ * 加载 mcguess 自有的手工精选生物业务数据集；物品与配方由 mc-wiki provider 提供。
  */
 public final class McDataLoader {
 
-    private static final String DATA_RESOURCE = "mcguess/mcdata.json";
     private static final String MOB_RESOURCE = "mcguess/mcmobs.json";
 
     private McDataLoader() {
     }
 
-    public static McCatalog load(ClassLoader classLoader) {
-        JsonNode root;
-        try (InputStream input = classLoader.getResourceAsStream(DATA_RESOURCE)) {
-            if (input == null) {
-                throw new IllegalStateException("缺少数据资源 " + DATA_RESOURCE + "，请先运行 tools/build_assets.py 生成");
-            }
-            root = new ObjectMapper().readTree(input);
-        } catch (IOException e) {
-            throw new IllegalStateException("解析 " + DATA_RESOURCE + " 失败：" + e.getMessage(), e);
-        }
-        List<McItem> items = new ArrayList<>();
-        for (JsonNode node : root.withArray("items")) {
-            items.add(new McItem(
-                    node.get("id").asText(),
-                    node.get("en").asText(),
-                    node.get("zh").asText(),
-                    node.get("craft").asBoolean(),
-                    node.get("icon").asBoolean()));
-        }
-        Map<String, McRecipe> recipes = new LinkedHashMap<>();
-        JsonNode recipesNode = root.get("recipes");
-        recipesNode.properties().forEach(entry -> {
-            List<String> grid = new ArrayList<>();
-            for (JsonNode cell : entry.getValue().withArray("g")) {
-                grid.add(cell.isNull() ? null : cell.asText());
-            }
-            recipes.put(entry.getKey(), new McRecipe(entry.getKey(), grid, entry.getValue().get("c").asInt(1)));
-        });
-        return new McCatalog(items, recipes);
+    /** @deprecated 物品目录已由 mc-wiki provider 快照装配，测试与运行时不得读取本地 JSON。 */
+    @Deprecated
+    public static online.yudream.base.plugin.mcguess.domain.McCatalog load(ClassLoader classLoader) {
+        throw new UnsupportedOperationException("mcguess 不再加载自有 mcdata.json，请使用 McAssetsSnapshot");
     }
 
     public static McMobCatalog loadMobs(ClassLoader classLoader) {
@@ -67,6 +35,7 @@ public final class McDataLoader {
         } catch (IOException e) {
             throw new IllegalStateException("解析 " + MOB_RESOURCE + " 失败：" + e.getMessage(), e);
         }
+        String version = root.hasNonNull("mcVersion") ? root.get("mcVersion").asText() : "";
         List<McMobCatalog.McCondition> conditions = new ArrayList<>();
         for (JsonNode node : root.withArray("conditions")) {
             conditions.add(new McMobCatalog.McCondition(node.get("code").asText(), node.get("zh").asText()));
@@ -79,6 +48,6 @@ public final class McDataLoader {
             }
             mobs.add(new McMobCatalog.McMob(node.get("id").asText(), node.get("zh").asText(), cond));
         }
-        return new McMobCatalog(mobs, conditions);
+        return new McMobCatalog(mobs, conditions, version);
     }
 }

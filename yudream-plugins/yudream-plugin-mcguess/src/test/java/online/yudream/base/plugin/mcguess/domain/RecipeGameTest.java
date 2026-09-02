@@ -16,10 +16,10 @@ class RecipeGameTest {
 
     /** 铁镐配方：铁锭 铁锭 铁锭 / 空 木棍 空 / 空 木棍 空（含空位，用 Arrays.asList 允许 null）。 */
     private static RecipeGame pickaxe() {
-        return new RecipeGame("r1", "conn-1", "qq", "20001", "iron_pickaxe",
-                Arrays.asList("iron_ingot", "iron_ingot", "iron_ingot",
-                        null, "stick", null,
-                        null, "stick", null),
+        return new RecipeGame("r1", "conn-1", "qq", "20001", "minecraft:iron_pickaxe",
+                Arrays.asList("minecraft:iron_ingot", "minecraft:iron_ingot", "minecraft:iron_ingot",
+                        null, "minecraft:stick", null,
+                        null, "minecraft:stick", null),
                 "10001", "1", 1000L);
     }
 
@@ -30,9 +30,9 @@ class RecipeGameTest {
         assertFalse(RecipeGame.isValidCell(10));
         assertFalse(game.isEmptySlot(1));
         assertTrue(game.isEmptySlot(4));
-        assertTrue(game.matches(1, "iron_ingot"));
-        assertFalse(game.matches(1, "stick"));
-        assertFalse(game.matches(4, "stick"), "空位不匹配任何物品");
+        assertTrue(game.matches(1, "minecraft:iron_ingot"));
+        assertFalse(game.matches(1, "minecraft:stick"));
+        assertFalse(game.matches(4, "minecraft:stick"), "空位不匹配任何物品");
         assertFalse(game.isRevealedSlot(1));
         assertEquals(5, game.ingredientSlotCount());
     }
@@ -40,14 +40,14 @@ class RecipeGameTest {
     @Test
     void revealItemRevealsAllSlotsOfSameIngredient() {
         RecipeGame game = pickaxe();
-        assertEquals(List.of(1, 2, 3), game.revealItem("iron_ingot"));
+        assertEquals(List.of(1, 2, 3), game.revealItem("minecraft:iron_ingot"));
         assertTrue(game.isRevealedSlot(1));
         assertTrue(game.isRevealedSlot(3));
         assertEquals(3, game.revealedSlotCount());
         assertFalse(game.isComplete());
-        assertEquals(List.of("stick"), game.unrevealedIngredients());
+        assertEquals(List.of("minecraft:stick"), game.unrevealedIngredients());
 
-        assertEquals(List.of(5, 8), game.revealItem("stick"));
+        assertEquals(List.of(5, 8), game.revealItem("minecraft:stick"));
         assertTrue(game.isComplete(), "全部原料揭示即获胜");
     }
 

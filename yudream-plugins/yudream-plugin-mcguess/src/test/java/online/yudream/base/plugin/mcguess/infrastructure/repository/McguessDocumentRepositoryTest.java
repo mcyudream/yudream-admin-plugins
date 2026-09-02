@@ -36,8 +36,8 @@ class McguessDocumentRepositoryTest {
     void itemGameWithNullFieldsSurvivesSandboxStore() {
         SandboxStore store = new SandboxStore();
         McguessDocumentGameRepository repo = new McguessDocumentGameRepository(store);
-        McguessGame game = new McguessGame("g1", "conn-1", null, "20001", "diamond_sword", null, null, 1000L);
-        game.addGuess(new McGuess("泥土", "dirt", "泥土", McGuess.RESULT_MISS, null, 0, "10001", null, 1100L));
+        McguessGame game = new McguessGame("g1", "conn-1", null, "20001", "minecraft:diamond_sword", null, null, 1000L);
+        game.addGuess(new McGuess("泥土", "minecraft:dirt", "泥土", McGuess.RESULT_MISS, null, 0, "10001", null, 1100L));
 
         repo.save(game);
 
@@ -54,9 +54,9 @@ class McguessDocumentRepositoryTest {
     void findLatestReturnsMostRecentItemGame() {
         SandboxStore store = new SandboxStore();
         McguessDocumentGameRepository repo = new McguessDocumentGameRepository(store);
-        McguessGame older = new McguessGame("g1", "conn-1", "qq", "20001", "diamond_sword", "10001", "1", 1000L);
+        McguessGame older = new McguessGame("g1", "conn-1", "qq", "20001", "minecraft:diamond_sword", "10001", "1", 1000L);
         older.win("10001", "1", 1500L);
-        McguessGame newer = new McguessGame("g2", "conn-1", "qq", "20001", "iron_pickaxe", "10002", null, 2000L);
+        McguessGame newer = new McguessGame("g2", "conn-1", "qq", "20001", "minecraft:iron_pickaxe", "10002", null, 2000L);
         repo.save(older);
         repo.save(newer);
 
@@ -78,7 +78,7 @@ class McguessDocumentRepositoryTest {
         legacy.put("date", "2026-08-01");
         legacy.put("connectionId", "conn-1");
         legacy.put("channelId", "20001");
-        legacy.put("targetId", "diamond_sword");
+        legacy.put("targetId", "minecraft:diamond_sword");
         legacy.put("status", McguessGame.STATUS_WON);
         legacy.put("winnerQq", "10001");
         legacy.put("startedAt", 1000L);
@@ -148,20 +148,21 @@ class McguessDocumentRepositoryTest {
     void recipeGameGridAndCountersSurviveSandboxStore() {
         SandboxStore store = new SandboxStore();
         McguessDocumentRecipeGameRepository repo = new McguessDocumentRecipeGameRepository(store);
-        RecipeGame game = new RecipeGame("r1", "conn-1", "qq", "20001", "iron_pickaxe",
-                Arrays.asList("iron_ingot", "iron_ingot", "iron_ingot", null, "stick", null, null, "stick", null),
+        RecipeGame game = new RecipeGame("r1", "conn-1", "qq", "20001", "minecraft:iron_pickaxe",
+                Arrays.asList("minecraft:iron_ingot", "minecraft:iron_ingot", "minecraft:iron_ingot", null,
+                        "minecraft:stick", null, null, "minecraft:stick", null),
                 "10001", "1", 1000L);
-        game.revealItem("iron_ingot");
+        game.revealItem("minecraft:iron_ingot");
         game.restoreCounters(3, 1);
         game.addGuess(new RecipeGuess(4, "石头", null, null, RecipeGuess.RESULT_EMPTY, "10001", "1", 1100L));
 
         repo.save(game);
 
         RecipeGame reloaded = repo.findActive("conn-1", "20001").orElseThrow();
-        assertEquals("iron_ingot", reloaded.getGrid().get(0));
+        assertEquals("minecraft:iron_ingot", reloaded.getGrid().get(0));
         assertNull(reloaded.getGrid().get(3), "空位序列化为空串后应读回 null");
         assertEquals(9, reloaded.getGrid().size());
-        assertTrue(reloaded.getRevealed().contains("iron_ingot"));
+        assertTrue(reloaded.getRevealed().contains("minecraft:iron_ingot"));
         assertEquals(3, reloaded.getEmptyStreak());
         assertEquals(1, reloaded.getHintsUsed());
         assertEquals(1, reloaded.getGuesses().size());
