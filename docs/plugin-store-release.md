@@ -98,7 +98,7 @@ Tag 发布是**显式选择性发布**：受保护的 `v*` tag 流水线只打�
 - `icon` 是非空字符串、`screenshots` 是非空字符串数组；两者都是相对于模块 `src/main/resources/` 的本地文件路径。资源只从该目录复制，且必须是常规文件。源路径不得为空、绝对、包含 `..`、反斜杠或 `//`；符号链接及任何解析后逃离 resources 根目录的文件均被拒绝。
 - `compatibility` 是可选对象，只允许可选的 `host`、`spi`、`frontendSdk` 字符串范围，分别声明宿主、插件 SPI 和前端 SDK 版本要求；已声明的键覆盖默认值，未声明的键仍使用默认值。
 - `dependencies` 是可选数组；每项必须恰好具有非空 `code`、`range` 和布尔 `required`。同一 `code` 不得重复。`required: true` 表示安装前必须已有满足范围的本地插件；`false` 仅表示可选集成状态，不触发自动安装。
-- 未声明 `dependencies` 时，生成器从最终 JAR 的 `plugin.yml` 生成：`depend` 条目映射为 `required: true`，`softdepend` 映射为 `false`，每个范围为 `^` 加该 JAR 的 `plugin.yml version`；无依赖时生成空数组。若 `store.json.dependencies` 显式覆盖范围，其 code 集合和 `required` 语义必须与 `plugin.yml` 完全一致，否则生成失败。
+- 未声明 `dependencies` 时，生成器从最终 JAR 的 `plugin.yml` 生成：`depend` 条目映射为 `required: true`，`softdepend` 映射为 `false`，每个范围的默认值为 `^` 加**依赖模块在本仓中的 `plugin.yml version`**（即与该依赖同仓构建、测试过的兼容基线）；依赖 code 不属于本仓模块时回退为 `^` 加该 JAR 自身的 `plugin.yml version` 并打印警告，此时必须在 `store.json.dependencies` 显式声明范围；无依赖时生成空数组。若 `store.json.dependencies` 显式覆盖范围，其 code 集合和 `required` 语义必须与 `plugin.yml` 完全一致，否则生成失败。
 - `compatibility` 和 `dependencies[].range` 只允许与宿主 `SemVerRange` 一致的稳定版受限语法：精确 `1.2.3`、`^1.2.3`、`~1.2.3`、`>=1.2.3 <2.0.0` 交集，以及 `1.x`、`1.2.x`（通配符仅接受 `x`/`X`，不接受 `*`）。预发布/构建标识、`||`、Maven 方括号或圆括号范围及其他格式均在 descriptor 生成时拒绝。
 - 生成器拒绝未知 `store.json` 或 `compatibility` 字段，避免把拼写错误发布为不可执行的安装契约。
 - 资源在 descriptor 中使用 `plugins/{pluginCode}/assets/{sourcePath}` 路径。图标、截图和 descriptor 均先于索引上传；每个插件索引随后上传，根 `index.json` 始终最后上传。

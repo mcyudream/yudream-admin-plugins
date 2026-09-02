@@ -49,16 +49,38 @@ plugin_store_resolve_module_dir() {
 plugin_store_jar_dependencies() {
   jar_path=$1
   plugin_version=$2
-  "$PLUGIN_STORE_PYTHON" - "$jar_path" "$plugin_version" <<'PY'
+  "$PLUGIN_STORE_PYTHON" - "$jar_path" "$plugin_version" "$ROOT_DIR" <<'PY'
+import glob
+import json
+import os
 import re
 import subprocess
 import sys
 
-jar_path, version = sys.argv[1:]
+jar_path, version, root_dir = sys.argv[1:4]
 try:
     text = subprocess.check_output(["unzip", "-p", jar_path, "plugin.yml"], stderr=subprocess.DEVNULL).decode("utf-8")
 except (subprocess.CalledProcessError, UnicodeDecodeError):
     raise SystemExit(f"unable to read UTF-8 plugin.yml from JAR: {jar_path}")
+
+def repo_dependency_versions(root):
+    # First-party dependencies live in this monorepo: their plugin.yml version is
+    # the compatibility baseline the consumer was built and tested against.
+    versions = {}
+    pattern = os.path.join(root, "yudream-plugins", "*", "src", "main", "resources", "plugin.yml")
+    for path in glob.glob(pattern):
+        try:
+            with open(path, encoding="utf-8") as handle:
+                content = handle.read()
+        except OSError:
+            continue
+        name = re.search(r"(?m)^name:\s*([^\s#]+?)\s*(?:#.*)?$", content)
+        ver = re.search(r"(?m)^version:\s*([^\s#]+?)\s*(?:#.*)?$", content)
+        if name and ver:
+            versions[name.group(1).strip("\"'")] = ver.group(1).strip("\"'")
+    return versions
+
+repo_versions = repo_dependency_versions(root_dir)
 
 sections = {"depend": True, "softdepend": False}
 dependencies = []
@@ -83,9 +105,15 @@ for line in text.splitlines():
     if code in seen:
         raise SystemExit(f"duplicate dependency code in JAR plugin.yml: {code}")
     seen.add(code)
-    dependencies.append({"code": code, "range": f"^{version}", "required": sections[current]})
+    dependency_version = repo_versions.get(code)
+    if dependency_version is None:
+        # Dependency outside this monorepo: ^{own version} is only a placeholder,
+        # declare the real range explicitly in the module store.json.
+        print(f"warning: dependency '{code}' of {jar_path} is not a repo module; "
+              f"falling back to range ^{version}", file=sys.stderr)
+        dependency_version = version
+    dependencies.append({"code": code, "range": f"^{dependency_version}", "required": sections[current]})
 
-import json
 print(json.dumps(dependencies, ensure_ascii=False, separators=(",", ":")))
 PY
 }
