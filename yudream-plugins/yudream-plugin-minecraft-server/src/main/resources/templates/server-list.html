@@ -15,6 +15,7 @@
     .offline .icon { background: #5a3030; border-color: #321a1a; box-shadow: inset 0 0 0 5px #9c5050; }
     .name { font-size: 22px; font-weight: 700; line-height: 1.25; text-shadow: 2px 2px #111; }
     .motd { color: #c9c9c9; font-size: 16px; line-height: 1.45; margin-top: 4px; white-space: pre-line; overflow-wrap: anywhere; }
+    .brief { color: #9fbf98; font-size: 15px; line-height: 1.45; margin-top: 4px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .meta { color: #777; font-size: 14px; margin-top: 5px; }
     .status { min-width: 180px; text-align: right; }
     .count { font-size: 20px; color: #bcbcbc; }
@@ -37,6 +38,7 @@
     <div>
       <div class="name" th:text="${'#' + server.index + '  ' + server.name}">#1 Minecraft Server</div>
       <div class="motd" th:text="${server.motd}">A Minecraft Server</div>
+      <div class="brief" th:if="${server.brief != null and !server.brief.isEmpty()}" th:text="${server.brief}">服务器简介</div>
       <div class="meta" th:text="${server.address + ' · ' + server.edition}">play.example.com</div>
     </div>
     <div class="status">

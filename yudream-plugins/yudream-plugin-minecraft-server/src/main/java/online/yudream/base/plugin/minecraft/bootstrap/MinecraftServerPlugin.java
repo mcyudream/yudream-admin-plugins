@@ -11,6 +11,7 @@ import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServe
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerReportController;
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerUserController;
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
+import online.yudream.base.plugin.minecraft.interfaces.support.BriefText;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
@@ -40,7 +41,7 @@ import java.util.Set;
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
         name = "minecraft-server",
-        version = "1.0.0",
+        version = "1.2.0",
         description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
 )
 @PluginPermissions({
@@ -149,8 +150,12 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         context.registerHttpController(new MinecraftServerAdminController(http));
         context.registerHttpController(new MinecraftServerReportController(http));
         context.registerAiTool(new PluginAiTool() {
-            @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("minecraft.server.status", "查询服务器状态", "查询已启用 Minecraft 服务器的在线状态", VIEW_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION", "RANDOM"), Map.of()); }
-            @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) { return new PluginAiToolResult("status", "已查询 Minecraft 服务器状态", Map.of("servers", appService.listServers(false, true))); }
+            @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("minecraft.server.status", "查询服务器状态", "查询已启用 Minecraft 服务器的简介、地址与在线状态", VIEW_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION", "RANDOM"), Map.of()); }
+            @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) {
+                List<Map<String, Object>> servers = appService.listServers(false, true).stream()
+                        .map(MinecraftServerPlugin::aiServerView).toList();
+                return new PluginAiToolResult("status", "已查询 Minecraft 服务器状态", Map.of("servers", servers));
+            }
         });
     }
 
@@ -256,9 +261,25 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         view.put("ping", endpointStatus == null || endpointStatus.ping() == null ? "--" : endpointStatus.ping() + " ms");
         view.put("motd", endpointStatus == null || endpointStatus.motd() == null || endpointStatus.motd().isBlank()
                 ? "A Minecraft Server" : MinecraftStatusService.plainMotd(endpointStatus.motd()));
+        view.put("brief", BriefText.ofMarkdown(server.descriptionMarkdown()));
         view.put("favicon", endpointStatus == null ? null : endpointStatus.favicon());
         view.put("players", players);
         view.put("unreportedPlayers", Math.max(0, (status == null ? 0 : status.onlinePlayers()) - players.size()));
+        return view;
+    }
+
+    /** AI 工具负载：剔除 favicon base64 与超长 Markdown 描述，避免撑爆上下文与回答。 */
+    private static Map<String, Object> aiServerView(MinecraftServerDTO server) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("name", server.name());
+        view.put("brief", BriefText.ofMarkdown(server.descriptionMarkdown()));
+        var status = server.status();
+        view.put("online", status != null && "ONLINE".equalsIgnoreCase(status.status()));
+        view.put("onlinePlayers", status == null ? 0 : status.onlinePlayers());
+        view.put("maxPlayers", status == null ? 0 : status.maxPlayers());
+        var primary = server.endpoints().stream().filter(MinecraftServerDTO.EndpointDTO::primaryLine).findFirst()
+                .orElse(server.endpoints().isEmpty() ? null : server.endpoints().getFirst());
+        view.put("address", primary == null ? "" : primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port()));
         return view;
     }
 
