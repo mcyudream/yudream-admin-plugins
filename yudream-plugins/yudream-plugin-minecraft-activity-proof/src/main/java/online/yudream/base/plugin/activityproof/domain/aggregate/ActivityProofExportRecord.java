@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record ActivityProofExportRecord(
         String id,
+        String activityId,
         String serverId,
         String serverName,
         String activityName,
@@ -25,12 +26,13 @@ public record ActivityProofExportRecord(
         participants = participants == null ? List.of() : List.copyOf(participants);
     }
 
-    public static ActivityProofExportRecord create(String serverId, String serverName, String activityName,
+    public static ActivityProofExportRecord create(String activityId, String serverId, String serverName, String activityName,
                                                    String outputObjectKey, String outputFilename,
                                                    int participantCount, int unmatchedCount, String operatorUserId,
                                                    List<ActivityProofParticipantSnapshot> participants) {
         return new ActivityProofExportRecord(
                 UUID.randomUUID().toString(),
+                activityId == null ? "" : activityId.trim(),
                 serverId,
                 serverName,
                 activityName,
@@ -52,6 +54,7 @@ public record ActivityProofExportRecord(
     public ActivityProofExportRecord withStampedPdf(String objectKey, String filename, String contentType, long size, long uploadedAt) {
         return new ActivityProofExportRecord(
                 id,
+                activityId,
                 serverId,
                 serverName,
                 activityName,

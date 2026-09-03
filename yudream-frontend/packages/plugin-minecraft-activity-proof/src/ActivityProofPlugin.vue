@@ -1,46 +1,41 @@
 <script setup lang="ts">
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { computed, watch } from 'vue'
-import { useActivityProof } from './composables/useActivityProof'
-import ExportPage from './pages/ExportPage.vue'
-import MinePage from './pages/MinePage.vue'
+import { computed } from 'vue'
+import ActivitiesPage from './pages/ActivitiesPage.vue'
+import ActivityAdminDetailPage from './pages/ActivityAdminDetailPage.vue'
+import ActivityDetailPage from './pages/ActivityDetailPage.vue'
+import ActivityEditPage from './pages/ActivityEditPage.vue'
 import MappingsPage from './pages/MappingsPage.vue'
+import MinePage from './pages/MinePage.vue'
+import MyActivitiesPage from './pages/MyActivitiesPage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
+import SquarePage from './pages/SquarePage.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
   route?: RouteLocationNormalizedLoaded
 }>()
 
-const model = useActivityProof(props.sdk)
-const page = computed(() => {
-  const path = props.route?.path || ''
-  if (path.includes('/my-activity-proofs')) {
-    return 'mine'
-  }
-  if (path.endsWith('/activity-proof/records')) {
-    return 'records'
-  }
-  if (path.endsWith('/activity-proof/mappings')) {
-    return 'mappings'
-  }
-  if (path.endsWith('/activity-proof/settings')) {
-    return 'settings'
-  }
-  return 'export'
-})
+const componentName = computed(() => (props.route?.meta?.plugin as { component?: string } | undefined)?.component || '')
 
-watch(page, value => model.loadPage(value), { immediate: true })
+const page = computed(() => {
+  if (componentName.value.endsWith('/ActivityDetail')) return ActivityDetailPage
+  if (componentName.value.endsWith('/MyActivities')) return MyActivitiesPage
+  if (componentName.value.endsWith('/Mine')) return MinePage
+  if (componentName.value.endsWith('/Activities')) return ActivitiesPage
+  if (componentName.value.endsWith('/ActivityEdit')) return ActivityEditPage
+  if (componentName.value.endsWith('/ActivityAdminDetail')) return ActivityAdminDetailPage
+  if (componentName.value.endsWith('/Records')) return RecordsPage
+  if (componentName.value.endsWith('/Mappings')) return MappingsPage
+  if (componentName.value.endsWith('/Settings')) return SettingsPage
+  return SquarePage
+})
 </script>
 
 <template>
   <div class="minecraft-activity-proof-plugin">
-    <RecordsPage v-if="page === 'records'" :model="model" />
-    <MinePage v-else-if="page === 'mine'" :model="model" />
-    <MappingsPage v-else-if="page === 'mappings'" :model="model" />
-    <SettingsPage v-else-if="page === 'settings'" :model="model" />
-    <ExportPage v-else :model="model" />
+    <component :is="page" :sdk="sdk" :route="route" />
   </div>
 </template>

@@ -2,6 +2,7 @@ package online.yudream.base.plugin.activityproof.application.dto;
 
 public record ActivityProofExportDTO(
         String id,
+        String activityId,
         String serverId,
         String serverName,
         String activityName,

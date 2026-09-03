@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.activityproof.application.dto;
 
+import java.util.List;
+
 public record ActivityProofSettingsDTO(
         boolean templateReady,
         String templateId,
@@ -10,6 +12,10 @@ public record ActivityProofSettingsDTO(
         String defaultActivityName,
         String defaultCollege,
         String defaultIssuer,
+        boolean qqNotifyEnabled,
+        String qqConnectionId,
+        List<String> qqGroupIds,
+        String qqMessageTemplate,
         long updatedAt
 ) {
 }

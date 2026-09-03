@@ -1,15 +1,22 @@
 <script setup lang="ts">
+import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
-import type { ActivityProofModel } from '../composables/useActivityProof'
 import type { ActivityProofExportRecord } from '../types'
 import { FaButton, FaCard, FaFileUpload, FaIcon, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable } from '@yudream/components'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useProofRecords } from '../composables/useProofRecords'
+import { formatFileSize, formatTime } from '../composables/utils'
 
 const props = defineProps<{
-  model: ActivityProofModel
+  sdk: YuDreamPluginSdk
 }>()
-const uploadFiles = ref([])
+
+const model = useProofRecords(props.sdk)
+const { loading, acting, records, pager } = model
+
+const uploadFiles = ref<File[]>([])
 const uploadVisible = ref(false)
+const uploading = ref(false)
 const uploadTarget = ref<ActivityProofExportRecord | null>(null)
 
 const columns: TableColumn<ActivityProofExportRecord>[] = [
@@ -21,6 +28,8 @@ const columns: TableColumn<ActivityProofExportRecord>[] = [
   { id: 'operation', header: '操作', width: 320, align: 'center', fixed: 'right' },
 ]
 
+onMounted(model.load)
+
 function openUpload(record: ActivityProofExportRecord) {
   uploadTarget.value = record
   uploadFiles.value = []
@@ -28,33 +37,55 @@ function openUpload(record: ActivityProofExportRecord) {
 }
 
 async function handleUpload(options: { file: File }) {
-  if (!uploadTarget.value) return
-  await props.model.uploadStampedPdfFile(uploadTarget.value, options.file)
-  uploadVisible.value = false
+  if (!uploadTarget.value || uploading.value) return
+  uploading.value = true
+  try {
+    await model.uploadStampedPdf(uploadTarget.value, options.file)
+    uploadVisible.value = false
+  }
+  finally {
+    uploading.value = false
+  }
 }
-
-async function pageChanged() { await props.model.loadRecords() }
 </script>
 
 <template>
   <section class="proof-page">
     <FaPageHeader title="活动证明记录">
-      <FaButton variant="outline" :loading="model.loading" @click="model.loadRecords">
+      <FaButton variant="outline" :loading="loading" @click="model.load">
         <FaIcon name="i-ri:refresh-line" />刷新
       </FaButton>
     </FaPageHeader>
     <FaPageMain>
-      <FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[1280px]" border stripe column-visibility :columns="columns" :data="model.exports">
-        <template #cell-file="{ row }"><strong>{{ row.original.outputFilename }}</strong><div>{{ row.original.serverName || row.original.serverId }}</div></template>
-        <template #cell-participants="{ row }">{{ row.original.participantCount }} 人<span v-if="row.original.unmatchedCount"> / {{ row.original.unmatchedCount }} 未匹配</span></template>
-        <template #cell-pdf="{ row }"><strong>{{ row.original.stampedPdfReady ? row.original.stampedPdfFilename : '未上传' }}</strong><div v-if="row.original.stampedPdfReady">{{ model.formatFileSize(row.original.stampedPdfSize) }}</div></template>
-        <template #cell-generatedAt="{ row }">{{ model.formatTime(row.original.generatedAt) }}</template>
+      <FaResponsiveTable
+        v-loading="loading"
+        row-key="id"
+        table-root-class="max-w-full overflow-x-auto rounded-lg"
+        table-class="min-w-[1280px]"
+        border
+        stripe
+        column-visibility
+        :columns="columns"
+        :data="records"
+      >
+        <template #cell-file="{ row }">
+          <strong>{{ row.original.outputFilename }}</strong>
+          <div>{{ row.original.serverName || row.original.serverId }}</div>
+        </template>
+        <template #cell-participants="{ row }">
+          {{ row.original.participantCount }} 人<span v-if="row.original.unmatchedCount"> / {{ row.original.unmatchedCount }} 未匹配</span>
+        </template>
+        <template #cell-pdf="{ row }">
+          <strong>{{ row.original.stampedPdfReady ? row.original.stampedPdfFilename : '未上传' }}</strong>
+          <div v-if="row.original.stampedPdfReady">{{ formatFileSize(row.original.stampedPdfSize) }}</div>
+        </template>
+        <template #cell-generatedAt="{ row }">{{ formatTime(row.original.generatedAt) }}</template>
         <template #cell-operation="{ row }">
           <div class="flex-center gap-2">
-            <FaButton size="sm" variant="outline" @click="model.openDownload(row.original)">下载 Word</FaButton>
-            <FaButton v-if="row.original.stampedPdfReady" size="sm" variant="outline" @click="model.openStampedPdf(row.original)">下载 PDF</FaButton>
+            <FaButton size="sm" variant="outline" :loading="acting" @click="model.download(row.original)">下载 Word</FaButton>
+            <FaButton v-if="row.original.stampedPdfReady" size="sm" variant="outline" :loading="acting" @click="model.downloadStamped(row.original)">下载 PDF</FaButton>
             <FaButton size="sm" variant="outline" @click="openUpload(row.original)">上传 PDF</FaButton>
-            <FaButton size="sm" variant="destructive" @click="model.deleteExportRecord(row.original)">删除</FaButton>
+            <FaButton size="sm" variant="destructive" @click="model.remove(row.original)">删除</FaButton>
           </div>
         </template>
         <template #card="{ row }">
@@ -78,20 +109,27 @@ async function pageChanged() { await props.model.loadRecords() }
                 </div>
                 <div class="flex gap-2">
                   <span class="shrink-0 text-secondary-foreground/60">生成时间</span>
-                  <span>{{ model.formatTime(row.generatedAt) }}</span>
+                  <span>{{ formatTime(row.generatedAt) }}</span>
                 </div>
               </div>
               <div class="flex flex-wrap gap-2 border-t pt-3">
-                <FaButton size="sm" variant="outline" @click="model.openDownload(row)">下载 Word</FaButton>
-                <FaButton v-if="row.stampedPdfReady" size="sm" variant="outline" @click="model.openStampedPdf(row)">下载 PDF</FaButton>
+                <FaButton size="sm" variant="outline" :loading="acting" @click="model.download(row)">下载 Word</FaButton>
+                <FaButton v-if="row.stampedPdfReady" size="sm" variant="outline" :loading="acting" @click="model.downloadStamped(row)">下载 PDF</FaButton>
                 <FaButton size="sm" variant="outline" @click="openUpload(row)">上传 PDF</FaButton>
-                <FaButton size="sm" variant="destructive" @click="model.deleteExportRecord(row)">删除</FaButton>
+                <FaButton size="sm" variant="destructive" @click="model.remove(row)">删除</FaButton>
               </div>
             </div>
           </FaCard>
         </template>
       </FaResponsiveTable>
-      <FaPagination v-model:page="model.exportsPager.page" v-model:size="model.exportsPager.size" :total="model.exportsPager.total" class="mt-3" @page-change="pageChanged" @size-change="pageChanged" />
+      <FaPagination
+        v-model:page="pager.page"
+        v-model:size="pager.size"
+        :total="pager.total"
+        class="mt-3"
+        @page-change="model.load"
+        @size-change="model.load"
+      />
       <FaModal
         v-model="uploadVisible"
         title="上传盖章 PDF"

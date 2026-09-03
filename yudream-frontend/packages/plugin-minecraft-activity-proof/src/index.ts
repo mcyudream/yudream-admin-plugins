@@ -1,22 +1,43 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
+import markdownEditorStyles from 'md-editor-v3/lib/style.css?inline'
 import activityProofStyles from './styles.css?inline'
 import ActivityProofPlugin from './ActivityProofPlugin.vue'
+import DashboardActivityCard from './components/DashboardActivityCard.vue'
 
-export const Export = ActivityProofPlugin
-export const Records = ActivityProofPlugin
+export { DashboardActivityCard }
+
+export const Square = ActivityProofPlugin
+export const ActivityDetail = ActivityProofPlugin
+export const MyActivities = ActivityProofPlugin
 export const Mine = ActivityProofPlugin
+export const Activities = ActivityProofPlugin
+export const ActivityEdit = ActivityProofPlugin
+export const ActivityAdminDetail = ActivityProofPlugin
+export const Records = ActivityProofPlugin
 export const Mappings = ActivityProofPlugin
 export const Settings = ActivityProofPlugin
 
 export const routes = {
-  Export,
-  Records,
+  Square,
+  ActivityDetail,
+  MyActivities,
   Mine,
+  Activities,
+  ActivityEdit,
+  ActivityAdminDetail,
+  Records,
   Mappings,
   Settings,
-  'minecraft-activity-proof/Export': Export,
-  'minecraft-activity-proof/Records': Records,
+  DashboardActivityCard,
+  'minecraft-activity-proof/DashboardActivityCard': DashboardActivityCard,
+  'minecraft-activity-proof/Square': Square,
+  'minecraft-activity-proof/ActivityDetail': ActivityDetail,
+  'minecraft-activity-proof/MyActivities': MyActivities,
   'minecraft-activity-proof/Mine': Mine,
+  'minecraft-activity-proof/Activities': Activities,
+  'minecraft-activity-proof/ActivityEdit': ActivityEdit,
+  'minecraft-activity-proof/ActivityAdminDetail': ActivityAdminDetail,
+  'minecraft-activity-proof/Records': Records,
   'minecraft-activity-proof/Mappings': Mappings,
   'minecraft-activity-proof/Settings': Settings,
 }
@@ -32,11 +53,11 @@ export function install() {
     style.id = id
     document.head.appendChild(style)
   }
-  style.textContent = activityProofStyles
+  style.textContent = `${markdownEditorStyles}\n${activityProofStyles}`
 }
 
 export default defineYuDreamPlugin({
   routes,
-  default: Export,
+  default: Square,
   install,
 })
