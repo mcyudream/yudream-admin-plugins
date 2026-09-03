@@ -2,7 +2,7 @@ name: minecraft-activity-proof
 displayName: Minecraft 活动平台
 description: 活动发布与参与管理平台：活动广场、部门限制、服务器时长/动态表单核验、活动证明导出。
 main: online.yudream.base.plugin.activityproof.bootstrap.MinecraftActivityProofPlugin
-version: 2.1.0
+version: 2.1.1
 depend:
   - yudream-student-info
 softdepend:

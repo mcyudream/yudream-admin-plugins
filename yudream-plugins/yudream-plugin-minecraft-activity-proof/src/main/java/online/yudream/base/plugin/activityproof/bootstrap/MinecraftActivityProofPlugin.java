@@ -17,7 +17,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.1.0",
+        version = "2.1.1",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
