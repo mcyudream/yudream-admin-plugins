@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView, MaterialDetail, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { CategoryView, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 import { useFaToast } from '@yudream/components'
 import { reactive, ref } from 'vue'
 import { createMaterialApi, saveBlob } from '../api/material-api'
@@ -126,6 +126,28 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     catch (error) {
       toast.error(errorMessage(error))
       throw error
+    }
+  }
+
+  /** 文件夹批量导入：分类按名复用或自动创建（可能新增分类），返回 null 表示请求失败。 */
+  async function importFolder(payload: FolderImportPayload): Promise<FolderImportResult | null> {
+    try {
+      const result = await api.importFolder(payload)
+      const target = result.categoryName ? `到「${result.categoryName}」` : ''
+      if (result.failures.length) {
+        toast.warning(`已导入 ${result.created}/${result.total} 个文件${target}，失败清单见导入窗口`)
+      }
+      else {
+        toast.success(`已导入 ${result.created} 个文件${target}`)
+      }
+      await loadLibrary()
+      void loadTags()
+      void loadCategories()
+      return result
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      return null
     }
   }
 
@@ -398,6 +420,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     loadTags,
     loadCovers,
     uploadMaterial,
+    importFolder,
     editMaterial,
     isOwner,
     removeMaterial,

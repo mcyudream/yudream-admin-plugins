@@ -97,6 +97,31 @@ export interface CoverView {
   url: string
 }
 
+/** 文件夹批量导入的单个文件条目：fileId 来自平台文件上传，name 留空时后端取文件名去扩展名。 */
+export interface FolderImportItem {
+  fileId: string
+  filename: string
+  name?: string
+}
+
+/** 文件夹批量导入请求：categoryName 与 categoryId 二选一，按名查找（忽略大小写）不存在则自动创建。 */
+export interface FolderImportPayload {
+  categoryId?: string
+  categoryName?: string
+  visibility?: string
+  tags?: string[]
+  items: FolderImportItem[]
+}
+
+/** 文件夹批量导入结果：单个文件失败不中断整批，failures 收集逐文件原因。 */
+export interface FolderImportResult {
+  total: number
+  created: number
+  categoryId?: string
+  categoryName?: string
+  failures: { filename: string, message: string }[]
+}
+
 /** 卡片网格的类型图标兜底映射。 */
 export const TYPE_ICONS: Record<string, string> = {
   IMAGE: 'i-ri:image-line',

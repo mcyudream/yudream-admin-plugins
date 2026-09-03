@@ -1,6 +1,7 @@
 packages:
   - packages/plugin-*
 catalog:
+  '@arco-design/web-vue': ^2.58.0
   '@types/node': ^25.9.3
   '@types/qrcode': ^1.5.5
   '@vitejs/plugin-vue': ^6.0.7

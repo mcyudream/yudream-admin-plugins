@@ -2,8 +2,11 @@
 import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
 import type { MaterialSummary } from '../types'
 import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTag, useFaModal } from '@yudream/components'
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import CategorySelect from '../components/CategorySelect.vue'
+import ImportFolderModal from '../components/ImportFolderModal.vue'
+import TagPicker from '../components/TagPicker.vue'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
 import ShareModal from '../components/ShareModal.vue'
 import { formatSize, MATERIAL_TYPES, TYPE_ICONS, VISIBILITY_OPTIONS, visibilityLabel } from '../types'
@@ -14,6 +17,7 @@ const router = useRouter()
 const confirm = useFaModal()
 
 const uploadOpen = ref(false)
+const importOpen = ref(false)
 const saving = ref(false)
 
 // 编辑基本信息（名称/分类/标签/可见范围）
@@ -21,7 +25,7 @@ const editOpen = ref(false)
 const editTarget = ref<MaterialSummary | null>(null)
 const editName = ref('')
 const editCategoryId = ref('')
-const editTags = ref('')
+const editTags = ref<string[]>([])
 const editVisibility = ref('PRIVATE')
 
 // 分享外链
@@ -43,11 +47,6 @@ const scopeOptions = [
   { label: '全部可见', value: '' },
   { label: '只看我的', value: 'mine' },
 ]
-
-const editCategoryOptions = computed(() => [
-  { label: '未分类', value: '' },
-  ...model.categories.map(category => ({ label: category.name, value: category.id })),
-])
 
 function typeIcon(row: MaterialSummary) {
   return TYPE_ICONS[row.type] || TYPE_ICONS.OTHER
@@ -72,7 +71,7 @@ function openEdit(row: MaterialSummary) {
   editTarget.value = row
   editName.value = row.name
   editCategoryId.value = row.categoryId || ''
-  editTags.value = (row.tags || []).join(', ')
+  editTags.value = [...(row.tags || [])]
   editVisibility.value = row.visibility || 'PRIVATE'
   editOpen.value = true
 }
@@ -83,8 +82,7 @@ async function submitEdit() {
   }
   saving.value = true
   try {
-    const tags = editTags.value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean)
-    await model.editMaterial(editTarget.value.id, editName.value.trim(), editCategoryId.value, tags, editVisibility.value)
+    await model.editMaterial(editTarget.value.id, editName.value.trim(), editCategoryId.value, editTags.value, editVisibility.value)
     editOpen.value = false
   }
   finally {
@@ -120,6 +118,7 @@ onMounted(() => {
       />
       <FaSelect v-model="model.libraryFilters.scope" :options="scopeOptions" class="material-header-type" @change="model.applyLibraryFilters" />
       <FaSelect v-model="model.libraryFilters.type" :options="MATERIAL_TYPES" class="material-header-type" @change="model.applyLibraryFilters" />
+      <FaButton variant="outline" @click="importOpen = true"><FaIcon name="i-ri:folder-upload-line" />导入文件夹</FaButton>
       <FaButton @click="uploadOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传物料</FaButton>
     </div>
   </FaPageHeader>
@@ -225,13 +224,15 @@ onMounted(() => {
           v-model:page="model.libraryPager.page"
           v-model:size="model.libraryPager.size"
           :total="model.libraryPager.total"
+          :sizes="[12, 24, 48, 96]"
           class="mt-3"
           @page-change="model.loadLibrary"
           @size-change="model.applyLibraryFilters"
         />
       </div>
     </div>
-    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :saving="saving" @submit="submitUpload" />
+    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :tags="model.tags" :saving="saving" @submit="submitUpload" />
+    <ImportFolderModal v-model="importOpen" :sdk="model.sdk" :tags="model.tags" :submit="model.importFolder" />
     <ShareModal v-model="shareOpen" :material="shareTarget" :model="model" />
     <FaModal v-model="editOpen" title="编辑物料信息" :confirm-button-loading="saving" @confirm="submitEdit">
       <div class="flex flex-col gap-3">
@@ -241,11 +242,11 @@ onMounted(() => {
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">分类</span>
-          <FaSelect v-model="editCategoryId" :options="editCategoryOptions" />
+          <CategorySelect v-model="editCategoryId" :categories="model.categories" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">标签（逗号分隔，最多 8 个）</span>
-          <FaInput v-model="editTags" />
+          <span class="text-secondary-foreground/80">标签（最多 8 个）</span>
+          <TagPicker v-model="editTags" :tags="model.tags" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">可见范围</span>

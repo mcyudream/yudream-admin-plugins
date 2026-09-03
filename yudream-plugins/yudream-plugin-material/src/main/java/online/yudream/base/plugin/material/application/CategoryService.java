@@ -41,6 +41,21 @@ public final class CategoryService {
         return new CategoryView(category.id(), category.name(), category.sort(), 0L, category.createdAt());
     }
 
+    /** 按名称查找分类（忽略大小写），不存在则以追加排序自动创建——文件夹导入等场景使用。 */
+    public CategoryView findOrCreateByName(String name) {
+        String trimmed = normalize(name);
+        return categories.listAll().stream()
+                .filter(category -> category.name().equalsIgnoreCase(trimmed))
+                .findFirst()
+                .map(category -> new CategoryView(category.id(), category.name(), category.sort(),
+                        0L, category.createdAt()))
+                .orElseGet(() -> create(trimmed, nextSort()));
+    }
+
+    private int nextSort() {
+        return categories.listAll().stream().mapToInt(MaterialCategory::sort).max().orElse(-1) + 1;
+    }
+
     public CategoryView update(String id, String name, int sort) {
         MaterialCategory existing = categories.findById(id)
                 .orElseThrow(() -> new NotFoundException("分类不存在"));

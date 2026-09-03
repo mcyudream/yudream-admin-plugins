@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import type { FileItem, FileUploadRequestOptions } from '@yudream/components'
 import type { YuDreamPluginFileObject, YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView } from '../types'
+import type { CategoryView, TagView } from '../types'
 import { FaFileUpload, FaInput, FaModal, FaSelect } from '@yudream/components'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { uploadFileWithProgress } from '../api/upload'
 import { VISIBILITY_OPTIONS } from '../types'
+import CategorySelect from './CategorySelect.vue'
+import TagPicker from './TagPicker.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
   categories: CategoryView[]
+  tags: TagView[]
   saving?: boolean
 }>()
 const open = defineModel<boolean>({ required: true })
@@ -19,14 +22,9 @@ const files = ref<FileItem[]>([])
 const uploaded = ref<YuDreamPluginFileObject | null>(null)
 const name = ref('')
 const categoryId = ref('')
-const tags = ref('')
+const tags = ref<string[]>([])
 const visibility = ref('PRIVATE')
 const uploadError = ref('')
-
-const categoryOptions = computed(() => [
-  { label: '未分类', value: '' },
-  ...props.categories.map(category => ({ label: category.name, value: category.id })),
-])
 
 watch(open, (value) => {
   if (value) {
@@ -34,7 +32,7 @@ watch(open, (value) => {
     uploaded.value = null
     name.value = ''
     categoryId.value = ''
-    tags.value = ''
+    tags.value = []
     visibility.value = 'PRIVATE'
     uploadError.value = ''
   }
@@ -57,13 +55,12 @@ function onConfirm() {
     uploadError.value = '请先选择并上传文件'
     return
   }
-  const tagList = tags.value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean)
   emit('submit', {
     fileId: uploaded.value.id,
     filename: uploaded.value.originalName || files.value[0]?.name || 'file',
     name: name.value.trim(),
     categoryId: categoryId.value,
-    tags: tagList,
+    tags: tags.value,
     visibility: visibility.value,
   })
 }
@@ -93,11 +90,11 @@ function onConfirm() {
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">分类</span>
-        <FaSelect v-model="categoryId" :options="categoryOptions" />
+        <CategorySelect v-model="categoryId" :categories="props.categories" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
-        <span class="text-secondary-foreground/80">标签（逗号分隔，最多 8 个）</span>
-        <FaInput v-model="tags" placeholder="如：周年庆, 海报" />
+        <span class="text-secondary-foreground/80">标签（最多 8 个）</span>
+        <TagPicker v-model="tags" :tags="props.tags" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">可见范围</span>

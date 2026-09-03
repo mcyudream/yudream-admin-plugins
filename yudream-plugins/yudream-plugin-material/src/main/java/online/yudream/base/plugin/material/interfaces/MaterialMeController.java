@@ -1,12 +1,14 @@
 package online.yudream.base.plugin.material.interfaces;
 
 import java.util.List;
-import online.yudream.base.plugin.material.application.MaterialService;
 import online.yudream.base.plugin.material.application.CategoryService;
+import online.yudream.base.plugin.material.application.FolderImportService;
+import online.yudream.base.plugin.material.application.MaterialService;
 import online.yudream.base.plugin.material.application.NotFoundException;
 import online.yudream.base.plugin.material.application.PreviewService;
 import online.yudream.base.plugin.material.application.ShareService;
 import online.yudream.base.plugin.material.application.command.CreateMaterialCommand;
+import online.yudream.base.plugin.material.application.command.FolderImportCommand;
 import online.yudream.base.plugin.material.application.command.NewVersionCommand;
 import online.yudream.base.plugin.material.application.command.UpdateMaterialCommand;
 import online.yudream.base.plugin.material.bootstrap.MaterialPlugin;
@@ -16,6 +18,7 @@ import online.yudream.base.plugin.material.domain.MaterialVersion;
 import online.yudream.base.plugin.material.infrastructure.JsonSupport;
 import online.yudream.base.plugin.material.interfaces.request.CreateMaterialRequest;
 import online.yudream.base.plugin.material.interfaces.request.CreateShareRequest;
+import online.yudream.base.plugin.material.interfaces.request.FolderImportRequest;
 import online.yudream.base.plugin.material.interfaces.request.NewVersionRequest;
 import online.yudream.base.plugin.material.interfaces.request.RestoreRequest;
 import online.yudream.base.plugin.material.interfaces.request.UpdateMaterialRequest;
@@ -28,14 +31,17 @@ import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 public final class MaterialMeController {
     private final MaterialService materialService;
     private final CategoryService categoryService;
+    private final FolderImportService folderImportService;
     private final PreviewService previewService;
     private final ShareService shareService;
     private final JsonSupport json;
 
     public MaterialMeController(MaterialService materialService, CategoryService categoryService,
+                                FolderImportService folderImportService,
                                 PreviewService previewService, ShareService shareService, JsonSupport json) {
         this.materialService = materialService;
         this.categoryService = categoryService;
+        this.folderImportService = folderImportService;
         this.previewService = previewService;
         this.shareService = shareService;
         this.json = json;
@@ -59,6 +65,28 @@ public final class MaterialMeController {
             return PluginHttpResponse.ok(materialService.create(HttpSupport.requireUserId(request),
                     new CreateMaterialCommand(body.fileId(), body.filename(), body.name(), body.categoryId(),
                             body.tags(), body.visibility())));
+        });
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/me/materials/import-folder", permission = MaterialPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse importFolder(PluginHttpRequest request) {
+        return HttpSupport.guard(() -> {
+            FolderImportRequest body = json.read(request.body(), FolderImportRequest.class);
+            List<FolderImportCommand.Item> items = body.items() == null ? List.of() : body.items().stream()
+                    .map(item -> new FolderImportCommand.Item(item.fileId(), item.filename(), item.name()))
+                    .toList();
+            FolderImportService.FolderImportResult result = folderImportService.importFolder(
+                    HttpSupport.requireUserId(request),
+                    new FolderImportCommand(body.categoryId(), body.categoryName(), body.visibility(), body.tags(), items));
+            return PluginHttpResponse.ok(java.util.Map.of(
+                    "total", result.total(),
+                    "created", result.created(),
+                    "categoryId", result.categoryId() == null ? "" : result.categoryId(),
+                    "categoryName", result.categoryName() == null ? "" : result.categoryName(),
+                    "failures", result.failures().stream()
+                            .map(failure -> java.util.Map.of("filename", failure.filename(),
+                                    "message", failure.message() == null ? "未知错误" : failure.message()))
+                            .toList()));
         });
     }
 

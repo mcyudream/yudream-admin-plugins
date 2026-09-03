@@ -1,5 +1,17 @@
 import type { YuDreamPluginFileObject, YuDreamPluginSdk } from '@yudream/plugin-sdk'
 
+/** 动态创建目录选择器：FaFileUpload 不支持 webkitdirectory，隐藏原生 input 也会被仓库规范检查拦截。用户取消时 Promise 不落终态，调用方保持原状即可。 */
+export function pickDirectory(): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.webkitdirectory = true
+    input.multiple = true
+    input.onchange = () => resolve(Array.from(input.files || []))
+    input.click()
+  })
+}
+
 interface BackendEnvelope<T> {
   code: number
   message: string

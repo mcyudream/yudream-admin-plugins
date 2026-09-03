@@ -3,6 +3,7 @@ package online.yudream.base.plugin.material.bootstrap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import online.yudream.base.plugin.material.application.AdminMaterialService;
 import online.yudream.base.plugin.material.application.CategoryService;
+import online.yudream.base.plugin.material.application.FolderImportService;
 import online.yudream.base.plugin.material.application.MaterialService;
 import online.yudream.base.plugin.material.application.PreviewService;
 import online.yudream.base.plugin.material.application.ShareService;
@@ -64,10 +65,11 @@ public final class MaterialPlugin implements YuDreamPlugin {
         MaterialService materialService = new MaterialService(materials, versions, categories, storage, intake, shares, context.framework());
         AdminMaterialService adminService = new AdminMaterialService(materialService, materials);
         CategoryService categoryService = new CategoryService(categories, materials);
+        FolderImportService folderImportService = new FolderImportService(materialService, categoryService);
         PreviewService previewService = new PreviewService(context.framework(), CODE);
         ShareService shareService = new ShareService(shares, materialService, context.framework());
 
-        context.registerHttpController(new MaterialMeController(materialService, categoryService, previewService, shareService, json));
+        context.registerHttpController(new MaterialMeController(materialService, categoryService, folderImportService, previewService, shareService, json));
         context.registerHttpController(new MaterialAdminController(adminService, materialService, categoryService, previewService, json));
         context.registerHttpController(new SharePublicController(shareService, materialService, previewService));
     }

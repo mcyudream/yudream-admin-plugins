@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView, CoverView, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { CategoryView, CoverView, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 
 function query(params: Record<string, string | number | undefined>) {
   const value = new URLSearchParams()
@@ -33,6 +33,8 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
     myDetail: (materialId: string) => sdk.http.get<MaterialDetail>(`/me/materials/${id(materialId)}`),
     createMaterial: (data: { fileId: string, filename: string, name?: string, categoryId?: string, tags?: string[], visibility?: string }) =>
       sdk.http.post<MaterialDetail>('/me/materials', data),
+    importFolder: (data: FolderImportPayload) =>
+      sdk.http.post<FolderImportResult>('/me/materials/import-folder', data),
     updateMaterial: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string }) =>
       sdk.http.request<MaterialDetail>(`/me/materials/${id(materialId)}`, { method: 'PUT', data }),
     deleteMaterial: (materialId: string) =>

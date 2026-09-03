@@ -425,7 +425,11 @@ public final class MaterialService {
     }
 
     private static String displayName(String name, String filename) {
-        return name == null || name.isBlank() ? filename : name.trim();
+        if (name != null && !name.isBlank()) {
+            return name.trim();
+        }
+        int dot = filename.lastIndexOf('.');
+        return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
     private static String blankToNull(String value) {
