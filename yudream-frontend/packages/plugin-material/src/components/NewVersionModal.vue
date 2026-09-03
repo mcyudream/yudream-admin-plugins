@@ -3,6 +3,7 @@ import type { FileItem, FileUploadRequestOptions } from '@yudream/components'
 import type { YuDreamPluginFileObject, YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { FaFileUpload, FaModal, FaTextarea } from '@yudream/components'
 import { ref, watch } from 'vue'
+import { uploadFileWithProgress } from '../api/upload'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk, saving?: boolean }>()
 const open = defineModel<boolean>({ required: true })
@@ -23,7 +24,7 @@ watch(open, (value) => {
 })
 
 async function httpRequest(options: FileUploadRequestOptions) {
-  return props.sdk.files.uploadImage(options.file, { module: 'material', publicAccess: false })
+  return uploadFileWithProgress(props.sdk, options.file, options.onProgress)
 }
 
 function onSuccess(response: YuDreamPluginFileObject) {

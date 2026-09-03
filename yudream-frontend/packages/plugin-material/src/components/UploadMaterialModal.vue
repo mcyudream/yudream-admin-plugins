@@ -4,6 +4,7 @@ import type { YuDreamPluginFileObject, YuDreamPluginSdk } from '@yudream/plugin-
 import type { CategoryView } from '../types'
 import { FaFileUpload, FaInput, FaModal, FaSelect } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
+import { uploadFileWithProgress } from '../api/upload'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -37,8 +38,8 @@ watch(open, (value) => {
 })
 
 async function httpRequest(options: FileUploadRequestOptions) {
-  // 插件 HTTP 通道不支持 multipart，先借宿主文件上传桥拿到 fileId，再交给插件落库
-  return props.sdk.files.uploadImage(options.file, { module: 'material', publicAccess: false })
+  // 插件 HTTP 通道不支持 multipart，借宿主文件上传接口拿 fileId 再交给插件落库；XHR 版带进度且不受宿主 60s 超时限制
+  return uploadFileWithProgress(props.sdk, options.file, options.onProgress)
 }
 
 function onSuccess(response: YuDreamPluginFileObject, file: File) {
