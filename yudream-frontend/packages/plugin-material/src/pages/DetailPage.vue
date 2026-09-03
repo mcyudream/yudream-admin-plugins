@@ -8,7 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NewVersionModal from '../components/NewVersionModal.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
 import ShareModal from '../components/ShareModal.vue'
-import { formatSize, formatTime } from '../types'
+import { formatSize, formatTime, visibilityLabel } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -22,6 +22,8 @@ const shareOpen = ref(false)
 const saving = ref(false)
 /** 预览中的版本；空串表示当前版本 */
 const previewVersion = ref('')
+/** 他人物料只读：可预览/下载，变更操作仅属主可用 */
+const isOwner = computed(() => !!model.detail && model.isOwner(model.detail.material))
 
 const previewVersionOptions = computed(() => {
   const options = model.versions.map(version => ({
@@ -88,11 +90,11 @@ onMounted(async () => {
 
 <template>
   <template v-if="model.detail">
-    <FaPageHeader :title="model.detail.material.name" :description="`${model.detail.material.typeLabel} · .${model.detail.material.ext} · ${formatSize(model.detail.material.size)} · 当前 v${model.detail.material.currentVersion}`">
+    <FaPageHeader :title="model.detail.material.name" :description="`${model.detail.material.typeLabel} · .${model.detail.material.ext} · ${formatSize(model.detail.material.size)} · 当前 v${model.detail.material.currentVersion} · ${visibilityLabel(model.detail.material.visibility)}可见 · 上传者 ${model.detail.material.ownerName || '-'}`">
       <FaButton variant="outline" @click="router.push('/platform/plugins/material')"><FaIcon name="i-ri:arrow-left-line" />返回物料库</FaButton>
       <FaButton variant="outline" @click="model.downloadMine(model.detail.material)"><FaIcon name="i-ri:download-line" />下载当前版本</FaButton>
-      <FaButton variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
-      <FaButton @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
+      <FaButton v-if="isOwner" variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
+      <FaButton v-if="isOwner" @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
     </FaPageHeader>
     <FaPageMain>
       <div class="material-detail-layout">
@@ -135,8 +137,8 @@ onMounted(async () => {
               <div class="flex-center gap-2">
                 <FaButton size="sm" variant="outline" @click="previewVersion = String(row.original.version)">预览</FaButton>
                 <FaButton size="sm" variant="outline" @click="model.downloadMine(model.detail!.material, row.original.version)">下载</FaButton>
-                <FaButton v-if="!row.original.current" size="sm" variant="outline" @click="confirmRestore(row.original)">回滚到此</FaButton>
-                <FaButton v-if="!row.original.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row.original)">删除</FaButton>
+                <FaButton v-if="isOwner && !row.original.current" size="sm" variant="outline" @click="confirmRestore(row.original)">回滚到此</FaButton>
+                <FaButton v-if="isOwner && !row.original.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row.original)">删除</FaButton>
               </div>
             </template>
             <template #card="{ row }">
@@ -151,8 +153,8 @@ onMounted(async () => {
                 <div class="flex flex-wrap gap-2">
                   <FaButton size="sm" variant="outline" @click="previewVersion = String(row.version)">预览</FaButton>
                   <FaButton size="sm" variant="outline" @click="model.downloadMine(model.detail!.material, row.version)">下载</FaButton>
-                  <FaButton v-if="!row.current" size="sm" variant="outline" @click="confirmRestore(row)">回滚到此</FaButton>
-                  <FaButton v-if="!row.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row)">删除</FaButton>
+                  <FaButton v-if="isOwner && !row.current" size="sm" variant="outline" @click="confirmRestore(row)">回滚到此</FaButton>
+                  <FaButton v-if="isOwner && !row.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row)">删除</FaButton>
                 </div>
               </div>
             </template>

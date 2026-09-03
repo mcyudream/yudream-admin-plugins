@@ -20,6 +20,7 @@ import online.yudream.base.plugin.material.infrastructure.MaterialRepository;
 import online.yudream.base.plugin.material.infrastructure.MaterialVersionRepository;
 import online.yudream.base.plugin.material.infrastructure.PlatformFileIntake;
 import online.yudream.base.plugin.material.infrastructure.ShareRepository;
+import online.yudream.base.plugin.spi.system.user.PluginUserDept;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +50,7 @@ class MaterialServiceTest {
     }
 
     private MaterialDetail createAs(String ownerId, String fileId, String filename, String name) {
-        return service.create(ownerId, new CreateMaterialCommand(fileId, filename, name, null, List.of("海报")));
+        return service.create(ownerId, new CreateMaterialCommand(fileId, filename, name, null, List.of("海报"), null));
     }
 
     @Test
@@ -63,9 +64,11 @@ class MaterialServiceTest {
         assertEquals(1, summary.currentVersion());
         assertEquals("7", summary.ownerId());
         assertEquals("用户7", summary.ownerName());
+        // 缺省可见性为仅自己
+        assertEquals(Material.VISIBILITY_PRIVATE, summary.visibility());
         assertTrue(files.exists("materials/" + summary.id() + "/v1/file"));
 
-        MaterialDetail detail = service.detailMine("7", summary.id());
+        MaterialDetail detail = service.detailVisible("7", summary.id());
         assertEquals(summary.id(), detail.material().id());
         assertEquals(1, detail.currentVersionInfo().version());
         assertEquals("海报.psd", detail.currentVersionInfo().originalName());
@@ -81,25 +84,25 @@ class MaterialServiceTest {
     void ownershipIsolatedAcrossUsers() {
         MaterialDetail created = createAs("7", "pf-1", "a.png", "mine");
         String id = created.material().id();
-        assertThrows(NotFoundException.class, () -> service.detailMine("8", id));
+        assertThrows(NotFoundException.class, () -> service.detailVisible("8", id));
         assertThrows(NotFoundException.class,
-                () -> service.updateMeta("8", id, new UpdateMaterialCommand("x", null, null)));
-        assertEquals(0, service.listMine("8", null, null, null, null, null, 1, 20).total());
+                () -> service.updateMeta("8", id, new UpdateMaterialCommand("x", null, null, null)));
+        assertEquals(0, service.listVisible("8", null, null, null, null, null, null, 1, 20).total());
     }
 
     @Test
-    void listMineFiltersAndPaginates() {
+    void listVisibleFiltersAndPaginates() {
         createAs("7", "pf-1", "a.psd", "设计稿");
         framework.addPlatformFile("pf-3", "x".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
         MaterialDetail second = service.create("7",
-                new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, null));
+                new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, null, null));
 
-        assertEquals(2, service.listMine("7", null, null, null, null, null, 1, 20).total());
-        assertEquals(1, service.listMine("7", null, "VIDEO", null, null, null, 1, 20).total());
-        assertEquals(1, service.listMine("7", "海报", null, null, null, null, 1, 20).total());
-        assertEquals(0, service.listMine("7", "不存在", null, null, null, null, 1, 20).total());
+        assertEquals(2, service.listVisible("7", null, null, null, null, null, null, 1, 20).total());
+        assertEquals(1, service.listVisible("7", null, null, "VIDEO", null, null, null, 1, 20).total());
+        assertEquals(1, service.listVisible("7", null, "海报", null, null, null, null, 1, 20).total());
+        assertEquals(0, service.listVisible("7", null, "不存在", null, null, null, null, 1, 20).total());
 
-        PageResult<MaterialSummary> page = service.listMine("7", null, null, null, null, null, 1, 1);
+        PageResult<MaterialSummary> page = service.listVisible("7", null, null, null, null, null, null, 1, 1);
         assertEquals(2, page.total());
         assertEquals(1, page.records().size());
         // 新创建的排最前（id 倒置时间戳）
@@ -113,46 +116,148 @@ class MaterialServiceTest {
         Material material = materials.findById(id).orElseThrow();
         materials.save(material.withStatus(Material.STATUS_ARCHIVED, System.currentTimeMillis()));
 
-        assertEquals(0, service.listMine("7", null, null, null, null, null, 1, 20).total());
-        assertEquals(1, service.listMine("7", null, null, null, "ARCHIVED", null, 1, 20).total());
+        assertEquals(0, service.listVisible("7", null, null, null, null, null, null, 1, 20).total());
+        assertEquals(1, service.listVisible("7", null, null, null, null, "ARCHIVED", null, 1, 20).total());
     }
 
     @Test
-    void listMineFiltersByTag() {
+    void listVisibleFiltersByTag() {
         createAs("7", "pf-1", "a.psd", "设计稿");
         framework.addPlatformFile("pf-3", "x".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
-        service.create("7", new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, List.of("视频", "宣传")));
+        service.create("7", new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, List.of("视频", "宣传"), null));
 
-        assertEquals(1, service.listMine("7", null, null, null, null, "视频", 1, 20).total());
-        assertEquals(1, service.listMine("7", null, null, null, null, "海报", 1, 20).total());
-        assertEquals(0, service.listMine("7", null, null, null, null, "不存在", 1, 20).total());
+        assertEquals(1, service.listVisible("7", null, null, null, null, null, "视频", 1, 20).total());
+        assertEquals(1, service.listVisible("7", null, null, null, null, null, "海报", 1, 20).total());
+        assertEquals(0, service.listVisible("7", null, null, null, null, null, "不存在", 1, 20).total());
         // 精确匹配（忽略大小写），不做子串匹配
-        assertEquals(0, service.listMine("7", null, null, null, null, "视", 1, 20).total());
+        assertEquals(0, service.listVisible("7", null, null, null, null, null, "视", 1, 20).total());
     }
 
     @Test
-    void listMyTagsCountsOwnActiveMaterials() {
+    void listVisibleTagsCountsVisibleActiveMaterials() {
         createAs("7", "pf-1", "a.psd", "设计稿");
         framework.addPlatformFile("pf-3", "x".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
         MaterialDetail second = service.create("7",
-                new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, List.of("海报", "视频")));
+                new CreateMaterialCommand("pf-3", "b.mp4", "宣传视频", null, List.of("海报", "视频"), null));
         framework.addPlatformFile("pf-4", "y".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
-        service.create("8", new CreateMaterialCommand("pf-4", "c.png", "别人的", null, List.of("私有")));
+        // 他人的私有物料不进入标签云
+        service.create("8", new CreateMaterialCommand("pf-4", "c.png", "别人的", null, List.of("私有"), null));
+        framework.addPlatformFile("pf-5", "z".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
+        // 他人的公开物料进入标签云
+        service.create("8", new CreateMaterialCommand("pf-5", "d.png", "公开素材", null, List.of("素材"), "PUBLIC"));
 
-        List<TagView> tags = service.listMyTags("7");
-        assertEquals(2, tags.size());
+        List<TagView> tags = service.listVisibleTags("7");
+        assertEquals(3, tags.size());
         assertEquals("海报", tags.get(0).name());
         assertEquals(2, tags.get(0).count());
-        assertEquals("视频", tags.get(1).name());
+        // 同计数按名称字典序
+        assertEquals("素材", tags.get(1).name());
         assertEquals(1, tags.get(1).count());
+        assertEquals("视频", tags.get(2).name());
+        assertEquals(1, tags.get(2).count());
 
         // 归档后不再计入标签云
         Material material = materials.findById(second.material().id()).orElseThrow();
         materials.save(material.withStatus(Material.STATUS_ARCHIVED, System.currentTimeMillis()));
-        tags = service.listMyTags("7");
-        assertEquals(1, tags.size());
+        tags = service.listVisibleTags("7");
+        assertEquals(2, tags.size());
         assertEquals("海报", tags.get(0).name());
         assertEquals(1, tags.get(0).count());
+    }
+
+    // ---------- 可见性授权矩阵 ----------
+
+    @Test
+    void publicMaterialReadableByOthersButNotWritable() {
+        MaterialDetail created = service.create("7",
+                new CreateMaterialCommand("pf-1", "a.png", "公开图", null, null, "PUBLIC"));
+        String id = created.material().id();
+
+        // 他人可见：详情 / 版本 / 列表 / 下载读通路
+        assertEquals(id, service.detailVisible("8", id).material().id());
+        assertEquals(1, service.listVersions("8", id).size());
+        assertEquals(1, service.listVisible("8", null, null, null, null, null, null, 1, 20).total());
+        Material material = service.requireVisible("8", id);
+        assertEquals(id, material.id());
+
+        // 他人不可写：改名 / 新版本 / 删除仍按归属拦截
+        assertThrows(NotFoundException.class,
+                () -> service.updateMeta("8", id, new UpdateMaterialCommand("篡改", null, null, null)));
+        assertThrows(NotFoundException.class,
+                () -> service.newVersion("8", id, new NewVersionCommand("pf-2", "b.png", null)));
+        assertThrows(NotFoundException.class, () -> service.deleteMine("8", id));
+
+        // scope=mine 只列自己的
+        assertEquals(0, service.listVisible("8", "mine", null, null, null, null, null, 1, 20).total());
+        assertEquals(1, service.listVisible("7", "mine", null, null, null, null, null, 1, 20).total());
+    }
+
+    @Test
+    void deptMaterialVisibleWithinSameDeptOnly() {
+        framework.setUserDepts(7, List.of(new PluginUserDept(100L, "技术部", true)));
+        framework.setUserDepts(8, List.of(new PluginUserDept(100L, "技术部", false)));
+        framework.setUserDepts(9, List.of(new PluginUserDept(200L, "市场部", true)));
+
+        MaterialDetail created = service.create("7",
+                new CreateMaterialCommand("pf-1", "a.png", "部门图", null, null, "DEPT"));
+        String id = created.material().id();
+        assertEquals(Material.VISIBILITY_DEPT, created.material().visibility());
+        assertEquals(List.of("技术部"), created.material().deptNames());
+
+        // 同部门可见，跨部门不可见
+        assertEquals(id, service.detailVisible("8", id).material().id());
+        assertThrows(NotFoundException.class, () -> service.detailVisible("9", id));
+        assertEquals(1, service.listVisible("8", null, null, null, null, null, null, 1, 20).total());
+        assertEquals(0, service.listVisible("9", null, null, null, null, null, null, 1, 20).total());
+    }
+
+    @Test
+    void deptVisibilityRequiresMembership() {
+        // 用户 7 不属于任何部门
+        assertThrows(IllegalArgumentException.class, () -> service.create("7",
+                new CreateMaterialCommand("pf-1", "a.png", "部门图", null, null, "DEPT")));
+    }
+
+    @Test
+    void updateVisibilityRefreshesDeptSnapshot() {
+        framework.setUserDepts(7, List.of(new PluginUserDept(100L, "技术部", true)));
+        MaterialDetail created = createAs("7", "pf-1", "a.png", "mine");
+        String id = created.material().id();
+
+        MaterialDetail updated = service.updateMeta("7", id,
+                new UpdateMaterialCommand(null, null, null, "DEPT"));
+        assertEquals(Material.VISIBILITY_DEPT, updated.material().visibility());
+        assertEquals(List.of("技术部"), updated.material().deptNames());
+
+        // visibility=null 不动可见性
+        MaterialDetail untouched = service.updateMeta("7", id,
+                new UpdateMaterialCommand("改名", null, null, null));
+        assertEquals(Material.VISIBILITY_DEPT, untouched.material().visibility());
+        assertEquals("改名", untouched.material().name());
+
+        // 改回仅自己后部门快照清空
+        MaterialDetail back = service.updateMeta("7", id,
+                new UpdateMaterialCommand(null, null, null, "private"));
+        assertEquals(Material.VISIBILITY_PRIVATE, back.material().visibility());
+        assertTrue(back.material().deptNames().isEmpty());
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateMeta("7", id,
+                new UpdateMaterialCommand(null, null, null, "EVERYONE")));
+    }
+
+    @Test
+    void legacyDocWithoutVisibilityDefaultsPrivate() {
+        MaterialDetail created = createAs("7", "pf-1", "a.png", "mine");
+        // 模拟 1.1.0 之前的旧文档：剥掉 visibility 字段重写
+        var doc = new java.util.HashMap<>(docs.findById(MaterialRepository.COLLECTION, created.material().id()).orElseThrow());
+        doc.remove("visibility");
+        doc.remove("deptIds");
+        doc.remove("deptNames");
+        docs.save(MaterialRepository.COLLECTION, created.material().id(), doc);
+
+        Material legacy = materials.findById(created.material().id()).orElseThrow();
+        assertEquals(Material.VISIBILITY_PRIVATE, legacy.visibility());
+        assertThrows(NotFoundException.class, () -> service.detailVisible("8", legacy.id()));
     }
 
     @Test
@@ -179,7 +284,7 @@ class MaterialServiceTest {
         service.newVersion("7", id, new NewVersionCommand("pf-2", "a.md", null));
         MaterialDetail restored = service.restore("7", id, 1);
         assertEquals(1, restored.material().currentVersion());
-        assertEquals(1, service.detailMine("7", id).currentVersionInfo().version());
+        assertEquals(1, service.detailVisible("7", id).currentVersionInfo().version());
     }
 
     @Test
@@ -201,10 +306,10 @@ class MaterialServiceTest {
         service.newVersion("7", id, new NewVersionCommand("pf-2", "b.png", null));
         service.deleteMine("7", id);
 
-        assertEquals(0, service.listMine("7", null, null, null, null, null, 1, 20).total());
+        assertEquals(0, service.listVisible("7", null, null, null, null, null, null, 1, 20).total());
         assertFalse(files.exists("materials/" + id + "/v1/file"));
         assertFalse(files.exists("materials/" + id + "/v2/file"));
-        assertThrows(NotFoundException.class, () -> service.detailMine("7", id));
+        assertThrows(NotFoundException.class, () -> service.detailVisible("7", id));
     }
 
     @Test

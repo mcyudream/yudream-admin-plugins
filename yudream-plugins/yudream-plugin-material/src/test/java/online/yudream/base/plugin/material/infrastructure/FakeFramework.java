@@ -31,12 +31,17 @@ import online.yudream.base.plugin.spi.system.user.PluginUserService;
 /** 宿主 FrameworkServices 假实现：仅 users() 与 platformFile() 有语义，其余未用端口返回 null。 */
 public final class FakeFramework implements FrameworkServices {
     private final Map<String, byte[]> platformFiles = new ConcurrentHashMap<>();
-    private final PluginUserService users = new FakeUsers();
+    private final FakeUsers users = new FakeUsers();
     private PluginFilePreviewService filePreview = new PluginFilePreviewService() {};
 
     /** 测试注入平台文件预览能力桩。 */
     public void useFilePreview(PluginFilePreviewService service) {
         this.filePreview = service;
+    }
+
+    /** 测试注入用户部门列表（listDepartments(Long) 返回）。 */
+    public void setUserDepts(long userId, List<PluginUserDept> depts) {
+        users.depts.put(userId, depts);
     }
 
     @Override
@@ -110,6 +115,7 @@ public final class FakeFramework implements FrameworkServices {
     }
 
     private static final class FakeUsers implements PluginUserService {
+        private final Map<Long, List<PluginUserDept>> depts = new ConcurrentHashMap<>();
         public Optional<PluginUserProfile> authenticate(String usernameOrEmail, String password) {
             return Optional.empty();
         }
@@ -151,7 +157,7 @@ public final class FakeFramework implements FrameworkServices {
         }
 
         public List<PluginUserDept> listDepartments(Long userId) {
-            return List.of();
+            return depts.getOrDefault(userId, List.of());
         }
 
         public void updateProfile(Long userId, PluginUserProfileUpdate update) {

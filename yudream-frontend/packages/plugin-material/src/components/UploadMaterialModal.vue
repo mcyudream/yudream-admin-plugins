@@ -5,6 +5,7 @@ import type { CategoryView } from '../types'
 import { FaFileUpload, FaInput, FaModal, FaSelect } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
 import { uploadFileWithProgress } from '../api/upload'
+import { VISIBILITY_OPTIONS } from '../types'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -12,13 +13,14 @@ const props = defineProps<{
   saving?: boolean
 }>()
 const open = defineModel<boolean>({ required: true })
-const emit = defineEmits<{ submit: [{ fileId: string, filename: string, name: string, categoryId: string, tags: string[] }] }>()
+const emit = defineEmits<{ submit: [{ fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string }] }>()
 
 const files = ref<FileItem[]>([])
 const uploaded = ref<YuDreamPluginFileObject | null>(null)
 const name = ref('')
 const categoryId = ref('')
 const tags = ref('')
+const visibility = ref('PRIVATE')
 const uploadError = ref('')
 
 const categoryOptions = computed(() => [
@@ -33,6 +35,7 @@ watch(open, (value) => {
     name.value = ''
     categoryId.value = ''
     tags.value = ''
+    visibility.value = 'PRIVATE'
     uploadError.value = ''
   }
 })
@@ -61,6 +64,7 @@ function onConfirm() {
     name: name.value.trim(),
     categoryId: categoryId.value,
     tags: tagList,
+    visibility: visibility.value,
   })
 }
 </script>
@@ -94,6 +98,13 @@ function onConfirm() {
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">标签（逗号分隔，最多 8 个）</span>
         <FaInput v-model="tags" placeholder="如：周年庆, 海报" />
+      </label>
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="text-secondary-foreground/80">可见范围</span>
+        <FaSelect v-model="visibility" :options="VISIBILITY_OPTIONS" />
+        <span v-if="visibility === 'DEPT'" class="text-xs text-secondary-foreground/70">仅与您同属一个部门的成员可见（按您当前所在部门生效）</span>
+        <span v-else-if="visibility === 'PUBLIC'" class="text-xs text-secondary-foreground/70">全站成员均可在物料库中查看、预览与下载</span>
+        <span v-else class="text-xs text-secondary-foreground/70">仅您本人可见，后续可随时调整</span>
       </label>
     </div>
   </FaModal>

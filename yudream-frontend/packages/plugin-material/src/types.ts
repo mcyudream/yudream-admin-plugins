@@ -10,12 +10,31 @@ export interface MaterialSummary {
   tags: string[]
   ownerId: string
   ownerName?: string | null
+  /** 可见性：PRIVATE 仅自己 / DEPT 仅部门（deptNames 为设置时的部门快照）/ PUBLIC 公开。 */
+  visibility: string
+  deptNames?: string[]
   currentVersion: number
   size: number | string
   contentType?: string | null
   status: string
   createdAt: number | string
   updatedAt: number | string
+}
+
+export const VISIBILITY_OPTIONS = [
+  { label: '仅自己可见', value: 'PRIVATE' },
+  { label: '仅部门可见', value: 'DEPT' },
+  { label: '公开（全站成员可见）', value: 'PUBLIC' },
+]
+
+const VISIBILITY_LABELS: Record<string, string> = {
+  PRIVATE: '仅自己',
+  DEPT: '仅部门',
+  PUBLIC: '公开',
+}
+
+export function visibilityLabel(value: string | undefined | null) {
+  return VISIBILITY_LABELS[value || 'PRIVATE'] || '仅自己'
 }
 
 export interface VersionView {

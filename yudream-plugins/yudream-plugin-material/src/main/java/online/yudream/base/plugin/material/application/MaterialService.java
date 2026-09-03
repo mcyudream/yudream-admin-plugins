@@ -26,9 +26,13 @@ import online.yudream.base.plugin.material.infrastructure.PlatformFileIntake;
 import online.yudream.base.plugin.material.infrastructure.ShareRepository;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
+import online.yudream.base.plugin.spi.system.user.PluginUserDept;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
-/** 用户端物料用例：全部操作以 ownerId 限定归属，无管理员越权分支。 */
+/**
+ * 用户端物料用例：写操作以 ownerId 限定归属，无管理员越权分支；
+ * 读操作按 visibility 放行——属主全部可见，非属主可见 PUBLIC 与同部门（部门快照交集）的 DEPT。
+ */
 public final class MaterialService {
     private static final int MAX_TAGS = 8;
     private static final int MAX_TAG_LENGTH = 20;
@@ -57,15 +61,19 @@ public final class MaterialService {
 
     // ---------- 查询 ----------
 
-    public PageResult<MaterialSummary> listMine(String ownerId, String keyword, String type,
-                                                String categoryId, String status, String tag, int page, int size) {
+    /** 库页列表：默认返回当前用户全部可见物料（自己的 + 他人公开/同部门的）；scope=mine 时只列自己的。 */
+    public PageResult<MaterialSummary> listVisible(String viewerId, String scope, String keyword, String type,
+                                                   String categoryId, String status, String tag, int page, int size) {
+        boolean mineOnly = "mine".equalsIgnoreCase(scope == null ? "" : scope.trim());
+        java.util.Set<String> viewerDepts = mineOnly ? java.util.Set.of() : deptIdsOf(viewerId);
         String keywordFilter = keyword == null ? "" : keyword.trim();
         String typeFilter = type == null ? "" : type.trim();
         String categoryFilter = categoryId == null ? "" : categoryId.trim();
         String statusFilter = status == null ? "" : status.trim();
         String tagFilter = tag == null ? "" : tag.trim();
         List<Material> filtered = materials.scanAll().stream()
-                .filter(material -> ownerId.equals(material.ownerId()))
+                .filter(material -> mineOnly ? viewerId.equals(material.ownerId())
+                        : canView(viewerId, material, viewerDepts))
                 .filter(material -> statusFilter.isBlank()
                         ? !Material.STATUS_ARCHIVED.equals(material.status())
                         : statusFilter.equalsIgnoreCase(material.status()))
@@ -77,12 +85,13 @@ public final class MaterialService {
         return page(filtered, page, size);
     }
 
-    /** 标签云：统计自己未归档物料的标签使用次数，按次数降序，最多 30 个。 */
-    public List<TagView> listMyTags(String ownerId) {
+    /** 标签云：统计可见范围内未归档物料的标签使用次数，按次数降序，最多 30 个。 */
+    public List<TagView> listVisibleTags(String viewerId) {
+        java.util.Set<String> viewerDepts = deptIdsOf(viewerId);
         Map<String, long[]> counts = new java.util.HashMap<>();
         Map<String, String> display = new java.util.HashMap<>();
         for (Material material : materials.scanAll()) {
-            if (!ownerId.equals(material.ownerId()) || Material.STATUS_ARCHIVED.equals(material.status())
+            if (!canView(viewerId, material, viewerDepts) || Material.STATUS_ARCHIVED.equals(material.status())
                     || material.tags() == null) {
                 continue;
             }
@@ -100,13 +109,13 @@ public final class MaterialService {
                 .toList();
     }
 
-    public MaterialDetail detailMine(String ownerId, String id) {
-        Material material = requireOwn(ownerId, id);
+    public MaterialDetail detailVisible(String viewerId, String id) {
+        Material material = requireVisible(viewerId, id);
         return toDetail(material);
     }
 
-    public List<VersionView> listVersions(String ownerId, String id) {
-        Material material = requireOwn(ownerId, id);
+    public List<VersionView> listVersions(String viewerId, String id) {
+        Material material = requireVisible(viewerId, id);
         return versions.listByMaterial(material.id()).stream()
                 .map(version -> VersionView.from(version, material.currentVersion()))
                 .toList();
@@ -120,6 +129,7 @@ public final class MaterialService {
         String id = Ids.newId();
         long now = System.currentTimeMillis();
         String ownerName = resolveUserName(ownerId);
+        VisibilityAssignment visibility = resolveVisibility(ownerId, command.visibility());
         StoredPayload payload = storePayload(storage.objectKey(id, 1), platform, MaterialType.extOf(filename));
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, 1), id, 1,
                 payload.objectKey(), filename, MaterialType.extOf(filename), payload.size(),
@@ -127,7 +137,8 @@ public final class MaterialService {
         versions.save(version);
         Material material = new Material(id, displayName(command.name(), filename), MaterialType.extOf(filename),
                 MaterialType.fromFilename(filename), blankToNull(command.categoryId()), normalizeTags(command.tags()),
-                ownerId, ownerName, 1, payload.size(), payload.contentType(), Material.STATUS_ACTIVE, now, now);
+                ownerId, ownerName, visibility.value(), visibility.deptIds(), visibility.deptNames(),
+                1, payload.size(), payload.contentType(), Material.STATUS_ACTIVE, now, now);
         materials.save(material);
         return toDetail(material);
     }
@@ -140,6 +151,11 @@ public final class MaterialService {
         }
         Material updated = material.withMeta(name, blankToNull(command.categoryId()),
                 normalizeTags(command.tags()), System.currentTimeMillis());
+        if (command.visibility() != null && !command.visibility().isBlank()) {
+            VisibilityAssignment visibility = resolveVisibility(ownerId, command.visibility());
+            updated = updated.withVisibility(visibility.value(), visibility.deptIds(), visibility.deptNames(),
+                    System.currentTimeMillis());
+        }
         materials.save(updated);
         return toDetail(updated);
     }
@@ -203,6 +219,92 @@ public final class MaterialService {
             throw new NotFoundException("物料不存在");
         }
         return material;
+    }
+
+    /** 读操作准入：属主或 visibility 放行；不可见一律按不存在处理，避免泄露存在性。 */
+    public Material requireVisible(String viewerId, String id) {
+        Material material = materials.findById(id)
+                .orElseThrow(() -> new NotFoundException("物料不存在"));
+        if (!canView(viewerId, material, deptIdsOf(viewerId))) {
+            throw new NotFoundException("物料不存在");
+        }
+        return material;
+    }
+
+    private boolean canView(String viewerId, Material material, java.util.Set<String> viewerDepts) {
+        if (viewerId.equals(material.ownerId())) {
+            return true;
+        }
+        String visibility = material.visibility() == null ? Material.VISIBILITY_PRIVATE : material.visibility();
+        if (Material.VISIBILITY_PUBLIC.equals(visibility)) {
+            return true;
+        }
+        if (Material.VISIBILITY_DEPT.equals(visibility)) {
+            return material.deptIds() != null && material.deptIds().stream().anyMatch(viewerDepts::contains);
+        }
+        return false;
+    }
+
+    /** 用户当前部门 id 集合；SPI 异常或用户不存在时按无部门处理（不会放大可见范围）。 */
+    private java.util.Set<String> deptIdsOf(String userId) {
+        try {
+            List<PluginUserDept> depts = framework.users().listDepartments(Long.parseLong(userId));
+            if (depts == null) {
+                return java.util.Set.of();
+            }
+            java.util.Set<String> ids = new java.util.HashSet<>();
+            for (PluginUserDept dept : depts) {
+                if (dept != null && dept.id() != null) {
+                    ids.add(String.valueOf(dept.id()));
+                }
+            }
+            return ids;
+        }
+        catch (Exception e) {
+            return java.util.Set.of();
+        }
+    }
+
+    /** 解析创建/修改时的可见性；DEPT 会快照属主当前部门（id + 名称），无部门时拒绝。 */
+    private VisibilityAssignment resolveVisibility(String ownerId, String raw) {
+        String normalized = raw == null || raw.isBlank()
+                ? Material.VISIBILITY_PRIVATE : raw.trim().toUpperCase(Locale.ROOT);
+        switch (normalized) {
+            case Material.VISIBILITY_PRIVATE:
+            case Material.VISIBILITY_PUBLIC:
+                return new VisibilityAssignment(normalized, List.of(), List.of());
+            case Material.VISIBILITY_DEPT: {
+                List<PluginUserDept> depts;
+                try {
+                    depts = framework.users().listDepartments(Long.parseLong(ownerId));
+                }
+                catch (Exception e) {
+                    depts = List.of();
+                }
+                if (depts == null || depts.isEmpty()) {
+                    throw new IllegalArgumentException("您未加入任何部门，无法设置仅部门可见");
+                }
+                List<String> ids = depts.stream()
+                        .filter(dept -> dept != null && dept.id() != null)
+                        .map(dept -> String.valueOf(dept.id()))
+                        .distinct()
+                        .toList();
+                List<String> names = depts.stream()
+                        .filter(dept -> dept != null && dept.id() != null)
+                        .map(dept -> dept.name() == null || dept.name().isBlank() ? String.valueOf(dept.id()) : dept.name())
+                        .distinct()
+                        .toList();
+                if (ids.isEmpty()) {
+                    throw new IllegalArgumentException("您未加入任何部门，无法设置仅部门可见");
+                }
+                return new VisibilityAssignment(normalized, ids, names);
+            }
+            default:
+                throw new IllegalArgumentException("可见性仅支持 PRIVATE / DEPT / PUBLIC");
+        }
+    }
+
+    private record VisibilityAssignment(String value, List<String> deptIds, List<String> deptNames) {
     }
 
     public Material requireAny(String id) {

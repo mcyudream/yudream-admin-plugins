@@ -42,7 +42,7 @@ class ShareServiceTest {
     }
 
     private String createMaterial(String ownerId) {
-        return materialService.create(ownerId, new CreateMaterialCommand("pf-1", "海报.psd", "海报", null, List.of()))
+        return materialService.create(ownerId, new CreateMaterialCommand("pf-1", "海报.psd", "海报", null, List.of(), null))
                 .material().id();
     }
 

@@ -77,7 +77,7 @@ class PreviewServiceTest {
     private static Material material(String ext, MaterialType type) {
         long now = System.currentTimeMillis();
         return new Material("m1", "素材." + ext, ext, type, null, List.of(),
-                "7", "用户7", 1, 1024L, null, Material.STATUS_ACTIVE, now, now);
+                "7", "用户7", Material.VISIBILITY_PRIVATE, List.of(), List.of(), 1, 1024L, null, Material.STATUS_ACTIVE, now, now);
     }
 
     private static MaterialVersion version(Material material) {
@@ -163,7 +163,7 @@ class PreviewServiceTest {
         stub.callbackBase = "https://host.example.com";
         long now = System.currentTimeMillis();
         Material material = new Material("m1", "素材", "", MaterialType.DOCUMENT, null, List.of(),
-                "7", "用户7", 1, 1024L, null, Material.STATUS_ACTIVE, now, now);
+                "7", "用户7", Material.VISIBILITY_PRIVATE, List.of(), List.of(), 1, 1024L, null, Material.STATUS_ACTIVE, now, now);
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf("m1", 1), "m1", 1,
                 "materials/m1/v1/file", "素材.docx", "docx", 1024L,
                 null, null, "7", "用户7", now);

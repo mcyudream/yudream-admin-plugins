@@ -27,13 +27,13 @@ function records<T>(promise: Promise<unknown>): Promise<T[]> {
 
 export function createMaterialApi(sdk: YuDreamPluginSdk) {
   return {
-    // ---------- 用户端（/me/**，归属限定当前用户） ----------
-    myMaterials: (keyword = '', type = '', categoryId = '', status = '', tag = '', page = 1, size = 20) =>
-      sdk.http.get<Page<MaterialSummary>>(`/me/materials${query({ keyword, type, categoryId, status, tag, page, size })}`),
+    // ---------- 用户端（/me/**，列表默认返回全部可见物料，scope=mine 只列自己的） ----------
+    myMaterials: (keyword = '', type = '', categoryId = '', status = '', tag = '', page = 1, size = 20, scope = '') =>
+      sdk.http.get<Page<MaterialSummary>>(`/me/materials${query({ keyword, type, categoryId, status, tag, page, size, scope })}`),
     myDetail: (materialId: string) => sdk.http.get<MaterialDetail>(`/me/materials/${id(materialId)}`),
-    createMaterial: (data: { fileId: string, filename: string, name?: string, categoryId?: string, tags?: string[] }) =>
+    createMaterial: (data: { fileId: string, filename: string, name?: string, categoryId?: string, tags?: string[], visibility?: string }) =>
       sdk.http.post<MaterialDetail>('/me/materials', data),
-    updateMaterial: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[] }) =>
+    updateMaterial: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string }) =>
       sdk.http.request<MaterialDetail>(`/me/materials/${id(materialId)}`, { method: 'PUT', data }),
     deleteMaterial: (materialId: string) =>
       sdk.http.request<{ deleted: boolean }>(`/me/materials/${id(materialId)}`, { method: 'DELETE' }),

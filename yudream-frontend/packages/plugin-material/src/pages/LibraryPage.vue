@@ -6,7 +6,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
 import ShareModal from '../components/ShareModal.vue'
-import { formatSize, MATERIAL_TYPES, TYPE_ICONS } from '../types'
+import { formatSize, MATERIAL_TYPES, TYPE_ICONS, VISIBILITY_OPTIONS, visibilityLabel } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -16,12 +16,13 @@ const confirm = useFaModal()
 const uploadOpen = ref(false)
 const saving = ref(false)
 
-// 编辑基本信息（名称/分类/标签）
+// 编辑基本信息（名称/分类/标签/可见范围）
 const editOpen = ref(false)
 const editTarget = ref<MaterialSummary | null>(null)
 const editName = ref('')
 const editCategoryId = ref('')
 const editTags = ref('')
+const editVisibility = ref('PRIVATE')
 
 // 分享外链
 const shareOpen = ref(false)
@@ -38,6 +39,11 @@ const statusOptions = [
   { label: '已归档', value: 'ARCHIVED' },
 ]
 
+const scopeOptions = [
+  { label: '全部可见', value: '' },
+  { label: '只看我的', value: 'mine' },
+]
+
 const editCategoryOptions = computed(() => [
   { label: '未分类', value: '' },
   ...model.categories.map(category => ({ label: category.name, value: category.id })),
@@ -51,10 +57,10 @@ function goDetail(row: MaterialSummary) {
   void router.push({ path: '/platform/plugins/material/detail', query: { id: row.id } })
 }
 
-async function submitUpload(payload: { fileId: string, filename: string, name: string, categoryId: string, tags: string[] }) {
+async function submitUpload(payload: { fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string }) {
   saving.value = true
   try {
-    await model.uploadMaterial(payload.fileId, payload.filename, payload.name, payload.categoryId, payload.tags)
+    await model.uploadMaterial(payload.fileId, payload.filename, payload.name, payload.categoryId, payload.tags, payload.visibility)
     uploadOpen.value = false
   }
   finally {
@@ -67,6 +73,7 @@ function openEdit(row: MaterialSummary) {
   editName.value = row.name
   editCategoryId.value = row.categoryId || ''
   editTags.value = (row.tags || []).join(', ')
+  editVisibility.value = row.visibility || 'PRIVATE'
   editOpen.value = true
 }
 
@@ -77,7 +84,7 @@ async function submitEdit() {
   saving.value = true
   try {
     const tags = editTags.value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean)
-    await model.editMaterial(editTarget.value.id, editName.value.trim(), editCategoryId.value, tags)
+    await model.editMaterial(editTarget.value.id, editName.value.trim(), editCategoryId.value, tags, editVisibility.value)
     editOpen.value = false
   }
   finally {
@@ -111,6 +118,7 @@ onMounted(() => {
         @keydown.enter="model.applyLibraryFilters"
         @clear="model.applyLibraryFilters"
       />
+      <FaSelect v-model="model.libraryFilters.scope" :options="scopeOptions" class="material-header-type" @change="model.applyLibraryFilters" />
       <FaSelect v-model="model.libraryFilters.type" :options="MATERIAL_TYPES" class="material-header-type" @change="model.applyLibraryFilters" />
       <FaButton @click="uploadOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传物料</FaButton>
     </div>
@@ -186,9 +194,9 @@ onMounted(() => {
                 <div class="material-overlay">
                   <button class="material-overlay-btn" title="预览" @click.stop="goDetail(row)"><FaIcon name="i-ri:eye-line" /></button>
                   <button class="material-overlay-btn" title="下载" @click.stop="model.downloadMine(row)"><FaIcon name="i-ri:download-line" /></button>
-                  <button class="material-overlay-btn" title="编辑" @click.stop="openEdit(row)"><FaIcon name="i-ri:edit-line" /></button>
-                  <button class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
-                  <button class="material-overlay-btn is-danger" title="删除" @click.stop="confirmDelete(row)"><FaIcon name="i-ri:delete-bin-line" /></button>
+                  <button v-if="model.isOwner(row)" class="material-overlay-btn" title="编辑" @click.stop="openEdit(row)"><FaIcon name="i-ri:edit-line" /></button>
+                  <button v-if="model.isOwner(row)" class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
+                  <button v-if="model.isOwner(row)" class="material-overlay-btn is-danger" title="删除" @click.stop="confirmDelete(row)"><FaIcon name="i-ri:delete-bin-line" /></button>
                 </div>
               </div>
               <div class="material-card-body">
@@ -197,6 +205,12 @@ onMounted(() => {
                   <span>{{ row.typeLabel }}</span>
                   <span>{{ formatSize(row.size) }}</span>
                   <span>v{{ row.currentVersion }}</span>
+                </div>
+                <div class="material-card-meta">
+                  <span v-if="!model.isOwner(row)" class="truncate">{{ row.ownerName || '其他成员' }}</span>
+                  <FaTag variant="secondary" :title="row.visibility === 'DEPT' && (row.deptNames || []).length ? `可见部门：${(row.deptNames || []).join('、')}` : undefined">
+                    {{ visibilityLabel(row.visibility) }}
+                  </FaTag>
                 </div>
               </div>
             </div>
@@ -232,6 +246,11 @@ onMounted(() => {
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">标签（逗号分隔，最多 8 个）</span>
           <FaInput v-model="editTags" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="text-secondary-foreground/80">可见范围</span>
+          <FaSelect v-model="editVisibility" :options="VISIBILITY_OPTIONS" />
+          <span v-if="editVisibility === 'DEPT'" class="text-xs text-secondary-foreground/70">仅与您同属一个部门的成员可见（按您当前所在部门生效）</span>
         </label>
       </div>
     </FaModal>

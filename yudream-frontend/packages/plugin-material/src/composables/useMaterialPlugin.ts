@@ -14,7 +14,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   // ---------- 用户端：物料库 ----------
   const library = ref<MaterialSummary[]>([])
   const libraryPager = reactive({ page: 1, size: 24, total: 0 })
-  const libraryFilters = reactive({ keyword: '', type: '', categoryId: '', status: '', tag: '' })
+  const libraryFilters = reactive({ keyword: '', type: '', categoryId: '', status: '', tag: '', scope: '' })
   const tags = ref<TagView[]>([])
   /** 封面图：materialId -> 签名公开地址（仅图片类型物料有值）。 */
   const covers = ref<Record<string, string>>({})
@@ -57,7 +57,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     loading.value = true
     try {
       const page = await api.myMaterials(libraryFilters.keyword, libraryFilters.type, libraryFilters.categoryId,
-        libraryFilters.status, libraryFilters.tag, libraryPager.page, libraryPager.size)
+        libraryFilters.status, libraryFilters.tag, libraryPager.page, libraryPager.size, libraryFilters.scope)
       library.value = page.records
       libraryPager.total = Number(page.total)
       void loadCovers()
@@ -116,9 +116,9 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function uploadMaterial(fileId: string, filename: string, name: string, categoryId: string, tags: string[]) {
+  async function uploadMaterial(fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string) {
     try {
-      await api.createMaterial({ fileId, filename, name, categoryId: categoryId || undefined, tags })
+      await api.createMaterial({ fileId, filename, name, categoryId: categoryId || undefined, tags, visibility: visibility || undefined })
       toast.success('物料已上传')
       await loadLibrary()
       void loadTags()
@@ -129,9 +129,9 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function editMaterial(materialId: string, name: string, categoryId: string, tags: string[]) {
+  async function editMaterial(materialId: string, name: string, categoryId: string, tags: string[], visibility: string) {
     try {
-      await api.updateMaterial(materialId, { name, categoryId: categoryId || null, tags })
+      await api.updateMaterial(materialId, { name, categoryId: categoryId || null, tags, visibility: visibility || undefined })
       toast.success('物料信息已更新')
       await loadLibrary()
       void loadTags()
@@ -140,6 +140,11 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
       toast.error(errorMessage(error))
       throw error
     }
+  }
+
+  /** 是否当前用户本人的物料：他人物料只读（预览/下载/版本列表），变更操作仅属主可用。 */
+  function isOwner(row: { ownerId: string }) {
+    return String(row.ownerId) === sdk.account.userId
   }
 
   async function removeMaterial(row: MaterialSummary) {
@@ -394,6 +399,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     loadCovers,
     uploadMaterial,
     editMaterial,
+    isOwner,
     removeMaterial,
     downloadMine,
     loadDetail,
