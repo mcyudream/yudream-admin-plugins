@@ -2,9 +2,9 @@
 import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
 import type { MaterialSummary } from '../types'
 import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTag, useFaModal } from '@yudream/components'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import CategorySelect from '../components/CategorySelect.vue'
+import CategoryPicker from '../components/CategoryPicker.vue'
 import ImportFolderModal from '../components/ImportFolderModal.vue'
 import TagPicker from '../components/TagPicker.vue'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
@@ -47,6 +47,26 @@ const scopeOptions = [
   { label: '全部可见', value: '' },
   { label: '只看我的', value: 'mine' },
 ]
+
+// 侧栏分类/标签变多（超过阈值）时提供本地搜索，列表本体分区滚动
+const CATEGORY_SEARCH_THRESHOLD = 10
+const TAG_SEARCH_THRESHOLD = 15
+const categoryKeyword = ref('')
+const tagKeyword = ref('')
+
+const filteredCategories = computed(() => {
+  const keyword = categoryKeyword.value.trim().toLowerCase()
+  return keyword
+    ? model.categories.filter(category => category.name.toLowerCase().includes(keyword))
+    : model.categories
+})
+
+const filteredTags = computed(() => {
+  const keyword = tagKeyword.value.trim().toLowerCase()
+  return keyword
+    ? model.tags.filter(tag => tag.name.toLowerCase().includes(keyword))
+    : model.tags
+})
 
 function typeIcon(row: MaterialSummary) {
   return TYPE_ICONS[row.type] || TYPE_ICONS.OTHER
@@ -127,6 +147,13 @@ onMounted(() => {
       <aside class="material-sidebar">
         <div class="material-sidebar-section">
           <div class="material-sidebar-title">分类</div>
+          <FaInput
+            v-if="model.categories.length > CATEGORY_SEARCH_THRESHOLD"
+            v-model="categoryKeyword"
+            placeholder="搜索分类"
+            clearable
+            class="material-sidebar-search"
+          />
           <button
             class="material-nav-item"
             :class="{ 'is-active': model.libraryFilters.categoryId === '' }"
@@ -135,24 +162,34 @@ onMounted(() => {
             <FaIcon name="i-ri:apps-line" />
             <span>全部分类</span>
           </button>
-          <button
-            v-for="category in model.categories"
-            :key="category.id"
-            class="material-nav-item"
-            :class="{ 'is-active': model.libraryFilters.categoryId === category.id }"
-            @click="model.setCategory(category.id)"
-          >
-            <FaIcon name="i-ri:folder-line" />
-            <span class="truncate">{{ category.name }}</span>
-            <span class="material-nav-count">{{ category.materials }}</span>
-          </button>
+          <div class="material-sidebar-list">
+            <button
+              v-for="category in filteredCategories"
+              :key="category.id"
+              class="material-nav-item"
+              :class="{ 'is-active': model.libraryFilters.categoryId === category.id }"
+              @click="model.setCategory(category.id)"
+            >
+              <FaIcon name="i-ri:folder-line" />
+              <span class="truncate">{{ category.name }}</span>
+              <span class="material-nav-count">{{ category.materials }}</span>
+            </button>
+            <div v-if="!filteredCategories.length" class="material-sidebar-empty">无匹配分类</div>
+          </div>
         </div>
         <div class="material-sidebar-divider" />
         <div class="material-sidebar-section">
           <div class="material-sidebar-title">标签云</div>
-          <div v-if="model.tags.length" class="material-tag-cloud">
+          <FaInput
+            v-if="model.tags.length > TAG_SEARCH_THRESHOLD"
+            v-model="tagKeyword"
+            placeholder="搜索标签"
+            clearable
+            class="material-sidebar-search"
+          />
+          <div v-if="filteredTags.length" class="material-tag-cloud">
             <button
-              v-for="tag in model.tags"
+              v-for="tag in filteredTags"
               :key="tag.name"
               class="material-tag-chip"
               :class="{ 'is-active': model.libraryFilters.tag === tag.name }"
@@ -162,6 +199,7 @@ onMounted(() => {
               {{ tag.name }}
             </button>
           </div>
+          <div v-else-if="model.tags.length" class="material-sidebar-empty">无匹配标签</div>
           <div v-else class="material-sidebar-empty">暂无标签</div>
         </div>
         <div class="material-sidebar-divider" />
@@ -242,7 +280,7 @@ onMounted(() => {
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">分类</span>
-          <CategorySelect v-model="editCategoryId" :categories="model.categories" />
+          <CategoryPicker v-model="editCategoryId" :categories="model.categories" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">标签（最多 8 个）</span>

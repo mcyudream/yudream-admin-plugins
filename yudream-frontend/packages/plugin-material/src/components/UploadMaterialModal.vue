@@ -6,7 +6,7 @@ import { FaFileUpload, FaInput, FaModal, FaSelect } from '@yudream/components'
 import { ref, watch } from 'vue'
 import { uploadFileWithProgress } from '../api/upload'
 import { VISIBILITY_OPTIONS } from '../types'
-import CategorySelect from './CategorySelect.vue'
+import CategoryPicker from './CategoryPicker.vue'
 import TagPicker from './TagPicker.vue'
 
 const props = defineProps<{
@@ -90,7 +90,7 @@ function onConfirm() {
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">分类</span>
-        <CategorySelect v-model="categoryId" :categories="props.categories" />
+        <CategoryPicker v-model="categoryId" :categories="props.categories" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">标签（最多 8 个）</span>

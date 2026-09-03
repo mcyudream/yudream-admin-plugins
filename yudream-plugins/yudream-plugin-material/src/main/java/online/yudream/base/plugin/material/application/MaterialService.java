@@ -85,7 +85,7 @@ public final class MaterialService {
         return page(filtered, page, size);
     }
 
-    /** 标签云：统计可见范围内未归档物料的标签使用次数，按次数降序，最多 30 个。 */
+    /** 标签云：统计可见范围内未归档物料的标签使用次数，按次数降序，最多 100 个（侧栏与选择器均支持搜索）。 */
     public List<TagView> listVisibleTags(String viewerId) {
         java.util.Set<String> viewerDepts = deptIdsOf(viewerId);
         Map<String, long[]> counts = new java.util.HashMap<>();
@@ -105,7 +105,7 @@ public final class MaterialService {
                 .map(entry -> new TagView(display.get(entry.getKey()), entry.getValue()[0]))
                 .sorted(java.util.Comparator.comparingLong(TagView::count).reversed()
                         .thenComparing(TagView::name))
-                .limit(30)
+                .limit(100)
                 .toList();
     }
 

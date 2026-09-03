@@ -4,7 +4,7 @@ import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
 import type { MaterialSummary, PreviewInfo } from '../types'
 import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
-import CategorySelect from '../components/CategorySelect.vue'
+import CategoryPicker from '../components/CategoryPicker.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
 import { formatSize, formatTime, MATERIAL_TYPES } from '../types'
 
@@ -85,7 +85,7 @@ onMounted(() => {
             <FaInput v-model="model.adminFilters.keyword" placeholder="搜索名称或标签" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
             <FaInput v-model="model.adminFilters.owner" placeholder="归属用户（昵称或 ID）" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
             <FaSelect v-model="model.adminFilters.type" :options="MATERIAL_TYPES" @change="model.applyAdminFilters" />
-            <CategorySelect v-model="model.adminFilters.categoryId" :categories="model.categories" empty-label="全部分类" @update:model-value="model.applyAdminFilters" />
+            <CategoryPicker v-model="model.adminFilters.categoryId" :categories="model.categories" placeholder="全部分类" @update:model-value="model.applyAdminFilters" />
             <FaSelect v-model="model.adminFilters.status" :options="statusOptions" @change="model.applyAdminFilters" />
             <FaButton variant="outline" @click="model.applyAdminFilters"><FaIcon name="i-ri:search-line" />查询</FaButton>
           </div>

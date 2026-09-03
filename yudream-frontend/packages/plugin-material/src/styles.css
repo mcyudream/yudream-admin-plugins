@@ -152,6 +152,15 @@
   padding: 4px 8px;
 }
 
+/* 分类很多时列表分区内部滚动，避免把标签云/状态筛选顶出视口 */
+.material-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
 .material-nav-item {
   display: flex;
   align-items: center;
@@ -189,6 +198,8 @@
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 4px;
+  max-height: 168px;
+  overflow-y: auto;
 }
 
 .material-tag-chip {
@@ -421,6 +432,19 @@
 
   .material-sidebar-section .material-nav-item {
     width: auto;
+  }
+
+  .material-sidebar-search {
+    width: 100%;
+  }
+
+  /* 窄屏侧栏不限高，分区也不需要嵌套滚动；display:contents 让分类项继续参与横向换行 */
+  .material-sidebar-list {
+    display: contents;
+  }
+
+  .material-tag-cloud {
+    max-height: none;
   }
 }
 

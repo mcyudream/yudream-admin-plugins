@@ -23,7 +23,7 @@ const columns: TableColumn<TagView>[] = [
   { accessorKey: 'count', header: '使用次数', width: 90 },
 ]
 
-/** 标签云由后端按使用次数降序给出（上限 30），弹窗内按关键字过滤 + 前端分页。 */
+/** 标签云由后端按使用次数降序给出（上限 100），弹窗内按关键字过滤 + 前端分页。 */
 async function fetcher(query: YdTablePickerQuery): Promise<YdTablePickerResult<TagView>> {
   const keyword = query.keyword.trim().toLowerCase()
   const filtered = keyword
