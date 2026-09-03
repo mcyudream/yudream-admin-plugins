@@ -1,0 +1,426 @@
+.material-plugin {
+  width: 100%;
+}
+
+/* 管理端筛选工具条（库页已改为侧栏布局，此类仅 AdminPage 使用） */
+.material-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.material-filter-bar > * {
+  min-width: 160px;
+  flex: 0 1 auto;
+}
+
+.material-link {
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.material-link:hover {
+  color: var(--primary, #2563eb);
+  text-decoration: underline;
+}
+
+/* 详情页：预览 + 版本历史，宽屏两列、窄屏上下堆叠 */
+.material-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .material-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.material-preview-card {
+  min-width: 0;
+}
+
+.material-preview {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  border-radius: 8px;
+  background: var(--secondary, #f1f5f9);
+  overflow: hidden;
+}
+
+.material-preview-frame {
+  width: 100%;
+  height: 70vh;
+  min-height: 420px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.material-preview-image {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+  background: repeating-conic-gradient(#e2e8f0 0% 25%, #fff 0% 50%) 0 0 / 24px 24px;
+}
+
+.material-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 420px;
+  padding: 24px;
+  color: var(--secondary-foreground, #64748b);
+  text-align: center;
+}
+
+/* ---------- 物料库：头部工具区 ---------- */
+.material-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.material-header-search {
+  width: 220px;
+}
+
+.material-header-type {
+  width: 140px;
+}
+
+/* ---------- 物料库：侧栏 + 网格布局 ---------- */
+.material-library-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.material-sidebar {
+  flex: 0 0 208px;
+  width: 208px;
+  border-radius: 10px;
+  background: var(--card, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 12px;
+  /* 分类很多时侧栏内部滚动，不把整个页面顶长 */
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
+
+.material-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.material-sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--secondary-foreground, #64748b);
+  padding: 0 8px 4px;
+}
+
+.material-sidebar-divider {
+  height: 1px;
+  background: var(--border, #e2e8f0);
+}
+
+.material-sidebar-empty {
+  font-size: 12px;
+  color: var(--secondary-foreground, #64748b);
+  padding: 4px 8px;
+}
+
+.material-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.material-nav-item:hover {
+  background: var(--secondary, #f1f5f9);
+}
+
+.material-nav-item.is-active {
+  background: var(--secondary, #f1f5f9);
+  color: var(--primary, #2563eb);
+  font-weight: 600;
+}
+
+.material-nav-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--secondary-foreground, #64748b);
+}
+
+.material-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.material-tag-chip {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 999px;
+  background: none;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-tag-chip:hover {
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+}
+
+.material-tag-chip.is-active {
+  background: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  color: #fff;
+}
+
+.material-library-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.material-active-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--secondary-foreground, #64748b);
+}
+
+.material-tag-clear {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 2px;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex;
+}
+
+/* ---------- 物料库：卡片网格 ---------- */
+.material-grid-wrap {
+  position: relative;
+  min-height: 200px;
+}
+
+.material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px;
+  align-content: start;
+}
+
+.material-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--card, #fff);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.material-card:hover {
+  border-color: color-mix(in srgb, var(--primary, #2563eb) 35%, var(--border, #e2e8f0));
+  box-shadow: 0 8px 24px rgb(15 23 42 / 10%);
+  transform: translateY(-2px);
+}
+
+.material-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--secondary, #f1f5f9);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.material-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.material-thumb-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--secondary-foreground, #64748b);
+  font-size: 42px;
+  background: linear-gradient(145deg, var(--secondary, #f1f5f9), color-mix(in srgb, var(--secondary, #f1f5f9) 70%, #fff));
+}
+
+.material-thumb-ext {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.material-thumb-archived {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+}
+
+/* 悬停操作层 */
+.material-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgb(15 23 42 / 55%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.material-thumb:hover .material-overlay,
+.material-thumb:focus-within .material-overlay {
+  opacity: 1;
+}
+
+.material-overlay-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: none;
+  background: rgb(255 255 255 / 92%);
+  color: #0f172a;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.material-overlay-btn:hover {
+  background: #fff;
+  color: var(--primary, #2563eb);
+}
+
+.material-overlay-btn.is-danger:hover {
+  color: var(--destructive, #dc2626);
+}
+
+.material-card-body {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.material-card-name {
+  font-size: 14px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--secondary-foreground, #64748b);
+}
+
+/* 元信息之间的分隔点 */
+.material-card-meta > span + span::before {
+  content: '·';
+  margin-right: 6px;
+  opacity: 0.6;
+}
+
+.material-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 320px;
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 10px;
+  color: var(--secondary-foreground, #64748b);
+}
+
+.material-empty-icon {
+  font-size: 48px;
+  opacity: 0.7;
+}
+
+/* 窄屏：侧栏收为顶部区块，分类导航横向换行排列，避免把网格顶出首屏 */
+@media (max-width: 900px) {
+  .material-library-layout {
+    flex-direction: column;
+  }
+
+  .material-sidebar {
+    position: static;
+    width: 100%;
+    flex: none;
+    max-height: none;
+  }
+
+  .material-sidebar-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .material-sidebar-title {
+    width: 100%;
+  }
+
+  .material-sidebar-section .material-nav-item {
+    width: auto;
+  }
+}
+

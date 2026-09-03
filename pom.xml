@@ -46,6 +46,7 @@
         <module>yudream-plugins/yudream-plugin-pony</module>
         <module>yudream-plugins/yudream-plugin-mcguess</module>
         <module>yudream-plugins/yudream-plugin-mc-wiki</module>
+        <module>yudream-plugins/yudream-plugin-material</module>
         </modules>
 
     <dependencyManagement>
