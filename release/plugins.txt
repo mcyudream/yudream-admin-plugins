@@ -19,3 +19,4 @@ yudream-plugin-pony
 yudream-plugin-wordle
 yudream-plugin-mcguess
 yudream-plugin-mc-wiki
+yudream-plugin-material
