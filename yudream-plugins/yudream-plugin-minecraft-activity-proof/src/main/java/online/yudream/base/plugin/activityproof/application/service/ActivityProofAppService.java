@@ -557,7 +557,7 @@ public class ActivityProofAppService {
             throw new IllegalArgumentException("活动已结束，无法参与");
         }
         if (!activity.signupOpen(System.currentTimeMillis())) {
-            throw new IllegalArgumentException("当前不在报名时间内");
+            throw new IllegalArgumentException(signupClosedReason(activity, System.currentTimeMillis()) + "，无法参与");
         }
         if (!activity.allowsDepartments(myDeptIds(safeUserId))) {
             throw new IllegalArgumentException("该活动仅限指定部门成员参与");
@@ -1224,12 +1224,16 @@ public class ActivityProofAppService {
             return "活动已结束";
         }
         if (!activity.signupOpen(System.currentTimeMillis())) {
-            return "当前不在报名时间内";
+            return signupClosedReason(activity, System.currentTimeMillis());
         }
         if (!eligible) {
             return "仅限指定部门成员参与";
         }
         return "";
+    }
+
+    private String signupClosedReason(Activity activity, long now) {
+        return activity.signupStart() > 0 && now < activity.signupStart() ? "报名尚未开始" : "报名已截止";
     }
 
     private ActivityParticipantAdminDTO toAdminParticipant(Activity activity, ActivityParticipation participation) {

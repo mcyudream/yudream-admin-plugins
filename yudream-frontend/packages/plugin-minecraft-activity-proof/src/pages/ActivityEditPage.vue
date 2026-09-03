@@ -2,6 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { FaButton, FaCheckbox, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaTag } from '@yudream/components'
+import { RangePicker as ARangePicker } from '@arco-design/web-vue'
 import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
@@ -120,23 +121,29 @@ async function save() {
               <h3 class="text-base font-semibold">时间安排</h3>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label class="grid gap-2">
-                  <span>报名开始时间</span>
-                  <FaInput v-model="form.signupStartText" type="datetime-local" />
+                  <span>报名时间</span>
+                  <ARangePicker
+                    v-model="form.signupRange"
+                    value-format="YYYY-MM-DD"
+                    format="YYYY-MM-DD"
+                    :placeholder="['报名开始日期', '报名结束日期']"
+                    allow-clear
+                    style="width: 100%"
+                  />
                 </label>
                 <label class="grid gap-2">
-                  <span>报名结束时间</span>
-                  <FaInput v-model="form.signupEndText" type="datetime-local" />
-                </label>
-                <label class="grid gap-2">
-                  <span>活动开始时间</span>
-                  <FaInput v-model="form.activityStartText" type="datetime-local" />
-                </label>
-                <label class="grid gap-2">
-                  <span>活动结束时间</span>
-                  <FaInput v-model="form.activityEndText" type="datetime-local" />
+                  <span>活动时间</span>
+                  <ARangePicker
+                    v-model="form.activityRange"
+                    value-format="YYYY-MM-DD"
+                    format="YYYY-MM-DD"
+                    :placeholder="['活动开始日期', '活动结束日期']"
+                    allow-clear
+                    style="width: 100%"
+                  />
                 </label>
               </div>
-              <span class="text-xs text-muted-foreground">留空表示不限制；时长与表单核验以活动时间（报名开始后）作为核验窗口。</span>
+              <span class="text-xs text-muted-foreground">时间精确到日，所选结束日期当天全天有效；留空表示不限制。时长与表单核验以活动时间（报名开始后）作为核验窗口。</span>
             </div>
 
             <div class="grid gap-3 rounded-lg border p-4">

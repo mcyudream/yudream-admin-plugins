@@ -5,7 +5,7 @@ import { FaButton, FaIcon, FaModal, FaPageHeader, FaPageMain, FaTag } from '@yud
 import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useActivityDetail } from '../composables/useActivityDetail'
-import { formatTime, formatTimeRange, isActivityEnded } from '../composables/utils'
+import { activityStage, activityStageTag, formatTime, formatTimeRange, isActivityEnded } from '../composables/utils'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 
 const props = defineProps<{
@@ -23,9 +23,11 @@ watch(activityId, id => model.load(id), { immediate: true })
 
 const ended = computed(() => !!activity.value && isActivityEnded(activity.value.status, activity.value.activityEnd))
 
-const statusText = computed(() => {
-  if (!activity.value) return ''
-  return ended.value ? '已结束' : '报名中'
+const statusTag = computed(() => {
+  if (!activity.value) {
+    return activityStageTag('SIGNUP_OPEN')
+  }
+  return activityStageTag(activityStage(activity.value.status, activity.value.signupStart, activity.value.signupEnd, activity.value.activityEnd))
 })
 
 function back() {
@@ -61,8 +63,8 @@ function back() {
           <div class="activity-detail-layout">
             <div class="activity-detail-main">
               <div class="flex flex-wrap items-center gap-2">
-                <FaTag :variant="ended ? 'secondary' : 'default'">
-                  {{ statusText }}
+                <FaTag :variant="statusTag.variant">
+                  {{ statusTag.text }}
                 </FaTag>
                 <FaTag v-if="joined" variant="outline">
                   已参与
@@ -128,7 +130,7 @@ function back() {
           </div>
           <div v-if="activity.description" class="activity-detail-description">
             <h3>活动详情</h3>
-            <MarkdownPreview :content="activity.description" />
+            <MarkdownPreview :sdk="sdk" :content="activity.description" />
           </div>
         </template>
       </div>

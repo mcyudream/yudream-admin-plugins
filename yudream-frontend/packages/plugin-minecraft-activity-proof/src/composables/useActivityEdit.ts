@@ -1,10 +1,10 @@
-import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivitySaveForm } from '../types'
+import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivitySaveForm, TimeValue } from '../types'
 import type { ActivitySavePayload } from '../api/activity-proof-api'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
-import { datetimeLocalToEpoch, errorMessage, toDatetimeLocalText } from './utils'
+import { dateRangeToEpochs, errorMessage, normalizeFileUrl, normalizeMarkdownFileUrls, resolveFileUrl, resolveMarkdownFileUrls, toDateText } from './utils'
 
 export function useActivityEdit(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
@@ -26,10 +26,8 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     summary: '',
     description: '',
     coverUrl: '',
-    signupStartText: '',
-    signupEndText: '',
-    activityStartText: '',
-    activityEndText: '',
+    signupRange: [],
+    activityRange: [],
     deptMode: 'ALL',
     allowedDeptIds: [],
     bindings: [],
@@ -37,7 +35,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
 
   const isEdit = computed(() => !!editingId.value)
   const readonly = computed(() => activityStatus.value === 'CLOSED')
-  const coverPreview = computed(() => sdk.files.assetUrl(form.coverUrl || undefined))
+  const coverPreview = computed(() => resolveFileUrl(sdk, form.coverUrl))
 
   async function load(id: string) {
     loading.value = true
@@ -72,12 +70,10 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     form.id = activity.id
     form.title = activity.title || ''
     form.summary = activity.summary || ''
-    form.description = activity.description || ''
-    form.coverUrl = activity.coverUrl || ''
-    form.signupStartText = toDatetimeLocalText(activity.signupStart)
-    form.signupEndText = toDatetimeLocalText(activity.signupEnd)
-    form.activityStartText = toDatetimeLocalText(activity.activityStart)
-    form.activityEndText = toDatetimeLocalText(activity.activityEnd)
+    form.description = resolveMarkdownFileUrls(sdk, activity.description)
+    form.coverUrl = normalizeFileUrl(activity.coverUrl)
+    form.signupRange = toRange(activity.signupStart, activity.signupEnd)
+    form.activityRange = toRange(activity.activityStart, activity.activityEnd)
     form.deptMode = activity.deptMode || 'ALL'
     form.allowedDeptIds = [...(activity.allowedDeptIds || [])]
     form.bindings = (activity.bindings || []).map(binding => ({
@@ -89,6 +85,22 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     }))
   }
 
+  // 范围选择器要求两端都有值：历史数据只填了一端时，用已有的一端补齐展示
+  function toRange(start: TimeValue, end: TimeValue) {
+    const startText = toDateText(start)
+    const endText = toDateText(end)
+    if (startText && endText) {
+      return [startText, endText]
+    }
+    if (startText) {
+      return [startText, startText]
+    }
+    if (endText) {
+      return [endText, endText]
+    }
+    return []
+  }
+
   function resetForm() {
     activityStatus.value = ''
     form.id = ''
@@ -96,10 +108,8 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     form.summary = ''
     form.description = ''
     form.coverUrl = ''
-    form.signupStartText = ''
-    form.signupEndText = ''
-    form.activityStartText = ''
-    form.activityEndText = ''
+    form.signupRange = []
+    form.activityRange = []
     form.deptMode = 'ALL'
     form.allowedDeptIds = []
     form.bindings = []
@@ -109,7 +119,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     uploadingCover.value = true
     try {
       const uploaded = await sdk.files.uploadImage(file, { module: 'minecraft-activity-proof', publicAccess: true })
-      const url = uploaded.assetUrl || uploaded.url || ''
+      const url = normalizeFileUrl(uploaded.assetUrl || uploaded.url)
       toast.success('封面已上传')
       return url
     }
@@ -155,16 +165,18 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
   }
 
   function toPayload(): ActivitySavePayload {
+    const signup = dateRangeToEpochs(form.signupRange)
+    const activity = dateRangeToEpochs(form.activityRange)
     return {
       id: form.id || undefined,
       title: form.title.trim(),
       summary: form.summary,
-      description: form.description,
-      coverUrl: form.coverUrl,
-      signupStart: datetimeLocalToEpoch(form.signupStartText) || undefined,
-      signupEnd: datetimeLocalToEpoch(form.signupEndText) || undefined,
-      activityStart: datetimeLocalToEpoch(form.activityStartText) || undefined,
-      activityEnd: datetimeLocalToEpoch(form.activityEndText) || undefined,
+      description: normalizeMarkdownFileUrls(form.description),
+      coverUrl: normalizeFileUrl(form.coverUrl),
+      signupStart: signup.start || undefined,
+      signupEnd: signup.end || undefined,
+      activityStart: activity.start || undefined,
+      activityEnd: activity.end || undefined,
       deptMode: form.deptMode,
       allowedDeptIds: form.deptMode === 'DEPTS' ? [...form.allowedDeptIds] : [],
       bindings: form.bindings.map(binding => binding.type === 'PLAYTIME'

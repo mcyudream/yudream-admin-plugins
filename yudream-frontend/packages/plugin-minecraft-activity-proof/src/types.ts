@@ -148,10 +148,8 @@ export interface ActivitySaveForm {
   summary: string
   description: string
   coverUrl: string
-  signupStartText: string
-  signupEndText: string
-  activityStartText: string
-  activityEndText: string
+  signupRange: string[]
+  activityRange: string[]
   deptMode: string
   allowedDeptIds: string[]
   bindings: ActivityBindingForm[]

@@ -3,7 +3,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useFaModal, useFaToast } from '@yudream/components'
 import { reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
-import { errorMessage } from './utils'
+import { errorMessage, resolveFileUrl } from './utils'
 
 export function useMyActivities(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
@@ -81,7 +81,7 @@ export function useMyActivities(sdk: YuDreamPluginSdk) {
   }
 
   function coverOf(row: MyParticipation) {
-    return sdk.files.assetUrl(row.coverUrl || undefined)
+    return resolveFileUrl(sdk, row.coverUrl)
   }
 
   return {

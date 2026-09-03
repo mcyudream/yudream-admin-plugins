@@ -4,7 +4,7 @@ import { useFaModal, useFaToast } from '@yudream/components'
 import QRCode from 'qrcode'
 import { computed, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
-import { errorMessage } from './utils'
+import { errorMessage, resolveFileUrl } from './utils'
 
 const DETAIL_PATH = '/platform/plugins/yudream-student-info/activity-square/detail'
 
@@ -104,7 +104,7 @@ export function useActivityDetail(sdk: YuDreamPluginSdk) {
   }
 
   function coverOf(value: UserActivity) {
-    return sdk.files.assetUrl(value.coverUrl || undefined)
+    return resolveFileUrl(sdk, value.coverUrl)
   }
 
   function shareUrl(value: UserActivity) {

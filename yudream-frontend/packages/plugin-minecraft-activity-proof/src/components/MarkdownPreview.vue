@@ -1,9 +1,15 @@
 <script setup lang="ts">
+import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { MdPreview } from 'md-editor-v3'
+import { computed } from 'vue'
+import { resolveMarkdownFileUrls } from '../composables/utils'
 
-defineProps<{
+const props = defineProps<{
+  sdk: YuDreamPluginSdk
   content?: string
 }>()
+
+const resolvedContent = computed(() => resolveMarkdownFileUrls(props.sdk, props.content))
 </script>
 
 <template>
@@ -12,6 +18,6 @@ defineProps<{
     language="zh-CN"
     preview-theme="github"
     code-theme="github"
-    :model-value="content || ''"
+    :model-value="resolvedContent"
   />
 </template>

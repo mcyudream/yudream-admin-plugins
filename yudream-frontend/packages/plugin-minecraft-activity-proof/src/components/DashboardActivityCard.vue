@@ -4,7 +4,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { computed, onMounted, ref } from 'vue'
 import { FaButton, FaIcon, FaTag } from '@yudream/components'
 import { createActivityProofApi } from '../api/activity-proof-api'
-import { isActivityEnded } from '../composables/utils'
+import { activityStage, activityStageTag } from '../composables/utils'
 
 interface DashboardCardLike {
   actionPath?: string
@@ -48,13 +48,14 @@ async function load() {
 }
 
 function activityTag(activity: UserActivity) {
-  if (isActivityEnded(activity.status, activity.activityEnd)) {
-    return { variant: 'secondary' as const, text: '已结束' }
+  const stage = activityStage(activity.status, activity.signupStart, activity.signupEnd, activity.activityEnd)
+  if (stage === 'ENDED') {
+    return activityStageTag(stage)
   }
   if (activity.participationStatus === 'JOINED') {
     return { variant: 'default' as const, text: '已参与' }
   }
-  return { variant: 'outline' as const, text: '报名中' }
+  return activityStageTag(stage)
 }
 
 function verifyTag(row: MyParticipation) {

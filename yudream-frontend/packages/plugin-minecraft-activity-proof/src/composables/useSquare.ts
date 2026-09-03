@@ -2,6 +2,7 @@ import type { UserActivity } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
+import { resolveFileUrl } from './utils'
 
 export function useSquare(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
@@ -22,7 +23,7 @@ export function useSquare(sdk: YuDreamPluginSdk) {
   }
 
   function coverOf(activity: UserActivity) {
-    return sdk.files.assetUrl(activity.coverUrl || undefined)
+    return resolveFileUrl(sdk, activity.coverUrl)
   }
 
   return {

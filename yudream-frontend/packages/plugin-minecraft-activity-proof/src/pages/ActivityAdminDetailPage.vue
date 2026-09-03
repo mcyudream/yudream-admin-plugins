@@ -8,7 +8,7 @@ import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminActivityDetail } from '../composables/useAdminActivityDetail'
 import { userPickerColumns } from '../composables/user-picker'
-import { formatTime, formatTimeRange } from '../composables/utils'
+import { formatTime, formatTimeRange, resolveFileUrl } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -22,7 +22,7 @@ const { loading, acting, verifyingId, verifyingAll, activity, participants, page
 const activityId = computed(() => String(props.route?.query?.id || ''))
 watch(activityId, id => model.load(id), { immediate: true })
 
-const coverUrl = computed(() => (activity.value?.coverUrl ? props.sdk.files.assetUrl(activity.value.coverUrl) : ''))
+const coverUrl = computed(() => resolveFileUrl(props.sdk, activity.value?.coverUrl))
 
 const statusText = computed(() => {
   const status = activity.value?.status

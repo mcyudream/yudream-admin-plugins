@@ -1,5 +1,5 @@
 import type { TimeValue } from '../types'
-import type { YuDreamPluginBlobResponse } from '@yudream/plugin-sdk'
+import type { YuDreamPluginBlobResponse, YuDreamPluginSdk } from '@yudream/plugin-sdk'
 
 export function fileToBase64(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -124,20 +124,106 @@ export function formatFileSize(value: number) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function toDatetimeLocalText(value: TimeValue) {
+export function toDateText(value: TimeValue) {
   const timestamp = normalizeTime(value)
   if (!timestamp) {
     return ''
   }
   const date = new Date(timestamp)
   const pad = (input: number) => String(input).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-export function datetimeLocalToEpoch(text: string) {
+// 范围选择器精确到日：开始取当日 00:00，结束取当日 23:59:59.999，保证所选结束日当天全天有效
+export function dateRangeToEpochs(range: string[] | undefined) {
+  if (!range?.length) {
+    return { start: 0, end: 0 }
+  }
+  return { start: dayStart(range[0]), end: dayEnd(range[1]) }
+}
+
+function dayStart(text: string | undefined) {
   if (!text) {
     return 0
   }
-  const timestamp = new Date(text).getTime()
+  const timestamp = new Date(`${text}T00:00:00`).getTime()
   return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0
+}
+
+function dayEnd(text: string | undefined) {
+  if (!text) {
+    return 0
+  }
+  const timestamp = new Date(`${text}T23:59:59.999`).getTime()
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0
+}
+
+// 上传结果在开发环境会带 /proxy 前缀或绝对 origin，落库前统一还原成 /api/files/... 相对路径
+export function normalizeFileUrl(value: string | null | undefined) {
+  const raw = (value || '').trim()
+  if (!raw) {
+    return ''
+  }
+  return raw
+    .replace(/^https?:\/\/[^/]+(?=\/api\/files\/)/i, '')
+    .replace(/^\/proxy(?=\/api\/files\/)/i, '')
+}
+
+export function resolveFileUrl(sdk: YuDreamPluginSdk, value: string | null | undefined) {
+  const normalized = normalizeFileUrl(value)
+  return normalized ? sdk.files.assetUrl(normalized) : ''
+}
+
+export function normalizeMarkdownFileUrls(text: string | null | undefined) {
+  const raw = text || ''
+  if (!raw) {
+    return ''
+  }
+  return raw
+    .replace(/https?:\/\/[^/\s)"]+(?=\/api\/files\/)/gi, '')
+    .replace(/\/proxy(?=\/api\/files\/)/gi, '')
+}
+
+// 渲染前把内容里的文件引用解析成当前环境可访问的地址
+export function resolveMarkdownFileUrls(sdk: YuDreamPluginSdk, text: string | null | undefined) {
+  const raw = text || ''
+  if (!raw) {
+    return ''
+  }
+  return normalizeMarkdownFileUrls(raw).replace(
+    /(\]\(|src=")(\/api\/files\/[^)\s"]+)(\)|")/gi,
+    (_match, prefix: string, url: string, suffix: string) => `${prefix}${sdk.files.assetUrl(url)}${suffix}`,
+  )
+}
+
+export type ActivityStage = 'ENDED' | 'SIGNUP_PENDING' | 'SIGNUP_OPEN' | 'SIGNUP_CLOSED'
+
+// 报名/活动到点即视为自动截止，前端按此口径展示状态
+export function activityStage(status: string, signupStart: TimeValue, signupEnd: TimeValue, activityEnd: TimeValue): ActivityStage {
+  if (isActivityEnded(status, activityEnd)) {
+    return 'ENDED'
+  }
+  const now = Date.now()
+  const start = normalizeTime(signupStart)
+  if (start > 0 && now < start) {
+    return 'SIGNUP_PENDING'
+  }
+  const end = normalizeTime(signupEnd)
+  if (end > 0 && now > end) {
+    return 'SIGNUP_CLOSED'
+  }
+  return 'SIGNUP_OPEN'
+}
+
+export function activityStageTag(stage: ActivityStage) {
+  switch (stage) {
+    case 'ENDED':
+      return { variant: 'secondary' as const, text: '已结束' }
+    case 'SIGNUP_PENDING':
+      return { variant: 'outline' as const, text: '报名未开始' }
+    case 'SIGNUP_CLOSED':
+      return { variant: 'secondary' as const, text: '报名截止' }
+    default:
+      return { variant: 'outline' as const, text: '报名中' }
+  }
 }

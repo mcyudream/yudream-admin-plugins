@@ -6,7 +6,7 @@ import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTag } from 
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSquare } from '../composables/useSquare'
-import { formatTimeRange, isActivityEnded } from '../composables/utils'
+import { activityStage, activityStageTag, formatTimeRange, isActivityEnded } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -20,13 +20,14 @@ const { loading, activities, pager } = model
 onMounted(model.load)
 
 function statusTag(activity: UserActivity) {
-  if (isActivityEnded(activity.status, activity.activityEnd)) {
-    return { variant: 'secondary' as const, text: '已结束' }
+  const stage = activityStage(activity.status, activity.signupStart, activity.signupEnd, activity.activityEnd)
+  if (stage === 'ENDED') {
+    return activityStageTag(stage)
   }
   if (activity.participationStatus === 'JOINED') {
     return { variant: 'default' as const, text: '已参与' }
   }
-  return { variant: 'outline' as const, text: '报名中' }
+  return activityStageTag(stage)
 }
 
 function openDetail(activity: UserActivity) {
