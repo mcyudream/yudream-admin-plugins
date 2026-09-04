@@ -60,6 +60,7 @@ migration/        迁移任务与状态
 - `YuDreamPlugin` 入口只负责元数据、组装、注册、生命周期和清理；不写业务流程、复杂 HTTP 映射、迁移主体或大批处理。
 - Controller 必须薄：边界校验、调用 application service、返回响应。`request -> command`、`DTO -> response` 放 assembler/facade；禁止在 Controller 写业务规则、直接操作持久化或大段 JSON 解析。
 - 静态权限、菜单、路由、端点优先用注解；仅动态/条件贡献使用 `PluginContext.registerXxx(...)`。
+- 权限码统一 `plugin:{pluginCode}:{动作}` 三段结构；末段动作词遵循宿主仓 `AGENTS.md`「权限码业务分类」词表（查看 `view`、操作 `use`/`send`/`report`/`accept` 等、管理 `manage`/`config`、危险 `delete`/`revoke` 等），禁止自造同义动作词；词表外动作会归入角色权限树的"其他"分组，确需新词先在宿主仓更新词表。
 - 插件 HTTP 端点只写插件内相对路径，最终由运行时挂载到 `/api/plugins/{pluginCode}/**`；管理端点必须保护权限。
 - 访问宿主能力只能使用 SPI，如 `FrameworkServices`、`PluginContext`、`context.files()`、`context.documents()`。
 - 插件自有模板只能位于本插件 `src/main/resources/templates/`，通过 `PluginContext.templateRenderer()` 以不带 `.html` 的逻辑名渲染；禁止读取宿主/其他插件模板、绝对路径或 `..` 跨目录读取。
