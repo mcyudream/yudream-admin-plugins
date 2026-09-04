@@ -22,9 +22,15 @@ public final class SettingsService {
     private static final int DEFAULT_QQ_ANSWER_SECONDS = 60;
 
     private final PluginDocumentStore documents;
+    private java.util.function.Consumer<Boolean> practiceToggleListener;
 
     public SettingsService(PluginDocumentStore documents) {
         this.documents = documents;
+    }
+
+    /** 刷题开关变更回调（由装配层注入，用于联动菜单显隐等副作用）。 */
+    public void onPracticeToggle(java.util.function.Consumer<Boolean> listener) {
+        this.practiceToggleListener = listener;
     }
 
     public boolean practiceEnabled() {
@@ -129,6 +135,9 @@ public final class SettingsService {
             doc.put(KEY_QQ_AI_GRADING, qqAiGrading);
         }
         documents.save(COLLECTION, DOC_ID, doc);
+        if (practiceEnabled != null && practiceToggleListener != null) {
+            practiceToggleListener.accept(practiceEnabled);
+        }
     }
 
     /** 空串视为清空；文档存储不接受 null 值，必须移除键。 */

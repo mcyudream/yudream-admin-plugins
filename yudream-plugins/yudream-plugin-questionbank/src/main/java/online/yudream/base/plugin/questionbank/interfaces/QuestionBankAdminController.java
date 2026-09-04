@@ -22,6 +22,7 @@ import online.yudream.base.plugin.questionbank.domain.Question;
 import online.yudream.base.plugin.questionbank.infrastructure.JsonSupport;
 import online.yudream.base.plugin.questionbank.interfaces.request.AiImportRequest;
 import online.yudream.base.plugin.questionbank.interfaces.request.BatchDeleteRequest;
+import online.yudream.base.plugin.questionbank.interfaces.request.CategoryMergeRequest;
 import online.yudream.base.plugin.questionbank.interfaces.request.CategoryPayload;
 import online.yudream.base.plugin.questionbank.interfaces.request.ImportRequest;
 import online.yudream.base.plugin.questionbank.interfaces.request.SelfMarkRequest;
@@ -203,6 +204,16 @@ public final class QuestionBankAdminController {
         return HttpSupport.guard(() -> {
             categoryService.delete(HttpSupport.segmentAfter(request.path(), "categories"));
             return PluginHttpResponse.ok(Map.of("deleted", true));
+        });
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/admin/categories/merge", permission = QuestionBankPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse mergeCategories(PluginHttpRequest request) {
+        return HttpSupport.guard(() -> {
+            CategoryMergeRequest payload = json.read(request.body(), CategoryMergeRequest.class);
+            int moved = categoryService.merge(payload.targetId(),
+                    payload.sourceIds() == null ? List.of() : payload.sourceIds());
+            return PluginHttpResponse.ok(Map.of("moved", moved));
         });
     }
 

@@ -55,6 +55,16 @@ export interface CategoryView {
   createdAt: TimeValue
 }
 
+/** QQ 抢答排行榜条目：展示名由服务端反解绑定账号，未绑定时为遮蔽后的 QQ 号。 */
+export interface QuizRankEntry {
+  rank: number
+  name: string
+  bound: boolean
+  /** 宿主把 long 序列化为字符串，累计题数读取时须 Number() */
+  score: number | string
+  lastAt: TimeValue
+}
+
 export interface TagView {
   name: string
   count: number

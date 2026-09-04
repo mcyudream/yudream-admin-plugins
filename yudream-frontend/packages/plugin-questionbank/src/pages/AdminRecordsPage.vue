@@ -122,8 +122,8 @@ onMounted(() => model.loadAdminRecords())
       :columns="columns"
       :data="model.adminRecords"
       row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[960px]"
+      table-root-class="qb-table-scroll"
+      table-class="qb-table-w960"
       border stripe
       empty-text="暂无练习记录"
     >

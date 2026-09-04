@@ -79,6 +79,35 @@
   align-items: center;
 }
 
+.qb-type-heading {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.qb-type-heading-count {
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted-foreground, #64748b);
+}
+
+.qb-merge-target {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.qb-merge-target-active {
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+}
+
 .qb-options {
   display: grid;
   gap: 8px;
@@ -201,6 +230,159 @@
   .qb-session,
   .qb-form {
     max-width: 100%;
+  }
+}
+
+/* ---------------- 响应式与移动端卡片 ---------------- */
+
+/* FaTable 根容器：小屏横向滚动兜底。插件模板里的 min-w-[...px] 等任意值
+   工具类不会进入宿主生产 CSS（UnoCSS 只扫描宿主与组件库源码），表格
+   宽度约束一律用这里的语义类。 */
+.qb-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.qb-table-w1100 {
+  min-width: 1100px;
+}
+
+.qb-table-w960 {
+  min-width: 960px;
+}
+
+.qb-table-w860 {
+  min-width: 860px;
+}
+
+.qb-table-w720 {
+  min-width: 720px;
+}
+
+.qb-table-w560 {
+  min-width: 560px;
+}
+
+.qb-mobile-only {
+  display: none;
+}
+
+.qb-mobile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.qb-mobile-card {
+  display: grid;
+  gap: 10px;
+}
+
+.qb-mobile-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.qb-mobile-card-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.qb-mobile-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--color-text-3, #86909c);
+}
+
+.qb-mobile-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.qb-mobile-empty {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-3, #86909c);
+}
+
+/* 组卷中心：默认单栏堆叠，宽屏左右两栏且右栏吸附 */
+.qb-compose-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.qb-compose-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qb-compose-selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+@media (min-width: 1280px) {
+  .qb-compose-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .qb-compose-rail {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 5rem);
+    align-self: start;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 1536px) {
+  .qb-compose-layout {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+}
+
+@media (max-width: 768px) {
+  .qb-desktop-only {
+    display: none;
+  }
+
+  .qb-mobile-only {
+    display: block;
+  }
+
+  .qb-toolbar > :not(button) {
+    flex: 1 1 100%;
+  }
+
+  .qb-toolbar .arco-select-view,
+  .qb-toolbar .qb-filter-select {
+    min-width: 0;
+  }
+}
+
+/* FaDrawer（components 1.1.2）没有 size prop，内容面板固定 w-full + sm:max-w-sm(384px)；
+   详情抽屉需要更宽，用 content-class 覆盖 max-width，移动端保持满宽。 */
+.qb-record-drawer {
+  max-width: 100vw;
+}
+
+@media (min-width: 640px) {
+  .qb-record-drawer {
+    max-width: 720px;
   }
 }
 

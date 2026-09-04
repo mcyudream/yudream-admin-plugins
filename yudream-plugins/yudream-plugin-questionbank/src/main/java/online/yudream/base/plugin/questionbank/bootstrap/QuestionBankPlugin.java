@@ -9,11 +9,13 @@ import online.yudream.base.plugin.questionbank.application.CategoryService;
 import online.yudream.base.plugin.questionbank.application.PaperService;
 import online.yudream.base.plugin.questionbank.application.PracticeService;
 import online.yudream.base.plugin.questionbank.application.QuestionService;
+import online.yudream.base.plugin.questionbank.application.QuizScoreService;
 import online.yudream.base.plugin.questionbank.application.SettingsService;
 import online.yudream.base.plugin.questionbank.infrastructure.CategoryRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.JsonSupport;
 import online.yudream.base.plugin.questionbank.infrastructure.PaperRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.QuestionRepository;
+import online.yudream.base.plugin.questionbank.infrastructure.QuizScoreRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.SessionRepository;
 import online.yudream.base.plugin.questionbank.interfaces.QuestionBankAdminController;
 import online.yudream.base.plugin.questionbank.interfaces.QuestionBankMeController;
@@ -44,6 +46,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                 icon = "i-ri:file-list-3-line", component = "questionbank/Records", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 20),
         @PluginRoute(path = "/platform/plugins/questionbank/papers", name = "platform-plugin-questionbank-papers", title = "题单",
                 icon = "i-ri:file-paper-2-line", component = "questionbank/Papers", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 15),
+        @PluginRoute(path = "/platform/plugins/questionbank/quiz-rank", name = "platform-plugin-questionbank-quiz-rank", title = "抢答排行",
+                icon = "i-ri:trophy-line", component = "questionbank/QuizRank", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 16),
         @PluginRoute(path = "/platform/plugins/questionbank/admin", name = "platform-plugin-questionbank-admin", title = "题目管理",
                 icon = "i-ri:archive-stack-line", component = "questionbank/Admin", permission = QuestionBankPlugin.MANAGE_PERMISSION, sort = 90),
         @PluginRoute(path = "/platform/plugins/questionbank/admin/questions/edit", name = "platform-plugin-questionbank-admin-question-edit", title = "编辑题目",
@@ -71,10 +75,12 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class QuestionBankPlugin implements YuDreamPlugin {
     public static final String CODE = "questionbank";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.2.0";
     public static final String VIEW_PERMISSION = "plugin:questionbank:view";
     public static final String COMPOSE_PERMISSION = "plugin:questionbank:compose";
     public static final String MANAGE_PERMISSION = "plugin:questionbank:manage";
+    /** 自由刷题入口路由路径，菜单显隐随 practiceEnabled 开关联动。 */
+    private static final String PRACTICE_ROUTE_PATH = "/platform/plugins/questionbank";
 
     @Override
     public void onEnable(PluginContext context) {
@@ -86,10 +92,11 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
         SessionRepository sessions = new SessionRepository(context.documents());
         PaperRepository paperRepository = new PaperRepository(context.documents());
 
-        CategoryService categoryService = new CategoryService(categories, questions);
+        CategoryService categoryService = new CategoryService(categories, questions, paperRepository);
         QuestionService questionService = new QuestionService(questions, categoryService, json, context.framework());
         PaperService paperService = new PaperService(paperRepository, questions);
         SettingsService settingsService = new SettingsService(context.documents());
+        settingsService.onPracticeToggle(enabled -> syncPracticeMenuVisibility(context, enabled));
         AiGraderService aiGraderService = new AiGraderService(sessions, settingsService, context.framework());
         AiImportService aiImportService = new AiImportService(settingsService, context.framework(), json);
         AiImportJobService aiImportJobService = new AiImportJobService(context.framework(),
@@ -100,11 +107,13 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
         PracticeService practiceService = new PracticeService(questions, categories, sessions,
                 paperService, settingsService, context.framework(), aiGraderService);
         AdminRecordService recordService = new AdminRecordService(sessions);
+        QuizScoreService quizScoreService = new QuizScoreService(new QuizScoreRepository(context.documents()),
+                context.framework());
 
         context.exposeService(online.yudream.base.plugin.questionbank.api.QuestionBankApi.class,
                 new online.yudream.base.plugin.questionbank.application.DefaultQuestionBankApi(practiceService, categoryService));
 
-        context.registerHttpController(new QuestionBankMeController(practiceService, paperService, json));
+        context.registerHttpController(new QuestionBankMeController(practiceService, paperService, quizScoreService, json));
         context.registerHttpController(new QuestionBankAdminController(questionService, categoryService,
                 recordService, paperService, settingsService, aiImportService, aiImportJobService, json));
 
@@ -123,13 +132,26 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
                 composeService, paperService, categoryService, json, composeRecordService));
 
         online.yudream.base.plugin.questionbank.application.QqQuizService qqQuizService =
-                new online.yudream.base.plugin.questionbank.application.QqQuizService(questions, settingsService, context.framework());
+                new online.yudream.base.plugin.questionbank.application.QqQuizService(questions, settingsService,
+                        quizScoreService, context.framework());
         this.qqQuizService = qqQuizService;
         context.onDispose(qqQuizService);
         context.onDispose(context.interactions().onMessage(
                 new online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter(
                         java.util.Set.of("message_receive", "message"), null, null, null),
                 event -> qqQuizService.onMessage(event, context)));
+
+        // 启用时按当前开关同步刷题菜单显隐（菜单投影在 onEnable 之后，已存在的记录会被保留可见性）
+        syncPracticeMenuVisibility(context, settingsService.practiceEnabled());
+    }
+
+    /** 刷题菜单随开关显隐；宿主 SPI 低于 2.17.0（无 setMenuVisible）时静默降级，仅关闭功能入口。 */
+    private static void syncPracticeMenuVisibility(PluginContext context, boolean practiceEnabled) {
+        try {
+            context.setMenuVisible(PRACTICE_ROUTE_PATH, practiceEnabled);
+        } catch (LinkageError ignored) {
+            // 旧宿主无该 SPI 方法：菜单保持原状，功能仍由后端 requirePracticeEnabled 兜底
+        }
     }
 
     private online.yudream.base.plugin.questionbank.application.QqQuizService qqQuizService;
@@ -141,6 +163,16 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
                             PluginContext context) {
         if (qqQuizService != null) {
             qqQuizService.startQuiz(command, context);
+        }
+    }
+
+    @online.yudream.base.plugin.spi.annotation.PluginCommand(
+            code = "questionbank.quiz-rank", command = "抢答榜", name = "抢答排行榜",
+            description = "查看本群抢答累计答对排行榜（前 10 名）")
+    public void quizRankCommand(online.yudream.base.plugin.spi.system.command.PluginCommandContext command,
+                                PluginContext context) {
+        if (qqQuizService != null) {
+            qqQuizService.leaderboard(command, context);
         }
     }
 }

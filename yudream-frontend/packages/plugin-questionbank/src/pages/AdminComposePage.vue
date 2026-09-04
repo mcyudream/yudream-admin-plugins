@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { ComposeRecordView, QuestionView } from '../types'
-import { FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaSwitch, FaTable, FaTabs, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaSwitch, FaTabs, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import CategorySelect from '../components/CategorySelect.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
@@ -178,16 +178,16 @@ onMounted(async () => {
   <FaPageMain>
     <FaTabs v-model="tab" :list="tabs" class="mb-4" />
 
-    <!-- 组卷工作台 -->
-    <div v-if="tab === 'workbench'" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+    <!-- 组卷工作台：宽屏左右两栏（右栏吸附），窄屏单栏堆叠 -->
+    <div v-if="tab === 'workbench'" class="qb-compose-layout">
       <FaCard title="题目拾取" description="仅显示启用中的题目，点击「加入」进入右侧组卷列表">
-        <FaTable
+        <FaResponsiveTable
           v-loading="model.loading"
           :columns="columns"
           :data="model.composeQuestions"
           row-key="id"
-          table-root-class="max-w-full overflow-x-auto rounded-lg"
-          table-class="min-w-[860px]"
+          table-root-class="qb-table-scroll"
+          table-class="qb-table-w860"
           border stripe
           empty-text="暂无符合条件的启用题目"
         >
@@ -220,7 +220,28 @@ onMounted(async () => {
             </FaButton>
             <FaTag v-else variant="default">已加入</FaTag>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard>
+              <div class="qb-mobile-card">
+                <div class="qb-mobile-card-title">{{ plainContent(row) || '（空题干）' }}</div>
+                <div class="qb-mobile-card-meta">
+                  <FaTag variant="secondary">{{ row.typeLabel }}</FaTag>
+                  <span>{{ row.categoryName || '未分类' }}</span>
+                  <span style="color: var(--color-warning-6, #ff7d00)">{{ difficultyLabel(row.difficulty) }}</span>
+                </div>
+                <div v-if="row.tags.length" class="flex flex-wrap gap-1">
+                  <FaTag v-for="tag in row.tags" :key="tag" variant="outline">{{ tag }}</FaTag>
+                </div>
+                <div class="qb-mobile-card-actions">
+                  <FaButton v-if="!isSelected(row)" size="sm" variant="outline" @click="model.addComposeQuestion(row)">
+                    <FaIcon name="i-ri:add-line" />加入
+                  </FaButton>
+                  <FaTag v-else variant="default">已加入</FaTag>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
         <FaPagination
           v-model:page="model.composePager.page"
           v-model:size="model.composePager.size"
@@ -230,7 +251,7 @@ onMounted(async () => {
           @size-change="model.applyComposeFilters"
         />
       </FaCard>
-      <div class="flex flex-col gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-5rem)] xl:self-start xl:overflow-y-auto">
+      <div class="qb-compose-rail">
         <FaCard title="试卷信息" description="导出 Word / 保存记录时的标题与说明，可自定义">
           <div class="qb-form">
             <div class="qb-form-row">
@@ -274,7 +295,7 @@ onMounted(async () => {
           </div>
         </FaCard>
         <FaCard :title="`组卷列表（${model.composeSelected.length}）`" description="按加入顺序出卷，可逐题移除">
-          <div v-if="model.composeSelected.length" class="flex max-h-[46vh] flex-col gap-2 overflow-y-auto">
+          <div v-if="model.composeSelected.length" class="qb-compose-selected-list">
             <div v-for="(item, index) in model.composeSelected" :key="item.id" class="flex items-start gap-2 rounded-md border p-2 text-sm">
               <span class="qb-muted shrink-0">{{ index + 1 }}.</span>
               <div class="min-w-0 flex-1">
@@ -296,13 +317,13 @@ onMounted(async () => {
 
     <!-- 组卷记录 -->
     <FaCard v-else title="组卷记录" description="记录只保存题目引用，打开时实时解析；已删除或停用的题目会自动跳过">
-      <FaTable
+      <FaResponsiveTable
         v-loading="model.composeRecordsLoading"
         :columns="recordColumns"
         :data="model.composeRecords"
         row-key="id"
-        table-root-class="max-w-full overflow-x-auto rounded-lg"
-        table-class="min-w-[860px]"
+        table-root-class="qb-table-scroll"
+        table-class="qb-table-w860"
         border stripe
         empty-text="还没有组卷记录，去工作台保存一份吧"
       >
@@ -334,7 +355,30 @@ onMounted(async () => {
             <FaButton size="sm" variant="destructive" @click="confirmDeleteRecord(row.original)"><FaIcon name="i-ri:delete-bin-line" />删除</FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard>
+            <div class="qb-mobile-card">
+              <div class="qb-mobile-card-title">{{ row.title }}</div>
+              <div class="qb-mobile-card-meta">
+                <span v-if="model.questionbankManager">{{ row.ownerName }}</span>
+                <span>{{ row.questionCount }} 题</span>
+                <FaTag :variant="row.withAnswers ? 'default' : 'outline'">{{ row.withAnswers ? '附答案' : '纯试卷' }}</FaTag>
+                <FaTag :variant="row.shared ? 'default' : 'secondary'">{{ row.shared ? '分享中' : '未分享' }}</FaTag>
+                <span>{{ formatTime(row.createdAt) }}</span>
+              </div>
+              <div class="qb-mobile-card-actions">
+                <FaButton size="sm" variant="outline" @click="viewRecord(row)">查看</FaButton>
+                <FaButton size="sm" variant="outline" @click="presentRecord(row)">大屏</FaButton>
+                <FaButton size="sm" variant="outline" @click="model.exportComposeRecordWord(row)">Word</FaButton>
+                <FaButton size="sm" :variant="row.shared ? 'ghost' : 'outline'" @click="toggleShare(row)">
+                  {{ row.shared ? '取消分享' : '分享' }}
+                </FaButton>
+                <FaButton size="sm" variant="destructive" @click="confirmDeleteRecord(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination
         v-model:page="model.composeRecordsPager.page"
         v-model:size="model.composeRecordsPager.size"
@@ -367,8 +411,8 @@ onMounted(async () => {
       </div>
     </FaModal>
 
-    <!-- 在线查看记录 -->
-    <FaDrawer v-model="detailOpen" :title="model.composeRecordDetail?.title ?? '组卷详情'" size="720px">
+    <!-- 在线查看记录；FaDrawer 没有 size prop，宽度用 content-class 走插件 CSS（移动端满宽） -->
+    <FaDrawer v-model="detailOpen" :title="model.composeRecordDetail?.title ?? '组卷详情'" content-class="qb-record-drawer">
       <div v-if="model.composeRecordDetailLoading" class="qb-muted py-10 text-center">加载中…</div>
       <div v-else-if="!model.composeRecordDetail" class="qb-muted py-10 text-center">记录不存在或已删除</div>
       <div v-else class="flex flex-col gap-4">

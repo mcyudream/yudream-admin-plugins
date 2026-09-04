@@ -2,4 +2,4 @@ name: questionbank
 displayName: 题库
 description: 在线题库：单选/多选/判断/填空/简答，支持 Markdown 与图片题干、随机抽题作答、标签分类与导入导出。
 main: online.yudream.base.plugin.questionbank.bootstrap.QuestionBankPlugin
-version: 1.0.0
+version: 1.2.0

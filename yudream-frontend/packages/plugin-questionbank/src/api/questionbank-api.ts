@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, ComposeRule, ImportResult, Page, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, ScreenDrawResult, SessionSummary, SessionView, SharedComposeView, TagView } from '../types'
+import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, ComposeRule, ImportResult, Page, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, ScreenDrawResult, SessionSummary, SessionView, SharedComposeView, TagView } from '../types'
 
 function query(params: Record<string, string | number | undefined>) {
   const value = new URLSearchParams()
@@ -46,6 +46,7 @@ export function createQuestionBankApi(sdk: YuDreamPluginSdk) {
     myPapers: () => records<PaperView>(sdk.http.get('/me/papers')),
     attemptPaper: (paperId: string) =>
       sdk.http.post<SessionView>(`/me/papers/${id(paperId)}/attempt`),
+    quizLeaderboard: () => records<QuizRankEntry>(sdk.http.get('/me/quiz/leaderboard')),
     // ---------- 管理端（/admin/**，跨用户） ----------
     adminQuestions: (keyword = '', categoryId = '', tag = '', type = '', difficulty?: number, status = '', page = 1, size = 20) =>
       sdk.http.get<Page<QuestionView>>(`/admin/questions${query({ keyword, categoryId, tag, type, difficulty, status, page, size })}`),
@@ -74,6 +75,8 @@ export function createQuestionBankApi(sdk: YuDreamPluginSdk) {
       sdk.http.request<CategoryView>(`/admin/categories/${id(categoryId)}`, { method: 'PUT', data }),
     deleteCategory: (categoryId: string) =>
       sdk.http.request<{ deleted: boolean }>(`/admin/categories/${id(categoryId)}`, { method: 'DELETE' }),
+    mergeCategories: (data: { targetId: string, sourceIds: string[] }) =>
+      sdk.http.post<{ moved: number }>('/admin/categories/merge', data),
     adminTags: () => records<TagView>(sdk.http.get('/admin/tags')),
     adminRecords: (keyword = '', status = '', page = 1, size = 20) =>
       sdk.http.get<Page<SessionSummary>>(`/admin/records${query({ keyword, status, page, size })}`),

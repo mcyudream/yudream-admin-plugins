@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { ImportResult, QuestionPayload, QuestionView } from '../types'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaCheckbox, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { saveBlob } from '../api/questionbank-api'
@@ -208,6 +208,22 @@ function onSelectionChange(rows: QuestionView[]) {
   selectedRows.value = rows
 }
 
+function isSelected(row: QuestionView) {
+  return selectedRows.value.some(item => item.id === row.id)
+}
+
+/** 移动端卡片没有表格勾选事件，用 FaCheckbox 直接维护同一份 selectedRows。 */
+function toggleSelect(row: QuestionView, checked: boolean | 'indeterminate' | null | undefined) {
+  if (checked === true) {
+    if (!isSelected(row)) {
+      selectedRows.value = [...selectedRows.value, row]
+    }
+  }
+  else {
+    selectedRows.value = selectedRows.value.filter(item => item.id !== row.id)
+  }
+}
+
 function openCreate() {
   void router.push({ path: '/platform/plugins/questionbank/admin/questions/edit' })
 }
@@ -319,58 +335,88 @@ onMounted(async () => {
     <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新建题目</FaButton>
   </FaPageHeader>
   <FaPageMain>
+    <!-- 工具栏提到表格外面：移动端卡片列表也要共用同一套筛选与批量删除 -->
+    <FaSearchBar class="w-full">
+      <div class="qb-toolbar">
+        <FaInput v-model="model.adminFilters.keyword" placeholder="搜索题干或标签" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
+        <CategorySelect v-model="model.adminFilters.categoryId" :categories="model.adminCategories" empty-label="全部分类" @update:model-value="model.applyAdminFilters" />
+        <FaSelect v-model="model.adminFilters.tag" :options="tagOptions" @change="model.applyAdminFilters" />
+        <FaSelect v-model="model.adminFilters.type" :options="typeOptions" @change="model.applyAdminFilters" />
+        <FaSelect v-model="model.adminFilters.status" :options="statusOptions" @change="model.applyAdminFilters" />
+        <FaButton variant="outline" @click="model.applyAdminFilters"><FaIcon name="i-ri:search-line" />查询</FaButton>
+        <FaButton variant="destructive" :disabled="!selectedRows.length" @click="confirmBatchDelete">
+          批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
+        </FaButton>
+      </div>
+    </FaSearchBar>
     <!-- FaResponsiveTable 的事件会落到包装 div 上无法透传（selectionChange 收不到），需要勾选事件的表格直接用 FaTable -->
-    <FaTable
-      v-loading="model.loading"
-      :columns="columns"
-      :data="model.adminQuestions"
-      row-key="id"
-      selectable
-      multiple
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[1100px]"
-      border stripe column-visibility
-      empty-text="暂无题目，点击右上角新建或导入"
-      @selection-change="onSelectionChange"
-    >
-      <template #toolbar>
-        <FaSearchBar class="w-full">
-          <div class="qb-toolbar">
-            <FaInput v-model="model.adminFilters.keyword" placeholder="搜索题干或标签" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
-            <CategorySelect v-model="model.adminFilters.categoryId" :categories="model.adminCategories" empty-label="全部分类" @update:model-value="model.applyAdminFilters" />
-            <FaSelect v-model="model.adminFilters.tag" :options="tagOptions" @change="model.applyAdminFilters" />
-            <FaSelect v-model="model.adminFilters.type" :options="typeOptions" @change="model.applyAdminFilters" />
-            <FaSelect v-model="model.adminFilters.status" :options="statusOptions" @change="model.applyAdminFilters" />
-            <FaButton variant="outline" @click="model.applyAdminFilters"><FaIcon name="i-ri:search-line" />查询</FaButton>
-            <FaButton variant="destructive" :disabled="!selectedRows.length" @click="confirmBatchDelete">
-              批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
-            </FaButton>
+    <div class="qb-desktop-only">
+      <FaTable
+        v-loading="model.loading"
+        :columns="columns"
+        :data="model.adminQuestions"
+        row-key="id"
+        selectable
+        multiple
+        table-root-class="qb-table-scroll"
+        table-class="qb-table-w1100"
+        border stripe column-visibility
+        empty-text="暂无题目，点击右上角新建或导入"
+        @selection-change="onSelectionChange"
+      >
+        <template #cell-content="{ row }">
+          <span class="qb-question-content-cell" :title="plainContent(row.original)">{{ plainContent(row.original) || '（空题干）' }}</span>
+        </template>
+        <template #cell-type="{ row }"><FaTag variant="secondary">{{ row.original.typeLabel }}</FaTag></template>
+        <template #cell-category="{ row }">{{ row.original.categoryName || '-' }}</template>
+        <template #cell-tags="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <FaTag v-for="tag in row.original.tags" :key="tag" variant="outline">{{ tag }}</FaTag>
+            <span v-if="!row.original.tags.length" class="qb-muted">-</span>
           </div>
-        </FaSearchBar>
-      </template>
-      <template #cell-content="{ row }">
-        <span class="qb-question-content-cell" :title="plainContent(row.original)">{{ plainContent(row.original) || '（空题干）' }}</span>
-      </template>
-      <template #cell-type="{ row }"><FaTag variant="secondary">{{ row.original.typeLabel }}</FaTag></template>
-      <template #cell-category="{ row }">{{ row.original.categoryName || '-' }}</template>
-      <template #cell-tags="{ row }">
-        <div class="flex flex-wrap gap-1">
-          <FaTag v-for="tag in row.original.tags" :key="tag" variant="outline">{{ tag }}</FaTag>
-          <span v-if="!row.original.tags.length" class="qb-muted">-</span>
+        </template>
+        <template #cell-difficulty="{ row }"><span style="color: var(--color-warning-6, #ff7d00)">{{ difficultyLabel(row.original.difficulty) }}</span></template>
+        <template #cell-status="{ row }">
+          <FaTag :variant="row.original.status === 'DISABLED' ? 'outline' : 'default'">{{ row.original.status === 'DISABLED' ? '停用' : '启用' }}</FaTag>
+        </template>
+        <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
+        <template #cell-operation="{ row }">
+          <div class="flex-center gap-2">
+            <FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton>
+            <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
+          </div>
+        </template>
+      </FaTable>
+    </div>
+    <div class="qb-mobile-only">
+      <div v-loading="model.loading" class="qb-mobile-list">
+        <FaCard v-for="row in model.adminQuestions" :key="row.id">
+          <div class="qb-mobile-card">
+            <div class="qb-mobile-card-head">
+              <FaCheckbox :model-value="isSelected(row)" @change="toggleSelect(row, $event)" />
+              <div class="qb-mobile-card-title">{{ plainContent(row) || '（空题干）' }}</div>
+            </div>
+            <div class="qb-mobile-card-meta">
+              <FaTag variant="secondary">{{ row.typeLabel }}</FaTag>
+              <span>{{ row.categoryName || '未分类' }}</span>
+              <span style="color: var(--color-warning-6, #ff7d00)">{{ difficultyLabel(row.difficulty) }}</span>
+              <FaTag :variant="row.status === 'DISABLED' ? 'outline' : 'default'">{{ row.status === 'DISABLED' ? '停用' : '启用' }}</FaTag>
+              <span>{{ formatTime(row.updatedAt) }}</span>
+            </div>
+            <div v-if="row.tags.length" class="flex flex-wrap gap-1">
+              <FaTag v-for="tag in row.tags" :key="tag" variant="outline">{{ tag }}</FaTag>
+            </div>
+            <div class="qb-mobile-card-actions">
+              <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+              <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+        <div v-if="!model.loading && model.adminQuestions.length === 0" class="qb-mobile-empty">
+          暂无题目，点击右上角新建或导入
         </div>
-      </template>
-      <template #cell-difficulty="{ row }"><span style="color: var(--color-warning-6, #ff7d00)">{{ difficultyLabel(row.original.difficulty) }}</span></template>
-      <template #cell-status="{ row }">
-        <FaTag :variant="row.original.status === 'DISABLED' ? 'outline' : 'default'">{{ row.original.status === 'DISABLED' ? '停用' : '启用' }}</FaTag>
-      </template>
-      <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
-      <template #cell-operation="{ row }">
-        <div class="flex-center gap-2">
-          <FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton>
-          <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
-        </div>
-      </template>
-    </FaTable>
+      </div>
+    </div>
     <FaPagination
       v-model:page="model.adminPager.page"
       v-model:size="model.adminPager.size"

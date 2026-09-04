@@ -15,6 +15,7 @@ import online.yudream.base.plugin.questionbank.infrastructure.CreateQuestionAiTo
 import online.yudream.base.plugin.questionbank.infrastructure.FakeDocumentStore;
 import online.yudream.base.plugin.questionbank.infrastructure.FakeFramework;
 import online.yudream.base.plugin.questionbank.infrastructure.JsonSupport;
+import online.yudream.base.plugin.questionbank.infrastructure.PaperRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.QuestionRepository;
 import online.yudream.base.plugin.spi.http.PluginSseStream;
 import online.yudream.base.plugin.spi.system.ai.PluginAiChatRequest;
@@ -38,7 +39,7 @@ class AiImportJobServiceTest {
         FakeDocumentStore store = new FakeDocumentStore();
         QuestionRepository questions = new QuestionRepository(store);
         CategoryRepository categories = new CategoryRepository(store);
-        CategoryService categoryService = new CategoryService(categories, questions);
+        CategoryService categoryService = new CategoryService(categories, questions, new PaperRepository(store));
         JsonSupport json = new JsonSupport(new ObjectMapper());
         questionService = new QuestionService(questions, categoryService, json, framework);
         tool = new CreateQuestionAiTool(questionService, json);

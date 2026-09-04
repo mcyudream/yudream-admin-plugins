@@ -39,6 +39,7 @@ public final class QqQuizService implements AutoCloseable {
 
     private final QuestionRepository questions;
     private final SettingsService settings;
+    private final QuizScoreService quizScores;
     private final FrameworkServices framework;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "questionbank-qq-quiz");
@@ -47,9 +48,11 @@ public final class QqQuizService implements AutoCloseable {
     });
     private final Map<String, QuizState> activeQuizzes = new ConcurrentHashMap<>();
 
-    public QqQuizService(QuestionRepository questions, SettingsService settings, FrameworkServices framework) {
+    public QqQuizService(QuestionRepository questions, SettingsService settings,
+                         QuizScoreService quizScores, FrameworkServices framework) {
         this.questions = questions;
         this.settings = settings;
+        this.quizScores = quizScores;
         this.framework = framework;
     }
 
@@ -83,6 +86,30 @@ public final class QqQuizService implements AutoCloseable {
         scheduler.schedule(() -> timeout(channelKey, state, context), seconds, TimeUnit.SECONDS);
     }
 
+    /** `抢答榜` 指令入口：展示当前群聊的抢答排行榜（前 10 名）。 */
+    public void leaderboard(PluginCommandContext command, PluginContext context) {
+        PluginEvent event = command.event();
+        if (event.channelId() == null || event.channelId().isBlank()) {
+            return;
+        }
+        List<Map<String, Object>> entries = quizScores.channelLeaderboard(event.connectionId(), event.channelId());
+        if (entries.isEmpty()) {
+            reply(command, context, "本群还没有抢答成绩，发送「抽题」开始抢答吧！");
+            return;
+        }
+        StringBuilder sb = new StringBuilder("🏆 本群抢答排行榜");
+        int limit = Math.min(entries.size(), 10);
+        for (int i = 0; i < limit; i++) {
+            Map<String, Object> entry = entries.get(i);
+            sb.append("\n").append(entry.get("rank")).append(". ").append(entry.get("name"))
+                    .append(" — ").append(entry.get("score")).append(" 题");
+        }
+        if (entries.size() > limit) {
+            sb.append("\n…共 ").append(entries.size()).append(" 人上榜");
+        }
+        reply(command, context, sb.toString());
+    }
+
     /** 群消息监听入口：仅在有进行中的抢答时处理。 */
     public void onMessage(PluginEvent event, PluginContext context) {
         if (event.channelId() == null || event.channelId().isBlank()
@@ -107,7 +134,7 @@ public final class QqQuizService implements AutoCloseable {
         if (correct) {
             if (activeQuizzes.remove(channelKey(event), state)) {
                 send(state.event(), context, "🎉 抢答成功！答案：" + ComposeService.answerText(question)
-                        + analysisSuffix(question));
+                        + analysisSuffix(question) + winSuffix(event, question));
             }
         }
         else {
@@ -140,7 +167,8 @@ public final class QqQuizService implements AutoCloseable {
                         if (content.startsWith("CORRECT")) {
                             if (activeQuizzes.remove(channelKey(answerEvent), state)) {
                                 send(state.event(), context, "🎉 抢答成功（AI 判分）！\n参考答案："
-                                        + ComposeService.answerText(question) + analysisSuffix(question));
+                                        + ComposeService.answerText(question) + analysisSuffix(question)
+                                        + winSuffix(answerEvent, question));
                             }
                         }
                         else if (content.startsWith("WRONG")) {
@@ -150,6 +178,26 @@ public final class QqQuizService implements AutoCloseable {
         }
         catch (Throwable e) {
             LOGGER.log(Level.WARNING, "[YuDreamAdmin] [题库] QQ 简答 AI 判分调用失败", e);
+        }
+    }
+
+    /** 答对后记成绩并生成积分后缀；积分失败不影响抢答主流程。 */
+    private String winSuffix(PluginEvent answerEvent, Question question) {
+        try {
+            int total = quizScores.recordWin(answerEvent.userId(), answerEvent.connectionId(),
+                    answerEvent.channelId(), question);
+            if (total <= 0) {
+                return "";
+            }
+            String suffix = "\n🏆 累计答对 " + total + " 题";
+            if (!quizScores.isBound(answerEvent.userId())) {
+                suffix += "（发送 /绑定 六位绑定码 绑定账号后计入个人成绩）";
+            }
+            return suffix;
+        }
+        catch (Throwable e) {
+            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [题库] QQ 抢答成绩记录失败", e);
+            return "";
         }
     }
 

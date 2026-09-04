@@ -15,6 +15,7 @@ import CategoriesPage from './pages/CategoriesPage.vue'
 import PapersPage from './pages/PapersPage.vue'
 import PracticePage from './pages/PracticePage.vue'
 import QuestionEditPage from './pages/QuestionEditPage.vue'
+import QuizRankPage from './pages/QuizRankPage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
 import SessionPage from './pages/SessionPage.vue'
 import SharedComposePage from './pages/SharedComposePage.vue'
@@ -51,6 +52,8 @@ const page = computed(() => {
       return AdminComposePage
     case 'BuzzScreen':
       return BuzzScreenPage
+    case 'QuizRank':
+      return QuizRankPage
     case 'SharedCompose':
       return SharedComposePage
     default:

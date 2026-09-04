@@ -66,8 +66,8 @@ onMounted(() => model.loadReviewQueue())
       :columns="columns"
       :data="model.reviewList"
       row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[860px]"
+      table-root-class="qb-table-scroll"
+      table-class="qb-table-w860"
       border stripe
       empty-text="暂无待审核的作答"
     >

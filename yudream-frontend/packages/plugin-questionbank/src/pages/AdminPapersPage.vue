@@ -104,8 +104,8 @@ onMounted(() => model.loadAdminPapers())
       :columns="columns"
       :data="model.adminPapers"
       row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[1100px]"
+      table-root-class="qb-table-scroll"
+      table-class="qb-table-w1100"
       border stripe
       empty-text="暂无题单，点击右上角新建"
     >

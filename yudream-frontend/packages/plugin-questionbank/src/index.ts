@@ -19,6 +19,7 @@ export const AdminRecords = QuestionBankPlugin
 export const AdminCompose = QuestionBankPlugin
 export const BuzzScreen = QuestionBankPlugin
 export const SharedCompose = QuestionBankPlugin
+export const QuizRank = QuestionBankPlugin
 
 export const routes = {
   Practice,
@@ -50,6 +51,7 @@ export const routes = {
   'questionbank/AdminCompose': AdminCompose,
   'questionbank/BuzzScreen': BuzzScreen,
   'questionbank/SharedCompose': SharedCompose,
+  'questionbank/QuizRank': QuizRank,
 }
 
 export function install() {

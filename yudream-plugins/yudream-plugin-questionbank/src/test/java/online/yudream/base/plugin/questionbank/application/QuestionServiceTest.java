@@ -13,6 +13,7 @@ import online.yudream.base.plugin.questionbank.infrastructure.CategoryRepository
 import online.yudream.base.plugin.questionbank.infrastructure.FakeDocumentStore;
 import online.yudream.base.plugin.questionbank.infrastructure.FakeFramework;
 import online.yudream.base.plugin.questionbank.infrastructure.JsonSupport;
+import online.yudream.base.plugin.questionbank.infrastructure.PaperRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.QuestionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class QuestionServiceTest {
         store = new FakeDocumentStore();
         QuestionRepository questions = new QuestionRepository(store);
         CategoryRepository categories = new CategoryRepository(store);
-        categoryService = new CategoryService(categories, questions);
+        categoryService = new CategoryService(categories, questions, new PaperRepository(store));
         questionService = new QuestionService(questions, categoryService,
                 new JsonSupport(new ObjectMapper()), new FakeFramework());
     }
@@ -126,7 +127,7 @@ class QuestionServiceTest {
         store = new FakeDocumentStore();
         QuestionRepository questions = new QuestionRepository(store);
         CategoryRepository categories = new CategoryRepository(store);
-        categoryService = new CategoryService(categories, questions);
+        categoryService = new CategoryService(categories, questions, new PaperRepository(store));
         questionService = new QuestionService(questions, categoryService,
                 new JsonSupport(new ObjectMapper()), new FakeFramework());
         try {

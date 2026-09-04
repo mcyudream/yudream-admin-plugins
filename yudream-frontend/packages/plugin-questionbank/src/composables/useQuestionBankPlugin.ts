@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, SessionSummary, SessionView, TagView } from '../types'
+import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, SessionSummary, SessionView, TagView } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createQuestionBankApi, saveBlob } from '../api/questionbank-api'
@@ -108,6 +108,11 @@ export function useQuestionBankPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function refreshPoolCount() {
+    // 自由刷题已关闭时后端会拒绝统计请求，直接保持关闭态而不报错
+    if (meta.value?.practiceEnabled === false) {
+      poolCount.value = null
+      return
+    }
     counting.value = true
     try {
       const result = await api.practiceCount(buildFilter())
@@ -301,6 +306,36 @@ export function useQuestionBankPlugin(sdk: YuDreamPluginSdk) {
     }
     catch (error) {
       toast.error(errorMessage(error))
+    }
+  }
+
+  async function mergeCategories(targetId: string, sourceIds: string[]) {
+    try {
+      const result = await api.mergeCategories({ targetId, sourceIds })
+      toast.success(`已合并分类，迁移 ${result.moved} 道题`)
+      await loadAdminCategories()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  // ---------- 用户端：QQ 抢答排行榜 ----------
+
+  const quizLeaderboard = ref<QuizRankEntry[]>([])
+  const quizLeaderboardLoading = ref(false)
+
+  async function loadQuizLeaderboard() {
+    quizLeaderboardLoading.value = true
+    try {
+      quizLeaderboard.value = await api.quizLeaderboard()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+    }
+    finally {
+      quizLeaderboardLoading.value = false
     }
   }
 
@@ -823,6 +858,10 @@ export function useQuestionBankPlugin(sdk: YuDreamPluginSdk) {
     loadAdminCategories,
     saveCategory,
     removeCategory,
+    mergeCategories,
+    quizLeaderboard,
+    quizLeaderboardLoading,
+    loadQuizLeaderboard,
     loadAdminRecords,
     applyAdminRecordsFilters,
     removeAdminRecord,

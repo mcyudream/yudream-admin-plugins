@@ -11,6 +11,8 @@ import java.util.List;
 import online.yudream.base.plugin.questionbank.api.QuestionBankApi;
 import online.yudream.base.plugin.questionbank.domain.Paper;
 import online.yudream.base.plugin.questionbank.domain.PracticeSession;
+import online.yudream.base.plugin.questionbank.domain.QuestionType;
+import online.yudream.base.plugin.questionbank.domain.SessionQuestion;
 import online.yudream.base.plugin.questionbank.infrastructure.CategoryRepository;
 import online.yudream.base.plugin.questionbank.infrastructure.FakeDocumentStore;
 import online.yudream.base.plugin.questionbank.infrastructure.FakeFramework;
@@ -38,7 +40,7 @@ class PracticeServiceTest {
         CategoryRepository categories = new CategoryRepository(store);
         SessionRepository sessions = new SessionRepository(store);
         PaperRepository papers = new PaperRepository(store);
-        categoryService = new CategoryService(categories, questions);
+        categoryService = new CategoryService(categories, questions, papers);
         framework = new FakeFramework();
         questionService = new QuestionService(questions, categoryService,
                 new JsonSupport(new ObjectMapper()), framework);
@@ -348,6 +350,54 @@ class PracticeServiceTest {
                 String agent, online.yudream.base.plugin.spi.system.ai.PluginAiChatRequest request) {
             return chat(request);
         }
+    }
+
+    @Test
+    void drawSortsQuestionsByType() {
+        questionService.create(new QuestionPayload("SHORT", null, null, List.of("mix"),
+                "简答", List.of(), null, List.of(), List.of(), "参考", null, null, null), "1", null);
+        questionService.create(new QuestionPayload("MULTIPLE", null, null, List.of("mix"),
+                "多选", List.of("甲", "乙"), null, List.of("A", "B"), List.of(), null, null, null, null), "1", null);
+        addSingle("mix", null);
+        questionService.create(new QuestionPayload("TRUE_FALSE", null, null, List.of("mix"),
+                "判断", List.of(), "true", List.of(), List.of(), null, null, null, null), "1", null);
+        PracticeSession session = practiceService.createSession("100",
+                new PracticeFilter(null, List.of("mix"), List.of(), List.of(), 10));
+        assertEquals(4, session.questions().size());
+        int previous = -1;
+        for (SessionQuestion question : session.questions()) {
+            assertTrue(question.questionType().ordinal() >= previous);
+            previous = question.questionType().ordinal();
+        }
+        assertEquals(QuestionType.SINGLE, session.questions().get(0).questionType());
+        assertEquals(QuestionType.SHORT, session.questions().get(3).questionType());
+    }
+
+    @Test
+    void mergeCategoriesMovesQuestionsPapersAndDeletesSources() {
+        var source = categoryService.create("AI 批次一", null);
+        var other = categoryService.create("AI 批次二", null);
+        var target = categoryService.create("合并目标", null);
+        String q1 = questionService.create(new QuestionPayload("SINGLE", source.id(), null, List.of(),
+                "题一", List.of("甲", "乙"), "A", List.of(), List.of(), null, null, null, null), "1", null).id();
+        String q2 = questionService.create(new QuestionPayload("SINGLE", other.id(), null, List.of(),
+                "题二", List.of("甲", "乙"), "A", List.of(), List.of(), null, null, null, null), "1", null).id();
+        String keep = addSingle("java", null);
+        Paper paper = paperService.create("1", "管理员", new PaperPayload("批次题单", null,
+                Paper.MODE_RULE, source.id(), List.of(), List.of(), List.of(), 1, null,
+                Paper.SUBJECTIVE_SELF, Paper.STATUS_PUBLISHED));
+
+        int moved = categoryService.merge(target.id(), List.of(source.id(), other.id()));
+
+        assertEquals(2, moved);
+        assertEquals(target.id(), questionService.require(q1).categoryId());
+        assertEquals(target.id(), questionService.require(q2).categoryId());
+        assertNull(questionService.require(keep).categoryId());
+        assertEquals(target.id(), paperService.require(paper.id()).categoryId());
+        assertThrows(NotFoundException.class, () -> categoryService.require(source.id()));
+        assertThrows(NotFoundException.class, () -> categoryService.require(other.id()));
+        assertThrows(IllegalArgumentException.class,
+                () -> categoryService.merge(target.id(), List.of(target.id())));
     }
 
     /** 测试内快速读某题判定结果。 */

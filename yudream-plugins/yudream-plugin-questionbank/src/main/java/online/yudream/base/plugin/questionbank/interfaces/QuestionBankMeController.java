@@ -6,6 +6,7 @@ import online.yudream.base.plugin.questionbank.application.PageResult;
 import online.yudream.base.plugin.questionbank.application.PaperService;
 import online.yudream.base.plugin.questionbank.application.PracticeFilter;
 import online.yudream.base.plugin.questionbank.application.PracticeService;
+import online.yudream.base.plugin.questionbank.application.QuizScoreService;
 import online.yudream.base.plugin.questionbank.bootstrap.QuestionBankPlugin;
 import online.yudream.base.plugin.questionbank.domain.PracticeSession;
 import online.yudream.base.plugin.questionbank.infrastructure.JsonSupport;
@@ -24,11 +25,14 @@ import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 public final class QuestionBankMeController {
     private final PracticeService practiceService;
     private final PaperService paperService;
+    private final QuizScoreService quizScoreService;
     private final JsonSupport json;
 
-    public QuestionBankMeController(PracticeService practiceService, PaperService paperService, JsonSupport json) {
+    public QuestionBankMeController(PracticeService practiceService, PaperService paperService,
+                                    QuizScoreService quizScoreService, JsonSupport json) {
         this.practiceService = practiceService;
         this.paperService = paperService;
+        this.quizScoreService = quizScoreService;
         this.json = json;
     }
 
@@ -115,6 +119,15 @@ public final class QuestionBankMeController {
     public PluginHttpResponse papers(PluginHttpRequest request) {
         return HttpSupport.guard(() -> PluginHttpResponse.ok(Map.of(
                 "records", paperService.listPublished().stream().map(Views::paperView).toList())));
+    }
+
+    /**
+     * QQ 抢答排行榜（聚合数据，所有登录用户可见）。
+     * 归属绑定在服务端按 QQ 反解，响应只含展示名与题数，不含原始 QQ 号。
+     */
+    @PluginHttpEndpoint(method = "GET", path = "/me/quiz/leaderboard", permission = QuestionBankPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse quizLeaderboard(PluginHttpRequest request) {
+        return HttpSupport.guard(() -> PluginHttpResponse.ok(Map.of("records", quizScoreService.leaderboard())));
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/me/papers/{id}/attempt", permission = QuestionBankPlugin.VIEW_PERMISSION)

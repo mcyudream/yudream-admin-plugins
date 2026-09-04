@@ -109,7 +109,7 @@ public final class PracticeService {
             throw new IllegalArgumentException("没有符合条件的题目，请调整筛选条件");
         }
         Collections.shuffle(pool, new Random());
-        List<Question> drawn = pool.subList(0, Math.min(count, pool.size()));
+        List<Question> drawn = sortByType(pool.subList(0, Math.min(count, pool.size())));
         long now = System.currentTimeMillis();
         PracticeSession session = new PracticeSession(
                 Ids.newId(),
@@ -140,7 +140,7 @@ public final class PracticeService {
      */
     public PracticeSession attemptPaper(String userId, String paperId) {
         Paper paper = papers.requirePublished(paperId);
-        List<Question> drawn = papers.draw(paper);
+        List<Question> drawn = sortByType(papers.draw(paper));
         long now = System.currentTimeMillis();
         PracticeSession session = new PracticeSession(
                 Ids.newId(),
@@ -186,7 +186,7 @@ public final class PracticeService {
             throw new IllegalArgumentException("没有符合条件的题目，请调整抽题规则");
         }
         Collections.shuffle(pool, new Random());
-        List<Question> drawn = pool.subList(0, Math.min(count, pool.size()));
+        List<Question> drawn = sortByType(pool.subList(0, Math.min(count, pool.size())));
         long now = System.currentTimeMillis();
         PracticeSession session = new PracticeSession(
                 Ids.newId(),
@@ -325,6 +325,16 @@ public final class PracticeService {
     private List<Question> pool(PracticeFilter filter) {
         return QuestionPool.filter(enabledQuestions(), filter.categoryId(),
                 filter.tags(), filter.types(), filter.difficulties());
+    }
+
+    /**
+     * 抽题结果按题型归拢（单选→多选→判断→填空→简答），同题型内部保持随机顺序。
+     * 前端再按题型分大标题展示，历史会话的旧顺序不受影响。
+     */
+    private static List<Question> sortByType(List<Question> drawn) {
+        List<Question> sorted = new ArrayList<>(drawn);
+        sorted.sort(java.util.Comparator.comparingInt(question -> question.type().ordinal()));
+        return sorted;
     }
 
     private List<Question> enabledQuestions() {

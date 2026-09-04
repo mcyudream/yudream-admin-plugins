@@ -74,8 +74,8 @@ onMounted(() => model.loadMyRecords())
       :columns="columns"
       :data="model.myRecords"
       row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[960px]"
+      table-root-class="qb-table-scroll"
+      table-class="qb-table-w960"
       border stripe
       empty-text="还没有练习记录，去抽一组题吧"
     >

@@ -51,6 +51,49 @@ const aiMode = computed(() => model.session?.subjectiveMode === 'AI')
 /** 简答判分不由用户完成（人工审核或 AI）时隐藏自评入口 */
 const externalGrading = computed(() => reviewMode.value || aiMode.value)
 
+/** 固定题型展示顺序：单选→多选→判断→填空→简答，与后端抽题排序一致。 */
+const TYPE_ORDER = ['SINGLE', 'MULTIPLE', 'TRUE_FALSE', 'FILL', 'SHORT']
+const GROUP_NUMERALS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+
+interface QuestionGroup {
+  type: string
+  label: string
+  items: { question: SessionQuestionView, no: number }[]
+}
+
+/** 按题型分大标题展示并连续编号；历史会话的乱序快照也在此归拢，无需后端迁移。 */
+const groupedQuestions = computed<QuestionGroup[]>(() => {
+  const view = model.session
+  if (!view) {
+    return []
+  }
+  const byType = new Map<string, SessionQuestionView[]>()
+  for (const question of view.questions) {
+    const bucket = byType.get(question.type)
+    if (bucket) {
+      bucket.push(question)
+    }
+    else {
+      byType.set(question.type, [question])
+    }
+  }
+  const orderedTypes = TYPE_ORDER.filter(type => byType.has(type))
+  for (const type of byType.keys()) {
+    if (!orderedTypes.includes(type)) {
+      orderedTypes.push(type)
+    }
+  }
+  let no = 0
+  return orderedTypes.map((type) => {
+    const questions = byType.get(type) ?? []
+    return {
+      type,
+      label: questions[0]?.typeLabel ?? type,
+      items: questions.map(question => ({ question, no: ++no })),
+    }
+  })
+})
+
 const answeredCount = computed(() => {
   const view = model.session
   if (!view) {
@@ -113,11 +156,27 @@ function buildPayloads(): AnswerPayload[] {
   })
 }
 
+/** 题号列表过长时截断展示，避免确认框被刷爆。 */
+function formatNumbers(numbers: number[]) {
+  const shown = numbers.slice(0, 20).join('、')
+  return numbers.length > 20 ? `${shown} 等` : shown
+}
+
 function confirmSubmit() {
-  const unanswered = (model.session?.questions.length ?? 0) - answeredCount.value
+  const flat = groupedQuestions.value.flatMap(group => group.items)
+  const multipleNumbers = flat.filter(item => item.question.type === 'MULTIPLE').map(item => item.no)
+  const unansweredNumbers = flat.filter(item => !isAnswered(item.question)).map(item => item.no)
+  const hints: string[] = []
+  if (multipleNumbers.length) {
+    hints.push(`本卷含 ${multipleNumbers.length} 道多选题（第 ${formatNumbers(multipleNumbers)} 题），多选题需选全所有正确选项才得分`)
+  }
+  if (unansweredNumbers.length) {
+    hints.push(`还有 ${unansweredNumbers.length} 道题未作答（第 ${formatNumbers(unansweredNumbers)} 题）`)
+  }
+  hints.push('提交后不能修改，确认提交吗？')
   confirm.confirm({
     title: '提交作答',
-    content: unanswered > 0 ? `还有 ${unanswered} 道题未作答，提交后不能修改，确认提交吗？` : '提交后不能修改，确认提交吗？',
+    content: hints.join('；'),
     onConfirm: () => model.submitSession(sessionId, buildPayloads()),
   })
 }
@@ -251,10 +310,14 @@ function selfMark(question: SessionQuestionView, correct: boolean) {
           <FaButton :loading="model.submitting" @click="confirmSubmit"><FaIcon name="i-ri:check-line" />提交作答</FaButton>
         </div>
       </FaCard>
-      <FaCard v-for="(question, index) in model.session.questions" :key="question.questionId">
-        <div class="qb-question-card">
-          <div class="qb-question-meta">
-            <strong>{{ index + 1 }}.</strong>
+      <template v-for="(group, groupIndex) in groupedQuestions" :key="group.type">
+        <div class="qb-type-heading">
+          {{ GROUP_NUMERALS[groupIndex] ?? groupIndex + 1 }}、{{ group.label }}<span class="qb-type-heading-count">（共 {{ group.items.length }} 题）</span>
+        </div>
+        <FaCard v-for="({ question, no }) in group.items" :key="question.questionId">
+          <div class="qb-question-card">
+            <div class="qb-question-meta">
+              <strong>{{ no }}.</strong>
             <FaTag variant="secondary">{{ question.typeLabel }}</FaTag>
             <FaTag variant="outline">{{ difficultyLabel(question.difficulty) }}</FaTag>
             <FaTag v-if="finished" :variant="resultTag(question).variant">{{ resultTag(question).text }}</FaTag>
@@ -360,7 +423,8 @@ function selfMark(question: SessionQuestionView, correct: boolean) {
             </div>
           </template>
         </div>
-      </FaCard>
+        </FaCard>
+      </template>
       <FaCard v-if="!finished">
         <div class="qb-session-head">
           <span class="text-sm">已作答 {{ answeredCount }} / {{ model.session.questions.length }} 题</span>
