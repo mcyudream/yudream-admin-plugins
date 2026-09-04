@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,7 +41,7 @@ class ShareServiceTest {
     }
 
     private String createMaterial(String ownerId) {
-        return materialService.create(ownerId, new CreateMaterialCommand("pf-1", "海报.psd", "海报", null, List.of(), null))
+        return materialService.create(ownerId, new CreateMaterialCommand("pf-1", "海报.psd", "海报", null, List.of(), null, null))
                 .material().id();
     }
 
@@ -78,16 +77,17 @@ class ShareServiceTest {
     void listReturnsNewestFirstOnlyOfMaterial() {
         String materialId = createMaterial("7");
         String otherId = createMaterial("7");
-        ShareView first = service.create("7", materialId, null, null);
-        service.create("7", otherId, null, null);
-        ShareView latest = service.create("7", materialId, 24, null);
+        // 直接落库并显式指定 createdAt：service.create 用 System.currentTimeMillis()，
+        // 同毫秒创建排序键并列、顺序不可控（仓库按随机 token 字典序返回），测试必须确定
+        shares.save(new MaterialShare("tok-first", materialId, "7", "用户7", null, 0, 1000L));
+        shares.save(new MaterialShare("tok-other", otherId, "7", "用户7", null, 0, 2000L));
+        shares.save(new MaterialShare("tok-latest", materialId, "7", "用户7", null, 4000L, 3000L));
 
         List<ShareView> records = service.list("7", materialId);
         assertEquals(2, records.size());
-        assertEquals(latest.id(), records.get(0).id());
-        assertEquals(first.id(), records.get(1).id());
+        assertEquals("tok-latest", records.get(0).id());
+        assertEquals("tok-first", records.get(1).id());
         assertTrue(records.get(0).expiresAt() > 0);
-        assertNotEquals(first.id(), latest.id());
     }
 
     @Test
@@ -102,6 +102,22 @@ class ShareServiceTest {
         service.revoke("7", materialId, view.id());
         assertThrows(NotFoundException.class, () -> service.resolveValid(view.id()));
         assertTrue(service.list("7", materialId).isEmpty());
+    }
+
+    @Test
+    void adminVariantsBypassOwnershipButKeepMaterialMatch() {
+        String materialId = createMaterial("7");
+        ShareView view = service.createAs("9", materialId, 24, "管理员代发");
+        assertEquals("用户9", view.createdByName());
+
+        // listOf / revokeAny 不校验归属
+        assertEquals(1, service.listOf(materialId).size());
+        service.revokeAny(materialId, view.id());
+        assertTrue(service.listOf(materialId).isEmpty());
+
+        // materialId 不匹配仍拒绝
+        ShareView again = service.createAs("9", materialId, null, null);
+        assertThrows(NotFoundException.class, () -> service.revokeAny(createMaterial("7"), again.id()));
     }
 
     @Test

@@ -37,6 +37,9 @@
 | currentVersion | int | 当前版本号 |
 | size / contentType | long / string | 当前版本大小与 MIME |
 | status | string | ACTIVE / ARCHIVED（归档：用户端列表默认隐藏） |
+| visibility | string | PRIVATE（仅自己）/ DEPT（仅部门）/ PUBLIC（全站成员），缺省 PRIVATE |
+| deptIds | string[] | visibility=DEPT 时显式选择的可见部门 id（1.6.0 起由用户/管理员选择；更早版本为保存时属主部门快照） |
+| deptNames | string[] | deptIds 对应的部门名冗余，用于展示 |
 | createdAt / updatedAt | long | epoch millis |
 
 ### material_versions
@@ -61,9 +64,10 @@
 | 方法/路径 | 说明 |
 |---|---|
 | GET /me/materials?keyword&type&categoryId&status&tag&page&size | 分页列表（tag 为精确匹配，忽略大小写；含归档过滤） |
-| POST /me/materials `{fileId, filename, name?, categoryId?, tags?}` | 从宿主上传落库为物料 v1 |
+| POST /me/materials `{fileId, filename, name?, categoryId?, tags?, visibility?, deptIds?}` | 从宿主上传落库为物料 v1（visibility=DEPT 时 deptIds 必填且须全部 ∈ 自己加入的部门） |
+| POST /me/materials/import-folder `{items[], folderName, categoryId?, tags?, visibility?, deptIds?}` | 文件夹导入批量落库（≤200 个；分类用文件夹名，中间层子文件夹名追加为标签） |
 | GET /me/materials/{id} | 详情（含当前版本、分类名） |
-| PUT /me/materials/{id} `{name, categoryId, tags}` | 改元数据 |
+| PUT /me/materials/{id} `{name, categoryId, tags, visibility?, deptIds?}` | 改元数据（DEPT 校验同创建） |
 | DELETE /me/materials/{id} | 删除物料+全部版本+对象 |
 | GET /me/materials/{id}/versions | 版本列表（倒序） |
 | POST /me/materials/{id}/versions `{fileId, filename, note?}` | 上传新版本 |
@@ -75,17 +79,28 @@
 | GET /me/materials/{id}/shares | 该物料的分享列表（按创建时间倒序） |
 | DELETE /me/materials/{id}/shares/{shareId} | 撤销分享（删凭证文档，立即失效） |
 | GET /me/categories | 分类列表（选择器用） |
-| GET /me/tags | 标签云（自己未归档物料的标签计数，次数降序，最多 30 个） |
+| GET /me/departments | 当前用户**自己加入的部门**选项（DEPT 可见范围选择器用；普通用户不暴露全量部门树） |
+| GET /me/tags | 标签云（自己未归档物料的标签计数，次数降序，最多 100 个） |
 | GET /me/covers?ids=a,b,c | 批量签发图片物料封面（≤60 个 id，返回 `{id, url}` 列表；url 为平台签名公开路径 `/api/public/preview/file/...`，前端用 `sdk.files.assetUrl()` 解析；非图片/越权/已删除的 id 静默跳过） |
 
 ### 管理端 /admin/**（permission=manage）
 | 方法/路径 | 说明 |
 |---|---|
 | GET /admin/materials?keyword&type&categoryId&owner&status&page&size | 跨用户分页列表 |
-| GET /admin/materials/{id} / GET .../download / GET .../preview | 详情/下载/预览（同样走签名链） |
+| GET /admin/materials/{id} / GET .../versions / GET .../download / GET .../preview | 详情/版本/下载/预览（同样走签名链） |
+| PUT /admin/materials/{id} `{name?, categoryId?, tags?, visibility?, deptIds?}` | 编辑任意物料元数据（DEPT 校验：deptIds 须存在于全量部门树） |
+| POST /admin/materials/{id}/versions `{fileId, filename, note?}` | 代传新版本（uploader 记为操作者） |
+| POST/GET /admin/materials/{id}/shares；DELETE .../shares/{shareId} | 代管分享外链（createdBy 记为操作者） |
 | DELETE /admin/materials/{id} | 删除任意物料 |
 | PUT /admin/materials/{id}/status `{status}` | 归档/恢复 |
+| PUT /admin/materials/batch/category `{ids, categoryId}` | 批量移动分组（空 categoryId=移出分类；ids ≤200，逐项容错） |
+| PUT /admin/materials/batch/tags `{ids, tags, mode}` | 批量打标签（APPEND 合并去重，合并后超 8 个计入失败；REPLACE 直接替换） |
+| PUT /admin/materials/batch/status `{ids, status}` | 批量归档/恢复 |
+| POST /admin/materials/batch/delete `{ids}` | 批量删除（POST 带 body 避开 DELETE body 兼容性；复用级联删除） |
+| GET /admin/departments?keyword= | 全量部门树拍平选项（管理端 DEPT 选择器用，label 带父级路径） |
 | GET/POST /admin/categories；PUT/DELETE /admin/categories/{id} | 分类维护 |
+
+批量端点统一返回 `{total, succeeded, failures:[{id, name, message}]}`，单项失败不中断整批。
 
 ### 公开 /public/**（无权限注解）
 | 方法/路径 | 说明 |
@@ -110,9 +125,9 @@
 
 | 路由 | 组件 | 权限 | 说明 |
 |---|---|---|---|
-| /platform/plugins/material | material/Library | view | 物料库：头部搜索/类型/上传 + 左侧分类导航/标签云/状态筛选 + 缩略图卡片网格（悬停操作层）+ 分页 + 上传弹窗 + 分享弹窗 |
-| /platform/plugins/material/detail | material/Detail | view, hideInMenu | 详情：预览区（PreviewFrame）+ 版本列表 + 元数据编辑 + 分享弹窗 + 下载/回滚/删除 |
-| /platform/plugins/material/admin | material/Admin | manage | 跨用户物料表格（筛选/归档/删除/预览/下载） |
+| /platform/plugins/material | material/Library | view | 物料库：头部搜索/类型/上传 + 左侧分类导航/标签云/状态筛选 + 缩略图卡片网格（悬停操作层）+ 分页 + 上传/文件夹导入/编辑/分享弹窗；有 manage 权限者在他人卡片上也有 编辑/分享（走 /admin 通道） |
+| /platform/plugins/material/detail | material/Detail | view, hideInMenu | 详情：预览区（PreviewFrame）+ 版本列表 + 元数据编辑 + 分享弹窗 + 下载/回滚/删除；manage 权限者可代传新版本/代管分享，回滚/删版本仍仅属主 |
+| /platform/plugins/material/admin | material/Admin | manage | 跨用户物料表格（FaTable 勾选；行操作 预览/编辑/新版本/分享/下载/归档/删除；批量 移动分组/打标签(追加·覆盖)/归档/恢复/删除） |
 | /platform/plugins/material/admin/categories | material/Categories | manage | 分类表格维护 |
 
 布局（用户特别要求重视）：库页为「头部工具区 + 左侧栏 + 卡片网格」三段式——FaPageHeader 内嵌搜索框/类型筛选/上传按钮；左侧栏（`material-sidebar`，200px sticky）含分类导航（带物料计数）、标签云（点击精确筛选、再点取消）、状态筛选；主区 `material-grid` 为 `repeat(auto-fill, minmax(180px, 1fr))` 缩略图卡片（正方形缩略区：图片物料显示 /me/covers 签发的公开封面，其余类型显示类型图标 + 扩展名），悬停浮现 预览/下载/编辑/分享/删除 图标操作层，卡片下方显示名称与 类型/大小/当前版本；≤900px 侧栏收为顶部区块。详情页桌面左右分栏（`material-detail-layout` 3fr/2fr——左侧预览卡片含版本切换选择器，右侧版本历史表格含预览/下载/回滚/删除行操作），≤1100px 自动单列堆叠；预览容器最小高 420px、iframe 70vh，图片直读用棋盘格衬底。
@@ -124,6 +139,7 @@
 - 下载/预览/公开端点均校验 materialId 归属的物料未被归档时不影响（归档只影响列表可见性，不吊销已发 token——归档是软隐藏而非安全边界；删除才是）。
 - 分享外链（/public/share/**）：token 是高熵随机串且存库可撤销，不签名不派生；每次解析实时判过期与物料存在性，删除物料级联删除全部链接。分享页物料名等文本经 HTML 转义防 XSS；文件流/下载端点对机器调用返回 JSON 错误而非 HTML。
 - 上传入口限制：filename 清洗（去路径符/控制符），大小依赖宿主上传上限；intake 流式复制，不落内存。
+- 可见范围：DEPT 采用「显式部门集合」——保存时校验 deptIds（用户端须 ⊆ 自己加入的部门，管理端须存在于全量部门树）并冗余 deptNames；读路径按观看者当前部门与物料 deptIds 求交集判定，部门调整即时生效。列表数据范围与权限正交：manage 权限不扩大用户端可见集合，跨用户操作只能走 /admin 端点。
 
 ## 8. 已知限制（写入 releaseNotes/文档）
 

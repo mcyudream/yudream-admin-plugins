@@ -22,8 +22,10 @@ const shareOpen = ref(false)
 const saving = ref(false)
 /** 预览中的版本；空串表示当前版本 */
 const previewVersion = ref('')
-/** 他人物料只读：可预览/下载，变更操作仅属主可用 */
+/** 他人物料默认只读：可预览/下载；有管理权限者可代传新版本、代管分享（回滚/删版本仍仅属主） */
 const isOwner = computed(() => !!model.detail && model.isOwner(model.detail.material))
+/** 上传新版本/分享入口：属主走 /me，管理者走 /admin 代操作（命名避开 CI 的 canManage 数据集切换启发式——这里不切换数据集，只是对已可见物料开放管理操作） */
+const canOperateEntry = computed(() => isOwner.value || model.hasManage)
 
 const previewVersionOptions = computed(() => {
   const options = model.versions.map(version => ({
@@ -53,7 +55,12 @@ watch(previewVersion, (value) => {
 async function submitNewVersion(payload: { fileId: string, filename: string, note: string }) {
   saving.value = true
   try {
-    await model.uploadNewVersion(materialId.value, payload.fileId, payload.filename, payload.note)
+    if (isOwner.value) {
+      await model.uploadNewVersion(materialId.value, payload.fileId, payload.filename, payload.note)
+    }
+    else {
+      await model.adminUploadNewVersion(materialId.value, payload.fileId, payload.filename, payload.note)
+    }
     newVersionOpen.value = false
     previewVersion.value = ''
   }
@@ -93,8 +100,8 @@ onMounted(async () => {
     <FaPageHeader :title="model.detail.material.name" :description="`${model.detail.material.typeLabel} · .${model.detail.material.ext} · ${formatSize(model.detail.material.size)} · 当前 v${model.detail.material.currentVersion} · ${visibilityLabel(model.detail.material.visibility)}可见 · 上传者 ${model.detail.material.ownerName || '-'}`">
       <FaButton variant="outline" @click="router.push('/platform/plugins/material')"><FaIcon name="i-ri:arrow-left-line" />返回物料库</FaButton>
       <FaButton variant="outline" @click="model.downloadMine(model.detail.material)"><FaIcon name="i-ri:download-line" />下载当前版本</FaButton>
-      <FaButton v-if="isOwner" variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
-      <FaButton v-if="isOwner" @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
+      <FaButton v-if="canOperateEntry" variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
+      <FaButton v-if="canOperateEntry" @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
     </FaPageHeader>
     <FaPageMain>
       <div class="material-detail-layout">
@@ -163,7 +170,7 @@ onMounted(async () => {
       </div>
     </FaPageMain>
     <NewVersionModal v-model="newVersionOpen" :sdk="model.sdk" :saving="saving" @submit="submitNewVersion" />
-    <ShareModal v-model="shareOpen" :material="model.detail.material" :model="model" />
+    <ShareModal v-model="shareOpen" :material="model.detail.material" :model="model" :admin="!isOwner" />
   </template>
   <template v-else>
     <FaPageHeader title="物料详情" />

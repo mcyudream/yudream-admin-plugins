@@ -5,11 +5,13 @@ import { FaButton, FaIcon, FaInput, FaModal, FaSelect, FaTag, useFaModal, useFaT
 import { ref, watch } from 'vue'
 import { formatTime } from '../types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: boolean
   material: MaterialSummary | null
   model: MaterialPluginModel
-}>()
+  /** true 时走管理端代管接口（/admin/**），用于管理者代操作他人物料 */
+  admin?: boolean
+}>(), { admin: false })
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 const toast = useFaToast()
@@ -31,7 +33,7 @@ watch(() => [props.modelValue, props.material?.id], ([open]) => {
   if (open && props.material) {
     expiry.value = 0
     note.value = ''
-    void props.model.loadShares(props.material.id)
+    void props.model.loadShares(props.material.id, props.admin)
   }
 }, { immediate: true })
 
@@ -72,7 +74,7 @@ async function submit() {
   }
   creating.value = true
   try {
-    const share = await props.model.createShare(props.material.id, expiry.value > 0 ? expiry.value : null, note.value.trim())
+    const share = await props.model.createShare(props.material.id, expiry.value > 0 ? expiry.value : null, note.value.trim(), props.admin)
     if (share) {
       note.value = ''
       await copy(shareUrl(share), '链接已创建并复制到剪贴板')
@@ -91,7 +93,7 @@ function confirmRevoke(share: ShareView) {
   confirm.confirm({
     title: '撤销分享',
     content: '撤销后该链接立即失效，已分享的接收方将无法再访问。确认撤销吗？',
-    onConfirm: () => props.model.revokeShare(materialId, share.id),
+    onConfirm: () => props.model.revokeShare(materialId, share.id, props.admin),
   })
 }
 </script>

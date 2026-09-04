@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import online.yudream.base.plugin.material.application.command.CreateMaterialCommand;
 import online.yudream.base.plugin.material.application.command.NewVersionCommand;
 import online.yudream.base.plugin.material.application.command.UpdateMaterialCommand;
+import online.yudream.base.plugin.material.application.dto.DeptOption;
 import online.yudream.base.plugin.material.application.dto.MaterialDetail;
 import online.yudream.base.plugin.material.application.dto.MaterialSummary;
 import online.yudream.base.plugin.material.application.dto.TagView;
@@ -26,6 +27,7 @@ import online.yudream.base.plugin.material.infrastructure.PlatformFileIntake;
 import online.yudream.base.plugin.material.infrastructure.ShareRepository;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
+import online.yudream.base.plugin.spi.system.user.PluginDeptOption;
 import online.yudream.base.plugin.spi.system.user.PluginUserDept;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
@@ -129,7 +131,7 @@ public final class MaterialService {
         String id = Ids.newId();
         long now = System.currentTimeMillis();
         String ownerName = resolveUserName(ownerId);
-        VisibilityAssignment visibility = resolveVisibility(ownerId, command.visibility());
+        VisibilityAssignment visibility = resolveVisibilityForUser(ownerId, command.visibility(), command.deptIds());
         StoredPayload payload = storePayload(storage.objectKey(id, 1), platform, MaterialType.extOf(filename));
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, 1), id, 1,
                 payload.objectKey(), filename, MaterialType.extOf(filename), payload.size(),
@@ -145,6 +147,16 @@ public final class MaterialService {
 
     public MaterialDetail updateMeta(String ownerId, String id, UpdateMaterialCommand command) {
         Material material = requireOwn(ownerId, id);
+        return applyMeta(material, command, true, ownerId);
+    }
+
+    /** 管理端代编辑：不校验归属，可见性按全量部门树解析。 */
+    public MaterialDetail updateMetaAs(String id, UpdateMaterialCommand command) {
+        Material material = requireAny(id);
+        return applyMeta(material, command, false, null);
+    }
+
+    private MaterialDetail applyMeta(Material material, UpdateMaterialCommand command, boolean userPath, String actorId) {
         String name = command.name() == null || command.name().isBlank() ? material.name() : command.name().trim();
         if (name.length() > 120) {
             throw new IllegalArgumentException("名称不能超过 120 字");
@@ -152,7 +164,9 @@ public final class MaterialService {
         Material updated = material.withMeta(name, blankToNull(command.categoryId()),
                 normalizeTags(command.tags()), System.currentTimeMillis());
         if (command.visibility() != null && !command.visibility().isBlank()) {
-            VisibilityAssignment visibility = resolveVisibility(ownerId, command.visibility());
+            VisibilityAssignment visibility = userPath
+                    ? resolveVisibilityForUser(actorId, command.visibility(), command.deptIds())
+                    : resolveVisibilityForAdmin(command.visibility(), command.deptIds());
             updated = updated.withVisibility(visibility.value(), visibility.deptIds(), visibility.deptNames(),
                     System.currentTimeMillis());
         }
@@ -161,22 +175,35 @@ public final class MaterialService {
     }
 
     public MaterialDetail newVersion(String ownerId, String id, NewVersionCommand command) {
-        String filename = sanitizeFilename(command.filename());
         synchronized (lockOf(id)) {
             Material material = requireOwn(ownerId, id);
-            PluginStoredFile platform = intake.require(command.fileId());
-            int next = material.currentVersion() + 1;
-            long now = System.currentTimeMillis();
-            String ext = MaterialType.extOf(filename);
-            StoredPayload payload = storePayload(storage.objectKey(id, next), platform, ext);
-            MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, next), id, next,
-                    payload.objectKey(), filename, ext, payload.size(), payload.contentType(),
-                    normalizeNote(command.note()), ownerId, resolveUserName(ownerId), now);
-            versions.save(version);
-            Material updated = material.withCurrentVersion(version, now);
-            materials.save(updated);
-            return toDetail(updated);
+            return applyNewVersion(material, ownerId, command);
         }
+    }
+
+    /** 管理端代传新版本：版本记录的上传人记操作者。 */
+    public MaterialDetail newVersionAs(String operatorId, String id, NewVersionCommand command) {
+        synchronized (lockOf(id)) {
+            Material material = requireAny(id);
+            return applyNewVersion(material, operatorId, command);
+        }
+    }
+
+    private MaterialDetail applyNewVersion(Material material, String actorId, NewVersionCommand command) {
+        String filename = sanitizeFilename(command.filename());
+        String id = material.id();
+        PluginStoredFile platform = intake.require(command.fileId());
+        int next = material.currentVersion() + 1;
+        long now = System.currentTimeMillis();
+        String ext = MaterialType.extOf(filename);
+        StoredPayload payload = storePayload(storage.objectKey(id, next), platform, ext);
+        MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, next), id, next,
+                payload.objectKey(), filename, ext, payload.size(), payload.contentType(),
+                normalizeNote(command.note()), actorId, resolveUserName(actorId), now);
+        versions.save(version);
+        Material updated = material.withCurrentVersion(version, now);
+        materials.save(updated);
+        return toDetail(updated);
     }
 
     // ---------- 回溯与删除 ----------
@@ -265,51 +292,176 @@ public final class MaterialService {
         }
     }
 
-    /** 解析创建/修改时的可见性；DEPT 会快照属主当前部门（id + 名称），无部门时拒绝。 */
-    private VisibilityAssignment resolveVisibility(String ownerId, String raw) {
-        String normalized = raw == null || raw.isBlank()
-                ? Material.VISIBILITY_PRIVATE : raw.trim().toUpperCase(Locale.ROOT);
-        switch (normalized) {
-            case Material.VISIBILITY_PRIVATE:
-            case Material.VISIBILITY_PUBLIC:
-                return new VisibilityAssignment(normalized, List.of(), List.of());
-            case Material.VISIBILITY_DEPT: {
-                List<PluginUserDept> depts;
-                try {
-                    depts = framework.users().listDepartments(Long.parseLong(ownerId));
-                }
-                catch (Exception e) {
-                    depts = List.of();
-                }
-                if (depts == null || depts.isEmpty()) {
-                    throw new IllegalArgumentException("您未加入任何部门，无法设置仅部门可见");
-                }
-                List<String> ids = depts.stream()
-                        .filter(dept -> dept != null && dept.id() != null)
-                        .map(dept -> String.valueOf(dept.id()))
-                        .distinct()
-                        .toList();
-                List<String> names = depts.stream()
-                        .filter(dept -> dept != null && dept.id() != null)
-                        .map(dept -> dept.name() == null || dept.name().isBlank() ? String.valueOf(dept.id()) : dept.name())
-                        .distinct()
-                        .toList();
-                if (ids.isEmpty()) {
-                    throw new IllegalArgumentException("您未加入任何部门，无法设置仅部门可见");
-                }
-                return new VisibilityAssignment(normalized, ids, names);
+    /**
+     * 用户端可见性解析：DEPT 必须显式给出可见部门，且全部属于操作者自己所在的部门；
+     * 部门名从操作者部门列表解析。PRIVATE/PUBLIC 忽略 deptIds。
+     */
+    public VisibilityAssignment resolveVisibilityForUser(String userId, String raw, List<String> deptIds) {
+        String normalized = normalizeVisibility(raw);
+        if (!Material.VISIBILITY_DEPT.equals(normalized)) {
+            return new VisibilityAssignment(normalized, List.of(), List.of());
+        }
+        List<String> requested = normalizeDeptIds(deptIds);
+        if (requested.isEmpty()) {
+            throw new IllegalArgumentException("可见范围为仅部门时请选择可见部门");
+        }
+        Map<String, String> own = new java.util.HashMap<>();
+        for (DeptOption dept : myDepartments(userId)) {
+            own.put(dept.id(), dept.name());
+        }
+        List<String> names = new java.util.ArrayList<>();
+        for (String id : requested) {
+            String name = own.get(id);
+            if (name == null) {
+                throw new IllegalArgumentException("只能选择您所在的部门作为可见范围");
             }
-            default:
-                throw new IllegalArgumentException("可见性仅支持 PRIVATE / DEPT / PUBLIC");
+            names.add(name);
+        }
+        return new VisibilityAssignment(normalized, requested, names);
+    }
+
+    /** 管理端可见性解析：DEPT 必须显式给出可见部门，且全部存在于全量部门树。 */
+    public VisibilityAssignment resolveVisibilityForAdmin(String raw, List<String> deptIds) {
+        String normalized = normalizeVisibility(raw);
+        if (!Material.VISIBILITY_DEPT.equals(normalized)) {
+            return new VisibilityAssignment(normalized, List.of(), List.of());
+        }
+        List<String> requested = normalizeDeptIds(deptIds);
+        if (requested.isEmpty()) {
+            throw new IllegalArgumentException("可见范围为仅部门时请选择可见部门");
+        }
+        Map<String, String> all = new java.util.HashMap<>();
+        for (DeptOption dept : departmentOptions(null)) {
+            all.put(dept.id(), dept.name());
+        }
+        List<String> names = new java.util.ArrayList<>();
+        for (String id : requested) {
+            String name = all.get(id);
+            if (name == null) {
+                throw new IllegalArgumentException("部门不存在或已被删除");
+            }
+            names.add(name);
+        }
+        return new VisibilityAssignment(normalized, requested, names);
+    }
+
+    /** 当前用户加入的部门选项（用户端选择器数据源，只暴露自己所在部门）。 */
+    public List<DeptOption> myDepartments(String userId) {
+        try {
+            List<PluginUserDept> depts = framework.users().listDepartments(Long.parseLong(userId));
+            if (depts == null) {
+                return List.of();
+            }
+            return depts.stream()
+                    .filter(dept -> dept != null && dept.id() != null)
+                    .map(dept -> {
+                        String name = dept.name() == null || dept.name().isBlank()
+                                ? String.valueOf(dept.id()) : dept.name();
+                        return new DeptOption(String.valueOf(dept.id()), name, name);
+                    })
+                    .toList();
+        }
+        catch (Exception e) {
+            return List.of();
         }
     }
 
-    private record VisibilityAssignment(String value, List<String> deptIds, List<String> deptNames) {
+    /** 全量部门树拍平选项（管理端选择器数据源），label 带父级路径；SPI 异常时按空树处理。 */
+    public List<DeptOption> departmentOptions(String keyword) {
+        List<DeptOption> result = new java.util.ArrayList<>();
+        try {
+            List<PluginDeptOption> roots = framework.users().listDepartments(
+                    keyword == null || keyword.isBlank() ? null : keyword.trim());
+            for (PluginDeptOption root : roots == null ? List.<PluginDeptOption>of() : roots) {
+                flattenDept(root, "", result);
+            }
+        }
+        catch (Exception e) {
+            return List.of();
+        }
+        return result;
+    }
+
+    private void flattenDept(PluginDeptOption node, String parentLabel, List<DeptOption> output) {
+        if (node == null || node.id() == null || node.id().isBlank()) {
+            return;
+        }
+        String name = node.name() == null || node.name().isBlank() ? node.id() : node.name();
+        String label = parentLabel.isBlank() ? name : parentLabel + " / " + name;
+        output.add(new DeptOption(node.id(), name, label));
+        for (PluginDeptOption child : node.children() == null ? List.<PluginDeptOption>of() : node.children()) {
+            flattenDept(child, label, output);
+        }
+    }
+
+    private static String normalizeVisibility(String raw) {
+        String normalized = raw == null || raw.isBlank()
+                ? Material.VISIBILITY_PRIVATE : raw.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case Material.VISIBILITY_PRIVATE, Material.VISIBILITY_DEPT, Material.VISIBILITY_PUBLIC -> normalized;
+            default -> throw new IllegalArgumentException("可见性仅支持 PRIVATE / DEPT / PUBLIC");
+        };
+    }
+
+    private static List<String> normalizeDeptIds(List<String> deptIds) {
+        if (deptIds == null) {
+            return List.of();
+        }
+        return deptIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+    }
+
+    public record VisibilityAssignment(String value, List<String> deptIds, List<String> deptNames) {
     }
 
     public Material requireAny(String id) {
         return materials.findById(id)
                 .orElseThrow(() -> new NotFoundException("物料不存在"));
+    }
+
+    /** 批量辅助（管理端复用）：仅改分类，categoryId 为空表示移出分类。 */
+    public Material applyCategory(Material material, String categoryId) {
+        Material updated = material.withMeta(material.name(), blankToNull(categoryId),
+                material.tags(), System.currentTimeMillis());
+        materials.save(updated);
+        return updated;
+    }
+
+    /** 批量辅助（管理端复用）：append=true 合并去重（超 8 个拒绝），否则整体替换。 */
+    public Material applyTags(Material material, List<String> tags, boolean append) {
+        List<String> next;
+        if (append) {
+            List<String> merged = new java.util.ArrayList<>(material.tags() == null ? List.of() : material.tags());
+            for (String tag : tags == null ? List.<String>of() : tags) {
+                if (tag != null && !tag.isBlank() && !merged.contains(tag.trim())) {
+                    merged.add(tag.trim());
+                }
+            }
+            if (merged.size() > MAX_TAGS) {
+                throw new IllegalArgumentException("追加后标签超过 " + MAX_TAGS + " 个上限");
+            }
+            next = normalizeTags(merged);
+        } else {
+            next = normalizeTags(tags);
+        }
+        Material updated = material.withMeta(material.name(), material.categoryId(), next, System.currentTimeMillis());
+        materials.save(updated);
+        return updated;
+    }
+
+    /** 批量辅助（管理端复用）：分类存在性校验，返回归一化后的 id（null 表示移出分类）。 */
+    public String requireCategoryOrNull(String categoryId) {
+        String normalized = blankToNull(categoryId);
+        if (normalized == null) {
+            return null;
+        }
+        if (!categoryNames().containsKey(normalized)) {
+            throw new IllegalArgumentException("分类不存在");
+        }
+        return normalized;
     }
 
     public MaterialVersion resolveVersion(Material material, Integer versionNumber) {

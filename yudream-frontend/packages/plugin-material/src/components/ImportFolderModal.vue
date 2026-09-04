@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { PickedFile } from '../api/upload'
-import type { FolderImportItem, FolderImportPayload, FolderImportResult, TagView } from '../types'
+import type { DeptOption, FolderImportItem, FolderImportPayload, FolderImportResult, TagView } from '../types'
 import { Progress as AProgress } from '@arco-design/web-vue'
-import { FaButton, FaIcon, FaModal, FaSelect } from '@yudream/components'
+import { FaButton, FaIcon, FaModal } from '@yudream/components'
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 import { uploadFileWithProgress, pickDirectory } from '../api/upload'
-import { formatSize, VISIBILITY_OPTIONS } from '../types'
+import { formatSize } from '../types'
 import TagPicker from './TagPicker.vue'
+import VisibilityDeptField from './VisibilityDeptField.vue'
 
 /** 与后端 FolderImportService.MAX_ITEMS 保持一致 */
 const MAX_ITEMS = 200
@@ -22,6 +23,8 @@ interface Failure {
 const props = defineProps<{
   sdk: YuDreamPluginSdk
   tags: TagView[]
+  /** 可见范围=仅部门时的部门选项（用户端为自己加入的部门） */
+  deptOptions: DeptOption[]
   /** 落库请求；返回 null 表示请求失败（错误提示由调用方展示） */
   submit: (payload: FolderImportPayload) => Promise<FolderImportResult | null>
 }>()
@@ -31,6 +34,7 @@ const folderName = ref('')
 const files = ref<PickedFile[]>([])
 const tags = ref<string[]>([])
 const visibility = ref('PRIVATE')
+const deptIds = ref<string[]>([])
 const importing = ref(false)
 const submitting = ref(false)
 const completed = ref(false)
@@ -76,6 +80,7 @@ watch(open, (value) => {
     files.value = []
     tags.value = []
     visibility.value = 'PRIVATE'
+    deptIds.value = []
     completed.value = false
     uploadedCount.value = 0
     for (const key of Object.keys(activePercents)) {
@@ -180,6 +185,7 @@ async function handleBeforeClose(action: 'confirm' | 'cancel' | 'close', done: (
           categoryName: folderName.value || undefined,
           tags: tags.value,
           visibility: visibility.value,
+          deptIds: visibility.value === 'DEPT' ? deptIds.value : undefined,
           items: uploaded.items,
         })
         if (!result) {
@@ -259,10 +265,7 @@ async function handleBeforeClose(action: 'confirm' | 'cancel' | 'close', done: (
           <span class="text-secondary-foreground/80">标签（应用到全部文件）</span>
           <TagPicker v-model="tags" :tags="props.tags" />
         </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">可见范围</span>
-          <FaSelect v-model="visibility" :options="VISIBILITY_OPTIONS" :disabled="importing" />
-        </label>
+        <VisibilityDeptField v-model:visibility="visibility" v-model:dept-ids="deptIds" :dept-options="props.deptOptions" :disabled="importing" />
       </template>
       <div v-if="importing" class="flex flex-col gap-1">
         <AProgress :percent="percent" />

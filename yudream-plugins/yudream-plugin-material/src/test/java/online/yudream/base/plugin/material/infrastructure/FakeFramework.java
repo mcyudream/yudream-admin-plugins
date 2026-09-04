@@ -44,6 +44,11 @@ public final class FakeFramework implements FrameworkServices {
         users.depts.put(userId, depts);
     }
 
+    /** 测试注入全量部门树（listDepartments(String) 返回）。 */
+    public void setDeptTree(List<PluginDeptOption> tree) {
+        users.deptTree = tree;
+    }
+
     @Override
     public PluginFilePreviewService filePreview() {
         return filePreview;
@@ -116,6 +121,7 @@ public final class FakeFramework implements FrameworkServices {
 
     private static final class FakeUsers implements PluginUserService {
         private final Map<Long, List<PluginUserDept>> depts = new ConcurrentHashMap<>();
+        private List<PluginDeptOption> deptTree = List.of();
         public Optional<PluginUserProfile> authenticate(String usernameOrEmail, String password) {
             return Optional.empty();
         }
@@ -149,7 +155,7 @@ public final class FakeFramework implements FrameworkServices {
         }
 
         public List<PluginDeptOption> listDepartments(String keyword) {
-            return List.of();
+            return deptTree;
         }
 
         public List<PluginUserRole> listRoles(Long userId) {

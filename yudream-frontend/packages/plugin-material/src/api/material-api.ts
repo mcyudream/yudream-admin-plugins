@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView, CoverView, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { BatchResult, CategoryView, CoverView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 
 function query(params: Record<string, string | number | undefined>) {
   const value = new URLSearchParams()
@@ -31,11 +31,11 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
     myMaterials: (keyword = '', type = '', categoryId = '', status = '', tag = '', page = 1, size = 20, scope = '') =>
       sdk.http.get<Page<MaterialSummary>>(`/me/materials${query({ keyword, type, categoryId, status, tag, page, size, scope })}`),
     myDetail: (materialId: string) => sdk.http.get<MaterialDetail>(`/me/materials/${id(materialId)}`),
-    createMaterial: (data: { fileId: string, filename: string, name?: string, categoryId?: string, tags?: string[], visibility?: string }) =>
+    createMaterial: (data: { fileId: string, filename: string, name?: string, categoryId?: string, tags?: string[], visibility?: string, deptIds?: string[] }) =>
       sdk.http.post<MaterialDetail>('/me/materials', data),
     importFolder: (data: FolderImportPayload) =>
       sdk.http.post<FolderImportResult>('/me/materials/import-folder', data),
-    updateMaterial: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string }) =>
+    updateMaterial: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string, deptIds?: string[] }) =>
       sdk.http.request<MaterialDetail>(`/me/materials/${id(materialId)}`, { method: 'PUT', data }),
     deleteMaterial: (materialId: string) =>
       sdk.http.request<{ deleted: boolean }>(`/me/materials/${id(materialId)}`, { method: 'DELETE' }),
@@ -58,11 +58,35 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
     myCategories: () => records<CategoryView>(sdk.http.get('/me/categories')),
     myTags: () => records<TagView>(sdk.http.get('/me/tags')),
     myCovers: (ids: string[]) => records<CoverView>(sdk.http.get(`/me/covers${query({ ids: ids.join(',') })}`)),
+    /** 当前用户加入的部门（可见范围选择器数据源，只暴露自己所在部门）。 */
+    myDepartments: () => records<DeptOption>(sdk.http.get('/me/departments')),
     // ---------- 管理端（/admin/**，跨用户） ----------
     adminMaterials: (keyword = '', type = '', categoryId = '', owner = '', status = '', page = 1, size = 20) =>
       sdk.http.get<Page<MaterialSummary>>(`/admin/materials${query({ keyword, type, categoryId, owner, status, page, size })}`),
     adminDetail: (materialId: string) => sdk.http.get<MaterialDetail>(`/admin/materials/${id(materialId)}`),
     adminVersions: (materialId: string) => records<VersionView>(sdk.http.get(`/admin/materials/${id(materialId)}/versions`)),
+    /** 代编辑元数据与可见范围（不校验归属，DEPT 部门按全量树校验）。 */
+    adminUpdate: (materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string, deptIds?: string[] }) =>
+      sdk.http.request<MaterialDetail>(`/admin/materials/${id(materialId)}`, { method: 'PUT', data }),
+    /** 代传新版本，版本记录的上传人记操作者。 */
+    adminNewVersion: (materialId: string, data: { fileId: string, filename: string, note?: string }) =>
+      sdk.http.post<MaterialDetail>(`/admin/materials/${id(materialId)}/versions`, data),
+    adminShares: (materialId: string) => records<ShareView>(sdk.http.get(`/admin/materials/${id(materialId)}/shares`)),
+    adminCreateShare: (materialId: string, data: { expiresInHours?: number, note?: string }) =>
+      sdk.http.post<ShareView>(`/admin/materials/${id(materialId)}/shares`, data),
+    adminRevokeShare: (materialId: string, shareId: string) =>
+      sdk.http.request<{ deleted: boolean }>(`/admin/materials/${id(materialId)}/shares/${id(shareId)}`, { method: 'DELETE' }),
+    // ---------- 管理端批量操作（逐项容错不中断，返回逐项失败原因） ----------
+    adminBatchCategory: (ids: string[], categoryId: string) =>
+      sdk.http.request<BatchResult>('/admin/materials/batch/category', { method: 'PUT', data: { ids, categoryId } }),
+    adminBatchTags: (ids: string[], tags: string[], mode: 'APPEND' | 'REPLACE') =>
+      sdk.http.request<BatchResult>('/admin/materials/batch/tags', { method: 'PUT', data: { ids, tags, mode } }),
+    adminBatchStatus: (ids: string[], status: 'ACTIVE' | 'ARCHIVED') =>
+      sdk.http.request<BatchResult>('/admin/materials/batch/status', { method: 'PUT', data: { ids, status } }),
+    adminBatchDelete: (ids: string[]) =>
+      sdk.http.post<BatchResult>('/admin/materials/batch/delete', { ids }),
+    /** 全量部门树拍平选项（label 带父级路径），供管理端可见范围选择器。 */
+    adminDepartments: (keyword = '') => records<DeptOption>(sdk.http.get(`/admin/departments${query({ keyword })}`)),
     adminSetStatus: (materialId: string, status: 'ACTIVE' | 'ARCHIVED') =>
       sdk.http.request<MaterialDetail>(`/admin/materials/${id(materialId)}/status`, { method: 'PUT', data: { status } }),
     adminDelete: (materialId: string) =>

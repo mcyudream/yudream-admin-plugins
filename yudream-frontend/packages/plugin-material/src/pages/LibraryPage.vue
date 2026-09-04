@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
 import type { MaterialSummary } from '../types'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTag, useFaModal } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import CategoryPicker from '../components/CategoryPicker.vue'
+import EditMaterialModal from '../components/EditMaterialModal.vue'
 import ImportFolderModal from '../components/ImportFolderModal.vue'
-import TagPicker from '../components/TagPicker.vue'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
 import ShareModal from '../components/ShareModal.vue'
-import { formatSize, MATERIAL_TYPES, TYPE_ICONS, VISIBILITY_OPTIONS, visibilityLabel } from '../types'
+import { formatSize, MATERIAL_TYPES, TYPE_ICONS, visibilityLabel } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -20,21 +19,25 @@ const uploadOpen = ref(false)
 const importOpen = ref(false)
 const saving = ref(false)
 
-// 编辑基本信息（名称/分类/标签/可见范围）
+// 编辑基本信息（名称/分类/标签/可见范围）；代编他人物料走管理端接口与全量部门树
 const editOpen = ref(false)
 const editTarget = ref<MaterialSummary | null>(null)
-const editName = ref('')
-const editCategoryId = ref('')
-const editTags = ref<string[]>([])
-const editVisibility = ref('PRIVATE')
+const editAsAdmin = ref(false)
+const editDeptOptions = computed(() => editAsAdmin.value ? model.adminDeptOptions : model.myDeptOptions)
 
-// 分享外链
+// 分享外链；代分享他人物料走管理端接口
 const shareOpen = ref(false)
 const shareTarget = ref<MaterialSummary | null>(null)
+const shareAsAdmin = computed(() => !!shareTarget.value && !model.isOwner(shareTarget.value))
 
 function openShare(row: MaterialSummary) {
   shareTarget.value = row
   shareOpen.value = true
+}
+
+/** 卡片上的编辑/分享入口：属主或有管理权限者可用（删除仍仅属主，他人物料的删除在管理页） */
+function canOperate(row: MaterialSummary) {
+  return model.isOwner(row) || model.hasManage
 }
 
 const statusOptions = [
@@ -76,10 +79,10 @@ function goDetail(row: MaterialSummary) {
   void router.push({ path: '/platform/plugins/material/detail', query: { id: row.id } })
 }
 
-async function submitUpload(payload: { fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string }) {
+async function submitUpload(payload: { fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[] }) {
   saving.value = true
   try {
-    await model.uploadMaterial(payload.fileId, payload.filename, payload.name, payload.categoryId, payload.tags, payload.visibility)
+    await model.uploadMaterial(payload.fileId, payload.filename, payload.name, payload.categoryId, payload.tags, payload.visibility, payload.deptIds)
     uploadOpen.value = false
   }
   finally {
@@ -89,20 +92,29 @@ async function submitUpload(payload: { fileId: string, filename: string, name: s
 
 function openEdit(row: MaterialSummary) {
   editTarget.value = row
-  editName.value = row.name
-  editCategoryId.value = row.categoryId || ''
-  editTags.value = [...(row.tags || [])]
-  editVisibility.value = row.visibility || 'PRIVATE'
+  editAsAdmin.value = !model.isOwner(row)
+  // 部门选项按提交路径加载：编自己的物料只能选自己加入的部门，代编他人可选全量部门树
+  void (editAsAdmin.value ? model.loadAdminDepartments() : model.loadMyDepartments())
   editOpen.value = true
 }
 
-async function submitEdit() {
-  if (!editTarget.value) {
-    return
-  }
+async function submitEdit(payload: { materialId: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[] }) {
   saving.value = true
   try {
-    await model.editMaterial(editTarget.value.id, editName.value.trim(), editCategoryId.value, editTags.value, editVisibility.value)
+    if (editAsAdmin.value) {
+      await model.adminEditMaterial(payload.materialId, {
+        name: payload.name,
+        categoryId: payload.categoryId || null,
+        tags: payload.tags,
+        visibility: payload.visibility || undefined,
+        deptIds: payload.deptIds,
+      })
+      await model.loadLibrary()
+      void model.loadTags()
+    }
+    else {
+      await model.editMaterial(payload.materialId, payload.name, payload.categoryId, payload.tags, payload.visibility, payload.deptIds)
+    }
     editOpen.value = false
   }
   finally {
@@ -122,6 +134,8 @@ onMounted(() => {
   void model.loadCategories()
   void model.loadTags()
   void model.loadLibrary()
+  // 上传/导入弹窗的部门选择器数据源（仅自己加入的部门）
+  void model.loadMyDepartments()
 })
 </script>
 
@@ -231,8 +245,8 @@ onMounted(() => {
                 <div class="material-overlay">
                   <button class="material-overlay-btn" title="预览" @click.stop="goDetail(row)"><FaIcon name="i-ri:eye-line" /></button>
                   <button class="material-overlay-btn" title="下载" @click.stop="model.downloadMine(row)"><FaIcon name="i-ri:download-line" /></button>
-                  <button v-if="model.isOwner(row)" class="material-overlay-btn" title="编辑" @click.stop="openEdit(row)"><FaIcon name="i-ri:edit-line" /></button>
-                  <button v-if="model.isOwner(row)" class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
+                  <button v-if="canOperate(row)" class="material-overlay-btn" title="编辑" @click.stop="openEdit(row)"><FaIcon name="i-ri:edit-line" /></button>
+                  <button v-if="canOperate(row)" class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
                   <button v-if="model.isOwner(row)" class="material-overlay-btn is-danger" title="删除" @click.stop="confirmDelete(row)"><FaIcon name="i-ri:delete-bin-line" /></button>
                 </div>
               </div>
@@ -269,29 +283,17 @@ onMounted(() => {
         />
       </div>
     </div>
-    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :tags="model.tags" :saving="saving" @submit="submitUpload" />
-    <ImportFolderModal v-model="importOpen" :sdk="model.sdk" :tags="model.tags" :submit="model.importFolder" />
-    <ShareModal v-model="shareOpen" :material="shareTarget" :model="model" />
-    <FaModal v-model="editOpen" title="编辑物料信息" :confirm-button-loading="saving" @confirm="submitEdit">
-      <div class="flex flex-col gap-3">
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">名称</span>
-          <FaInput v-model="editName" maxlength="120" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">分类</span>
-          <CategoryPicker v-model="editCategoryId" :categories="model.categories" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">标签（最多 8 个）</span>
-          <TagPicker v-model="editTags" :tags="model.tags" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">可见范围</span>
-          <FaSelect v-model="editVisibility" :options="VISIBILITY_OPTIONS" />
-          <span v-if="editVisibility === 'DEPT'" class="text-xs text-secondary-foreground/70">仅与您同属一个部门的成员可见（按您当前所在部门生效）</span>
-        </label>
-      </div>
-    </FaModal>
+    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :tags="model.tags" :dept-options="model.myDeptOptions" :saving="saving" @submit="submitUpload" />
+    <ImportFolderModal v-model="importOpen" :sdk="model.sdk" :tags="model.tags" :dept-options="model.myDeptOptions" :submit="model.importFolder" />
+    <ShareModal v-model="shareOpen" :material="shareTarget" :model="model" :admin="shareAsAdmin" />
+    <EditMaterialModal
+      v-model="editOpen"
+      v-model:target="editTarget"
+      :categories="model.categories"
+      :tags="model.tags"
+      :dept-options="editDeptOptions"
+      :saving="saving"
+      @submit="submitEdit"
+    />
   </FaPageMain>
 </template>

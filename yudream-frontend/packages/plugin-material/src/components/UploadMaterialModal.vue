@@ -1,22 +1,24 @@
 <script setup lang="ts">
 import type { FileItem, FileUploadRequestOptions } from '@yudream/components'
 import type { YuDreamPluginFileObject, YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView, TagView } from '../types'
-import { FaFileUpload, FaInput, FaModal, FaSelect } from '@yudream/components'
+import type { CategoryView, DeptOption, TagView } from '../types'
+import { FaFileUpload, FaInput, FaModal } from '@yudream/components'
 import { ref, watch } from 'vue'
 import { uploadFileWithProgress } from '../api/upload'
-import { VISIBILITY_OPTIONS } from '../types'
 import CategoryPicker from './CategoryPicker.vue'
 import TagPicker from './TagPicker.vue'
+import VisibilityDeptField from './VisibilityDeptField.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
   categories: CategoryView[]
   tags: TagView[]
+  /** 可见范围=仅部门时的部门选项（用户端为自己加入的部门） */
+  deptOptions: DeptOption[]
   saving?: boolean
 }>()
 const open = defineModel<boolean>({ required: true })
-const emit = defineEmits<{ submit: [{ fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string }] }>()
+const emit = defineEmits<{ submit: [{ fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[] }] }>()
 
 const files = ref<FileItem[]>([])
 const uploaded = ref<YuDreamPluginFileObject | null>(null)
@@ -24,6 +26,7 @@ const name = ref('')
 const categoryId = ref('')
 const tags = ref<string[]>([])
 const visibility = ref('PRIVATE')
+const deptIds = ref<string[]>([])
 const uploadError = ref('')
 
 watch(open, (value) => {
@@ -34,6 +37,7 @@ watch(open, (value) => {
     categoryId.value = ''
     tags.value = []
     visibility.value = 'PRIVATE'
+    deptIds.value = []
     uploadError.value = ''
   }
 })
@@ -62,6 +66,7 @@ function onConfirm() {
     categoryId: categoryId.value,
     tags: tags.value,
     visibility: visibility.value,
+    deptIds: visibility.value === 'DEPT' ? deptIds.value : [],
   })
 }
 </script>
@@ -96,13 +101,7 @@ function onConfirm() {
         <span class="text-secondary-foreground/80">标签（最多 8 个）</span>
         <TagPicker v-model="tags" :tags="props.tags" />
       </label>
-      <label class="flex flex-col gap-1 text-sm">
-        <span class="text-secondary-foreground/80">可见范围</span>
-        <FaSelect v-model="visibility" :options="VISIBILITY_OPTIONS" />
-        <span v-if="visibility === 'DEPT'" class="text-xs text-secondary-foreground/70">仅与您同属一个部门的成员可见（按您当前所在部门生效）</span>
-        <span v-else-if="visibility === 'PUBLIC'" class="text-xs text-secondary-foreground/70">全站成员均可在物料库中查看、预览与下载</span>
-        <span v-else class="text-xs text-secondary-foreground/70">仅您本人可见，后续可随时调整</span>
-      </label>
+      <VisibilityDeptField v-model:visibility="visibility" v-model:dept-ids="deptIds" :dept-options="props.deptOptions" />
     </div>
   </FaModal>
 </template>

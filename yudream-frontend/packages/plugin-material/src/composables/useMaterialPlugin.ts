@@ -1,7 +1,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { CategoryView, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { BatchResult, CategoryView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 import { useFaToast } from '@yudream/components'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { createMaterialApi, saveBlob } from '../api/material-api'
 
 export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
@@ -27,6 +27,16 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
 
   // ---------- 用户端：分享外链 ----------
   const shares = ref<ShareView[]>([])
+
+  // ---------- 部门选项（可见范围=仅部门时的选择器数据源） ----------
+  /** 用户端：仅当前用户自己加入的部门 */
+  const myDeptOptions = ref<DeptOption[]>([])
+  /** 管理端：全量部门树拍平（label 带父级路径） */
+  const adminDeptOptions = ref<DeptOption[]>([])
+
+  /** 是否具备物料管理权限：管理者可代操作他人物料（编辑/新版本/分享，走 /admin 端点）。 */
+  const hasManage = computed(() =>
+    sdk.account.permissions.includes('*') || sdk.account.permissions.includes('plugin:material:manage'))
 
   // ---------- 管理端 ----------
   const adminList = ref<MaterialSummary[]>([])
@@ -116,9 +126,9 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function uploadMaterial(fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string) {
+  async function uploadMaterial(fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[]) {
     try {
-      await api.createMaterial({ fileId, filename, name, categoryId: categoryId || undefined, tags, visibility: visibility || undefined })
+      await api.createMaterial({ fileId, filename, name, categoryId: categoryId || undefined, tags, visibility: visibility || undefined, deptIds })
       toast.success('物料已上传')
       await loadLibrary()
       void loadTags()
@@ -151,9 +161,9 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function editMaterial(materialId: string, name: string, categoryId: string, tags: string[], visibility: string) {
+  async function editMaterial(materialId: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[]) {
     try {
-      await api.updateMaterial(materialId, { name, categoryId: categoryId || null, tags, visibility: visibility || undefined })
+      await api.updateMaterial(materialId, { name, categoryId: categoryId || null, tags, visibility: visibility || undefined, deptIds })
       toast.success('物料信息已更新')
       await loadLibrary()
       void loadTags()
@@ -261,11 +271,11 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  // ---------- 用户端：分享外链 ----------
+  // ---------- 用户端：分享外链（admin=true 时切换为管理端代管接口） ----------
 
-  async function loadShares(materialId: string) {
+  async function loadShares(materialId: string, admin = false) {
     try {
-      shares.value = await api.myShares(materialId)
+      shares.value = admin ? await api.adminShares(materialId) : await api.myShares(materialId)
     }
     catch (error) {
       shares.value = []
@@ -273,14 +283,12 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function createShare(materialId: string, expiresInHours: number | null, note: string): Promise<ShareView | null> {
+  async function createShare(materialId: string, expiresInHours: number | null, note: string, admin = false): Promise<ShareView | null> {
     try {
-      const share = await api.createShare(materialId, {
-        expiresInHours: expiresInHours ?? undefined,
-        note: note || undefined,
-      })
+      const data = { expiresInHours: expiresInHours ?? undefined, note: note || undefined }
+      const share = admin ? await api.adminCreateShare(materialId, data) : await api.createShare(materialId, data)
       toast.success('分享链接已创建')
-      await loadShares(materialId)
+      await loadShares(materialId, admin)
       return share
     }
     catch (error) {
@@ -289,14 +297,39 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function revokeShare(materialId: string, shareId: string) {
+  async function revokeShare(materialId: string, shareId: string, admin = false) {
     try {
-      await api.revokeShare(materialId, shareId)
+      if (admin) {
+        await api.adminRevokeShare(materialId, shareId)
+      }
+      else {
+        await api.revokeShare(materialId, shareId)
+      }
       toast.success('分享链接已撤销')
-      await loadShares(materialId)
+      await loadShares(materialId, admin)
     }
     catch (error) {
       toast.error(errorMessage(error))
+    }
+  }
+
+  // ---------- 部门选项 ----------
+
+  async function loadMyDepartments() {
+    try {
+      myDeptOptions.value = await api.myDepartments()
+    }
+    catch {
+      myDeptOptions.value = []
+    }
+  }
+
+  async function loadAdminDepartments(keyword = '') {
+    try {
+      adminDeptOptions.value = await api.adminDepartments(keyword)
+    }
+    catch {
+      adminDeptOptions.value = []
     }
   }
 
@@ -365,6 +398,103 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  // ---------- 管理端：代操作（编辑/新版本，不校验归属） ----------
+
+  /** 代编辑元数据与可见范围；抛错由调用方留在弹窗内，成功后的列表刷新也由调用方决定。 */
+  async function adminEditMaterial(materialId: string, data: { name?: string, categoryId?: string | null, tags?: string[], visibility?: string, deptIds?: string[] }) {
+    try {
+      await api.adminUpdate(materialId, data)
+      toast.success('物料信息已更新')
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  /**
+   * 代传新版本：版本记录的上传人记当前操作者。
+   * syncDetail=true（详情页）刷新详情/版本列表/预览；=false（管理页）刷新管理列表。
+   */
+  async function adminUploadNewVersion(materialId: string, fileId: string, filename: string, note: string, syncDetail = true) {
+    try {
+      const result = await api.adminNewVersion(materialId, { fileId, filename, note: note || undefined })
+      toast.success(`已上传 v${result.material.currentVersion}`)
+      if (syncDetail) {
+        detail.value = result
+        versions.value = await api.myVersions(materialId)
+        await loadPreview(materialId)
+      }
+      else {
+        await loadAdmin()
+      }
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  // ---------- 管理端：批量操作（逐项容错，toast 汇总成功/失败） ----------
+
+  function toastBatchResult(result: BatchResult, action: string) {
+    if (result.failures.length) {
+      const reasons = result.failures.slice(0, 3).map(failure => `${failure.name || failure.id}：${failure.message}`).join('；')
+      toast.warning(`${action}完成：成功 ${result.succeeded}/${result.total}，${reasons}${result.failures.length > 3 ? ' 等' : ''}`)
+    }
+    else {
+      toast.success(`已${action} ${result.succeeded} 个物料`)
+    }
+  }
+
+  async function adminBatchCategory(ids: string[], categoryId: string) {
+    try {
+      const result = await api.adminBatchCategory(ids, categoryId)
+      toastBatchResult(result, '移动分组')
+      await loadAdmin()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function adminBatchTags(ids: string[], tags: string[], mode: 'APPEND' | 'REPLACE') {
+    try {
+      const result = await api.adminBatchTags(ids, tags, mode)
+      toastBatchResult(result, mode === 'APPEND' ? '追加标签' : '覆盖标签')
+      await loadAdmin()
+      void loadTags()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function adminBatchStatus(ids: string[], status: 'ACTIVE' | 'ARCHIVED') {
+    try {
+      const result = await api.adminBatchStatus(ids, status)
+      toastBatchResult(result, status === 'ARCHIVED' ? '归档' : '恢复')
+      await loadAdmin()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
+
+  async function adminBatchDelete(ids: string[]) {
+    try {
+      const result = await api.adminBatchDelete(ids)
+      toastBatchResult(result, '删除')
+      clampPage(adminPager, adminList.value.length - result.succeeded)
+      await loadAdmin()
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
+
   // ---------- 管理端：分类 ----------
 
   async function saveCategory(categoryId: string | null, name: string, sort: number) {
@@ -409,6 +539,9 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     preview,
     previewLoading,
     shares,
+    myDeptOptions,
+    adminDeptOptions,
+    hasManage,
     adminList,
     adminPager,
     adminFilters,
@@ -433,12 +566,20 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     loadShares,
     createShare,
     revokeShare,
+    loadMyDepartments,
+    loadAdminDepartments,
     loadAdmin,
     applyAdminFilters,
     adminSetStatus,
     adminRemove,
     adminDownload,
     adminPreview,
+    adminEditMaterial,
+    adminUploadNewVersion,
+    adminBatchCategory,
+    adminBatchTags,
+    adminBatchStatus,
+    adminBatchDelete,
     saveCategory,
     removeCategory,
   })

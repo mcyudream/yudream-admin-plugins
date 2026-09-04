@@ -45,7 +45,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class MaterialPlugin implements YuDreamPlugin {
     public static final String CODE = "material";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.6.0";
     public static final String VIEW_PERMISSION = "plugin:material:view";
     public static final String MANAGE_PERMISSION = "plugin:material:manage";
 
@@ -70,7 +70,7 @@ public final class MaterialPlugin implements YuDreamPlugin {
         ShareService shareService = new ShareService(shares, materialService, context.framework());
 
         context.registerHttpController(new MaterialMeController(materialService, categoryService, folderImportService, previewService, shareService, json));
-        context.registerHttpController(new MaterialAdminController(adminService, materialService, categoryService, previewService, json));
+        context.registerHttpController(new MaterialAdminController(adminService, materialService, categoryService, previewService, shareService, json));
         context.registerHttpController(new SharePublicController(shareService, materialService, previewService));
     }
 }

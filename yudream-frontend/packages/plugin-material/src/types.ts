@@ -10,8 +10,9 @@ export interface MaterialSummary {
   tags: string[]
   ownerId: string
   ownerName?: string | null
-  /** 可见性：PRIVATE 仅自己 / DEPT 仅部门（deptNames 为设置时的部门快照）/ PUBLIC 公开。 */
+  /** 可见性：PRIVATE 仅自己 / DEPT 仅部门（deptIds 为显式选择的部门，deptNames 为其名称）/ PUBLIC 公开。 */
   visibility: string
+  deptIds?: string[]
   deptNames?: string[]
   currentVersion: number
   size: number | string
@@ -80,6 +81,13 @@ export interface ShareView {
   expired: boolean
 }
 
+/** 部门选项：label 带父级路径（如「技术部 / 平台组」），用户端只返回自己加入的部门。 */
+export interface DeptOption {
+  id: string
+  name: string
+  label: string
+}
+
 export interface Page<T> {
   records: T[]
   total: number | string
@@ -111,6 +119,8 @@ export interface FolderImportPayload {
   categoryId?: string
   categoryName?: string
   visibility?: string
+  /** DEPT 可见性时显式选择的可见部门。 */
+  deptIds?: string[]
   tags?: string[]
   items: FolderImportItem[]
 }
@@ -122,6 +132,13 @@ export interface FolderImportResult {
   categoryId?: string
   categoryName?: string
   failures: { filename: string, message: string }[]
+}
+
+/** 管理端批量操作结果：逐项容错不中断，failures 收集逐项原因。 */
+export interface BatchResult {
+  total: number
+  succeeded: number
+  failures: { id: string, name: string, message: string }[]
 }
 
 /** 卡片网格的类型图标兜底映射。 */

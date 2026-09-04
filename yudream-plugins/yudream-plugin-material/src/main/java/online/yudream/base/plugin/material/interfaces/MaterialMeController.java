@@ -64,7 +64,7 @@ public final class MaterialMeController {
             CreateMaterialRequest body = json.read(request.body(), CreateMaterialRequest.class);
             return PluginHttpResponse.ok(materialService.create(HttpSupport.requireUserId(request),
                     new CreateMaterialCommand(body.fileId(), body.filename(), body.name(), body.categoryId(),
-                            body.tags(), body.visibility())));
+                            body.tags(), body.visibility(), body.deptIds())));
         });
     }
 
@@ -77,7 +77,8 @@ public final class MaterialMeController {
                     .toList();
             FolderImportService.FolderImportResult result = folderImportService.importFolder(
                     HttpSupport.requireUserId(request),
-                    new FolderImportCommand(body.categoryId(), body.categoryName(), body.visibility(), body.tags(), items));
+                    new FolderImportCommand(body.categoryId(), body.categoryName(), body.visibility(),
+                            body.deptIds(), body.tags(), items));
             return PluginHttpResponse.ok(java.util.Map.of(
                     "total", result.total(),
                     "created", result.created(),
@@ -102,7 +103,8 @@ public final class MaterialMeController {
             UpdateMaterialRequest body = json.read(request.body(), UpdateMaterialRequest.class);
             return PluginHttpResponse.ok(materialService.updateMeta(HttpSupport.requireUserId(request),
                     HttpSupport.segmentAfter(request.path(), "materials"),
-                    new UpdateMaterialCommand(body.name(), body.categoryId(), body.tags(), body.visibility())));
+                    new UpdateMaterialCommand(body.name(), body.categoryId(), body.tags(), body.visibility(),
+                            body.deptIds())));
         });
     }
 
@@ -199,6 +201,13 @@ public final class MaterialMeController {
                     HttpSupport.segmentAfter(request.path(), "shares"));
             return PluginHttpResponse.ok(java.util.Map.of("deleted", true));
         });
+    }
+
+    /** 当前用户加入的部门选项（可见范围选择器数据源，只暴露自己所在部门）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/me/departments", permission = MaterialPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse myDepartments(PluginHttpRequest request) {
+        return HttpSupport.guard(() -> PluginHttpResponse.ok(java.util.Map.of("records",
+                materialService.myDepartments(HttpSupport.requireUserId(request)))));
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/me/categories", permission = MaterialPlugin.VIEW_PERMISSION)

@@ -45,7 +45,8 @@ public final class FolderImportService {
         for (FolderImportCommand.Item item : items) {
             try {
                 materialService.create(ownerId, new CreateMaterialCommand(item.fileId(), item.filename(),
-                        item.name(), categoryId, mergedTags(command.tags(), item.tags()), command.visibility()));
+                        item.name(), categoryId, mergedTags(command.tags(), item.tags()), command.visibility(),
+                        command.deptIds()));
                 created++;
             } catch (RuntimeException failure) {
                 failures.add(new FolderImportFailure(item.filename(), failure.getMessage()));
