@@ -12,4 +12,10 @@ public interface PluginMinecraftService {
                                                                          long windowStart, long windowEnd) {
         return Optional.empty();
     }
+
+    /** Players online on the server at any moment inside [windowStart, windowEnd], with their in-window durations. */
+    default List<PluginMinecraftActivePlayer> minecraftActivePlayers(String serverId, long windowStart,
+                                                                     long windowEnd) {
+        return List.of();
+    }
 }

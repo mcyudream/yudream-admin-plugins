@@ -49,4 +49,7 @@ public interface MinecraftServerRepository {
     MinecraftPlayerActivityEvent savePlayerActivityEvent(MinecraftPlayerActivityEvent event);
 
     List<MinecraftPlayerActivityEvent> listPlayerActivityEvents(String serverId, String playerId, int page, int size);
+
+    /** All activity events of one server, ordered by occurredAt. */
+    List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId);
 }

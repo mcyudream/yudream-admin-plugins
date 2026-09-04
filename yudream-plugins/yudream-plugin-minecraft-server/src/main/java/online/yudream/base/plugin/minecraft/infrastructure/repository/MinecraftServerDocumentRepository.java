@@ -172,7 +172,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     public List<MinecraftPlayerActivityEvent> listPlayerActivityEvents(String serverId, String playerId, int page, int size) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.max(size, 1);
-        return allPlayerActivityEvents(serverId).stream()
+        return allPlayerActivityEventDocuments(serverId).stream()
                 .map(this::toPlayerActivityEvent)
                 .filter(event -> event.playerId().equals(playerId))
                 .sorted(java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt))
@@ -225,7 +225,15 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         }
     }
 
-    private List<Map<String, Object>> allPlayerActivityEvents(String serverId) {
+    @Override
+    public List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId) {
+        return allPlayerActivityEventDocuments(serverId).stream()
+                .map(this::toPlayerActivityEvent)
+                .sorted(java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt))
+                .toList();
+    }
+
+    private List<Map<String, Object>> allPlayerActivityEventDocuments(String serverId) {
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         int page = 1;
         while (true) {

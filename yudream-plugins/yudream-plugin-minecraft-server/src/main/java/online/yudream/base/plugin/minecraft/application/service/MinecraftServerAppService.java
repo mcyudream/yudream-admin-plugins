@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.minecraft.application.service;
 
 import online.yudream.base.plugin.minecraft.application.assembler.MinecraftServerAppAssembler;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
@@ -456,15 +457,48 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         if (activity == null) return Optional.empty();
         List<MinecraftPlayerActivityEvent> events = allPlayerActivityEvents(serverId, playerId);
         if (events.isEmpty()) return Optional.empty();
+        WindowStat stat = windowStat(events, windowStart, windowEnd);
+        return Optional.of(new PluginMinecraftOnlineWindow(serverId, playerId, activity.playerName(), windowStart, windowEnd,
+                stat.onlineMillis(), stat.afkMillis(), Math.max(0, stat.onlineMillis() - stat.afkMillis())));
+    }
+
+    @Override
+    public List<PluginMinecraftActivePlayer> minecraftActivePlayers(String serverId, long windowStart, long windowEnd) {
+        if (windowStart <= 0 || windowEnd <= windowStart) return List.of();
+        Map<String, List<MinecraftPlayerActivityEvent>> eventsByPlayer = new LinkedHashMap<>();
+        for (MinecraftPlayerActivityEvent event : repository.allPlayerActivityEvents(serverId)) {
+            eventsByPlayer.computeIfAbsent(event.playerId(), key -> new ArrayList<>()).add(event);
+        }
+        List<PluginMinecraftActivePlayer> result = new ArrayList<>();
+        for (Map.Entry<String, List<MinecraftPlayerActivityEvent>> entry : eventsByPlayer.entrySet()) {
+            WindowStat stat = windowStat(entry.getValue(), windowStart, windowEnd);
+            if (stat.onlineMillis() <= 0 && stat.firstJoinAt() <= 0) {
+                continue;
+            }
+            String playerName = entry.getValue().get(entry.getValue().size() - 1).playerName();
+            result.add(new PluginMinecraftActivePlayer(serverId, entry.getKey(), playerName, stat.firstJoinAt(),
+                    stat.onlineMillis(), stat.afkMillis(), Math.max(0, stat.onlineMillis() - stat.afkMillis())));
+        }
+        return result;
+    }
+
+    private record WindowStat(long firstJoinAt, long onlineMillis, long afkMillis) {
+    }
+
+    private WindowStat windowStat(List<MinecraftPlayerActivityEvent> events, long windowStart, long windowEnd) {
         long onlineMillis = 0;
         long afkMillis = 0;
+        long firstJoinAt = 0;
         Long onlineSince = null;
         Long afkSince = null;
         for (MinecraftPlayerActivityEvent event : events) {
             long at = event.occurredAt();
             if (at > windowEnd) break;
             switch (event.type()) {
-                case JOIN -> { if (onlineSince == null) onlineSince = at; }
+                case JOIN -> {
+                    if (onlineSince == null) onlineSince = at;
+                    if (firstJoinAt == 0 && at >= windowStart) firstJoinAt = at;
+                }
                 case QUIT, SERVER_OFFLINE, SERVER_SNAPSHOT -> {
                     onlineMillis += overlap(onlineSince, at, windowStart, windowEnd);
                     afkMillis += overlap(afkSince, at, windowStart, windowEnd);
@@ -483,8 +517,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         }
         onlineMillis += overlap(onlineSince, windowEnd, windowStart, windowEnd);
         afkMillis += overlap(afkSince, windowEnd, windowStart, windowEnd);
-        return Optional.of(new PluginMinecraftOnlineWindow(serverId, playerId, activity.playerName(), windowStart, windowEnd,
-                onlineMillis, afkMillis, Math.max(0, onlineMillis - afkMillis)));
+        return new WindowStat(firstJoinAt, onlineMillis, afkMillis);
     }
 
     private void recordActivityEvent(String serverId, MinecraftPlayerEventCmd cmd, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
