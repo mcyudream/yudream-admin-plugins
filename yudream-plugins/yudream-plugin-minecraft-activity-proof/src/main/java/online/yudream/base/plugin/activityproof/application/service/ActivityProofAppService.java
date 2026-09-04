@@ -29,23 +29,30 @@ import online.yudream.base.plugin.activityproof.application.dto.ActivityTemplate
 import online.yudream.base.plugin.activityproof.application.dto.ActivityUserOptionDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityVerifyResultDTO;
 import online.yudream.base.plugin.activityproof.application.dto.MyParticipationDTO;
+import online.yudream.base.plugin.activityproof.application.dto.ServerParticipantSyncResultDTO;
 import online.yudream.base.plugin.activityproof.application.dto.UserActivityDTO;
+import online.yudream.base.plugin.activityproof.application.dto.UserRequirementDTO;
 import online.yudream.base.plugin.activityproof.domain.aggregate.Activity;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityParticipation;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofExportRecord;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofParticipantSnapshot;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofSettings;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofTemplateMembers;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizAttempt;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizConfig;
 import online.yudream.base.plugin.activityproof.domain.aggregate.PlayerStudentMapping;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityBindingType;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityDeptMode;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityStatus;
+import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSource;
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
 import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBinding;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
+import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.document.PluginRenderedDocument;
@@ -84,6 +91,7 @@ public class ActivityProofAppService {
 
     private static final String MINECRAFT_PLUGIN = "minecraft-server";
     private static final String STUDENT_INFO_PLUGIN = "yudream-student-info";
+    private static final String SKIN_PLUGIN = "yudream-skin";
     private static final String DEFAULT_TEMPLATE_CODE = "minecraft_activity_proof_v1";
     private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
@@ -96,13 +104,15 @@ public class ActivityProofAppService {
     private final PluginFileStore files;
     private final FrameworkServices framework;
     private final PluginContext pluginContext;
+    private final ActivityQuizService quizService;
 
     public ActivityProofAppService(ActivityProofRepository repository, PluginFileStore files, FrameworkServices framework,
-                                   PluginContext pluginContext) {
+                                   PluginContext pluginContext, ActivityQuizService quizService) {
         this.repository = repository;
         this.files = files;
         this.framework = framework;
         this.pluginContext = pluginContext;
+        this.quizService = quizService;
     }
 
     // ---------------------------------------------------------------- status
@@ -116,7 +126,9 @@ public class ActivityProofAppService {
                 minecraftService().isPresent(),
                 studentInfoService().isPresent(),
                 wordTemplateEnabled(),
-                formEnabled()
+                formEnabled(),
+                skinService().isPresent(),
+                quizService.quizAvailable()
         );
     }
 
@@ -291,7 +303,13 @@ public class ActivityProofAppService {
             if (type == ActivityBindingType.PLAYTIME) {
                 bindings.add(ActivityBinding.playtime(cmd.serverId(),
                         cmd.minOnlineMinutes() == null ? 0 : cmd.minOnlineMinutes(),
-                        Boolean.TRUE.equals(cmd.includeAfk())));
+                        Boolean.TRUE.equals(cmd.includeAfk()),
+                        Boolean.TRUE.equals(cmd.autoJoin())));
+            } else if (type == ActivityBindingType.QUIZ) {
+                if (bindings.stream().anyMatch(ActivityBinding::isQuiz)) {
+                    throw new IllegalArgumentException("答题核验方式至多添加一个");
+                }
+                bindings.add(ActivityBinding.quiz());
             } else {
                 bindings.add(ActivityBinding.form(cmd.formCode(), formName(cmd.formCode())));
             }
@@ -338,6 +356,7 @@ public class ActivityProofAppService {
 
     public ActivityVerifyResultDTO verifyAllParticipants(String activityId) {
         Activity activity = requireActivity(activityId);
+        autoSyncServerParticipantsQuietly(activity);
         long passed = 0;
         long failed = 0;
         List<ActivityParticipation> joined = allParticipations(activity.id()).stream()
@@ -368,8 +387,8 @@ public class ActivityProofAppService {
         }
         boolean passed = cmd.passed() == null || cmd.passed();
         ActivityParticipation participation = existing == null
-                ? ActivityParticipation.create(activity.id(), userId, false)
-                : existing.rejoin(false);
+                ? ActivityParticipation.create(activity.id(), userId, false, ParticipationSource.MANUAL)
+                : existing.rejoin(false, ParticipationSource.MANUAL);
         if (passed) {
             participation = participation.withVerification(VerifyStatus.PASSED,
                     hasText(cmd.note()) ? cmd.note().trim() : "管理员手动添加");
@@ -384,9 +403,139 @@ public class ActivityProofAppService {
         Activity activity = requireActivity(activityId);
         ActivityParticipation participation = requireParticipation(activity.id(), requireText(userId, "用户不能为空"));
         repository.deleteParticipation(participation.id());
+        if (participation.source() == ParticipationSource.AUTO) {
+            repository.addAutoJoinExclusion(activity.id(), participation.userId());
+        }
     }
 
-    // ---------------------------------------------------------------- admin: template members & qq notify
+    // ---------------------------------------------------------------- admin: server auto-join sync
+
+    public ServerParticipantSyncResultDTO syncServerParticipants(String activityId) {
+        Activity activity = requireActivity(activityId);
+        List<ActivityBinding> autoJoinBindings = activity.bindings().stream()
+                .filter(binding -> binding.isPlaytime() && binding.autoJoin())
+                .toList();
+        if (autoJoinBindings.isEmpty()) {
+            throw new IllegalArgumentException("该活动未开启「加入服务器自动参与活动」的时长检测绑定");
+        }
+        if (activity.activityStart() <= 0 || activity.activityEnd() <= activity.activityStart()) {
+            throw new IllegalArgumentException("活动起止时间未配置，无法同步服务器玩家");
+        }
+        PluginMinecraftService minecraft = minecraftService()
+                .orElseThrow(() -> new IllegalArgumentException("Minecraft 服务器插件未启用，无法同步服务器玩家"));
+        long scanned = 0;
+        long added = 0;
+        long skippedExisting = 0;
+        long skippedExcluded = 0;
+        long unresolved = 0;
+        long verifiedPassed = 0;
+        long verifiedFailed = 0;
+        Set<String> seenUserIds = new LinkedHashSet<>();
+        for (ActivityBinding binding : autoJoinBindings) {
+            List<PluginMinecraftActivePlayer> players;
+            try {
+                players = minecraft.minecraftActivePlayers(binding.serverId(), activity.activityStart(), activity.activityEnd());
+            } catch (LinkageError e) {
+                // 宿主仍运行旧版 minecraft-server（接口缺少 minecraftActivePlayers）时是 Error 而非 RuntimeException
+                throw new IllegalArgumentException("Minecraft 服务器插件版本过低，无法同步上线玩家，请升级至 1.3.0 及以上后重试");
+            } catch (RuntimeException e) {
+                throw new IllegalArgumentException("查询服务器「" + serverName(binding.serverId()) + "」上线玩家失败：" + e.getMessage());
+            }
+            if (players == null) {
+                continue;
+            }
+            for (PluginMinecraftActivePlayer player : players) {
+                scanned++;
+                String userId = resolveUserIdForPlayer(binding.serverId(), player.playerId(), player.playerName());
+                if (!hasText(userId) || !seenUserIds.add(userId)) {
+                    if (!hasText(userId)) {
+                        unresolved++;
+                    }
+                    continue;
+                }
+                if (repository.participation(activity.id(), userId).isPresent()) {
+                    skippedExisting++;
+                    continue;
+                }
+                if (repository.autoJoinExcluded(activity.id(), userId)) {
+                    skippedExcluded++;
+                    continue;
+                }
+                ActivityParticipation participation = ActivityParticipation.create(activity.id(), userId, false, ParticipationSource.AUTO);
+                ActivityParticipation verified = repository.saveParticipation(
+                        verify(activity, participation).withSource(ParticipationSource.AUTO));
+                added++;
+                if (verified.verifyStatus() == VerifyStatus.PASSED) {
+                    verifiedPassed++;
+                } else if (verified.verifyStatus() == VerifyStatus.FAILED) {
+                    verifiedFailed++;
+                }
+            }
+        }
+        return new ServerParticipantSyncResultDTO(activity.id(), scanned, scanned - unresolved, added,
+                skippedExisting, skippedExcluded, unresolved, verifiedPassed, verifiedFailed);
+    }
+
+    /**
+     * 活动含 autoJoin 绑定时先静默同步服务器玩家；同步失败不阻断后续核验/导出主流程。
+     */
+    private void autoSyncServerParticipantsQuietly(Activity activity) {
+        boolean autoJoinBound = activity.bindings().stream()
+                .anyMatch(binding -> binding.isPlaytime() && binding.autoJoin());
+        if (!autoJoinBound) {
+            return;
+        }
+        try {
+            syncServerParticipants(activity.id());
+        } catch (RuntimeException ignored) {
+            // 自动同步失败不阻断核验/导出，管理员仍可通过「同步服务器玩家」按钮手动重试
+        }
+    }
+
+    /**
+     * 服务器玩家 → 平台用户反解：先走本插件玩家-学号映射查学号再反查用户，再走皮肤站 UUID 档案的归属用户。
+     */
+    private String resolveUserIdForPlayer(String serverId, String playerId, String playerName) {
+        PlayerStudentMapping mapping = hasText(serverId) && hasText(playerId)
+                ? repository.mapping(serverId, playerId).orElse(null)
+                : null;
+        if (mapping != null && hasText(mapping.studentNo())) {
+            String userId = studentInfoService()
+                    .flatMap(service -> service.findStudentInfoByStudentNo(mapping.studentNo().trim()))
+                    .map(PluginStudentInfoProfile::userId)
+                    .orElse("");
+            if (hasText(userId)) {
+                return userId.trim();
+            }
+        }
+        String normalizedUuid = normalizeUuid(playerId);
+        if (!normalizedUuid.isBlank()) {
+            String ownerId = skinService()
+                    .flatMap(service -> service.findProfileByUuid(normalizedUuid))
+                    .map(profile -> profile.ownerId())
+                    .orElse("");
+            if (hasText(ownerId)) {
+                return ownerId.trim();
+            }
+        }
+        // 部分档案可能以玩家名建档，兜底再按名字查一次皮肤站
+        if (hasText(playerName)) {
+            String ownerId = skinService()
+                    .flatMap(service -> service.findProfileByName(playerName.trim()))
+                    .map(profile -> profile.ownerId())
+                    .orElse("");
+            if (hasText(ownerId)) {
+                return ownerId.trim();
+            }
+        }
+        return "";
+    }
+
+    private String normalizeUuid(String playerId) {
+        return playerId == null ? "" : playerId.trim().replace("-", "").toLowerCase(Locale.ROOT);
+    }
+
+
 
     public ActivityTemplateMembersDTO templateMembers(String templateId) {
         Long id = requireTemplateId(templateId);
@@ -568,8 +717,8 @@ public class ActivityProofAppService {
         }
         boolean autoPassed = activity.bindings().isEmpty();
         ActivityParticipation participation = existing == null
-                ? ActivityParticipation.create(activity.id(), safeUserId, autoPassed)
-                : existing.rejoin(autoPassed);
+                ? ActivityParticipation.create(activity.id(), safeUserId, autoPassed, ParticipationSource.SELF)
+                : existing.rejoin(autoPassed, ParticipationSource.SELF);
         repository.saveParticipation(participation);
         return userActivity(activity.id(), safeUserId);
     }
@@ -624,9 +773,11 @@ public class ActivityProofAppService {
         }
         List<String> notes = new ArrayList<>();
         for (ActivityBinding binding : activity.bindings()) {
-            VerifyOutcome outcome = binding.isPlaytime()
-                    ? verifyPlaytime(activity, binding, participation.userId())
-                    : verifyForm(activity, binding, participation.userId());
+            VerifyOutcome outcome = switch (binding.type()) {
+                case PLAYTIME -> verifyPlaytime(activity, binding, participation.userId());
+                case FORM -> verifyForm(activity, binding, participation.userId());
+                case QUIZ -> verifyQuiz(activity, participation.userId());
+            };
             if (outcome.passed()) {
                 return participation.withVerification(VerifyStatus.PASSED, outcome.note());
             }
@@ -676,6 +827,22 @@ public class ActivityProofAppService {
         return submitted
                 ? new VerifyOutcome(true, "已提交表单「" + formLabel + "」")
                 : new VerifyOutcome(false, "未在活动周期内提交表单「" + formLabel + "」");
+    }
+
+    private VerifyOutcome verifyQuiz(Activity activity, String userId) {
+        ActivityQuizConfig config = repository.quizConfig(activity.id()).orElse(null);
+        if (config == null || !config.enabled()) {
+            return new VerifyOutcome(false, "活动未开启答题环节，无法核验答题");
+        }
+        ActivityQuizAttempt attempt = repository.quizAttempt(activity.id(), userId).orElse(null);
+        if (attempt == null) {
+            return new VerifyOutcome(false, "尚未参与活动答题");
+        }
+        // 核验前拉取题库侧最新结果，避免用户答完未回到活动页导致达标状态未同步
+        attempt = quizService.syncQuizResult(activity, config, attempt, userId);
+        return attempt.passed()
+                ? new VerifyOutcome(true, "活动答题达标（答对 ≥ " + config.passCorrect() + " 题）")
+                : new VerifyOutcome(false, "活动答题未达标（需答对至少 " + config.passCorrect() + " 题）");
     }
 
     private record VerifyOutcome(boolean passed, String note) {
@@ -755,6 +922,7 @@ public class ActivityProofAppService {
             throw new IllegalArgumentException("Word 模板能力未启用，请先在能力管理中启用 document-template");
         }
         Activity activity = requireActivity(cmd.activityId());
+        autoSyncServerParticipantsQuietly(activity);
         Set<String> selected = cmd.selectedUserIds() == null ? Set.of() : cmd.selectedUserIds().stream()
                 .filter(value -> value != null && !value.isBlank())
                 .map(String::trim)
@@ -1155,6 +1323,7 @@ public class ActivityProofAppService {
                 serverName,
                 binding.minOnlineMinutes(),
                 binding.includeAfk(),
+                binding.autoJoin(),
                 binding.formCode(),
                 formName,
                 requirementText(binding, serverName, formName)
@@ -1162,6 +1331,9 @@ public class ActivityProofAppService {
     }
 
     private String requirementText(ActivityBinding binding, String serverName, String formName) {
+        if (binding.isQuiz()) {
+            return "完成活动答题并达标";
+        }
         if (binding.isPlaytime()) {
             String metric = binding.includeAfk() ? "在线" : "有效在线";
             String server = hasText(serverName) ? "「" + serverName + "」" : "";
@@ -1181,11 +1353,17 @@ public class ActivityProofAppService {
         List<String> allowedDeptNames = activity.allowedDeptIds().stream()
                 .map(id -> deptNames.getOrDefault(id, id))
                 .toList();
-        List<String> requirements = activity.bindings().stream()
-                .map(binding -> requirementText(binding,
-                        binding.isPlaytime() ? serverName(binding.serverId()) : "",
-                        binding.isForm() ? firstText(binding.formName(), binding.formCode()) : ""))
+        List<UserRequirementDTO> requirementDetails = activity.bindings().stream()
+                .map(binding -> {
+                    String formName = binding.isForm() ? firstText(binding.formName(), binding.formCode()) : "";
+                    String text = requirementText(binding,
+                            binding.isPlaytime() ? serverName(binding.serverId()) : "",
+                            formName);
+                    return new UserRequirementDTO(binding.type().name(), text,
+                            binding.isForm() ? binding.formCode() : "", formName);
+                })
                 .toList();
+        List<String> requirements = requirementDetails.stream().map(UserRequirementDTO::text).toList();
         return new UserActivityDTO(
                 activity.id(),
                 activity.title(),
@@ -1200,6 +1378,7 @@ public class ActivityProofAppService {
                 activity.deptMode() == ActivityDeptMode.DEPTS,
                 allowedDeptNames,
                 requirements,
+                requirementDetails,
                 joinedCount,
                 eligible,
                 joinDisabledReason(activity, eligible, joined),
@@ -1261,7 +1440,8 @@ public class ActivityProofAppService {
                 participation.cancelledAt(),
                 participation.verifyStatus().name(),
                 participation.verifiedAt(),
-                participation.verifyNote()
+                participation.verifyNote(),
+                participation.source().name()
         );
     }
 
@@ -1332,6 +1512,10 @@ public class ActivityProofAppService {
 
     private Optional<PluginStudentInfoService> studentInfoService() {
         return pluginContext == null ? Optional.empty() : pluginContext.service(STUDENT_INFO_PLUGIN, PluginStudentInfoService.class);
+    }
+
+    private Optional<PluginSkinService> skinService() {
+        return pluginContext == null ? Optional.empty() : pluginContext.service(SKIN_PLUGIN, PluginSkinService.class);
     }
 
     private PluginFormService formService() {

@@ -34,6 +34,16 @@ public class ActivityProofUserController {
         return http.cancelActivity(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/me/activities/{id}/quiz", permission = MinecraftActivityProofPlugin.ACCESS_USER_PERMISSION)
+    public PluginHttpResponse myActivityQuiz(PluginHttpRequest request) {
+        return http.myActivityQuiz(request);
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/me/activities/{id}/quiz/attempt", permission = MinecraftActivityProofPlugin.ACCESS_USER_PERMISSION)
+    public PluginHttpResponse startActivityQuiz(PluginHttpRequest request) {
+        return http.startActivityQuiz(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/me/participations", permission = MinecraftActivityProofPlugin.ACCESS_USER_PERMISSION)
     public PluginHttpResponse myParticipations(PluginHttpRequest request) {
         return http.myParticipations(request);

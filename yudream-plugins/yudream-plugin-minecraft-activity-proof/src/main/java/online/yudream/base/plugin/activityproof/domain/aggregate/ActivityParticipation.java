@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.activityproof.domain.aggregate;
 
+import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSource;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationStatus;
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 
@@ -12,7 +13,8 @@ public record ActivityParticipation(
         long cancelledAt,
         VerifyStatus verifyStatus,
         long verifiedAt,
-        String verifyNote
+        String verifyNote,
+        ParticipationSource source
 ) {
     public ActivityParticipation {
         activityId = require(activityId, "活动不能为空");
@@ -20,23 +22,27 @@ public record ActivityParticipation(
         status = status == null ? ParticipationStatus.JOINED : status;
         verifyStatus = verifyStatus == null ? VerifyStatus.UNVERIFIED : verifyStatus;
         verifyNote = verifyNote == null ? "" : verifyNote.trim();
+        source = source == null ? ParticipationSource.SELF : source;
         id = id == null || id.isBlank() ? id(activityId, userId) : id.trim();
     }
 
-    public static ActivityParticipation create(String activityId, String userId, boolean autoPassed) {
+    public static ActivityParticipation create(String activityId, String userId, boolean autoPassed,
+                                               ParticipationSource source) {
         long now = System.currentTimeMillis();
         return new ActivityParticipation(null, activityId, userId, ParticipationStatus.JOINED, now, 0,
                 autoPassed ? VerifyStatus.PASSED : VerifyStatus.UNVERIFIED,
                 autoPassed ? now : 0,
-                autoPassed ? "参与活动即达标" : "");
+                autoPassed ? "参与活动即达标" : "",
+                source);
     }
 
-    public ActivityParticipation rejoin(boolean autoPassed) {
+    public ActivityParticipation rejoin(boolean autoPassed, ParticipationSource nextSource) {
         long now = System.currentTimeMillis();
         return new ActivityParticipation(id, activityId, userId, ParticipationStatus.JOINED, now, 0,
                 autoPassed ? VerifyStatus.PASSED : VerifyStatus.UNVERIFIED,
                 autoPassed ? now : 0,
-                autoPassed ? "参与活动即达标" : "");
+                autoPassed ? "参与活动即达标" : "",
+                nextSource);
     }
 
     public ActivityParticipation cancel() {
@@ -44,12 +50,17 @@ public record ActivityParticipation(
             return this;
         }
         return new ActivityParticipation(id, activityId, userId, ParticipationStatus.CANCELLED, joinedAt,
-                System.currentTimeMillis(), verifyStatus, verifiedAt, verifyNote);
+                System.currentTimeMillis(), verifyStatus, verifiedAt, verifyNote, source);
     }
 
     public ActivityParticipation withVerification(VerifyStatus nextStatus, String note) {
         return new ActivityParticipation(id, activityId, userId, status, joinedAt, cancelledAt,
-                nextStatus, System.currentTimeMillis(), note == null ? "" : note.trim());
+                nextStatus, System.currentTimeMillis(), note == null ? "" : note.trim(), source);
+    }
+
+    public ActivityParticipation withSource(ParticipationSource nextSource) {
+        return new ActivityParticipation(id, activityId, userId, status, joinedAt, cancelledAt,
+                verifyStatus, verifiedAt, verifyNote, nextSource);
     }
 
     public boolean isJoined() {

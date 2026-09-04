@@ -16,6 +16,7 @@ public record UserActivityDTO(
         boolean deptRestricted,
         List<String> allowedDeptNames,
         List<String> requirements,
+        List<UserRequirementDTO> requirementDetails,
         long participantCount,
         boolean eligible,
         String joinDisabledReason,

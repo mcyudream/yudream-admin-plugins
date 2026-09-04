@@ -261,6 +261,18 @@
   font-size: 13px;
 }
 
+.activity-requirement-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: rgb(var(--primary-6));
+  text-decoration: none;
+}
+
+.activity-requirement-link:hover {
+  text-decoration: underline;
+}
+
 .activity-detail-requirements p {
   margin: 0;
   color: var(--color-text-2);

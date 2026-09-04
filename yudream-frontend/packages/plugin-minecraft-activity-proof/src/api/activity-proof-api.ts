@@ -11,11 +11,15 @@ import type {
   ActivityProofTemplate,
   ActivityQqConnection,
   ActivityQqGroup,
+  ActivityQuizCategoryOption,
+  ActivityQuizConfig,
+  ActivityQuizView,
   ActivityTemplateMembers,
   ActivityUserOption,
   ActivityVerifyResult,
   MyParticipation,
   PageResult,
+  ServerParticipantSyncResult,
   UserActivity,
 } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
@@ -32,6 +36,7 @@ export interface ActivityBindingPayload {
   serverId?: string
   minOnlineMinutes?: number
   includeAfk?: boolean
+  autoJoin?: boolean
   formCode?: string
 }
 
@@ -63,6 +68,17 @@ export interface ActivityParticipantAddPayload {
   userId: string
   passed?: boolean
   note?: string
+}
+
+export interface ActivityQuizConfigPayload {
+  enabled: boolean
+  categoryId?: string
+  tags?: string[]
+  types?: string[]
+  difficulties?: number[]
+  count?: number
+  passCorrect?: number
+  subjectiveMode?: string
 }
 
 export function createActivityProofApi(sdk: YuDreamPluginSdk) {
@@ -103,6 +119,7 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     removeParticipant: (activityId: string, userId: string) => sdk.http.request(`/admin/activities/${encodeURIComponent(activityId)}/participants/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
     verifyParticipant: (activityId: string, userId: string) => sdk.http.post<ActivityParticipantAdmin>(`/admin/activities/${encodeURIComponent(activityId)}/participants/${encodeURIComponent(userId)}/verify`),
     verifyAllParticipants: (activityId: string) => sdk.http.post<ActivityVerifyResult>(`/admin/activities/${encodeURIComponent(activityId)}/verify-all`),
+    syncServerParticipants: (activityId: string) => sdk.http.post<ServerParticipantSyncResult>(`/admin/activities/${encodeURIComponent(activityId)}/sync-server-participants`),
     mappings: (serverId = '', page = 1, size = 10) => sdk.http.get<PageResult<ActivityProofMapping>>(`/admin/mappings${query({ serverId, page, size })}`),
     saveMapping: (data: Record<string, unknown>) => sdk.http.request<ActivityProofMapping>('/admin/mappings', { method: 'PUT', data }),
     deleteMapping: (id: string) => sdk.http.request(`/admin/mappings/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -110,6 +127,9 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     exports: (page = 1, size = 10) => sdk.http.get<PageResult<ActivityProofExportRecord>>(`/admin/exports${query({ page, size })}`),
     uploadStampedPdf: (id: string, data: Record<string, unknown>) => sdk.http.request<ActivityProofExportRecord>(`/admin/exports/${encodeURIComponent(id)}/stamped-pdf`, { method: 'PUT', data }),
     deleteExport: (id: string) => sdk.http.request(`/admin/exports/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    quizConfig: (activityId: string) => sdk.http.get<ActivityQuizConfig>(`/admin/activities/${encodeURIComponent(activityId)}/quiz`),
+    saveQuizConfig: (activityId: string, data: ActivityQuizConfigPayload) => sdk.http.request<ActivityQuizConfig>(`/admin/activities/${encodeURIComponent(activityId)}/quiz`, { method: 'PUT', data }),
+    quizCategoryOptions: () => sdk.http.get<ActivityQuizCategoryOption[]>('/admin/quiz-options/categories'),
   }
 
   const me = {
@@ -120,6 +140,8 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     participations: (page = 1, size = 10) => sdk.http.get<PageResult<MyParticipation>>(`/me/participations${query({ page, size })}`),
     verify: (activityId: string) => sdk.http.post<MyParticipation>(`/me/participations/${encodeURIComponent(activityId)}/verify`),
     exports: (page = 1, size = 10) => sdk.http.get<PageResult<ActivityProofExportRecord>>(`/me/exports${query({ page, size })}`),
+    quiz: (activityId: string) => sdk.http.get<ActivityQuizView>(`/me/activities/${encodeURIComponent(activityId)}/quiz`),
+    startQuiz: (activityId: string) => sdk.http.post<ActivityQuizView>(`/me/activities/${encodeURIComponent(activityId)}/quiz/attempt`),
   }
 
   return {

@@ -6,10 +6,13 @@ import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofEx
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofParticipantSnapshot;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofSettings;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofTemplateMembers;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizAttempt;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizConfig;
 import online.yudream.base.plugin.activityproof.domain.aggregate.PlayerStudentMapping;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityBindingType;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityDeptMode;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityStatus;
+import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSource;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationStatus;
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
@@ -32,7 +35,10 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
     private static final String EXPORTS = "exports";
     private static final String ACTIVITIES = "activities";
     private static final String PARTICIPATIONS = "participations";
+    private static final String QUIZ_CONFIGS = "quiz_configs";
+    private static final String QUIZ_ATTEMPTS = "quiz_attempts";
     private static final String TEMPLATE_MEMBERS = "template_members";
+    private static final String AUTO_JOIN_EXCLUSIONS = "auto_join_exclusions";
     private static final int SCAN_PAGE_SIZE = 200;
 
     private final PluginDocumentStore documents;
@@ -164,6 +170,57 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
     @Override
     public void deleteParticipation(String id) {
         documents.delete(PARTICIPATIONS, id);
+    }
+
+    @Override
+    public boolean autoJoinExcluded(String activityId, String userId) {
+        if (activityId == null || activityId.isBlank() || userId == null || userId.isBlank()) {
+            return false;
+        }
+        return documents.findById(AUTO_JOIN_EXCLUSIONS, activityId.trim() + ":" + userId.trim()).isPresent();
+    }
+
+    @Override
+    public void addAutoJoinExclusion(String activityId, String userId) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", activityId.trim() + ":" + userId.trim());
+        document.put("activityId", activityId.trim());
+        document.put("userId", userId.trim());
+        document.put("excludedAt", System.currentTimeMillis());
+        documents.save(AUTO_JOIN_EXCLUSIONS, string(document, "id"), document);
+    }
+
+    @Override
+    public Optional<ActivityQuizConfig> quizConfig(String activityId) {
+        if (activityId == null || activityId.isBlank()) {
+            return Optional.empty();
+        }
+        return documents.findById(QUIZ_CONFIGS, activityId.trim()).map(this::toQuizConfig);
+    }
+
+    @Override
+    public ActivityQuizConfig saveQuizConfig(ActivityQuizConfig config) {
+        return toQuizConfig(documents.save(QUIZ_CONFIGS, config.activityId(), quizConfigDocument(config)));
+    }
+
+    @Override
+    public void deleteQuizConfig(String activityId) {
+        if (activityId != null && !activityId.isBlank()) {
+            documents.delete(QUIZ_CONFIGS, activityId.trim());
+        }
+    }
+
+    @Override
+    public Optional<ActivityQuizAttempt> quizAttempt(String activityId, String userId) {
+        if (activityId == null || activityId.isBlank() || userId == null || userId.isBlank()) {
+            return Optional.empty();
+        }
+        return documents.findById(QUIZ_ATTEMPTS, ActivityQuizAttempt.id(activityId, userId)).map(this::toQuizAttempt);
+    }
+
+    @Override
+    public ActivityQuizAttempt saveQuizAttempt(ActivityQuizAttempt attempt) {
+        return toQuizAttempt(documents.save(QUIZ_ATTEMPTS, attempt.id(), quizAttemptDocument(attempt)));
     }
 
     @Override
@@ -318,6 +375,7 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         document.put("serverId", binding.serverId());
         document.put("minOnlineMinutes", binding.minOnlineMinutes());
         document.put("includeAfk", binding.includeAfk());
+        document.put("autoJoin", binding.autoJoin());
         document.put("formCode", binding.formCode());
         document.put("formName", binding.formName());
         return stripNulls(document);
@@ -334,6 +392,7 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         document.put("verifyStatus", participation.verifyStatus().name());
         document.put("verifiedAt", participation.verifiedAt());
         document.put("verifyNote", participation.verifyNote());
+        document.put("source", participation.source().name());
         return stripNulls(document);
     }
 
@@ -369,6 +428,77 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         document.put("playerId", snapshot.playerId());
         document.put("playerName", snapshot.playerName());
         return stripNulls(document);
+    }
+
+    private Map<String, Object> quizConfigDocument(ActivityQuizConfig config) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", config.activityId());
+        document.put("enabled", config.enabled());
+        document.put("categoryId", config.categoryId());
+        document.put("tags", new ArrayList<>(config.tags()));
+        document.put("types", new ArrayList<>(config.types()));
+        document.put("difficulties", new ArrayList<>(config.difficulties()));
+        document.put("count", config.count());
+        document.put("passCorrect", config.passCorrect());
+        document.put("subjectiveMode", config.subjectiveMode());
+        document.put("updatedAt", config.updatedAt());
+        return stripNulls(document);
+    }
+
+    private Map<String, Object> quizAttemptDocument(ActivityQuizAttempt attempt) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", attempt.id());
+        document.put("activityId", attempt.activityId());
+        document.put("userId", attempt.userId());
+        document.put("sessionId", attempt.sessionId());
+        document.put("attempts", attempt.attempts());
+        document.put("passed", attempt.passed());
+        document.put("passedAt", attempt.passedAt());
+        document.put("updatedAt", attempt.updatedAt());
+        return stripNulls(document);
+    }
+
+    private ActivityQuizConfig toQuizConfig(Map<String, Object> document) {
+        return new ActivityQuizConfig(
+                string(document, "id"),
+                bool(document.get("enabled")),
+                string(document, "categoryId"),
+                stringList(document.get("tags")),
+                stringList(document.get("types")),
+                intList(document.get("difficulties")),
+                integer(document, "count", 0),
+                integer(document, "passCorrect", 0),
+                string(document, "subjectiveMode"),
+                number(document, "updatedAt", 0)
+        );
+    }
+
+    private ActivityQuizAttempt toQuizAttempt(Map<String, Object> document) {
+        return new ActivityQuizAttempt(
+                string(document, "id"),
+                string(document, "activityId"),
+                string(document, "userId"),
+                string(document, "sessionId"),
+                integer(document, "attempts", 0),
+                bool(document.get("passed")),
+                number(document, "passedAt", 0),
+                number(document, "updatedAt", 0)
+        );
+    }
+
+    private List<Integer> intList(Object value) {
+        if (!(value instanceof List<?> rows)) {
+            return List.of();
+        }
+        List<Integer> result = new ArrayList<>();
+        for (Object row : rows) {
+            if (row instanceof Number number) {
+                result.add(number.intValue());
+            } else if (row != null && !String.valueOf(row).isBlank()) {
+                result.add(Integer.parseInt(String.valueOf(row)));
+            }
+        }
+        return List.copyOf(result);
     }
 
     private Map<String, Object> stripNulls(Map<String, Object> document) {
@@ -460,6 +590,7 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 string(document, "serverId"),
                 (int) number(document, "minOnlineMinutes", 0),
                 bool(document.get("includeAfk")),
+                bool(document.get("autoJoin")),
                 string(document, "formCode"),
                 string(document, "formName")
         );
@@ -475,7 +606,8 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 number(document, "cancelledAt", 0),
                 VerifyStatus.of(string(document, "verifyStatus")),
                 number(document, "verifiedAt", 0),
-                string(document, "verifyNote")
+                string(document, "verifyNote"),
+                ParticipationSource.of(string(document, "source"))
         );
     }
 

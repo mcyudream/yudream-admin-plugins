@@ -6,6 +6,7 @@ public record ActivityBindingDTO(
         String serverName,
         int minOnlineMinutes,
         boolean includeAfk,
+        boolean autoJoin,
         String formCode,
         String formName,
         String requirementText

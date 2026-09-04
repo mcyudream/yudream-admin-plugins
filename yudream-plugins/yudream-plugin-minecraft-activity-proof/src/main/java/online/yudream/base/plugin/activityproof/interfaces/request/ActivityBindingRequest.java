@@ -5,6 +5,7 @@ public record ActivityBindingRequest(
         String serverId,
         Integer minOnlineMinutes,
         Boolean includeAfk,
+        Boolean autoJoin,
         String formCode
 ) {
 }

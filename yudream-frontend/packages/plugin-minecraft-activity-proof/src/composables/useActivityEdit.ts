@@ -1,4 +1,4 @@
-import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivitySaveForm, TimeValue } from '../types'
+import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivityQuizCategoryOption, ActivitySaveForm, QuizSubjectiveMode, TimeValue } from '../types'
 import type { ActivitySavePayload } from '../api/activity-proof-api'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useFaToast } from '@yudream/components'
@@ -18,6 +18,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
   const formOptions = ref<ActivityFormOption[]>([])
   const minecraftReady = ref(false)
   const formReady = ref(false)
+  const quizReady = ref(false)
   const servers = ref<{ id: string, name: string }[]>([])
 
   const form = reactive<ActivitySaveForm>({
@@ -37,6 +38,90 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
   const readonly = computed(() => activityStatus.value === 'CLOSED')
   const coverPreview = computed(() => resolveFileUrl(sdk, form.coverUrl))
 
+  // 答题环节（题库软依赖）：独立文档存储，编辑模式下单独保存
+  const quizAvailable = ref(false)
+  const quizSaving = ref(false)
+  const quizCategories = ref<ActivityQuizCategoryOption[]>([])
+  const quizForm = reactive({
+    enabled: false,
+    categoryId: '',
+    tagsText: '',
+    types: [] as string[],
+    difficulties: [] as number[],
+    count: 10,
+    passCorrect: 10,
+    subjectiveMode: 'SELF' as QuizSubjectiveMode,
+  })
+
+  async function loadQuiz(id: string) {
+    try {
+      const [config, categories] = await Promise.all([
+        api.admin.quizConfig(id),
+        api.admin.quizCategoryOptions(),
+      ])
+      quizAvailable.value = config.quizAvailable
+      quizCategories.value = categories
+      quizForm.enabled = config.enabled
+      quizForm.categoryId = config.categoryId || ''
+      quizForm.tagsText = (config.tags || []).join('，')
+      quizForm.types = [...(config.types || [])]
+      quizForm.difficulties = [...(config.difficulties || [])]
+      quizForm.count = config.count || 10
+      quizForm.passCorrect = config.passCorrect || config.count || 10
+      quizForm.subjectiveMode = config.subjectiveMode || 'SELF'
+    }
+    catch {
+      quizAvailable.value = false
+    }
+  }
+
+  function validateQuiz() {
+    if (!quizForm.enabled) {
+      return ''
+    }
+    if (!quizForm.count || quizForm.count < 1 || quizForm.count > 50) {
+      return '抽题数量需在 1-50 之间'
+    }
+    if (!quizForm.passCorrect || quizForm.passCorrect < 1 || quizForm.passCorrect > quizForm.count) {
+      return '达标题数需在 1 与抽题数量之间'
+    }
+    return ''
+  }
+
+  async function saveQuiz() {
+    if (!editingId.value) {
+      toast.warning('请先保存活动后再配置答题环节')
+      return
+    }
+    const message = validateQuiz()
+    if (message) {
+      toast.warning(message)
+      return
+    }
+    quizSaving.value = true
+    try {
+      const tags = quizForm.tagsText.split(/[,，]/).map(item => item.trim()).filter(Boolean)
+      const config = await api.admin.saveQuizConfig(editingId.value, {
+        enabled: quizForm.enabled,
+        categoryId: quizForm.categoryId || undefined,
+        tags,
+        types: quizForm.types.length ? [...quizForm.types] : undefined,
+        difficulties: quizForm.difficulties.length ? [...quizForm.difficulties] : undefined,
+        count: quizForm.count,
+        passCorrect: quizForm.passCorrect,
+        subjectiveMode: quizForm.subjectiveMode,
+      })
+      quizAvailable.value = config.quizAvailable
+      toast.success('答题环节配置已保存')
+    }
+    catch (error) {
+      toast.warning(errorMessage(error))
+    }
+    finally {
+      quizSaving.value = false
+    }
+  }
+
   async function load(id: string) {
     loading.value = true
     editingId.value = id || ''
@@ -44,6 +129,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       const status = await api.admin.status()
       minecraftReady.value = status.dependencies.minecraftReady
       formReady.value = status.dependencies.formReady
+      quizReady.value = status.dependencies.quizReady
       const [depts, forms, serverList] = await Promise.all([
         api.admin.departments(),
         status.dependencies.formReady ? api.admin.forms() : Promise.resolve([]),
@@ -55,6 +141,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       if (id) {
         const activity = await api.admin.activity(id)
         applyActivity(activity)
+        await loadQuiz(id)
       }
       else {
         resetForm()
@@ -81,6 +168,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       serverId: binding.serverId || '',
       minOnlineMinutes: binding.minOnlineMinutes || 0,
       includeAfk: binding.includeAfk,
+      autoJoin: binding.autoJoin,
       formCode: binding.formCode || '',
     }))
   }
@@ -132,12 +220,17 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     }
   }
 
-  function addBinding(type: 'PLAYTIME' | 'FORM') {
+  function addBinding(type: 'PLAYTIME' | 'FORM' | 'QUIZ') {
+    if (type === 'QUIZ' && form.bindings.some(binding => binding.type === 'QUIZ')) {
+      toast.warning('答题核验方式至多添加一个')
+      return
+    }
     form.bindings.push({
       type,
       serverId: '',
       minOnlineMinutes: 0,
       includeAfk: false,
+      autoJoin: false,
       formCode: '',
     })
   }
@@ -179,9 +272,15 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       activityEnd: activity.end || undefined,
       deptMode: form.deptMode,
       allowedDeptIds: form.deptMode === 'DEPTS' ? [...form.allowedDeptIds] : [],
-      bindings: form.bindings.map(binding => binding.type === 'PLAYTIME'
-        ? { type: 'PLAYTIME', serverId: binding.serverId, minOnlineMinutes: binding.minOnlineMinutes, includeAfk: binding.includeAfk }
-        : { type: 'FORM', formCode: binding.formCode }),
+      bindings: form.bindings.map((binding) => {
+        if (binding.type === 'PLAYTIME') {
+          return { type: 'PLAYTIME', serverId: binding.serverId, minOnlineMinutes: binding.minOnlineMinutes, includeAfk: binding.includeAfk, autoJoin: binding.autoJoin }
+        }
+        if (binding.type === 'QUIZ') {
+          return { type: 'QUIZ' }
+        }
+        return { type: 'FORM', formCode: binding.formCode }
+      }),
     }
   }
 
@@ -222,6 +321,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     formOptions,
     minecraftReady,
     formReady,
+    quizReady,
     servers,
     form,
     isEdit,
@@ -232,6 +332,11 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     addBinding,
     removeBinding,
     save,
+    quizAvailable,
+    quizSaving,
+    quizCategories,
+    quizForm,
+    saveQuiz,
   }
 }
 

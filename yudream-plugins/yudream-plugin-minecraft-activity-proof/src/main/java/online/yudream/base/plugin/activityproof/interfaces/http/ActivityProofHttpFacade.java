@@ -2,8 +2,10 @@ package online.yudream.base.plugin.activityproof.interfaces.http;
 
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofDownloadDTO;
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
+import online.yudream.base.plugin.activityproof.application.service.ActivityQuizService;
 import online.yudream.base.plugin.activityproof.interfaces.assembler.ActivityProofWebAssembler;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityParticipantAddRequest;
+import online.yudream.base.plugin.activityproof.interfaces.request.ActivityQuizSaveRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofExportRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofMappingSaveRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofSettingsSaveRequest;
@@ -27,10 +29,12 @@ public class ActivityProofHttpFacade {
     private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     private final ActivityProofAppService appService;
+    private final ActivityQuizService quizService;
     private final ActivityProofWebAssembler assembler = new ActivityProofWebAssembler();
 
-    public ActivityProofHttpFacade(ActivityProofAppService appService) {
+    public ActivityProofHttpFacade(ActivityProofAppService appService, ActivityQuizService quizService) {
         this.appService = appService;
+        this.quizService = quizService;
     }
 
     // ---------------------------------------------------------------- admin: status/settings/templates
@@ -149,6 +153,10 @@ public class ActivityProofHttpFacade {
         return PluginHttpResponse.ok(appService.verifyAllParticipants(pathSegment(request.path(), 2)));
     }
 
+    public PluginHttpResponse syncServerParticipants(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.syncServerParticipants(pathSegment(request.path(), 2)));
+    }
+
     // ---------------------------------------------------------------- admin: mappings
 
     public PluginHttpResponse mappings(PluginHttpRequest request) {
@@ -218,6 +226,31 @@ public class ActivityProofHttpFacade {
 
     public PluginHttpResponse verifyMyParticipation(PluginHttpRequest request) {
         return PluginHttpResponse.ok(appService.verifyMyParticipation(pathSegment(request.path(), 2), currentUserId(request)));
+    }
+
+    // ---------------------------------------------------------------- admin: activity quiz (questionbank softdepend)
+
+    public PluginHttpResponse quizConfig(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(quizService.quizConfigForAdmin(pathSegment(request.path(), 2)));
+    }
+
+    public PluginHttpResponse saveQuizConfig(PluginHttpRequest request) {
+        ActivityQuizSaveRequest body = JsonSupport.read(request.body(), ActivityQuizSaveRequest.class);
+        return PluginHttpResponse.ok(quizService.saveQuizConfig(pathSegment(request.path(), 2), assembler.toCmd(body)));
+    }
+
+    public PluginHttpResponse quizCategoryOptions() {
+        return PluginHttpResponse.ok(quizService.categoryOptions());
+    }
+
+    // ---------------------------------------------------------------- user: activity quiz
+
+    public PluginHttpResponse myActivityQuiz(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(quizService.quizView(pathSegment(request.path(), 2), currentUserId(request)));
+    }
+
+    public PluginHttpResponse startActivityQuiz(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(quizService.startAttempt(pathSegment(request.path(), 2), currentUserId(request)));
     }
 
     // ---------------------------------------------------------------- user: exports

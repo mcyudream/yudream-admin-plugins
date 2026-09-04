@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.activityproof.bootstrap;
 
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
+import online.yudream.base.plugin.activityproof.application.service.ActivityQuizService;
 import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityProofDocumentRepository;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
@@ -17,7 +18,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.1.1",
+        version = "2.2.0",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -154,13 +155,18 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
 
     @Override
     public void onEnable(PluginContext context) {
+        ActivityProofDocumentRepository repository = new ActivityProofDocumentRepository(context.documents());
+        // 题库为软依赖：每次调用时现取，不跨 provider disable/reload 缓存 API 对象
+        ActivityQuizService quizService = new ActivityQuizService(repository,
+                () -> context.service("questionbank", online.yudream.base.plugin.questionbank.api.QuestionBankApi.class));
         ActivityProofAppService appService = new ActivityProofAppService(
-                new ActivityProofDocumentRepository(context.documents()),
+                repository,
                 context.files(),
                 context.framework(),
-                context
+                context,
+                quizService
         );
-        ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService);
+        ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService, quizService);
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
     }

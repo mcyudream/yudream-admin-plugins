@@ -8,6 +8,8 @@ export interface ActivityProofDependencies {
   studentInfoReady: boolean
   wordTemplateReady: boolean
   formReady: boolean
+  skinReady: boolean
+  quizReady: boolean
 }
 
 export interface ActivityProofSettings {
@@ -84,7 +86,7 @@ export interface ActivityProofMapping {
 
 export type ActivityStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED'
 
-export type ActivityBindingType = 'PLAYTIME' | 'FORM'
+export type ActivityBindingType = 'PLAYTIME' | 'FORM' | 'QUIZ'
 
 export interface ActivityBinding {
   type: ActivityBindingType
@@ -92,6 +94,7 @@ export interface ActivityBinding {
   serverName: string
   minOnlineMinutes: number
   includeAfk: boolean
+  autoJoin: boolean
   formCode: string
   formName: string
   requirementText: string
@@ -139,6 +142,7 @@ export interface ActivityBindingForm {
   serverId: string
   minOnlineMinutes: number
   includeAfk: boolean
+  autoJoin: boolean
   formCode: string
 }
 
@@ -155,6 +159,13 @@ export interface ActivitySaveForm {
   bindings: ActivityBindingForm[]
 }
 
+export interface UserRequirement {
+  type: ActivityBindingType
+  text: string
+  formCode: string
+  formName: string
+}
+
 export interface UserActivity {
   id: string
   title: string
@@ -169,6 +180,7 @@ export interface UserActivity {
   deptRestricted: boolean
   allowedDeptNames: string[]
   requirements: string[]
+  requirementDetails: UserRequirement[]
   participantCount: number
   eligible: boolean
   joinDisabledReason: string
@@ -194,7 +206,10 @@ export interface ActivityParticipantAdmin {
   verifyStatus: string
   verifiedAt: TimeValue
   verifyNote: string
+  source: ParticipationSource
 }
+
+export type ParticipationSource = 'SELF' | 'MANUAL' | 'AUTO'
 
 export interface MyParticipation {
   activityId: string
@@ -216,6 +231,18 @@ export interface ActivityVerifyResult {
   total: number
   passed: number
   failed: number
+}
+
+export interface ServerParticipantSyncResult {
+  activityId: string
+  scanned: number
+  resolved: number
+  added: number
+  skippedExisting: number
+  skippedExcluded: number
+  unresolved: number
+  verifiedPassed: number
+  verifiedFailed: number
 }
 
 export interface ActivityProofExportRecord {
@@ -243,3 +270,39 @@ export interface PageResult<T> {
 }
 
 export type TimeValue = number | string | number[] | null | undefined
+
+export type QuizSubjectiveMode = 'SELF' | 'REVIEW' | 'AI'
+
+export interface ActivityQuizConfig {
+  activityId: string
+  enabled: boolean
+  categoryId: string
+  tags: string[]
+  types: string[]
+  difficulties: number[]
+  count: number
+  passCorrect: number
+  subjectiveMode: QuizSubjectiveMode
+  quizAvailable: boolean
+}
+
+export interface ActivityQuizCategoryOption {
+  id: string
+  name: string
+}
+
+export interface ActivityQuizView {
+  enabled: boolean
+  available: boolean
+  joined: boolean
+  count: number
+  passCorrect: number
+  subjectiveMode: QuizSubjectiveMode | null
+  attempts: number
+  passed: boolean
+  sessionId: string | null
+  sessionStatus: string | null
+  correctCount: number | null
+  totalCount: number | null
+  pendingReview: boolean
+}

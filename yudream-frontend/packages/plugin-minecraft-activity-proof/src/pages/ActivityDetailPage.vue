@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const model = useActivityDetail(props.sdk)
-const { loading, acting, activity, qrVisible, qrDataUrl, joined, canVerify } = model
+const { loading, acting, activity, qrVisible, qrDataUrl, quiz, quizActing, joined, canVerify } = model
 
 const activityId = computed(() => String(props.route?.query?.id || ''))
 
@@ -29,6 +29,83 @@ const statusTag = computed(() => {
   }
   return activityStageTag(activityStage(activity.value.status, activity.value.signupStart, activity.value.signupEnd, activity.value.activityEnd))
 })
+
+const quizSubjectiveLabel = computed(() => {
+  switch (quiz.value?.subjectiveMode) {
+    case 'REVIEW':
+      return '管理员审核'
+    case 'AI':
+      return 'AI 判分'
+    default:
+      return '自评'
+  }
+})
+
+const quizStatusTag = computed(() => {
+  const view = quiz.value
+  if (!view) {
+    return null
+  }
+  if (view.passed) {
+    return { variant: 'default' as const, text: `答题已达标（${view.correctCount ?? 0}/${view.totalCount ?? view.count}）` }
+  }
+  if (view.sessionId && view.sessionStatus && view.sessionStatus !== 'FINISHED') {
+    return { variant: 'outline' as const, text: '答题进行中' }
+  }
+  if (view.sessionStatus === 'FINISHED' && view.pendingReview) {
+    return { variant: 'outline' as const, text: '已提交，待判分' }
+  }
+  if (view.sessionStatus === 'FINISHED') {
+    return { variant: 'outline' as const, text: `未达标（${view.correctCount ?? 0}/${view.totalCount ?? view.count}），可重试` }
+  }
+  if (view.attempts > 0) {
+    return { variant: 'outline' as const, text: `已尝试 ${view.attempts} 次` }
+  }
+  return { variant: 'outline' as const, text: '未开始' }
+})
+
+const quizActionText = computed(() => {
+  const view = quiz.value
+  if (!view) {
+    return '开始答题'
+  }
+  if (view.sessionId && view.sessionStatus && view.sessionStatus !== 'FINISHED') {
+    return '继续答题'
+  }
+  return '开始答题'
+})
+
+const canStartQuiz = computed(() => {
+  const view = quiz.value
+  return !!view?.enabled && view.available && view.joined && !view.passed
+    && !(view.sessionStatus === 'FINISHED' && view.pendingReview)
+})
+
+// 达标条件优先用结构化的 requirementDetails（表单类可跳填写页），旧数据回退纯文案
+const requirementItems = computed(() => {
+  const value = activity.value
+  if (!value) {
+    return []
+  }
+  if (value.requirementDetails?.length) {
+    return value.requirementDetails
+  }
+  return (value.requirements || []).map(text => ({ type: '', text, formCode: '', formName: '' }))
+})
+
+function goForm(formCode: string) {
+  if (!formCode) {
+    return
+  }
+  router.push({ path: `/forms/${encodeURIComponent(formCode)}` })
+}
+
+async function goQuiz() {
+  const sessionId = await model.startQuiz()
+  if (sessionId) {
+    router.push({ path: '/platform/plugins/questionbank/session', query: { id: sessionId } })
+  }
+}
 
 function back() {
   router.push({ path: '/platform/plugins/yudream-student-info/activity-square' })
@@ -87,15 +164,47 @@ function back() {
             <aside class="activity-detail-side">
               <div class="activity-detail-requirements">
                 <h3>达标条件</h3>
-                <ul v-if="activity.requirements?.length">
-                  <li v-for="(requirement, index) in activity.requirements" :key="index">
-                    <FaIcon name="i-ri:checkbox-circle-line" />{{ requirement }}
+                <ul v-if="requirementItems.length">
+                  <li v-for="(requirement, index) in requirementItems" :key="index">
+                    <FaIcon name="i-ri:checkbox-circle-line" />
+                    <a
+                      v-if="requirement.type === 'FORM' && requirement.formCode"
+                      class="activity-requirement-link"
+                      :href="`/forms/${encodeURIComponent(requirement.formCode)}`"
+                      @click.prevent="goForm(requirement.formCode)"
+                    >{{ requirement.text }}<FaIcon name="i-ri:arrow-right-up-line" /></a>
+                    <template v-else>{{ requirement.text }}</template>
                   </li>
                 </ul>
                 <p v-else>参与活动即视为达标</p>
-                <p v-if="activity.requirements && activity.requirements.length > 1" class="text-sm text-muted-foreground">
+                <p v-if="requirementItems.length > 1" class="text-sm text-muted-foreground">
                   满足任意一项即通过核验
                 </p>
+              </div>
+              <div v-if="quiz?.enabled" class="activity-detail-requirements">
+                <h3>答题环节</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <FaTag v-if="quizStatusTag" :variant="quizStatusTag.variant">
+                    {{ quizStatusTag.text }}
+                  </FaTag>
+                </div>
+                <ul>
+                  <li><FaIcon name="i-ri:questionnaire-line" />随机抽取 {{ quiz.count }} 题，答对 {{ quiz.passCorrect }} 题即达标</li>
+                  <li v-if="quiz.subjectiveMode"><FaIcon name="i-ri:edit-2-line" />简答题判分：{{ quizSubjectiveLabel }}</li>
+                </ul>
+                <template v-if="!quiz.available">
+                  <p class="text-sm text-muted-foreground">题库插件暂不可用，答题环节暂时关闭</p>
+                </template>
+                <template v-else-if="!joined">
+                  <p class="text-sm text-muted-foreground">请先参与活动后再进行答题</p>
+                </template>
+                <FaButton
+                  v-if="canStartQuiz"
+                  :loading="quizActing"
+                  @click="goQuiz"
+                >
+                  <FaIcon name="i-ri:play-line" />{{ quizActionText }}
+                </FaButton>
               </div>
               <div v-if="activity.verifyNote" class="activity-detail-note">
                 <FaIcon name="i-ri:information-line" />{{ activity.verifyNote }}

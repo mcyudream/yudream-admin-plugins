@@ -1,4 +1,4 @@
-import type { UserActivity } from '../types'
+import type { ActivityQuizView, UserActivity } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useFaModal, useFaToast } from '@yudream/components'
 import QRCode from 'qrcode'
@@ -17,9 +17,12 @@ export function useActivityDetail(sdk: YuDreamPluginSdk) {
   const activity = ref<UserActivity | null>(null)
   const qrVisible = ref(false)
   const qrDataUrl = ref('')
+  const quiz = ref<ActivityQuizView | null>(null)
+  const quizActing = ref(false)
 
   const joined = computed(() => activity.value?.participationStatus === 'JOINED')
   const canVerify = computed(() => joined.value && !!activity.value && activity.value.verifyStatus !== 'PASSED')
+  const quizEnabled = computed(() => !!quiz.value?.enabled)
 
   async function load(id: string) {
     if (!id) {
@@ -29,9 +32,52 @@ export function useActivityDetail(sdk: YuDreamPluginSdk) {
     loading.value = true
     try {
       activity.value = await api.me.activity(id)
+      await loadQuiz(id)
     }
     finally {
       loading.value = false
+    }
+  }
+
+  async function loadQuiz(id: string) {
+    if (!id) {
+      quiz.value = null
+      return
+    }
+    try {
+      quiz.value = await api.me.quiz(id)
+    }
+    catch {
+      quiz.value = null
+    }
+  }
+
+  /** 开始或继续答题，返回题库会话 ID 供页面跳转。 */
+  async function startQuiz() {
+    if (!activity.value || quizActing.value) {
+      return null
+    }
+    quizActing.value = true
+    try {
+      quiz.value = await api.me.startQuiz(activity.value.id)
+      if (!quiz.value.sessionId) {
+        toast.warning('未能获取答题会话，请稍后重试')
+        return null
+      }
+      return quiz.value.sessionId
+    }
+    catch (error) {
+      toast.warning(errorMessage(error))
+      return null
+    }
+    finally {
+      quizActing.value = false
+    }
+  }
+
+  async function refreshQuiz() {
+    if (activity.value) {
+      await loadQuiz(activity.value.id)
     }
   }
 
@@ -147,9 +193,15 @@ export function useActivityDetail(sdk: YuDreamPluginSdk) {
     activity,
     qrVisible,
     qrDataUrl,
+    quiz,
+    quizActing,
+    quizEnabled,
     joined,
     canVerify,
     load,
+    loadQuiz,
+    startQuiz,
+    refreshQuiz,
     join,
     cancel,
     verify,

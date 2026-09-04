@@ -17,7 +17,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const model = useAdminActivityDetail(props.sdk)
-const { loading, acting, verifyingId, verifyingAll, activity, participants, pager, exportVisible, exporting, exportForm, addVisible, adding, addSelectedKeys, addForm } = model
+const { loading, acting, verifyingId, verifyingAll, syncing, activity, participants, pager, exportVisible, exporting, exportForm, addVisible, adding, addSelectedKeys, addForm, hasAutoJoinBinding } = model
 
 const activityId = computed(() => String(props.route?.query?.id || ''))
 watch(activityId, id => model.load(id), { immediate: true })
@@ -52,6 +52,7 @@ const participantColumns: TableColumn<ActivityParticipantAdmin>[] = [
   { id: 'student', header: '学生', width: 200, fixed: 'left' },
   { id: 'classCollege', header: '班级 / 学院', width: 220 },
   { id: 'player', header: '玩家', width: 180 },
+  { id: 'source', header: '来源', width: 110, align: 'center' },
   { id: 'status', header: '参与状态', width: 110, align: 'center' },
   { id: 'joinedAt', header: '参与时间', width: 180 },
   { id: 'verifyStatus', header: '核验状态', width: 110, align: 'center' },
@@ -69,6 +70,12 @@ function verifyTag(status: string) {
   if (status === 'PASSED') return { variant: 'default' as const, text: '已通过' }
   if (status === 'FAILED') return { variant: 'destructive' as const, text: '未通过' }
   return { variant: 'secondary' as const, text: '待核验' }
+}
+
+function sourceTag(source: string) {
+  if (source === 'AUTO') return { variant: 'default' as const, text: '服务器同步' }
+  if (source === 'MANUAL') return { variant: 'outline' as const, text: '手动添加' }
+  return { variant: 'secondary' as const, text: '自行报名' }
 }
 
 function back() {
@@ -117,6 +124,9 @@ function openEdit() {
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="text-base font-semibold">参与名单（{{ pager.total }} 人，已通过 {{ model.passedCount }} 人）</h3>
               <div class="flex flex-wrap gap-2">
+                <FaButton v-if="hasAutoJoinBinding" size="sm" variant="outline" :loading="syncing" @click="model.syncServerParticipants">
+                  <FaIcon name="i-ri:server-line" />同步服务器玩家
+                </FaButton>
                 <FaButton size="sm" variant="outline" @click="model.openAddParticipant">
                   <FaIcon name="i-ri:user-add-line" />添加人员
                 </FaButton>
@@ -129,7 +139,7 @@ function openEdit() {
               v-loading="loading"
               row-key="userId"
               table-root-class="max-w-full overflow-x-auto rounded-lg"
-              table-class="min-w-[1440px]"
+              table-class="min-w-[1550px]"
               border
               stripe
               column-visibility
@@ -147,6 +157,9 @@ function openEdit() {
               <template #cell-player="{ row }">
                 <strong>{{ row.original.playerName || '-' }}</strong>
                 <div>{{ row.original.playerId || '' }}</div>
+              </template>
+              <template #cell-source="{ row }">
+                <FaTag :variant="sourceTag(row.original.source).variant">{{ sourceTag(row.original.source).text }}</FaTag>
               </template>
               <template #cell-status="{ row }">
                 <FaTag :variant="statusTag(row.original.status).variant">{{ statusTag(row.original.status).text }}</FaTag>
@@ -191,6 +204,10 @@ function openEdit() {
                       <div class="flex gap-2">
                         <span class="shrink-0 text-secondary-foreground/60">玩家</span>
                         <span class="break-all">{{ row.playerName || '-' }}</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">来源</span>
+                        <span>{{ sourceTag(row.source).text }}</span>
                       </div>
                       <div class="flex gap-2">
                         <span class="shrink-0 text-secondary-foreground/60">参与时间</span>

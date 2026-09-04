@@ -7,6 +7,7 @@ import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofMap
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofSettingsSaveCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofStampedPdfUploadCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofTemplateSelectCmd;
+import online.yudream.base.plugin.activityproof.application.cmd.ActivityQuizSaveCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivitySaveCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityTemplateMembersSaveCmd;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityBindingRequest;
@@ -16,6 +17,7 @@ import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProof
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofSettingsSaveRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofStampedPdfUploadRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityProofTemplateSelectRequest;
+import online.yudream.base.plugin.activityproof.interfaces.request.ActivityQuizSaveRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivitySaveRequest;
 import online.yudream.base.plugin.activityproof.interfaces.request.ActivityTemplateMembersSaveRequest;
 
@@ -44,6 +46,11 @@ public class ActivityProofWebAssembler {
         return new ActivityProofMappingSaveCmd(request.serverId(), request.playerId(), request.playerName(), request.studentNo());
     }
 
+    public ActivityQuizSaveCmd toCmd(ActivityQuizSaveRequest request) {
+        return new ActivityQuizSaveCmd(request.enabled(), request.categoryId(), request.tags(), request.types(),
+                request.difficulties(), request.count(), request.passCorrect(), request.subjectiveMode());
+    }
+
     public ActivitySaveCmd toCmd(ActivitySaveRequest request) {
         List<ActivityBindingCmd> bindings = request.bindings() == null ? List.of() : request.bindings().stream()
                 .map(this::toCmd)
@@ -65,7 +72,8 @@ public class ActivityProofWebAssembler {
     }
 
     public ActivityBindingCmd toCmd(ActivityBindingRequest request) {
-        return new ActivityBindingCmd(request.type(), request.serverId(), request.minOnlineMinutes(), request.includeAfk(), request.formCode());
+        return new ActivityBindingCmd(request.type(), request.serverId(), request.minOnlineMinutes(), request.includeAfk(),
+                request.autoJoin(), request.formCode());
     }
 
     public ActivityProofExportCmd toCmd(ActivityProofExportRequest request) {

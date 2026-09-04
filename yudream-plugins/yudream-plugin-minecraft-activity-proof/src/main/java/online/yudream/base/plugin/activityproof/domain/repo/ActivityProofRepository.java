@@ -5,6 +5,8 @@ import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityPartici
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofExportRecord;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofSettings;
 import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityProofTemplateMembers;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizAttempt;
+import online.yudream.base.plugin.activityproof.domain.aggregate.ActivityQuizConfig;
 import online.yudream.base.plugin.activityproof.domain.aggregate.PlayerStudentMapping;
 
 import java.util.List;
@@ -49,6 +51,21 @@ public interface ActivityProofRepository {
     ActivityParticipation saveParticipation(ActivityParticipation participation);
 
     void deleteParticipation(String id);
+
+    /** 服务器自动同步排除名单：被管理员移除的自动参与者不再被同步加回。 */
+    boolean autoJoinExcluded(String activityId, String userId);
+
+    void addAutoJoinExclusion(String activityId, String userId);
+
+    Optional<ActivityQuizConfig> quizConfig(String activityId);
+
+    ActivityQuizConfig saveQuizConfig(ActivityQuizConfig config);
+
+    void deleteQuizConfig(String activityId);
+
+    Optional<ActivityQuizAttempt> quizAttempt(String activityId, String userId);
+
+    ActivityQuizAttempt saveQuizAttempt(ActivityQuizAttempt attempt);
 
     Optional<ActivityProofTemplateMembers> templateMembers(Long templateId);
 

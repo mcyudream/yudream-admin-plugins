@@ -15,6 +15,7 @@ public record ActivityParticipantAdminDTO(
         long cancelledAt,
         String verifyStatus,
         long verifiedAt,
-        String verifyNote
+        String verifyNote,
+        String source
 ) {
 }

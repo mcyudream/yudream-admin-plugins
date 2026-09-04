@@ -2,7 +2,8 @@ package online.yudream.base.plugin.activityproof.domain.enumerate;
 
 public enum ActivityBindingType {
     PLAYTIME,
-    FORM;
+    FORM,
+    QUIZ;
 
     public static ActivityBindingType of(String value) {
         if (value == null || value.isBlank()) {

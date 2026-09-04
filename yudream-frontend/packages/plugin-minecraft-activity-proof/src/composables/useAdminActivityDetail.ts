@@ -15,6 +15,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
   const acting = ref(false)
   const verifyingId = ref('')
   const verifyingAll = ref(false)
+  const syncing = ref(false)
   const activity = ref<Activity | null>(null)
   const participants = ref<ActivityParticipantAdmin[]>([])
   const pager = reactive({ page: 1, size: 10, total: 0 })
@@ -37,6 +38,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
   })
 
   const passedCount = computed(() => participants.value.filter(item => item.verifyStatus === 'PASSED').length)
+  const hasAutoJoinBinding = computed(() => (activity.value?.bindings || []).some(item => item.type === 'PLAYTIME' && item.autoJoin))
 
   async function load(id: string) {
     if (!id) {
@@ -160,6 +162,24 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function syncServerParticipants() {
+    if (!activity.value || syncing.value) {
+      return
+    }
+    syncing.value = true
+    try {
+      const result = await api.admin.syncServerParticipants(activity.value.id)
+      toast.success(`同步完成：扫描 ${result.scanned} 名玩家，新增 ${result.added} 人（核验通过 ${result.verifiedPassed} 人），无法识别身份 ${result.unresolved} 人`)
+      await refresh()
+    }
+    catch (error) {
+      toast.warning(errorMessage(error))
+    }
+    finally {
+      syncing.value = false
+    }
+  }
+
   function openAddParticipant() {
     addSelectedKeys.value = []
     addForm.passed = true
@@ -211,9 +231,10 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
       return
     }
     const name = row.studentName || row.username || row.userId
+    const rejoinNote = row.source === 'AUTO' ? '该记录由服务器同步产生，移除后不会再被同步加回。' : '移除后该用户可重新报名。'
     modal.confirm({
       title: '移除参与记录',
-      content: `确认将「${name}」从参与名单中移除吗？其核验状态与证明绑定将一并删除，移除后该用户可重新报名。`,
+      content: `确认将「${name}」从参与名单中移除吗？其核验状态与证明绑定将一并删除，${rejoinNote}`,
       onConfirm: async () => {
         try {
           await api.admin.removeParticipant(current.id, row.userId)
@@ -275,6 +296,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     acting,
     verifyingId,
     verifyingAll,
+    syncing,
     activity,
     participants,
     pager,
@@ -282,6 +304,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     exporting,
     exportForm,
     passedCount,
+    hasAutoJoinBinding,
     load,
     loadParticipants,
     refresh,
@@ -289,6 +312,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     close,
     verify,
     verifyAll,
+    syncServerParticipants,
     addVisible,
     adding,
     addSelectedKeys,

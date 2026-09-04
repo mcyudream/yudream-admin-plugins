@@ -73,6 +73,15 @@ public class ActivityProofAdminController {
     @PluginHttpEndpoint(method = "DELETE", path = "/admin/activities/{id}", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
     public PluginHttpResponse deleteActivity(PluginHttpRequest request) { return http.deleteActivity(request); }
 
+    @PluginHttpEndpoint(method = "GET", path = "/admin/activities/{id}/quiz", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
+    public PluginHttpResponse quizConfig(PluginHttpRequest request) { return http.quizConfig(request); }
+
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/activities/{id}/quiz", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
+    public PluginHttpResponse saveQuizConfig(PluginHttpRequest request) { return http.saveQuizConfig(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/quiz-options/categories", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
+    public PluginHttpResponse quizCategoryOptions() { return http.quizCategoryOptions(); }
+
     @PluginHttpEndpoint(method = "GET", path = "/admin/activities/{id}/participants", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
     public PluginHttpResponse activityParticipants(PluginHttpRequest request) { return http.activityParticipants(request); }
 
@@ -87,6 +96,9 @@ public class ActivityProofAdminController {
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/activities/{id}/verify-all", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
     public PluginHttpResponse verifyAllParticipants(PluginHttpRequest request) { return http.verifyAllParticipants(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/admin/activities/{id}/sync-server-participants", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
+    public PluginHttpResponse syncServerParticipants(PluginHttpRequest request) { return http.syncServerParticipants(request); }
 
     @PluginHttpEndpoint(method = "GET", path = "/admin/mappings", permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION)
     public PluginHttpResponse mappings(PluginHttpRequest request) { return http.mappings(request); }
