@@ -48,6 +48,7 @@ import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSo
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
 import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBinding;
+import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDependencyServices;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
@@ -89,9 +90,7 @@ import java.util.stream.Collectors;
 
 public class ActivityProofAppService {
 
-    private static final String MINECRAFT_PLUGIN = "minecraft-server";
     private static final String STUDENT_INFO_PLUGIN = "yudream-student-info";
-    private static final String SKIN_PLUGIN = "yudream-skin";
     private static final String DEFAULT_TEMPLATE_CODE = "minecraft_activity_proof_v1";
     private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
@@ -1507,7 +1506,7 @@ public class ActivityProofAppService {
     // ---------------------------------------------------------------- internals: providers
 
     private Optional<PluginMinecraftService> minecraftService() {
-        return pluginContext == null ? Optional.empty() : pluginContext.service(MINECRAFT_PLUGIN, PluginMinecraftService.class);
+        return SoftDependencyServices.minecraft(pluginContext);
     }
 
     private Optional<PluginStudentInfoService> studentInfoService() {
@@ -1515,7 +1514,7 @@ public class ActivityProofAppService {
     }
 
     private Optional<PluginSkinService> skinService() {
-        return pluginContext == null ? Optional.empty() : pluginContext.service(SKIN_PLUGIN, PluginSkinService.class);
+        return SoftDependencyServices.skin(pluginContext);
     }
 
     private PluginFormService formService() {
