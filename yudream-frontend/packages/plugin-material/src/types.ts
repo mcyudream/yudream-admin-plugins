@@ -102,9 +102,11 @@ export interface FolderImportItem {
   fileId: string
   filename: string
   name?: string
+  /** 所在中间子文件夹名列表（保留目录层级）：与批次 tags 合并，去重后上限 8 个、单签 20 字。 */
+  tags?: string[]
 }
 
-/** 文件夹批量导入请求：categoryName 与 categoryId 二选一，按名查找（忽略大小写）不存在则自动创建。 */
+/** 文件夹批量导入请求：批次 categoryName 与 categoryId 二选一，按名查找（忽略大小写）不存在则自动创建。 */
 export interface FolderImportPayload {
   categoryId?: string
   categoryName?: string

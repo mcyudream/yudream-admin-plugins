@@ -73,7 +73,7 @@ public final class MaterialMeController {
         return HttpSupport.guard(() -> {
             FolderImportRequest body = json.read(request.body(), FolderImportRequest.class);
             List<FolderImportCommand.Item> items = body.items() == null ? List.of() : body.items().stream()
-                    .map(item -> new FolderImportCommand.Item(item.fileId(), item.filename(), item.name()))
+                    .map(item -> new FolderImportCommand.Item(item.fileId(), item.filename(), item.name(), item.tags()))
                     .toList();
             FolderImportService.FolderImportResult result = folderImportService.importFolder(
                     HttpSupport.requireUserId(request),
