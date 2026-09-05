@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventPayload } from '../types'
-import { FaButton, FaDatePicker, FaIcon, FaImageUpload, FaInput, FaModal, FaNumberField, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
+import { FaButton, YdDatePicker, FaIcon, FaImageUpload, FaInput, FaModal, FaNumberField, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { errorMessage, normalizeFileUrl, resolveImageUrl } from '../composables/utils'
 import MarkdownEditor from './MarkdownEditor.vue'
@@ -136,7 +136,7 @@ async function save() {
       <div class="tl-editor-row">
         <div class="grid gap-2">
           <span>事件时间 <em class="tl-required">*</em></span>
-          <FaDatePicker v-model="form.eventDate" placeholder="选择事件日期" />
+          <YdDatePicker v-model="form.eventDate" placeholder="选择事件日期" />
         </div>
         <div class="grid gap-2">
           <span>时间展示文案</span>
