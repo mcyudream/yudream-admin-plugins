@@ -252,7 +252,7 @@ onMounted(async () => {
         />
       </FaCard>
       <div class="qb-compose-rail">
-        <FaCard title="试卷信息" description="导出 Word / 保存记录时的标题与说明，可自定义">
+        <FaCard title="试卷信息" description="导出 Word / 保存记录时的标题与说明，可自定义" class="qb-compose-rail-fixed">
           <div class="qb-form">
             <div class="qb-form-row">
               <span class="qb-form-label">试卷标题</span>
@@ -271,7 +271,7 @@ onMounted(async () => {
             </div>
           </div>
         </FaCard>
-        <FaCard title="随机抽题" description="按条件随机抽题追加到组卷列表，自动去重">
+        <FaCard title="随机抽题" description="按条件随机抽题追加到组卷列表，自动去重" class="qb-compose-rail-fixed">
           <div class="qb-form">
             <div class="qb-form-row">
               <span class="qb-form-label">分类</span>
@@ -294,7 +294,12 @@ onMounted(async () => {
             </FaButton>
           </div>
         </FaCard>
-        <FaCard :title="`组卷列表（${model.composeSelected.length}）`" description="按加入顺序出卷，可逐题移除">
+        <FaCard
+          :title="`组卷列表（${model.composeSelected.length}）`"
+          description="按加入顺序出卷，可逐题移除"
+          class="qb-compose-selected-card"
+          content-class="qb-compose-selected-body"
+        >
           <div v-if="model.composeSelected.length" class="qb-compose-selected-list">
             <div v-for="(item, index) in model.composeSelected" :key="item.id" class="flex items-start gap-2 rounded-md border p-2 text-sm">
               <span class="qb-muted shrink-0">{{ index + 1 }}.</span>
@@ -308,7 +313,7 @@ onMounted(async () => {
             </div>
           </div>
           <p v-else class="qb-muted text-sm">还没有题目，从左侧表格加入或使用随机抽题。</p>
-          <div v-if="model.composeSelected.length" class="mt-3 flex justify-end">
+          <div v-if="model.composeSelected.length" class="qb-compose-selected-actions">
             <FaButton size="sm" variant="outline" @click="model.composeSelected = []">清空列表</FaButton>
           </div>
         </FaCard>

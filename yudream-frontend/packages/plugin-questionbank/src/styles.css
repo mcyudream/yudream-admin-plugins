@@ -315,24 +315,52 @@
   color: var(--color-text-3, #86909c);
 }
 
-/* 组卷中心：默认单栏堆叠，宽屏左右两栏且右栏吸附 */
+/* 组卷中心：默认单栏堆叠，宽屏左右两栏且右栏吸附。
+   整栏不要 overflow-y：抽题后列表 DOM 更新会把滚动容器拽到最底，裁掉试卷说明/抽题数量。
+   只让组卷列表自己限高滚动，上方表单始终完整。 */
 .qb-compose-layout {
   display: grid;
   gap: 16px;
+  align-items: start;
 }
 
 .qb-compose-rail {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+}
+
+.qb-compose-rail-fixed {
+  flex: 0 0 auto;
+}
+
+.qb-compose-selected-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.qb-compose-selected-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .qb-compose-selected-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 46vh;
+  max-height: 360px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.qb-compose-selected-actions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
 @media (min-width: 1280px) {
@@ -343,9 +371,7 @@
   .qb-compose-rail {
     position: sticky;
     top: 16px;
-    max-height: calc(100vh - 5rem);
     align-self: start;
-    overflow-y: auto;
   }
 }
 
