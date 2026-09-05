@@ -152,8 +152,8 @@ export interface ActivitySaveForm {
   summary: string
   description: string
   coverUrl: string
-  signupRange: string[]
-  activityRange: string[]
+  signupRange: string[] | undefined
+  activityRange: string[] | undefined
   deptMode: string
   allowedDeptIds: string[]
   bindings: ActivityBindingForm[]

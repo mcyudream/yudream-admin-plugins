@@ -27,8 +27,8 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     summary: '',
     description: '',
     coverUrl: '',
-    signupRange: [],
-    activityRange: [],
+    signupRange: undefined,
+    activityRange: undefined,
     deptMode: 'ALL',
     allowedDeptIds: [],
     bindings: [],
@@ -186,7 +186,7 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     if (endText) {
       return [endText, endText]
     }
-    return []
+    return undefined
   }
 
   function resetForm() {
@@ -196,8 +196,8 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     form.summary = ''
     form.description = ''
     form.coverUrl = ''
-    form.signupRange = []
-    form.activityRange = []
+    form.signupRange = undefined
+    form.activityRange = undefined
     form.deptMode = 'ALL'
     form.allowedDeptIds = []
     form.bindings = []

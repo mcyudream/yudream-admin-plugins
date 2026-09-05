@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaCheckbox, FaCheckboxGroup, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag } from '@yudream/components'
-import { RangePicker as ARangePicker } from '@arco-design/web-vue'
+import { FaButton, FaCheckbox, FaCheckboxGroup, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, YdRangePicker } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
@@ -163,23 +162,19 @@ async function save() {
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label class="grid gap-2">
                   <span>报名时间</span>
-                  <ARangePicker
+                  <YdRangePicker
                     v-model="form.signupRange"
-                    value-format="YYYY-MM-DD"
-                    format="YYYY-MM-DD"
                     :placeholder="['报名开始日期', '报名结束日期']"
-                    allow-clear
+                    :disabled="readonly"
                     style="width: 100%"
                   />
                 </label>
                 <label class="grid gap-2">
                   <span>活动时间</span>
-                  <ARangePicker
+                  <YdRangePicker
                     v-model="form.activityRange"
-                    value-format="YYYY-MM-DD"
-                    format="YYYY-MM-DD"
                     :placeholder="['活动开始日期', '活动结束日期']"
-                    allow-clear
+                    :disabled="readonly"
                     style="width: 100%"
                   />
                 </label>

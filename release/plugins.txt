@@ -3,5 +3,5 @@
 # listed here. Edit this file in the release commit; one artifactId per line,
 # no duplicates, every entry must be a root-reactor module. Local and branch
 # builds ignore this file and always build the full reactor.
-yudream-plugin-questionbank
-yudream-plugin-timeline
+yudream-plugin-minecraft-activity-proof
+yudream-plugin-minecraft-server

@@ -534,8 +534,6 @@ public class ActivityProofAppService {
         return playerId == null ? "" : playerId.trim().replace("-", "").toLowerCase(Locale.ROOT);
     }
 
-
-
     public ActivityTemplateMembersDTO templateMembers(String templateId) {
         Long id = requireTemplateId(templateId);
         ActivityProofTemplateMembers members = repository.templateMembers(id)
@@ -790,20 +788,28 @@ public class ActivityProofAppService {
         if (service.isEmpty()) {
             return new VerifyOutcome(false, "Minecraft 服务器插件未启用，无法核验时长");
         }
-        ResolvedPlayer player = resolvePlayer(binding.serverId(), userId);
-        if (player == null || player.playerId().isBlank()) {
+        List<ResolvedPlayer> players = resolvePlayers(binding.serverId(), userId);
+        if (players.isEmpty()) {
             return new VerifyOutcome(false, "未找到你在服务器「" + serverName(binding.serverId()) + "」的玩家映射，请联系管理员维护映射");
         }
-        Optional<PluginMinecraftOnlineWindow> window = service.get()
-                .minecraftOnlineWindow(binding.serverId(), player.playerId(), activity.activityStart(), activity.activityEnd());
-        if (window.isEmpty()) {
-            return new VerifyOutcome(false, "未查询到玩家「" + player.display() + "」在活动时段的在线记录");
+        VerifyOutcome lastMiss = null;
+        for (ResolvedPlayer player : players) {
+            Optional<PluginMinecraftOnlineWindow> window = lookupOnlineWindow(
+                    service.get(), binding.serverId(), player, activity.activityStart(), activity.activityEnd());
+            if (window.isEmpty()) {
+                lastMiss = new VerifyOutcome(false, "未查询到玩家「" + player.display() + "」在活动时段的在线记录");
+                continue;
+            }
+            long effectiveMillis = binding.includeAfk() ? window.get().onlineMillis() : window.get().effectiveOnlineMillis();
+            String metric = binding.includeAfk() ? "在线" : "有效在线";
+            String displayName = hasText(window.get().playerName()) ? window.get().playerName() : player.display();
+            String note = "玩家「" + displayName + "」活动时段" + metric + " "
+                    + (effectiveMillis / 60_000L) + "/" + binding.minOnlineMinutes() + " 分钟";
+            return new VerifyOutcome(effectiveMillis >= binding.minOnlineMinutes() * 60_000L, note);
         }
-        long effectiveMillis = binding.includeAfk() ? window.get().onlineMillis() : window.get().effectiveOnlineMillis();
-        String metric = binding.includeAfk() ? "在线" : "有效在线";
-        String note = "玩家「" + player.display() + "」活动时段" + metric + " "
-                + (effectiveMillis / 60_000L) + "/" + binding.minOnlineMinutes() + " 分钟";
-        return new VerifyOutcome(effectiveMillis >= binding.minOnlineMinutes() * 60_000L, note);
+        return lastMiss != null
+                ? lastMiss
+                : new VerifyOutcome(false, "未查询到在活动时段的在线记录");
     }
 
     private VerifyOutcome verifyForm(Activity activity, ActivityBinding binding, String userId) {
@@ -854,8 +860,18 @@ public class ActivityProofAppService {
     }
 
     private ResolvedPlayer resolvePlayer(String serverId, String userId) {
-        if (!hasText(serverId)) {
-            return null;
+        List<ResolvedPlayer> players = resolvePlayers(serverId, userId);
+        return players.isEmpty() ? null : players.getFirst();
+    }
+
+    /**
+     * 平台用户 → 服务器玩家：与 {@link #resolveUserIdForPlayer} 互为反解。
+     * 先走本插件玩家-学号映射，再走皮肤站归属角色；同一用户多名角色都保留，核验时按在线记录择一。
+     */
+    private List<ResolvedPlayer> resolvePlayers(String serverId, String userId) {
+        LinkedHashMap<String, ResolvedPlayer> candidates = new LinkedHashMap<>();
+        if (!hasText(serverId) || !hasText(userId)) {
+            return List.of();
         }
         List<PlayerStudentMapping> mappings = allMappings(serverId);
         String studentNo = studentInfoService()
@@ -866,7 +882,7 @@ public class ActivityProofAppService {
             String key = normalizeKey(studentNo);
             for (PlayerStudentMapping mapping : mappings) {
                 if (normalizeKey(mapping.studentNo()).equals(key)) {
-                    return new ResolvedPlayer(mapping.playerId(), mapping.playerName());
+                    addResolvedPlayer(candidates, mapping.playerId(), mapping.playerName());
                 }
             }
         }
@@ -878,11 +894,90 @@ public class ActivityProofAppService {
             String key = normalizeKey(username);
             for (PlayerStudentMapping mapping : mappings) {
                 if (normalizeKey(mapping.playerId()).equals(key) || normalizeKey(mapping.playerName()).equals(key)) {
-                    return new ResolvedPlayer(mapping.playerId(), mapping.playerName());
+                    addResolvedPlayer(candidates, mapping.playerId(), mapping.playerName());
                 }
             }
         }
-        return null;
+        skinService().ifPresent(service -> {
+            for (var profile : service.findProfilesByOwner(userId.trim())) {
+                String uuid = profile.uuid() == null ? "" : profile.uuid().trim();
+                String name = profile.name() == null ? "" : profile.name().trim();
+                if (!hasText(uuid) && !hasText(name)) {
+                    continue;
+                }
+                boolean mapped = false;
+                for (String candidateId : playerIdCandidates(uuid)) {
+                    PlayerStudentMapping mapping = repository.mapping(serverId, candidateId).orElse(null);
+                    if (mapping != null) {
+                        addResolvedPlayer(candidates, mapping.playerId(), mapping.playerName());
+                        mapped = true;
+                        break;
+                    }
+                }
+                if (!mapped) {
+                    addResolvedPlayer(candidates, hasText(uuid) ? uuid : name, name);
+                }
+            }
+        });
+        return List.copyOf(candidates.values());
+    }
+
+    private void addResolvedPlayer(Map<String, ResolvedPlayer> candidates, String playerId, String playerName) {
+        if (!hasText(playerId) && !hasText(playerName)) {
+            return;
+        }
+        String id = hasText(playerId) ? playerId.trim() : "";
+        String name = hasText(playerName) ? playerName.trim() : "";
+        String normalizedUuid = normalizeUuid(id);
+        String key = !normalizedUuid.isBlank() ? normalizedUuid
+                : (hasText(id) ? normalizeKey(id) : "name:" + normalizeKey(name));
+        candidates.putIfAbsent(key, new ResolvedPlayer(id, name));
+    }
+
+    private Optional<PluginMinecraftOnlineWindow> lookupOnlineWindow(
+            PluginMinecraftService service, String serverId, ResolvedPlayer player, long windowStart, long windowEnd) {
+        if (player == null) {
+            return Optional.empty();
+        }
+        for (String candidateId : playerIdCandidates(player.playerId())) {
+            Optional<PluginMinecraftOnlineWindow> window = service.minecraftOnlineWindow(
+                    serverId, candidateId, windowStart, windowEnd);
+            if (window.isPresent()) {
+                return window;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private List<String> playerIdCandidates(String playerId) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        if (!hasText(playerId)) {
+            return List.of();
+        }
+        String raw = playerId.trim();
+        ids.add(raw);
+        String stripped = normalizeUuid(raw);
+        if (!stripped.isBlank()) {
+            ids.add(stripped);
+            String dashed = dashedUuid(stripped);
+            if (hasText(dashed)) {
+                ids.add(dashed);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private String dashedUuid(String stripped) {
+        if (stripped == null || stripped.length() != 32) {
+            return "";
+        }
+        for (int i = 0; i < stripped.length(); i++) {
+            if (Character.digit(stripped.charAt(i), 16) < 0) {
+                return "";
+            }
+        }
+        return stripped.substring(0, 8) + "-" + stripped.substring(8, 12) + "-"
+                + stripped.substring(12, 16) + "-" + stripped.substring(16, 20) + "-" + stripped.substring(20);
     }
 
     // ---------------------------------------------------------------- mappings

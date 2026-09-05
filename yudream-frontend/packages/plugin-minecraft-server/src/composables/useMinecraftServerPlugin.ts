@@ -3,6 +3,7 @@ import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMinecraftApi } from '../api/minecraft-api'
+import { uploadFileWithProgress } from '../api/upload'
 import { zipValidationError } from '../utils/mapFile'
 
 const STATUS_HISTORY_WINDOW = 24 * 60 * 60 * 1000
@@ -242,19 +243,22 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function uploadMap(file: File) {
+  async function uploadMap(file: File, onProgress?: (percent: number) => void) {
     const serverId = serverForm.id
     const validationError = zipValidationError(file)
     if (validationError) throw new Error(validationError)
     if (!serverId) throw new Error('请先保存服务器，再上传地图')
-    if (!sdk.files?.uploadImage) throw new Error('当前宿主未提供文件上传能力')
+    if (!sdk.files?.assetUrl) throw new Error('当前宿主未提供文件上传能力')
+    const report = (percent: number) => onProgress?.(Math.min(99, percent))
     mapOperating.value = true
     try {
-      const uploaded = await sdk.files.uploadImage(file, { module: 'minecraft-server', publicAccess: false })
+      const uploaded = await uploadFileWithProgress(sdk, file, report)
       if (!uploaded.id) throw new Error('地图上传后未返回文件 ID')
+      report(99)
       const saved = await api.saveMap(serverId, uploaded.id)
       replaceServer(saved)
       editServer(saved)
+      onProgress?.(100)
       toast.success('地图 ZIP 已上传')
     }
     finally {
