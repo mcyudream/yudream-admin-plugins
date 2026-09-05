@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-timeline</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <name>YuDream Plugin - Timeline</name>
     <description>大事记时间轴：记录组织/团体历史事件，公开站点导航自动注入时间轴页面，管理端 Markdown 图文编辑。</description>
 

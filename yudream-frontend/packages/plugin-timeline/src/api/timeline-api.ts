@@ -12,10 +12,15 @@ function query(params: Record<string, string | number | undefined>) {
   return text ? `?${text}` : ''
 }
 
-// 后端简单列表端点返回 { records: [...] } 包裹
-function records<T>(payload: unknown): T[] {
-  const body = payload as { records?: T[] } | T[]
-  return Array.isArray(body) ? body : (body?.records ?? [])
+/** 简单列表端点后端统一返回 {records:[...]}，在此拆包；裸数组响应也兼容。 */
+function records<T>(promise: Promise<unknown>): Promise<T[]> {
+  return promise.then((body) => {
+    if (Array.isArray(body)) {
+      return body as T[]
+    }
+    const wrapped = body as { records?: T[] } | null | undefined
+    return Array.isArray(wrapped?.records) ? wrapped.records : []
+  })
 }
 
 export function createTimelineApi(sdk: YuDreamPluginSdk) {
