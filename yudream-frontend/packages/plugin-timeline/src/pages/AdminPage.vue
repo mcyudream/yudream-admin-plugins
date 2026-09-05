@@ -4,7 +4,7 @@ import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventSummary } from '../types'
 import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
-import EventEditorDrawer from '../components/EventEditorDrawer.vue'
+import EventEditorModal from '../components/EventEditorModal.vue'
 import { formatEventDate, formatTime, resolveImageUrl } from '../composables/utils'
 
 const props = defineProps<{ model: TimelinePluginModel }>()
@@ -188,6 +188,6 @@ onMounted(() => {
       @size-change="applyFilters"
     />
 
-    <EventEditorDrawer v-model:open="editorOpen" :event-id="editingId" :model="model" @saved="onSaved" />
+    <EventEditorModal v-model:open="editorOpen" :event-id="editingId" :model="model" @saved="onSaved" />
   </FaPageMain>
 </template>

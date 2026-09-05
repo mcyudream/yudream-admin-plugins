@@ -142,6 +142,13 @@ export function useTimelinePlugin(sdk: YuDreamPluginSdk) {
     return normalizeFileUrl(uploaded.assetUrl || uploaded.url || '')
   }
 
+  // FaImageUpload 列表项直接作为 <img src> 渲染，必须保留可展示的完整 URL；
+  // 归一化相对路径由编辑器同步回表单时统一处理
+  async function uploadImageForDisplay(file: File) {
+    const uploaded = await sdk.files.uploadImage(file, { module: 'timeline', publicAccess: true })
+    return uploaded.assetUrl || uploaded.url || ''
+  }
+
   // reactive 解包 ref，页面里直接 model.publicEvents 使用；sdk/api/toast 不进响应式代理
   const model = reactive({
     publicEvents,
@@ -164,6 +171,7 @@ export function useTimelinePlugin(sdk: YuDreamPluginSdk) {
     setPublished,
     removeEvent,
     uploadImage,
+    uploadImageForDisplay,
   })
   return Object.assign(model, { sdk, api, toast })
 }

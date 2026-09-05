@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventPayload } from '../types'
-import { DatePicker as ADatePicker } from '@arco-design/web-vue'
-import { FaButton, FaDrawer, FaIcon, FaImageUpload, FaInput, FaNumberField, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
+import { FaButton, FaDatePicker, FaIcon, FaImageUpload, FaInput, FaModal, FaNumberField, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
-import { errorMessage, normalizeFileUrl } from '../composables/utils'
+import { errorMessage, normalizeFileUrl, resolveImageUrl } from '../composables/utils'
 import MarkdownEditor from './MarkdownEditor.vue'
 
 const props = defineProps<{
@@ -21,7 +20,7 @@ const emit = defineEmits<{
 const model = props.model
 const toast = useFaToast()
 
-const drawerOpen = computed({
+const modalOpen = computed({
   get: () => props.open,
   set: value => emit('update:open', value),
 })
@@ -34,7 +33,8 @@ const form = reactive<TimelineEventPayload>(emptyForm())
 const loadingDetail = ref(false)
 
 // FaImageUpload 内部通过 push/splice 原地改数组，不会触发 update:modelValue；
-// 用独立 ref 承接组件持有的数组引用，再用 deep watch 同步回 form
+// 用独立 ref 承接组件持有的数组引用，再用 deep watch 同步回 form。
+// 列表项始终是可展示的完整 URL（assetUrl），写回 form 时才归一化为 /api/files/ 相对路径
 const coverList = ref<string[]>([])
 const imageList = ref<string[]>([])
 
@@ -70,8 +70,9 @@ watch(() => props.open, async (open) => {
       published: event.published,
       sort: event.sort,
     })
-    coverList.value = event.coverImage ? [event.coverImage] : []
-    imageList.value = [...event.images]
+    // 编辑回填：数据库里存的是归一化相对路径，展示前解析为完整 URL
+    coverList.value = event.coverImage ? [resolveImageUrl(model.sdk, event.coverImage)] : []
+    imageList.value = event.images.map(item => resolveImageUrl(model.sdk, item)).filter(Boolean)
   }
   catch (error) {
     toast.error(errorMessage(error, '加载事件失败'))
@@ -83,11 +84,11 @@ watch(() => props.open, async (open) => {
 })
 
 async function coverUpload(options: { file: File }) {
-  return await model.uploadImage(options.file)
+  return await model.uploadImageForDisplay(options.file)
 }
 
 async function galleryUpload(options: { file: File }) {
-  return await model.uploadImage(options.file)
+  return await model.uploadImageForDisplay(options.file)
 }
 
 function afterUpload(response: unknown) {
@@ -122,7 +123,7 @@ async function save() {
 </script>
 
 <template>
-  <FaDrawer v-model="drawerOpen" :title="eventId ? '编辑事件' : '新建事件'" size="720px">
+  <FaModal v-model="modalOpen" :title="eventId ? '编辑事件' : '新建事件'" class="sm:max-w-2xl" :show-confirm-button="false" :close-on-click-overlay="false">
     <div v-loading="loadingDetail" class="tl-editor">
       <div class="grid gap-2">
         <span>事件标题 <em class="tl-required">*</em></span>
@@ -135,7 +136,7 @@ async function save() {
       <div class="tl-editor-row">
         <div class="grid gap-2">
           <span>事件时间 <em class="tl-required">*</em></span>
-          <ADatePicker v-model="form.eventDate" value-format="YYYY-MM-DD" placeholder="选择事件日期" style="width: 100%" allow-clear />
+          <FaDatePicker v-model="form.eventDate" placeholder="选择事件日期" />
         </div>
         <div class="grid gap-2">
           <span>时间展示文案</span>
@@ -183,14 +184,14 @@ async function save() {
           </div>
         </div>
       </div>
-      <div class="tl-editor-footer">
-        <FaButton variant="outline" :disabled="model.saving" @click="drawerOpen = false">
-          取消
-        </FaButton>
-        <FaButton :loading="model.saving" @click="save">
-          <FaIcon name="i-ri:save-line" />保存
-        </FaButton>
-      </div>
     </div>
-  </FaDrawer>
+    <template #footer>
+      <FaButton variant="outline" :disabled="model.saving" @click="modalOpen = false">
+        取消
+      </FaButton>
+      <FaButton :loading="model.saving" @click="save">
+        <FaIcon name="i-ri:save-line" />保存
+      </FaButton>
+    </template>
+  </FaModal>
 </template>

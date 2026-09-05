@@ -43,9 +43,18 @@ The current `@yudream/components` public surface includes:
 
 - Feedback and overlays: `FaAlert`, `FaDrawer`, `FaModal`, `FaPopover`, `FaToast`, `FaTooltip`, `useFaDrawer`, `useFaImagePreview`, `useFaModal`, `useFaToast`.
 - Actions and display: `FaButton`, `FaButtonGroup`, `FaBadge`, `FaCard`, `FaDescriptions`, `FaDivider`, `FaIcon`, `FaProgress`, `FaTag`, `FaTrend`.
-- Inputs: `FaCheckbox`, `FaCheckboxGroup`, `FaFileUpload`, `FaImageUpload`, `FaInput`, `FaInputOTP`, `FaNumberField`, `FaRadioGroup`, `FaSelect`, `FaSlider`, `FaSwitch`, `FaTextarea`.
+- Inputs: `FaCheckbox`, `FaCheckboxGroup`, `FaDatePicker`, `FaFileUpload`, `FaImageUpload`, `FaInput`, `FaInputOTP`, `FaNumberField`, `FaRadioGroup`, `FaRangePicker`, `FaSelect`, `FaSlider`, `FaSwitch`, `FaTextarea`, `FaTimePicker`.
 - Navigation and data: `FaPageHeader`, `FaPageMain`, `FaPagination`, `FaSearchBar`, `FaTable`, `FaTabs`.
 - Supporting UI: `FaAvatar`, `FaCollapsible`, `FaContextMenu`, `FaDropdown`, `FaFixedBar`, `FaHoverCard`, `FaImagePreview`, `FaKbd`, `FaKbdGroup`, `FaLabel`, `FaPasswordStrength`, `FaScrollArea`.
+
+### Date and time pickers
+
+`FaDatePicker` / `FaRangePicker` / `FaTimePicker` (available since `@yudream/components` 1.2.0) wrap the full Arco date/time selection surface in the Fa visual style:
+
+- `FaDatePicker` covers `date`/`week`/`month`/`quarter`/`year` modes, optional `showTime`, shortcuts, and disabled date/time hooks. The model is a formatted string (`valueFormat`, default `YYYY-MM-DD`, or `YYYY-MM-DD HH:mm:ss` with `showTime`).
+- `FaRangePicker` is the range counterpart; the model is a two-element `[start, end]` string array.
+- `FaTimePicker` covers single time and time range (`range` prop), `format`, `step`, and disabled hours/minutes/seconds.
+- All three already raise the popup z-index above `FaModal`/`FaDrawer` (2000); prefer them over using `ADatePicker`/`ARangePicker`/`ATimePicker` directly, which render behind Fa overlays.
 
 Inspect the installed package types or the upstream source at `D:/code/yudream-admim/yudream-frontend/packages/components/src` when available. Read the component README/type declarations before guessing props, slots, events, or `v-model` names.
 
