@@ -70,6 +70,7 @@ require_pattern 'sh ci/verify-third-party-submission-fixture.sh' "plugin CI must
 require_pattern '^validate:third-party-submission:$' "plugin CI must validate submitted third-party materials"
 require_pattern 'sh ci/verify-third-party-submission.sh' "third-party submission job must call the offline validator"
 require_pattern 'library/python:3.12-alpine' "catalog/submission/store jobs must use a python-bundled image instead of per-job python installs"
+require_pattern 'mirrors.aliyun.com/alpine' "python alpine jobs must rewrite apk repositories to a China-reachable mirror"
 require_pattern 'apk add --no-cache curl unzip' "store publish/verify jobs must add curl and unzip"
 require_pattern 'apk add --no-cache unzip' "python-image validate jobs must add unzip"
 require_pattern 'apt-get install -y -qq unzip' "tag package job must install unzip for the release-selection validator"

@@ -81,7 +81,10 @@ validate:publish-pipeline:
 validate:plugin-store-catalog:
   stage: validate
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
+  timeout: 10 minutes
   before_script:
+    # python:3.12-alpine still fetches APKINDEX from dl-cdn.alpinelinux.org; China runners hang until job timeout.
+    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache unzip
   script:
     - sh ci/verify-plugin-store-catalog.sh
@@ -96,7 +99,9 @@ validate:plugin-release-selection:
 validate:third-party-submission-fixture:
   stage: validate
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
+  timeout: 10 minutes
   before_script:
+    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache unzip
   script:
     - sh ci/verify-third-party-submission-fixture.sh
@@ -104,10 +109,12 @@ validate:third-party-submission-fixture:
 validate:third-party-submission:
   stage: validate
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
+  timeout: 10 minutes
   rules:
     - exists:
         - submissions/third-party/**/submission.json
   before_script:
+    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache unzip
   script:
     - sh ci/verify-third-party-submission.sh
@@ -236,6 +243,7 @@ publish:plugin-jars:
 publish:plugin-store:
   stage: publish-plugin
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
+  timeout: 20 minutes
   resource_group: nexus-plugin-store-release
   needs:
     - job: package:plugins
@@ -243,6 +251,7 @@ publish:plugin-store:
     - job: publish:plugin-jars
       artifacts: false
   before_script:
+    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache curl unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
@@ -266,12 +275,14 @@ verify:published-plugin-jars:
 verify:published-plugin-store:
   stage: verify-publish
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
+  timeout: 20 minutes
   needs:
     - job: package:plugins
       artifacts: true
     - job: publish:plugin-store
       artifacts: false
   before_script:
+    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache curl unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
