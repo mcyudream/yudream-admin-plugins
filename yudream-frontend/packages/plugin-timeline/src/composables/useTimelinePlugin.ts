@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { TimelineEventPayload, TimelineEventSummary, TimelineEventView, TimelineStatusFilter } from '../types'
+import type { TimelineEventPayload, TimelineEventSummary, TimelineEventView, TimelineStatusFilter, TimelineTypeFilter } from '../types'
 import { useFaToast } from '@yudream/components'
 import { reactive, ref } from 'vue'
 import { createTimelineApi } from '../api/timeline-api'
@@ -19,7 +19,7 @@ export function useTimelinePlugin(sdk: YuDreamPluginSdk) {
   // 管理端
   const adminEvents = ref<TimelineEventSummary[]>([])
   const adminPager = reactive({ page: 1, size: 20, total: 0 })
-  const adminFilters = reactive({ keyword: '', status: '' as TimelineStatusFilter })
+  const adminFilters = reactive({ keyword: '', status: '' as TimelineStatusFilter, type: '' as TimelineTypeFilter })
   const adminLoading = ref(false)
   const saving = ref(false)
   const toggling = ref(false)
@@ -59,7 +59,7 @@ export function useTimelinePlugin(sdk: YuDreamPluginSdk) {
   async function loadAdminEvents(page = adminPager.page) {
     adminLoading.value = true
     try {
-      const result = await api.adminEvents(adminFilters.keyword.trim(), adminFilters.status, page, adminPager.size)
+      const result = await api.adminEvents(adminFilters.keyword.trim(), adminFilters.status, adminFilters.type, page, adminPager.size)
       adminEvents.value = result.records
       adminPager.total = Number(result.total) || 0
       adminPager.page = page

@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { TimeValue } from '../types'
+import type { TimeValue, TimelineEventType } from '../types'
 
 export function errorMessage(error: unknown, fallback = '操作失败') {
   if (error && typeof error === 'object') {
@@ -79,4 +79,51 @@ export function formatEventDate(eventDate: string, dateLabel?: string) {
 export function eventYear(eventDate: string) {
   const match = /^(\d{4})/.exec((eventDate || '').trim())
   return match ? match[1] : ''
+}
+
+export const EVENT_TYPE_OPTIONS = [
+  { value: 'ARTICLE', label: '图文', description: '封面、图集与 Markdown 详情，适合活动回顾' },
+  { value: 'TEXT', label: '文字', description: '纯文字卡片，适合公告、声明与短记' },
+  { value: 'ELECTION', label: '换届', description: '届次与卸任/新任名册，适合组织换届' },
+  { value: 'MILESTONE', label: '里程碑', description: '节点纪念，适合成立、周年与关键突破' },
+  { value: 'AWARD', label: '荣誉', description: '奖项与表彰，适合获奖与荣誉时刻' },
+] as const
+
+export const EVENT_TYPE_META: Record<TimelineEventType, {
+  label: string
+  icon: string
+  tagVariant: 'default' | 'secondary' | 'outline'
+}> = {
+  ARTICLE: { label: '图文', icon: 'i-ri:image-line', tagVariant: 'secondary' },
+  TEXT: { label: '文字', icon: 'i-ri:quill-pen-line', tagVariant: 'outline' },
+  ELECTION: { label: '换届', icon: 'i-ri:group-line', tagVariant: 'default' },
+  MILESTONE: { label: '里程碑', icon: 'i-ri:flag-line', tagVariant: 'secondary' },
+  AWARD: { label: '荣誉', icon: 'i-ri:medal-line', tagVariant: 'default' },
+}
+
+export function eventTypeMeta(type: string | null | undefined) {
+  const key = (type || '').trim().toUpperCase() as TimelineEventType
+  return EVENT_TYPE_META[key] || EVENT_TYPE_META.ARTICLE
+}
+
+export function eventTypeClass(type: string | null | undefined) {
+  const key = (type || '').trim().toLowerCase()
+  return EVENT_TYPE_META[key.toUpperCase() as TimelineEventType] ? key : 'article'
+}
+
+export function eventTypeChip(event: { eventType?: string, termLabel?: string }) {
+  const meta = eventTypeMeta(event.eventType)
+  const term = (event.termLabel || '').trim()
+  if ((event.eventType || '').toUpperCase() === 'ELECTION' && term) {
+    return `${meta.label} · ${term}`
+  }
+  return meta.label
+}
+
+export function splitRoster(text: string) {
+  return text.split(/\r?\n/).map(item => item.trim()).filter(Boolean)
+}
+
+export function joinRoster(members: string[] | null | undefined) {
+  return (members || []).join('\n')
 }

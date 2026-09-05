@@ -4,7 +4,7 @@ import type { TimelineEventSummary } from '../types'
 import { FaIcon } from '@yudream/components'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
-import { eventYear, formatEventDate, resolveImageUrl } from '../composables/utils'
+import { eventTypeChip, eventTypeClass, eventTypeMeta, eventYear, formatEventDate, resolveImageUrl } from '../composables/utils'
 
 const props = defineProps<{ model: TimelinePluginModel }>()
 const model = props.model
@@ -71,6 +71,13 @@ const detailOpen = ref(false)
 const detail = computed(() => model.publicDetail)
 const detailCover = computed(() => (detail.value ? resolveImageUrl(model.sdk, detail.value.coverImage) : ''))
 const detailImages = computed(() => (detail.value?.images ?? []).map(url => resolveImageUrl(model.sdk, url)))
+const showRoster = computed(() => {
+  const event = detail.value
+  if (!event || (event.eventType || '').toUpperCase() !== 'ELECTION') {
+    return false
+  }
+  return (event.outgoingMembers?.length || 0) + (event.incomingMembers?.length || 0) > 0
+})
 
 async function openEvent(event: TimelineEventSummary) {
   detailOpen.value = true
@@ -194,11 +201,15 @@ onBeforeUnmount(() => {
             :class="{ 'tl-item-right': index % 2 === 1 }"
           >
             <span class="tl-node" aria-hidden="true"><span class="tl-dot" /></span>
-            <button type="button" class="tl-card" @click="openEvent(event)">
+            <button type="button" class="tl-card" :class="`tl-card--${eventTypeClass(event.eventType)}`" @click="openEvent(event)">
               <span v-if="event.coverImage" class="tl-card-cover">
                 <img :src="coverUrl(event)" :alt="event.title" loading="lazy">
               </span>
               <span class="tl-card-body">
+                <span class="tl-type-badge" :class="`tl-type-badge--${eventTypeClass(event.eventType)}`">
+                  <FaIcon :name="eventTypeMeta(event.eventType).icon" />
+                  {{ eventTypeChip(event) }}
+                </span>
                 <span class="tl-card-date">{{ formatEventDate(event.eventDate, event.dateLabel) }}</span>
                 <span class="tl-card-title">{{ event.title }}</span>
                 <span v-if="event.summary" class="tl-card-summary">{{ event.summary }}</span>
@@ -229,6 +240,10 @@ onBeforeUnmount(() => {
                 <img v-if="detailCover" :src="detailCover" :alt="detail.title" class="tl-detail-hero-img">
                 <div class="tl-detail-hero-mask" />
                 <div class="tl-detail-hero-text">
+                  <span class="tl-type-badge" :class="`tl-type-badge--${eventTypeClass(detail.eventType)}`">
+                    <FaIcon :name="eventTypeMeta(detail.eventType).icon" />
+                    {{ eventTypeChip(detail) }}
+                  </span>
                   <span class="tl-detail-date">{{ formatEventDate(detail.eventDate, detail.dateLabel) }}</span>
                   <h2>{{ detail.title }}</h2>
                   <p v-if="detail.summary">
@@ -237,6 +252,32 @@ onBeforeUnmount(() => {
                 </div>
               </header>
               <div class="tl-detail-body">
+                <div v-if="showRoster" class="tl-roster">
+                  <section v-if="detail.outgoingMembers?.length" class="tl-roster-col">
+                    <header class="tl-roster-head">
+                      <FaIcon name="i-ri:logout-box-r-line" />
+                      <span>卸任</span>
+                      <em>{{ detail.outgoingMembers.length }}</em>
+                    </header>
+                    <ul>
+                      <li v-for="member in detail.outgoingMembers" :key="`out-${member}`">
+                        {{ member }}
+                      </li>
+                    </ul>
+                  </section>
+                  <section v-if="detail.incomingMembers?.length" class="tl-roster-col">
+                    <header class="tl-roster-head">
+                      <FaIcon name="i-ri:login-box-line" />
+                      <span>新任</span>
+                      <em>{{ detail.incomingMembers.length }}</em>
+                    </header>
+                    <ul>
+                      <li v-for="member in detail.incomingMembers" :key="`in-${member}`">
+                        {{ member }}
+                      </li>
+                    </ul>
+                  </section>
+                </div>
                 <MarkdownPreview v-if="detail.detail" :sdk="model.sdk" :content="detail.detail" />
                 <div v-if="detailImages.length" class="tl-gallery">
                   <button

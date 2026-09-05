@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import online.yudream.base.plugin.timeline.domain.TimelineEvent;
+import online.yudream.base.plugin.timeline.domain.TimelineEventType;
 import online.yudream.base.plugin.timeline.infrastructure.Ids;
 import online.yudream.base.plugin.timeline.infrastructure.TimelineEventRepository;
 
@@ -14,6 +15,8 @@ import online.yudream.base.plugin.timeline.infrastructure.TimelineEventRepositor
 public final class TimelineEventService {
     private static final int MAX_IMAGES = 12;
     private static final int MAX_DETAIL_LENGTH = 50_000;
+    private static final int MAX_ROSTER_SIZE = 30;
+    private static final int MAX_MEMBER_LENGTH = 40;
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd")
             .withResolverStyle(ResolverStyle.STRICT);
 
@@ -23,9 +26,10 @@ public final class TimelineEventService {
         this.events = events;
     }
 
-    /** 管理端分页查询：关键词匹配标题/简述/展示文案，status 支持 published/draft。 */
-    public PageResult<TimelineEvent> queryAdmin(String keyword, String status, int page, int size) {
+    /** 管理端分页查询：关键词匹配标题/简述/展示文案，status 支持 published/draft，type 为事件类型枚举名。 */
+    public PageResult<TimelineEvent> queryAdmin(String keyword, String status, String type, int page, int size) {
         String needle = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        String typeFilter = type == null ? "" : type.trim();
         List<TimelineEvent> filtered = events.listAll().stream()
                 .filter(event -> needle.isEmpty()
                         || event.title().toLowerCase(Locale.ROOT).contains(needle)
@@ -40,6 +44,7 @@ public final class TimelineEventService {
                     }
                     return true;
                 })
+                .filter(event -> typeFilter.isEmpty() || event.eventType().name().equalsIgnoreCase(typeFilter))
                 .toList();
         int from = Math.min((page - 1) * size, filtered.size());
         int to = Math.min(from + size, filtered.size());
@@ -71,8 +76,10 @@ public final class TimelineEventService {
         NormalizedEvent normalized = normalize(payload);
         long now = System.currentTimeMillis();
         TimelineEvent event = new TimelineEvent(Ids.newId(), normalized.title(), normalized.summary(),
-                normalized.eventDate(), normalized.dateLabel(), normalized.coverImage(), normalized.images(),
-                normalized.detail(), normalized.published(), normalized.sort(), now, now);
+                normalized.eventDate(), normalized.dateLabel(), normalized.eventType(), normalized.termLabel(),
+                normalized.outgoingMembers(), normalized.incomingMembers(),
+                normalized.coverImage(), normalized.images(), normalized.detail(),
+                normalized.published(), normalized.sort(), now, now);
         events.save(event);
         return event;
     }
@@ -81,8 +88,10 @@ public final class TimelineEventService {
         TimelineEvent existing = require(id);
         NormalizedEvent normalized = normalize(payload);
         TimelineEvent updated = new TimelineEvent(existing.id(), normalized.title(), normalized.summary(),
-                normalized.eventDate(), normalized.dateLabel(), normalized.coverImage(), normalized.images(),
-                normalized.detail(), normalized.published(), normalized.sort(),
+                normalized.eventDate(), normalized.dateLabel(), normalized.eventType(), normalized.termLabel(),
+                normalized.outgoingMembers(), normalized.incomingMembers(),
+                normalized.coverImage(), normalized.images(), normalized.detail(),
+                normalized.published(), normalized.sort(),
                 existing.createdAt(), System.currentTimeMillis());
         events.save(updated);
         return updated;
@@ -91,8 +100,10 @@ public final class TimelineEventService {
     public TimelineEvent setPublished(String id, boolean published) {
         TimelineEvent existing = require(id);
         TimelineEvent updated = new TimelineEvent(existing.id(), existing.title(), existing.summary(),
-                existing.eventDate(), existing.dateLabel(), existing.coverImage(), existing.images(),
-                existing.detail(), published, existing.sort(), existing.createdAt(), System.currentTimeMillis());
+                existing.eventDate(), existing.dateLabel(), existing.eventType(), existing.termLabel(),
+                existing.outgoingMembers(), existing.incomingMembers(),
+                existing.coverImage(), existing.images(), existing.detail(),
+                published, existing.sort(), existing.createdAt(), System.currentTimeMillis());
         events.save(updated);
         return updated;
     }
@@ -131,16 +142,31 @@ public final class TimelineEventService {
         if (dateLabel.length() > 40) {
             throw new IllegalArgumentException("时间展示文案不能超过 40 字");
         }
-        String coverImage = normalizeImageUrl(payload.coverImage());
+        TimelineEventType eventType = TimelineEventType.from(payload.eventType());
+        // 类型特异化归一：纯文字事件不带封面与图集；届次与名册仅换届事件保留
+        String coverImage = eventType == TimelineEventType.TEXT ? "" : normalizeImageUrl(payload.coverImage());
         List<String> images = new ArrayList<>();
-        for (String image : payload.images() == null ? List.<String>of() : payload.images()) {
-            String normalized = normalizeImageUrl(image);
-            if (!normalized.isEmpty()) {
-                images.add(normalized);
+        if (eventType != TimelineEventType.TEXT) {
+            for (String image : payload.images() == null ? List.<String>of() : payload.images()) {
+                String normalized = normalizeImageUrl(image);
+                if (!normalized.isEmpty()) {
+                    images.add(normalized);
+                }
+            }
+            if (images.size() > MAX_IMAGES) {
+                throw new IllegalArgumentException("图集最多 " + MAX_IMAGES + " 张图片");
             }
         }
-        if (images.size() > MAX_IMAGES) {
-            throw new IllegalArgumentException("图集最多 " + MAX_IMAGES + " 张图片");
+        String termLabel = "";
+        List<String> outgoingMembers = List.of();
+        List<String> incomingMembers = List.of();
+        if (eventType == TimelineEventType.ELECTION) {
+            termLabel = trimTo(payload.termLabel(), "");
+            if (termLabel.length() > 20) {
+                throw new IllegalArgumentException("届次不能超过 20 字");
+            }
+            outgoingMembers = normalizeRoster(payload.outgoingMembers(), "卸任");
+            incomingMembers = normalizeRoster(payload.incomingMembers(), "新任");
         }
         String detail = trimTo(payload.detail(), "");
         if (detail.length() > MAX_DETAIL_LENGTH) {
@@ -148,7 +174,8 @@ public final class TimelineEventService {
         }
         boolean published = payload.published() != null && payload.published();
         int sort = payload.sort() == null ? 0 : Math.max(-9999, Math.min(9999, payload.sort()));
-        return new NormalizedEvent(title, summary, eventDate, dateLabel, coverImage, List.copyOf(images), detail,
+        return new NormalizedEvent(title, summary, eventDate, dateLabel, eventType, termLabel,
+                outgoingMembers, incomingMembers, coverImage, List.copyOf(images), detail,
                 published, sort);
     }
 
@@ -171,8 +198,29 @@ public final class TimelineEventService {
         return value == null ? fallback : value.trim();
     }
 
+    /** 换届名册归一：逐条 trim 去空，限制条数与单条长度。 */
+    private static List<String> normalizeRoster(List<String> raw, String label) {
+        List<String> roster = new ArrayList<>();
+        for (String item : raw == null ? List.<String>of() : raw) {
+            String member = trimTo(item, "");
+            if (member.isEmpty()) {
+                continue;
+            }
+            if (member.length() > MAX_MEMBER_LENGTH) {
+                throw new IllegalArgumentException(label + "名单单条不能超过 " + MAX_MEMBER_LENGTH + " 字");
+            }
+            roster.add(member);
+        }
+        if (roster.size() > MAX_ROSTER_SIZE) {
+            throw new IllegalArgumentException(label + "名单最多 " + MAX_ROSTER_SIZE + " 条");
+        }
+        return List.copyOf(roster);
+    }
+
     /** 归一后的不可变字段组。 */
     private record NormalizedEvent(String title, String summary, String eventDate, String dateLabel,
+                                   TimelineEventType eventType, String termLabel,
+                                   List<String> outgoingMembers, List<String> incomingMembers,
                                    String coverImage, List<String> images, String detail,
                                    boolean published, int sort) {
     }

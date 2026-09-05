@@ -31,6 +31,7 @@ public final class TimelineAdminController {
         return HttpSupport.guard(() -> {
             PageResult<TimelineEvent> result = eventService.queryAdmin(
                     HttpSupport.first(request, "keyword"), HttpSupport.first(request, "status"),
+                    HttpSupport.first(request, "type"),
                     HttpSupport.pageParam(request), HttpSupport.sizeParam(request, 20));
             return PluginHttpResponse.ok(Map.of(
                     "records", result.records().stream().map(Views::summaryView).toList(),

@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { Page, TimelineEventPayload, TimelineEventSummary, TimelineEventView, TimelineStatusFilter } from '../types'
+import type { Page, TimelineEventPayload, TimelineEventSummary, TimelineEventView, TimelineStatusFilter, TimelineTypeFilter } from '../types'
 
 function query(params: Record<string, string | number | undefined>) {
   const search = new URLSearchParams()
@@ -29,8 +29,8 @@ export function createTimelineApi(sdk: YuDreamPluginSdk) {
   return {
     publicEvents: () => records<TimelineEventSummary>(http.get('/public/events')),
     publicEvent: (eventId: string) => http.get<TimelineEventView>(`/public/events/${encodeURIComponent(eventId)}`),
-    adminEvents: (keyword: string, status: TimelineStatusFilter, page: number, size: number) =>
-      http.get<Page<TimelineEventSummary>>(`/admin/events${query({ keyword, status, page, size })}`),
+    adminEvents: (keyword: string, status: TimelineStatusFilter, type: TimelineTypeFilter, page: number, size: number) =>
+      http.get<Page<TimelineEventSummary>>(`/admin/events${query({ keyword, status, type, page, size })}`),
     adminEvent: (eventId: string) => http.get<TimelineEventView>(`/admin/events/${encodeURIComponent(eventId)}`),
     createEvent: (data: TimelineEventPayload) => http.post<TimelineEventView>('/admin/events', data),
     updateEvent: (eventId: string, data: TimelineEventPayload) =>

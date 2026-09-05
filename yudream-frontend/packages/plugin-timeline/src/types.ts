@@ -1,12 +1,16 @@
 export type TimeValue = string | number | number[] | null | undefined
 
-/** 公开列表条目：不含 Markdown 详情正文。 */
+export type TimelineEventType = 'ARTICLE' | 'TEXT' | 'ELECTION' | 'MILESTONE' | 'AWARD'
+
+/** 公开列表条目：不含 Markdown 详情正文与换届名册。 */
 export interface TimelineEventSummary {
   id: string
   title: string
   summary: string
   eventDate: string
   dateLabel: string
+  eventType: TimelineEventType
+  termLabel: string
   coverImage: string
   imageCount: number
   published: boolean
@@ -16,6 +20,8 @@ export interface TimelineEventSummary {
 }
 
 export interface TimelineEventView extends TimelineEventSummary {
+  outgoingMembers: string[]
+  incomingMembers: string[]
   images: string[]
   detail: string
 }
@@ -25,6 +31,10 @@ export interface TimelineEventPayload {
   summary: string
   eventDate: string
   dateLabel: string
+  eventType: TimelineEventType
+  termLabel: string
+  outgoingMembers: string[]
+  incomingMembers: string[]
   coverImage: string
   images: string[]
   detail: string
@@ -38,3 +48,5 @@ export interface Page<T> {
 }
 
 export type TimelineStatusFilter = '' | 'published' | 'draft'
+
+export type TimelineTypeFilter = '' | TimelineEventType

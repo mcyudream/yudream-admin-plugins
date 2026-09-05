@@ -54,11 +54,18 @@
 }
 
 .tl-event-cell-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 500;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tl-event-type-tag {
+  flex: none;
 }
 
 .tl-event-cell-summary {
@@ -123,6 +130,12 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tl-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .tl-switch-row {
   display: flex;
   align-items: center;
@@ -143,7 +156,8 @@
     flex: 1 1 100%;
   }
 
-  .tl-editor-row {
+  .tl-editor-row,
+  .tl-type-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -434,6 +448,87 @@
   padding: 20px 22px 22px;
 }
 
+.tl-type-badge {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--tl-primary);
+  background: color-mix(in srgb, var(--tl-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tl-primary) 28%, transparent);
+}
+
+.tl-type-badge--text {
+  color: #475569;
+  background: color-mix(in srgb, #64748b 12%, transparent);
+  border-color: color-mix(in srgb, #64748b 28%, transparent);
+}
+
+.tl-type-badge--election {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 38%, transparent);
+}
+
+.tl-type-badge--milestone {
+  color: #0f766e;
+  background: color-mix(in srgb, #14b8a6 14%, transparent);
+  border-color: color-mix(in srgb, #14b8a6 34%, transparent);
+}
+
+.tl-type-badge--award {
+  color: #c2410c;
+  background: color-mix(in srgb, #fb923c 16%, transparent);
+  border-color: color-mix(in srgb, #fb923c 38%, transparent);
+}
+
+.tl-card--text {
+  overflow: hidden;
+}
+
+.tl-card--text .tl-card-body {
+  position: relative;
+  padding-left: 28px;
+  gap: 10px;
+}
+
+.tl-card--text .tl-card-body::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, var(--tl-primary), #38bdf8);
+}
+
+.tl-card--text .tl-card-title {
+  font-size: 21px;
+}
+
+.tl-card--text .tl-card-summary {
+  font-size: 14.5px;
+  line-height: 1.85;
+}
+
+.tl-card--election {
+  border-color: color-mix(in srgb, #f59e0b 28%, var(--tl-border));
+}
+
+.tl-card--milestone {
+  border-color: color-mix(in srgb, #14b8a6 28%, var(--tl-border));
+}
+
+.tl-card--award {
+  border-color: color-mix(in srgb, #fb923c 28%, var(--tl-border));
+}
+
 .tl-card-date {
   font-size: 12px;
   font-weight: 600;
@@ -643,6 +738,12 @@
   color: #f8fafc;
 }
 
+.tl-detail-hero-text .tl-type-badge {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
 .tl-detail-hero-text h2 {
   margin: 0;
   font-size: clamp(24px, 4vw, 34px);
@@ -680,6 +781,56 @@
   --md-theme: var(--tl-text);
   font-size: 15px;
   line-height: 1.9;
+}
+
+.tl-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tl-roster-col {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--tl-border);
+  background: color-mix(in srgb, var(--tl-primary) 4%, var(--tl-bg));
+}
+
+.tl-roster-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tl-heading);
+}
+
+.tl-roster-head em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tl-caption);
+}
+
+.tl-roster-col ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.tl-roster-col li {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--tl-text);
+  background: var(--tl-surface);
+  border: 1px solid var(--tl-border);
 }
 
 /* 图集 */
@@ -845,6 +996,10 @@
   .tl-detail-hero-text {
     padding: 64px 22px 24px;
   }
+
+  .tl-roster {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* 深色模式微调：站点 chrome 在祖先挂 .dark */
@@ -856,6 +1011,34 @@
 .dark .tl-aurora,
 .site-chrome.dark .tl-aurora {
   opacity: 0.34;
+}
+
+.dark .tl-type-badge--text,
+.site-chrome.dark .tl-type-badge--text {
+  color: #cbd5e1;
+  background: color-mix(in srgb, #94a3b8 16%, transparent);
+  border-color: color-mix(in srgb, #94a3b8 32%, transparent);
+}
+
+.dark .tl-type-badge--election,
+.site-chrome.dark .tl-type-badge--election {
+  color: #fbbf24;
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 36%, transparent);
+}
+
+.dark .tl-type-badge--milestone,
+.site-chrome.dark .tl-type-badge--milestone {
+  color: #5eead4;
+  background: color-mix(in srgb, #14b8a6 18%, transparent);
+  border-color: color-mix(in srgb, #14b8a6 36%, transparent);
+}
+
+.dark .tl-type-badge--award,
+.site-chrome.dark .tl-type-badge--award {
+  color: #fdba74;
+  background: color-mix(in srgb, #fb923c 18%, transparent);
+  border-color: color-mix(in srgb, #fb923c 36%, transparent);
 }
 
 /* 尊重减弱动效偏好 */

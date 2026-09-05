@@ -16,6 +16,8 @@ public final class Views {
         view.put("summary", event.summary());
         view.put("eventDate", event.eventDate());
         view.put("dateLabel", event.dateLabel());
+        view.put("eventType", event.eventType().name());
+        view.put("termLabel", event.termLabel());
         view.put("coverImage", event.coverImage());
         view.put("imageCount", event.images().size());
         view.put("published", event.published());
@@ -27,6 +29,8 @@ public final class Views {
 
     public static Map<String, Object> detailView(TimelineEvent event) {
         Map<String, Object> view = summaryView(event);
+        view.put("outgoingMembers", event.outgoingMembers());
+        view.put("incomingMembers", event.incomingMembers());
         view.put("images", event.images());
         view.put("detail", event.detail());
         return view;

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventPayload } from '../types'
-import { FaButton, YdDatePicker, FaIcon, FaImageUpload, FaInput, FaModal, FaNumberField, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
+import { FaButton, FaIcon, FaImageUpload, FaInput, FaModal, FaNumberField, FaRadioGroup, FaSwitch, FaTextarea, YdDatePicker, useFaToast } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
-import { errorMessage, normalizeFileUrl, resolveImageUrl } from '../composables/utils'
+import { EVENT_TYPE_OPTIONS, errorMessage, joinRoster, normalizeFileUrl, resolveImageUrl, splitRoster } from '../composables/utils'
 import MarkdownEditor from './MarkdownEditor.vue'
 
 const props = defineProps<{
@@ -26,11 +26,29 @@ const modalOpen = computed({
 })
 
 function emptyForm(): TimelineEventPayload {
-  return { title: '', summary: '', eventDate: '', dateLabel: '', coverImage: '', images: [], detail: '', published: false, sort: 0 }
+  return {
+    title: '',
+    summary: '',
+    eventDate: '',
+    dateLabel: '',
+    eventType: 'ARTICLE',
+    termLabel: '',
+    outgoingMembers: [],
+    incomingMembers: [],
+    coverImage: '',
+    images: [],
+    detail: '',
+    published: false,
+    sort: 0,
+  }
 }
 
 const form = reactive<TimelineEventPayload>(emptyForm())
 const loadingDetail = ref(false)
+const outgoingText = ref('')
+const incomingText = ref('')
+const showImages = computed(() => form.eventType !== 'TEXT')
+const showRoster = computed(() => form.eventType === 'ELECTION')
 
 // FaImageUpload 内部通过 push/splice 原地改数组，不会触发 update:modelValue；
 // 用独立 ref 承接组件持有的数组引用，再用 deep watch 同步回 form。
@@ -53,6 +71,8 @@ watch(() => props.open, async (open) => {
   Object.assign(form, emptyForm())
   coverList.value = []
   imageList.value = []
+  outgoingText.value = ''
+  incomingText.value = ''
   if (!props.eventId) {
     return
   }
@@ -64,12 +84,18 @@ watch(() => props.open, async (open) => {
       summary: event.summary,
       eventDate: event.eventDate,
       dateLabel: event.dateLabel,
+      eventType: event.eventType || 'ARTICLE',
+      termLabel: event.termLabel || '',
+      outgoingMembers: [...(event.outgoingMembers || [])],
+      incomingMembers: [...(event.incomingMembers || [])],
       coverImage: event.coverImage,
       images: [...event.images],
       detail: event.detail,
       published: event.published,
       sort: event.sort,
     })
+    outgoingText.value = joinRoster(event.outgoingMembers)
+    incomingText.value = joinRoster(event.incomingMembers)
     // 编辑回填：数据库里存的是归一化相对路径，展示前解析为完整 URL
     coverList.value = event.coverImage ? [resolveImageUrl(model.sdk, event.coverImage)] : []
     imageList.value = event.images.map(item => resolveImageUrl(model.sdk, item)).filter(Boolean)
@@ -108,11 +134,19 @@ async function save() {
     toast.warning('请选择事件时间')
     return
   }
+  const isText = form.eventType === 'TEXT'
+  const isElection = form.eventType === 'ELECTION'
   const payload: TimelineEventPayload = {
     ...form,
     title: form.title.trim(),
     summary: form.summary.trim(),
     dateLabel: form.dateLabel.trim(),
+    eventType: form.eventType || 'ARTICLE',
+    termLabel: isElection ? form.termLabel.trim() : '',
+    outgoingMembers: isElection ? splitRoster(outgoingText.value) : [],
+    incomingMembers: isElection ? splitRoster(incomingText.value) : [],
+    coverImage: isText ? '' : form.coverImage,
+    images: isText ? [] : form.images,
     detail: form.detail,
   }
   const ok = await model.saveEvent(props.eventId, payload)
@@ -125,6 +159,10 @@ async function save() {
 <template>
   <FaModal v-model="modalOpen" :title="eventId ? '编辑事件' : '新建事件'" class="sm:max-w-2xl" :show-confirm-button="false" :close-on-click-overlay="false">
     <div v-loading="loadingDetail" class="tl-editor">
+      <div class="grid gap-2">
+        <span>事件类型</span>
+        <FaRadioGroup v-model="form.eventType" :options="[...EVENT_TYPE_OPTIONS]" class="tl-type-grid" />
+      </div>
       <div class="grid gap-2">
         <span>事件标题 <em class="tl-required">*</em></span>
         <FaInput v-model="form.title" placeholder="例如：社团正式成立" :maxlength="60" />
@@ -143,7 +181,23 @@ async function save() {
           <FaInput v-model="form.dateLabel" placeholder="可选，如「2024 年春」，留空按日期展示" :maxlength="40" />
         </div>
       </div>
-      <div class="grid gap-2">
+      <template v-if="showRoster">
+        <div class="grid gap-2">
+          <span>届次</span>
+          <FaInput v-model="form.termLabel" placeholder="例如：第八届" :maxlength="20" />
+        </div>
+        <div class="tl-editor-row">
+          <div class="grid gap-2">
+            <span>卸任名单</span>
+            <FaTextarea v-model="outgoingText" placeholder="每行一位，例如：小明 · 会长" :rows="6" />
+          </div>
+          <div class="grid gap-2">
+            <span>新任名单</span>
+            <FaTextarea v-model="incomingText" placeholder="每行一位，例如：小红 · 会长" :rows="6" />
+          </div>
+        </div>
+      </template>
+      <div v-if="showImages" class="grid gap-2">
         <span>事件封面</span>
         <FaImageUpload
           :model-value="coverList"
@@ -155,7 +209,7 @@ async function save() {
         />
         <span class="text-xs text-muted-foreground">建议 16:9 图片，展示在时间轴卡片与详情页头图，上传后自动公开访问。</span>
       </div>
-      <div class="grid gap-2">
+      <div v-if="showImages" class="grid gap-2">
         <span>详情图集（最多 12 张）</span>
         <FaImageUpload
           :model-value="imageList"

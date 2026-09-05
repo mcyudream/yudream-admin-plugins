@@ -1,5 +1,5 @@
 name: timeline
 displayName: 大事记
-description: 组织大事记时间轴：记录并展示团队历史事件，公开站点导航自动注入「大事记」页面，管理端 Markdown 图文编辑与图集。
+description: 组织大事记时间轴：记录并展示团队历史事件，支持图文、文字、换届、里程碑与荣誉等多种类型，公开站点导航自动注入「大事记」页面。
 main: online.yudream.base.plugin.timeline.bootstrap.TimelinePlugin
-version: 1.0.2
+version: 1.1.0

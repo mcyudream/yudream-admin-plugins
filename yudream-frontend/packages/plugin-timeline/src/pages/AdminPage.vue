@@ -5,7 +5,7 @@ import type { TimelineEventSummary } from '../types'
 import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import EventEditorModal from '../components/EventEditorModal.vue'
-import { formatEventDate, formatTime, resolveImageUrl } from '../composables/utils'
+import { EVENT_TYPE_OPTIONS, eventTypeMeta, formatEventDate, formatTime, resolveImageUrl } from '../composables/utils'
 
 const props = defineProps<{ model: TimelinePluginModel }>()
 const model = props.model
@@ -18,6 +18,11 @@ const statusOptions = [
   { label: '全部状态', value: '' },
   { label: '已发布', value: 'published' },
   { label: '草稿', value: 'draft' },
+]
+
+const typeOptions = [
+  { label: '全部类型', value: '' },
+  ...EVENT_TYPE_OPTIONS.map(item => ({ label: item.label, value: item.value })),
 ]
 
 const columns: TableColumn<TimelineEventSummary>[] = [
@@ -88,6 +93,7 @@ onMounted(() => {
           @clear="applyFilters"
         />
         <FaSelect v-model="model.adminFilters.status" :options="statusOptions" @change="applyFilters" />
+        <FaSelect v-model="model.adminFilters.type" :options="typeOptions" @change="applyFilters" />
         <FaButton variant="outline" @click="applyFilters">
           <FaIcon name="i-ri:search-line" />查询
         </FaButton>
@@ -114,7 +120,12 @@ onMounted(() => {
           <div class="tl-event-cell">
             <img v-if="row.original.coverImage" :src="coverThumb(row.original)" :alt="row.original.title" class="tl-event-thumb">
             <div class="tl-event-cell-text">
-              <span class="tl-event-cell-title" :title="row.original.title">{{ row.original.title }}</span>
+              <span class="tl-event-cell-title" :title="row.original.title">
+                <FaTag :variant="eventTypeMeta(row.original.eventType).tagVariant" class="tl-event-type-tag">
+                  {{ eventTypeMeta(row.original.eventType).label }}
+                </FaTag>
+                {{ row.original.title }}
+              </span>
               <span v-if="row.original.summary" class="tl-event-cell-summary" :title="row.original.summary">{{ row.original.summary }}</span>
             </div>
           </div>
@@ -150,7 +161,12 @@ onMounted(() => {
             <div class="tl-mobile-card-head">
               <img v-if="row.coverImage" :src="coverThumb(row)" :alt="row.title" class="tl-event-thumb">
               <div class="tl-event-cell-text">
-                <span class="tl-event-cell-title">{{ row.title }}</span>
+                <span class="tl-event-cell-title">
+                  <FaTag :variant="eventTypeMeta(row.eventType).tagVariant" class="tl-event-type-tag">
+                    {{ eventTypeMeta(row.eventType).label }}
+                  </FaTag>
+                  {{ row.title }}
+                </span>
                 <span class="tl-event-cell-summary">{{ formatEventDate(row.eventDate, row.dateLabel) }}</span>
               </div>
               <FaTag :variant="row.published ? 'default' : 'outline'">

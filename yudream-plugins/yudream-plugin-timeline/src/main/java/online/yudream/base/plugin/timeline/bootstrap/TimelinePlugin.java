@@ -15,7 +15,7 @@ import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 
 @PluginSpec(code = TimelinePlugin.CODE, name = "大事记", version = TimelinePlugin.VERSION,
-        description = "组织大事记时间轴：记录并展示团队历史事件，公开站点导航自动注入「大事记」页面，管理端 Markdown 图文编辑")
+        description = "组织大事记时间轴：记录并展示团队历史事件，支持图文、文字、换届、里程碑与荣誉等多种类型")
 @PluginPermissions({
         @PluginPermission(code = TimelinePlugin.MANAGE_PERMISSION, name = "管理大事记", module = "大事记",
                 description = "维护时间轴事件：创建、编辑、发布/下架与删除")
@@ -28,7 +28,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class TimelinePlugin implements YuDreamPlugin {
     public static final String CODE = "timeline";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.1.0";
     public static final String MANAGE_PERMISSION = "plugin:timeline:manage";
 
     @Override
