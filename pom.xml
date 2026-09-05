@@ -50,7 +50,6 @@
         <module>yudream-plugins/yudream-plugin-material</module>
         <module>yudream-plugins/yudream-plugin-questionbank</module>
         <module>yudream-plugins/yudream-plugin-timeline</module>
-        <module>yudream-plugins/yudream-plugin-edu-verify</module>
         </modules>
 
     <dependencyManagement>
