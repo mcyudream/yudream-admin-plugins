@@ -120,7 +120,7 @@ function openEdit() {
             <FaDescriptions :items="infoItems" :column="2" border />
           </div>
 
-          <div class="grid gap-3">
+          <div class="proof-min-w-0 grid gap-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="text-base font-semibold">参与名单（{{ pager.total }} 人，已通过 {{ model.passedCount }} 人）</h3>
               <div class="flex flex-wrap gap-2">
@@ -135,11 +135,12 @@ function openEdit() {
                 </FaButton>
               </div>
             </div>
+            <div class="proof-min-w-0">
             <FaResponsiveTable
               v-loading="loading"
               row-key="userId"
-              table-root-class="max-w-full overflow-x-auto rounded-lg"
-              table-class="min-w-[1550px]"
+              table-root-class="proof-table-scroll"
+              table-class="proof-table-w1550"
               border
               stripe
               column-visibility
@@ -236,6 +237,7 @@ function openEdit() {
                 </FaCard>
               </template>
             </FaResponsiveTable>
+            </div>
             <FaPagination
               v-model:page="pager.page"
               v-model:size="pager.size"

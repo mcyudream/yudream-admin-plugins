@@ -468,3 +468,41 @@
     margin-inline: 14px;
   }
 }
+
+/* ---------------- 表格横向滚动（宿主 UnoCSS 不扫插件包，任意值类会丢失） ---------------- */
+
+/* grid/flex 子项默认 min-width:auto，宽表格会把轨道撑出页面；
+   包一层该类的容器即可让 .proof-table-scroll 的 overflow-x 生效。 */
+.proof-min-w-0 {
+  min-width: 0;
+}
+
+.proof-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.proof-table-w760 {
+  min-width: 760px;
+}
+
+.proof-table-w860 {
+  min-width: 860px;
+}
+
+.proof-table-w1240 {
+  min-width: 1240px;
+}
+
+.proof-table-w1280 {
+  min-width: 1280px;
+}
+
+.proof-table-w1550 {
+  min-width: 1550px;
+}
+
+.proof-table-w1680 {
+  min-width: 1680px;
+}

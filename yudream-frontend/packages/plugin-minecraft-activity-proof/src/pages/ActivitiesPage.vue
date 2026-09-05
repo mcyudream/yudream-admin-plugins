@@ -83,8 +83,8 @@ function openDetail(row: Activity) {
       <FaResponsiveTable
         v-loading="loading"
         row-key="id"
-        table-root-class="max-w-full overflow-x-auto rounded-lg"
-        table-class="min-w-[1680px]"
+        table-root-class="proof-table-scroll"
+        table-class="proof-table-w1680"
         border
         stripe
         column-visibility

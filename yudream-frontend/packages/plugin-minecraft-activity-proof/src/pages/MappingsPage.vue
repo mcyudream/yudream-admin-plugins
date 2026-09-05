@@ -59,11 +59,12 @@ onMounted(model.load)
           <FaIcon name="i-ri:add-line" />保存映射
         </FaButton>
       </form>
+      <div class="proof-min-w-0">
       <FaResponsiveTable
         v-loading="loading"
         row-key="id"
-        table-root-class="max-w-full overflow-x-auto rounded-lg"
-        table-class="min-w-[860px]"
+        table-root-class="proof-table-scroll"
+        table-class="proof-table-w860"
         border
         stripe
         column-visibility
@@ -107,6 +108,7 @@ onMounted(model.load)
           </FaCard>
         </template>
       </FaResponsiveTable>
+      </div>
       <FaPagination
         v-model:page="pager.page"
         v-model:size="pager.size"
