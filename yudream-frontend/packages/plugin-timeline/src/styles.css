@@ -629,8 +629,16 @@
   background: color-mix(in srgb, var(--tl-primary) 10%, transparent);
 }
 
-/* 详情浮层 */
+/* 详情浮层（Teleport 到 body，需自行挂载 --tl-*，否则 Markdown 正文对比度丢失） */
 .tl-overlay {
+  --tl-primary: var(--yb-site-primary, #5b6cff);
+  --tl-text: var(--yb-site-text, var(--color-text-1, #1d2129));
+  --tl-heading: var(--yb-site-heading, var(--color-text-1, #1d2129));
+  --tl-muted: var(--yb-site-muted, var(--color-text-2, #4e5969));
+  --tl-caption: var(--yb-site-caption, var(--color-text-3, #86909c));
+  --tl-surface: var(--yb-site-surface, var(--color-bg-1, #ffffff));
+  --tl-border: var(--yb-site-border, var(--color-border-2, rgba(15, 23, 42, 0.08)));
+  --tl-bg: var(--yb-site-bg, var(--color-bg-2, #f6f7fb));
   position: fixed;
   inset: 0;
   z-index: 1200;
@@ -778,9 +786,48 @@
 }
 
 .tl-detail-body .tl-markdown-preview {
-  --md-theme: var(--tl-text);
-  font-size: 15px;
+  --md-theme: var(--tl-heading);
+  --md-color: var(--tl-heading);
+  --md-bk-color: transparent;
+  background: transparent;
+  color: var(--tl-heading);
+  font-size: 16.5px;
   line-height: 1.9;
+  font-weight: 500;
+}
+
+.tl-detail-body .tl-markdown-preview .md-editor-preview-wrapper {
+  color: inherit;
+}
+
+.tl-detail-body .tl-markdown-preview div.github-theme {
+  --md-theme-color: var(--tl-heading);
+  --md-theme-color-hover: var(--tl-heading);
+  --md-theme-heading-color: var(--tl-heading);
+  --md-theme-heading-6-color: var(--tl-muted);
+  --md-theme-link-color: var(--tl-primary);
+  --md-theme-link-hover-color: var(--tl-heading);
+  --md-theme-quote-color: var(--tl-muted);
+  --md-theme-quote-border: 0.25em solid color-mix(in srgb, var(--tl-primary) 45%, transparent);
+  --md-theme-code-inline-color: var(--tl-heading);
+  --md-theme-code-inline-bg-color: color-mix(in srgb, var(--tl-text) 8%, transparent);
+  --md-theme-table-td-border-color: var(--tl-border);
+  --md-theme-table-tr-bg-color: transparent;
+  --md-theme-table-stripe-color: color-mix(in srgb, var(--tl-text) 4%, transparent);
+  background: transparent;
+  color: var(--tl-heading);
+}
+
+.tl-detail-body .tl-markdown-preview .md-editor-preview p,
+.tl-detail-body .tl-markdown-preview .md-editor-preview li {
+  color: var(--tl-heading);
+}
+
+.tl-detail-body .tl-markdown-preview .md-editor-preview h1,
+.tl-detail-body .tl-markdown-preview .md-editor-preview h2,
+.tl-detail-body .tl-markdown-preview .md-editor-preview h3,
+.tl-detail-body .tl-markdown-preview .md-editor-preview h4 {
+  color: var(--tl-heading);
 }
 
 .tl-roster {
