@@ -143,6 +143,10 @@ public class ProjectProgressHttpFacade {
         return PluginHttpResponse.ok(appService.projectCheckIns(pathSegment(request.path(), 2), page(request), size(request)).stream().map(assembler::toRes).toList());
     }
 
+    public PluginHttpResponse projectCheckInsView(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.projectCheckIns(pathSegment(request.path(), 1), page(request), size(request)).stream().map(assembler::toRes).toList());
+    }
+
     public PluginHttpResponse rejectCheckIn(PluginHttpRequest request) {
         return PluginHttpResponse.ok(assembler.toRes(appService.rejectCheckIn(pathSegment(request.path(), 2), currentUserId(request))));
     }

@@ -150,7 +150,6 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
         api.status(),
         api.projects(),
       ])
-      notificationConnections.value = await api.notificationConnections()
       status.value = nextStatus
       projects.value = nextProjects
       await resolveProjectUsers(nextProjects)

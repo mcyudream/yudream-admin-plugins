@@ -74,6 +74,11 @@ public class ProjectProgressController {
         return http.details(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/projects/{projectId}/check-ins", permission = ProjectProgressPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse projectCheckInsView(PluginHttpRequest request) {
+        return http.projectCheckInsView(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/admin/projects/{projectId}/member-statistics", permission = ProjectProgressPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse memberStatistics(PluginHttpRequest request) {
         return http.memberStatistics(request);

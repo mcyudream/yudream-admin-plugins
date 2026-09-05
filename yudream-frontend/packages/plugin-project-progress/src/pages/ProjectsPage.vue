@@ -26,8 +26,8 @@ const columns: TableColumn<ProjectProgressProject>[] = [
 watch(() => props.model.projects.length, total => { pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(total / pagination.size))) })
 watch(() => pagination.size, () => { pagination.page = 1 })
 function typeLabel(value: string) { return checkInTypeOptions.find(item => item.value === value)?.label || value }
-async function createProject() { props.model.newProject(); await props.model.loadMinecraftServers(); modalVisible.value = true }
-async function editProject(project: ProjectProgressProject) { props.model.selectProject(project); await props.model.loadMinecraftServers(); modalVisible.value = true }
+async function createProject() { props.model.newProject(); await Promise.all([props.model.loadMinecraftServers(), props.model.loadNotificationConnections()]); modalVisible.value = true }
+async function editProject(project: ProjectProgressProject) { props.model.selectProject(project); await Promise.all([props.model.loadMinecraftServers(), props.model.loadNotificationConnections()]); modalVisible.value = true }
 async function openProject(project: ProjectProgressProject) { await props.model.selectProjectById(project.id); await router.push('/platform/plugins/project-progress/admin/details') }
 async function saveProject() { await props.model.saveProject(); modalVisible.value = false }
 function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ title: '删除项目', content: `确认删除“${project.name}”吗？相关工作细节与打卡记录可能受到影响。`, onConfirm: () => props.model.deleteProject(project) }) }
