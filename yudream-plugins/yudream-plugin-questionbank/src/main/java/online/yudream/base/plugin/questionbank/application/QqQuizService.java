@@ -64,7 +64,7 @@ public final class QqQuizService implements AutoCloseable {
         }
         String channelKey = channelKey(event);
         if (activeQuizzes.containsKey(channelKey)) {
-            reply(command, context, "当前群正在抢答中，请先等这题结束～");
+            reply(command, context, "当前群正在抢答中，请先等这题结束～", RANK_BUTTONS);
             return;
         }
         String groupName = command.arguments().isEmpty() ? settings.qqDefaultGroup() : String.join(" ", command.arguments()).trim();
@@ -82,7 +82,7 @@ public final class QqQuizService implements AutoCloseable {
         QuizState state = new QuizState(question, event, System.currentTimeMillis() + seconds * 1000L);
         activeQuizzes.put(channelKey, state);
         reply(command, context, "【抢答 · " + question.type().label() + "】（限时 " + seconds + " 秒）\n"
-                + questionText(question) + "\n\n直接回复答案即可抢答！");
+                + questionText(question) + "\n\n直接回复答案即可抢答！", RANK_BUTTONS);
         scheduler.schedule(() -> timeout(channelKey, state, context), seconds, TimeUnit.SECONDS);
     }
 
@@ -94,7 +94,7 @@ public final class QqQuizService implements AutoCloseable {
         }
         List<Map<String, Object>> entries = quizScores.channelLeaderboard(event.connectionId(), event.channelId());
         if (entries.isEmpty()) {
-            reply(command, context, "本群还没有抢答成绩，发送「抽题」开始抢答吧！");
+            reply(command, context, "本群还没有抢答成绩，发送「抽题」开始抢答吧！", DRAW_BUTTONS);
             return;
         }
         StringBuilder sb = new StringBuilder("🏆 本群抢答排行榜");
@@ -107,7 +107,7 @@ public final class QqQuizService implements AutoCloseable {
         if (entries.size() > limit) {
             sb.append("\n…共 ").append(entries.size()).append(" 人上榜");
         }
-        reply(command, context, sb.toString());
+        reply(command, context, sb.toString(), DRAW_BUTTONS);
     }
 
     /** 群消息监听入口：仅在有进行中的抢答时处理。 */
@@ -322,10 +322,21 @@ public final class QqQuizService implements AutoCloseable {
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        reply(command, context, text, List.of());
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
         Map<String, Object> referrer = command.event().messageId() == null
                 ? Map.of() : Map.of("message_id", command.event().messageId());
-        send(command.event(), context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer));
+        send(command.event(), context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons));
     }
+
+    /** 出题后附「抢答榜」快捷按钮；查看榜单时附「再来一题」（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> RANK_BUTTONS = List.of(
+            PluginMessageContent.Button.command("questionbank-rank", "抢答榜", "/抢答榜"));
+    private static final List<PluginMessageContent.Button> DRAW_BUTTONS = List.of(
+            PluginMessageContent.Button.command("questionbank-draw", "再来一题", "/抽题"));
 
     private void send(PluginEvent event, PluginContext context, String text) {
         send(event, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, Map.of()));

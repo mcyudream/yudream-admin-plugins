@@ -224,7 +224,7 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         variables.put("serverCount", serverViews.size());
         variables.put("totalOnline", servers.stream().map(MinecraftServerDTO::status).filter(java.util.Objects::nonNull)
                 .mapToInt(status -> status.onlinePlayers()).sum());
-        render(command, context, "server-list", variables, "服务器状态渲染失败");
+        render(command, context, "server-list", variables, "服务器状态渲染失败", REFRESH_BUTTONS);
     }
 
     private String resolveServerId(String selector) {
@@ -312,19 +312,34 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
 
     private void render(PluginCommandContext command, PluginContext context, String template,
                         Map<String, Object> variables, String fallback) {
+        render(command, context, template, variables, fallback, List.of());
+    }
+
+    private void render(PluginCommandContext command, PluginContext context, String template,
+                        Map<String, Object> variables, String fallback,
+                        List<PluginMessageContent.Button> buttons) {
         context.templateRenderer().render(template, variables, "#minecraft-card").whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                reply(command, context, fallback);
+                reply(command, context, fallback, buttons);
                 return;
             }
             String uri = "base64://" + Base64.getEncoder().encodeToString(image.content());
-            send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, replyReferrer(command)));
+            send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, replyReferrer(command), buttons));
         });
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command)));
+        reply(command, context, text, List.of());
     }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command), buttons));
+    }
+
+    /** 服务器状态卡片的「刷新」快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> REFRESH_BUTTONS = List.of(
+            PluginMessageContent.Button.command("minecraft-server-refresh", "刷新", "/服务器"));
 
     private Map<String, Object> replyReferrer(PluginCommandContext command) {
         return command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId());

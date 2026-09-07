@@ -171,20 +171,22 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
     public void myTasks(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var tasks = appService.myTasks(String.valueOf(command.userId()), 1, 10);
-        if (tasks.isEmpty()) { reply(command, context, "当前没有分配给你的任务。"); return; }
+        if (tasks.isEmpty()) { reply(command, context, "当前没有分配给你的任务。", CLAIMABLE_BUTTONS); return; }
         renderList(command, context, "我的任务", tasks.stream().map(task -> item(task.title(), task.statusCode(), task.description())).toList(),
-                "任务编号仅用于本次列表", "我的任务：\n" + tasks.stream().map(task -> "- " + task.title() + "（" + task.statusCode() + "）").reduce((a, b) -> a + "\n" + b).orElse(""));
+                "任务编号仅用于本次列表", "我的任务：\n" + tasks.stream().map(task -> "- " + task.title() + "（" + task.statusCode() + "）").reduce((a, b) -> a + "\n" + b).orElse(""),
+                CLAIMABLE_BUTTONS);
     }
 
     @PluginCommand(code = "project-progress.claimable-tasks", command = "可认领任务", name = "查询可认领任务", description = "查看可由当前绑定账号认领的任务")
     public void claimableTasks(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var tasks = appService.claimableTasks(String.valueOf(command.userId()), 1, 10);
-        if (tasks.isEmpty()) { reply(command, context, "当前没有可认领任务。"); return; }
+        if (tasks.isEmpty()) { reply(command, context, "当前没有可认领任务。", MY_TASKS_BUTTONS); return; }
         claimSelections.put(selectionKey(command), new NumberedSelection(tasks.stream().map(task -> task.id()).toList(), System.currentTimeMillis() + 300_000));
         renderList(command, context, "可认领任务", tasks.stream().map(task -> item(task.title(), task.statusCode(), task.description())).toList(),
                 "发送 /认领任务 编号，例如 /认领任务 1", "可认领任务：\n" + tasks.stream()
-                        .map(task -> "- " + task.title()).reduce((a, b) -> a + "\n" + b).orElse(""));
+                        .map(task -> "- " + task.title()).reduce((a, b) -> a + "\n" + b).orElse(""),
+                MY_TASKS_BUTTONS);
     }
 
     @PluginCommand(code = "project-progress.claim", command = "认领任务", name = "认领任务", description = "用法：/认领任务 任务ID")
@@ -231,29 +233,48 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
 
     private void renderList(PluginCommandContext command, PluginContext context, String title,
                             List<Map<String, Object>> items, String footer, String fallback) {
+        renderList(command, context, title, items, footer, fallback, List.of());
+    }
+
+    private void renderList(PluginCommandContext command, PluginContext context, String title,
+                            List<Map<String, Object>> items, String footer, String fallback,
+                            List<PluginMessageContent.Button> buttons) {
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("title", title);
         variables.put("items", items);
         variables.put("footer", footer);
         context.templateRenderer().render("command-list", variables, "#command-card").whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                reply(command, context, fallback);
+                reply(command, context, fallback, buttons);
                 return;
             }
             send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command)));
+                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command), buttons));
         });
     }
 
     private boolean requireUser(PluginCommandContext command, PluginContext context) {
         if (command.userId() != null) return true;
-        reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。");
+        reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。", BIND_BUTTONS);
         return false;
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command)));
+        reply(command, context, text, List.of());
     }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command), buttons));
+    }
+
+    /** 我的任务/可认领任务互跳与未绑定引导的快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> CLAIMABLE_BUTTONS = List.of(
+            PluginMessageContent.Button.command("project-progress-claimable", "可认领任务", "/可认领任务"));
+    private static final List<PluginMessageContent.Button> MY_TASKS_BUTTONS = List.of(
+            PluginMessageContent.Button.command("project-progress-my-tasks", "我的任务", "/我的任务"));
+    private static final List<PluginMessageContent.Button> BIND_BUTTONS = List.of(
+            PluginMessageContent.Button.command("project-progress-bind", "去绑定", "/绑定"));
 
     private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
         if (command.event().channelId() == null || command.event().channelId().isBlank()) return;

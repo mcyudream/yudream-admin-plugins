@@ -23,6 +23,7 @@ import online.yudream.base.plugin.wordle.interfaces.controller.WordleUserControl
 import online.yudream.base.plugin.wordle.interfaces.http.WordleHttpFacade;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 @PluginSpec(
@@ -156,7 +157,7 @@ public class WordlePlugin implements YuDreamPlugin {
     @PluginCommand(code = "wordle.end", command = "结束猜词", name = "结束对局", description = "结束本群当前对局并揭晓答案", allowAnonymous = true)
     public void end(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithBoard(command, context, appService.endGame(command.event()));
+            replyWithBoard(command, context, appService.endGame(command.event()), AGAIN_BUTTONS);
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -206,27 +207,42 @@ public class WordlePlugin implements YuDreamPlugin {
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        reply(command, context, text, null);
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
         String messageId = command.event().messageId();
         Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
     }
+
+    /** 结束对局后的快捷指令按钮：直接再开一局单词或成语。 */
+    private static final List<PluginMessageContent.Button> AGAIN_BUTTONS = List.of(
+            PluginMessageContent.Button.command("wordle-again-en", "再猜单词", "/猜单词"),
+            PluginMessageContent.Button.command("wordle-again-idiom", "再猜成语", "/猜成语"));
 
     /**
      * 优先以棋盘图片回复：模板渲染成功时发送图片消息，渲染不可用或失败时降级为纯文本。
      */
     private void replyWithBoard(PluginCommandContext command, PluginContext context, String text) {
+        replyWithBoard(command, context, text, null);
+    }
+
+    private void replyWithBoard(PluginCommandContext command, PluginContext context, String text,
+                                List<PluginMessageContent.Button> buttons) {
         Map<String, Object> variables = appService.boardVariables(command.event(), text);
         if (variables == null) {
-            reply(command, context, text);
+            reply(command, context, text, buttons);
             return;
         }
         var event = command.event();
         context.templateRenderer().render("wordle-board", variables, "#wordle-card").whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                reply(command, context, text);
+                reply(command, context, text, buttons);
                 return;
             }
             String messageId = event.messageId();
@@ -234,7 +250,7 @@ public class WordlePlugin implements YuDreamPlugin {
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
         });
     }
 

@@ -19,6 +19,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 @PluginSpec(
@@ -141,7 +142,7 @@ public class PonyPlugin implements YuDreamPlugin {
     @PluginCommand(code = "pony.end", command = "结束小马", name = "结束对局", description = "结束本群当前对局并揭晓答案", allowAnonymous = true)
     public void end(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithBoard(command, context, appService.endGame(command.event()));
+            replyWithBoard(command, context, appService.endGame(command.event()), AGAIN_BUTTONS);
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -184,16 +185,21 @@ public class PonyPlugin implements YuDreamPlugin {
      * 优先以棋盘图片回复：模板渲染成功时发送图片消息，渲染不可用或失败时降级为文本棋盘 + 原文。
      */
     private void replyWithBoard(PluginCommandContext command, PluginContext context, String text) {
+        replyWithBoard(command, context, text, List.of());
+    }
+
+    private void replyWithBoard(PluginCommandContext command, PluginContext context, String text,
+                                List<PluginMessageContent.Button> buttons) {
         Map<String, Object> variables = appService.boardVariables(command.event(), text);
         if (variables == null) {
-            reply(command, context, text);
+            reply(command, context, text, buttons);
             return;
         }
         var event = command.event();
         context.templateRenderer().render("pony-board", variables, "#pony-card").whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
                 String board = appService.renderBoardText(event);
-                reply(command, context, board == null ? text : board + "\n" + text);
+                reply(command, context, board == null ? text : board + "\n" + text, buttons);
                 return;
             }
             String messageId = event.messageId();
@@ -201,18 +207,27 @@ public class PonyPlugin implements YuDreamPlugin {
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
         });
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        reply(command, context, text, List.of());
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
         String messageId = command.event().messageId();
         Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
     }
+
+    /** 结束对局后的「再来一局」快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> AGAIN_BUTTONS = List.of(
+            PluginMessageContent.Button.command("pony-again", "再来一局", "/小马"));
 
     private Integer intArg(PluginCommandContext command, int index) {
         if (command.arguments().size() <= index) {

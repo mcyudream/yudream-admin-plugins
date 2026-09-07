@@ -169,18 +169,20 @@ public class WalletPlugin implements YuDreamPlugin {
         if (balances.isEmpty()) { reply(command, context, "当前没有余额记录。"); return; }
         render(command, context, "我的余额", balances.stream().map(item -> row(item.assetCode(), item.balance().toPlainString(), "可用余额")).toList(),
                 "余额以系统钱包记录为准", "我的余额：\n" + balances.stream()
-                        .map(item -> "- " + item.assetCode() + "：" + item.balance()).reduce((a, b) -> a + "\n" + b).orElse(""));
+                        .map(item -> "- " + item.assetCode() + "：" + item.balance()).reduce((a, b) -> a + "\n" + b).orElse(""),
+                TRANSACTIONS_BUTTONS);
     }
 
     @PluginCommand(code = "wallet.transactions", command = "我的流水", name = "查询钱包流水", description = "查询最近十条钱包流水")
     public void transactions(PluginCommandContext command, PluginContext context) {
         if (!requireUser(command, context)) return;
         var records = appService.transactions(new PluginWalletTransactionQuery(null, null, null, String.valueOf(command.userId()), null, null, 1, 10));
-        if (records.isEmpty()) { reply(command, context, "当前没有钱包流水。"); return; }
+        if (records.isEmpty()) { reply(command, context, "当前没有钱包流水。", BALANCE_BUTTONS); return; }
         render(command, context, "最近流水", records.stream().map(item -> row(item.type(), item.amount().toPlainString() + " " + item.assetCode(), item.remark())).toList(),
                 "最近 10 条交易", "最近流水：\n" + records.stream()
                         .map(item -> "- " + item.type() + " " + item.amount() + " " + item.assetCode() + "（" + item.remark() + "）")
-                        .reduce((a, b) -> a + "\n" + b).orElse(""));
+                        .reduce((a, b) -> a + "\n" + b).orElse(""),
+                BALANCE_BUTTONS);
     }
 
     private Map<String, Object> row(String label, String value, String note) {
@@ -193,24 +195,46 @@ public class WalletPlugin implements YuDreamPlugin {
 
     private void render(PluginCommandContext command, PluginContext context, String title,
                         List<Map<String, Object>> rows, String footer, String fallback) {
+        render(command, context, title, rows, footer, fallback, List.of());
+    }
+
+    private void render(PluginCommandContext command, PluginContext context, String title,
+                        List<Map<String, Object>> rows, String footer, String fallback,
+                        List<PluginMessageContent.Button> buttons) {
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("title", title); variables.put("rows", rows); variables.put("footer", footer);
         context.templateRenderer().render("wallet-summary", variables, "#wallet-card").whenComplete((image, error) -> {
-            if (error != null || image == null || image.content() == null || image.content().length == 0) { reply(command, context, fallback); return; }
+            if (error != null || image == null || image.content() == null || image.content().length == 0) {
+                reply(command, context, fallback, buttons);
+                return;
+            }
             send(command, context, new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command)));
+                    "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer(command), buttons));
         });
     }
 
     private boolean requireUser(PluginCommandContext command, PluginContext context) {
         if (command.userId() != null) return true;
-        reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。");
+        reply(command, context, "当前机器人账号尚未绑定系统账号，请先完成绑定。", BIND_BUTTONS);
         return false;
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command)));
+        reply(command, context, text, List.of());
     }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer(command), buttons));
+    }
+
+    /** 余额/流水互跳与未绑定引导的快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> TRANSACTIONS_BUTTONS = List.of(
+            PluginMessageContent.Button.command("wallet-transactions", "我的流水", "/我的流水"));
+    private static final List<PluginMessageContent.Button> BALANCE_BUTTONS = List.of(
+            PluginMessageContent.Button.command("wallet-balance", "我的余额", "/我的余额"));
+    private static final List<PluginMessageContent.Button> BIND_BUTTONS = List.of(
+            PluginMessageContent.Button.command("wallet-bind", "去绑定", "/绑定"));
 
     private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
         if (command.event().channelId() == null || command.event().channelId().isBlank()) return;

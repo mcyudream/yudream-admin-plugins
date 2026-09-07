@@ -14,6 +14,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @PluginSpec(code = QqBindingPlugin.CODE, name = "QQ群 QQ 绑定", version = "1.0.0", description = "通过群聊一次性绑定码绑定系统 QQ")
@@ -43,7 +44,7 @@ public class QqBindingPlugin implements YuDreamPlugin {
         try {
             Long userId = context.framework().qqBindings().consume(command.arguments().getFirst());
             context.framework().users().bindQqOnce(userId, command.event().userId());
-            reply(command, context, "QQ 绑定成功。");
+            reply(command, context, "QQ 绑定成功。", PROFILE_BUTTONS);
         } catch (RuntimeException exception) {
             reply(command, context, exception.getMessage() == null ? "绑定失败" : exception.getMessage());
         }
@@ -77,8 +78,17 @@ public class QqBindingPlugin implements YuDreamPlugin {
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
-        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command)));
+        reply(command, context, text, List.of());
     }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
+        send(command, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command), buttons));
+    }
+
+    /** 绑定成功后的「我的账号」快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> PROFILE_BUTTONS = List.of(
+            PluginMessageContent.Button.command("qq-binding-profile", "我的账号", "/我的账号"));
 
     private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {
         context.framework().messaging().send(new PluginMessageRequest(command.event().connectionId(), command.event().platform(),

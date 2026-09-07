@@ -51,6 +51,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -219,7 +220,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.surrender", command = "结束猜物", name = "结束本局猜物", description = "投降并揭晓本局目标物品，结束后可立即开始新一局", allowAnonymous = true)
     public void surrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithItemBoard(command, context, itemService.surrender(command.event()));
+            replyWithItemBoard(command, context, itemService.surrender(command.event()), againButton("/猜物"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -255,7 +256,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.mob.surrender", command = "结束猜生物", name = "结束本局猜生物", description = "投降并揭晓本局参考答案，结束后可立即开始新一局", allowAnonymous = true)
     public void mobSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithMobBoard(command, context, mobService.surrender(command.event()));
+            replyWithMobBoard(command, context, mobService.surrender(command.event()), againButton("/猜生物"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -300,7 +301,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.recipe.surrender", command = "结束猜合成", name = "结束本局猜合成", description = "投降并揭晓本局配方，结束后可立即开始新一局", allowAnonymous = true)
     public void recipeSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithRecipeBoard(command, context, recipeService.surrender(command.event()));
+            replyWithRecipeBoard(command, context, recipeService.surrender(command.event()), againButton("/猜合成"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -325,7 +326,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.fog.surrender", command = "结束迷雾", name = "结束本局迷雾", description = "投降并揭晓本局迷雾目标，结束后可立即开始新一局", allowAnonymous = true)
     public void fogSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithFogBoard(command, context, fogService.surrender(command.event()));
+            replyWithFogBoard(command, context, fogService.surrender(command.event()), againButton("/迷雾"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -375,7 +376,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.quiz.surrender", command = "结束快答", name = "结束本局快答", description = "投降并公布本局全部答案，结束后可立即开始新一局", allowAnonymous = true)
     public void quizSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithQuizBoard(command, context, quizService.surrender(command.event()));
+            replyWithQuizBoard(command, context, quizService.surrender(command.event()), againButton("/快答"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -396,7 +397,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.bingo.surrender", command = "结束宾果", name = "结束本局宾果", description = "投降结束本局宾果，结束后可立即开始新一局", allowAnonymous = true)
     public void bingoSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithBingoBoard(command, context, bingoService.surrender(command.event()));
+            replyWithBingoBoard(command, context, bingoService.surrender(command.event()), againButton("/宾果"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -417,7 +418,7 @@ public class McguessPlugin implements YuDreamPlugin {
     @PluginCommand(code = "mcguess.spot.surrender", command = "结束找茬", name = "结束本局找茬", description = "投降并揭晓错误格，结束后可立即开始新一局", allowAnonymous = true)
     public void spotSurrender(PluginCommandContext command, PluginContext context) {
         try {
-            replyWithSpotBoard(command, context, spotService.surrender(command.event()));
+            replyWithSpotBoard(command, context, spotService.surrender(command.event()), againButton("/找茬"));
         } catch (RuntimeException e) {
             reply(command, context, "操作失败：" + safeMessage(e));
         }
@@ -527,12 +528,27 @@ public class McguessPlugin implements YuDreamPlugin {
     // ---------------------------------------------------------------- 回复与棋盘渲染
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {
+        reply(command, context, text, List.of());
+    }
+
+    private void reply(PluginCommandContext command, PluginContext context, String text,
+                       List<PluginMessageContent.Button> buttons) {
         String messageId = command.event().messageId();
         Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
+    }
+
+    /** 比大小作答按钮：点击直接以 /高、/低 发出（官方 QQ 连接原生交互，其余协议自动降级）。 */
+    private static final List<PluginMessageContent.Button> HOL_BUTTONS = List.of(
+            PluginMessageContent.Button.command("mcguess-hol-higher", "高", "/高"),
+            PluginMessageContent.Button.command("mcguess-hol-lower", "低", "/低"));
+
+    /** 投降后的「再来一局」指令按钮，data 为对应玩法开局指令。 */
+    private static List<PluginMessageContent.Button> againButton(String startCommand) {
+        return List.of(PluginMessageContent.Button.command("mcguess-again-" + startCommand, "再来一局", startCommand));
     }
 
     private void replyWithItemBoard(PluginCommandContext command, PluginContext context, String text) {
@@ -540,9 +556,21 @@ public class McguessPlugin implements YuDreamPlugin {
                 itemService.boardVariables(command.event(), text), "mcguess-board", "#mcguess-card");
     }
 
+    private void replyWithItemBoard(PluginCommandContext command, PluginContext context, String text,
+                                    List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                itemService.boardVariables(command.event(), text), "mcguess-board", "#mcguess-card", buttons);
+    }
+
     private void replyWithMobBoard(PluginCommandContext command, PluginContext context, String text) {
         replyWithBoard(command, context, text,
                 mobService.boardVariables(command.event(), text), "mcguess-mob-board", "#mcguess-mob-card");
+    }
+
+    private void replyWithMobBoard(PluginCommandContext command, PluginContext context, String text,
+                                   List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                mobService.boardVariables(command.event(), text), "mcguess-mob-board", "#mcguess-mob-card", buttons);
     }
 
     private void replyWithRecipeBoard(PluginCommandContext command, PluginContext context, String text) {
@@ -550,14 +578,26 @@ public class McguessPlugin implements YuDreamPlugin {
                 recipeService.boardVariables(command.event(), text), "mcguess-recipe-board", "#mcguess-recipe-board-card");
     }
 
+    private void replyWithRecipeBoard(PluginCommandContext command, PluginContext context, String text,
+                                      List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                recipeService.boardVariables(command.event(), text), "mcguess-recipe-board", "#mcguess-recipe-board-card", buttons);
+    }
+
     private void replyWithFogBoard(PluginCommandContext command, PluginContext context, String text) {
         replyWithBoard(command, context, text,
                 fogService.boardVariables(command.event(), text), "mcguess-fog-board", "#mcguess-fog-card");
     }
 
+    private void replyWithFogBoard(PluginCommandContext command, PluginContext context, String text,
+                                   List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                fogService.boardVariables(command.event(), text), "mcguess-fog-board", "#mcguess-fog-card", buttons);
+    }
+
     private void replyWithHolBoard(PluginCommandContext command, PluginContext context, String text) {
         replyWithBoard(command, context, text,
-                holService.boardVariables(command.userId(), text), "mcguess-hol-board", "#mcguess-hol-card");
+                holService.boardVariables(command.userId(), text), "mcguess-hol-board", "#mcguess-hol-card", HOL_BUTTONS);
     }
 
     private void replyWithQuizBoard(PluginCommandContext command, PluginContext context, String text) {
@@ -565,9 +605,21 @@ public class McguessPlugin implements YuDreamPlugin {
                 quizService.boardVariables(command.event(), text), "mcguess-quiz-board", "#mcguess-quiz-card");
     }
 
+    private void replyWithQuizBoard(PluginCommandContext command, PluginContext context, String text,
+                                    List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                quizService.boardVariables(command.event(), text), "mcguess-quiz-board", "#mcguess-quiz-card", buttons);
+    }
+
     private void replyWithBingoBoard(PluginCommandContext command, PluginContext context, String text) {
         replyWithBoard(command, context, text,
                 bingoService.boardVariables(command.event(), text), "mcguess-bingo-board", "#mcguess-bingo-card");
+    }
+
+    private void replyWithBingoBoard(PluginCommandContext command, PluginContext context, String text,
+                                     List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                bingoService.boardVariables(command.event(), text), "mcguess-bingo-board", "#mcguess-bingo-card", buttons);
     }
 
     private void replyWithSpotBoard(PluginCommandContext command, PluginContext context, String text) {
@@ -575,24 +627,42 @@ public class McguessPlugin implements YuDreamPlugin {
                 spotService.boardVariables(command.event(), text), "mcguess-spot-board", "#mcguess-spot-card");
     }
 
+    private void replyWithSpotBoard(PluginCommandContext command, PluginContext context, String text,
+                                    List<PluginMessageContent.Button> buttons) {
+        replyWithBoard(command, context, text,
+                spotService.boardVariables(command.event(), text), "mcguess-spot-board", "#mcguess-spot-card", buttons);
+    }
+
     /**
      * 优先以棋盘图片回复：模板渲染成功时发送图片消息，不在群聊、渲染不可用或失败时降级为纯文本。
      */
     private void replyWithBoard(PluginCommandContext command, PluginContext context, String text,
                                 Map<String, Object> variables, String template, String selector) {
+        replyWithBoard(command, context, text, variables, template, selector, List.of());
+    }
+
+    private void replyWithBoard(PluginCommandContext command, PluginContext context, String text,
+                                Map<String, Object> variables, String template, String selector,
+                                List<PluginMessageContent.Button> buttons) {
         if (variables == null) {
-            reply(command, context, text);
+            reply(command, context, text, buttons);
             return;
         }
-        renderImage(command, context, template, variables, selector, text);
+        renderImage(command, context, template, variables, selector, text, buttons);
     }
 
     private void renderImage(PluginCommandContext command, PluginContext context, String template,
                              Map<String, Object> variables, String selector, String fallbackText) {
+        renderImage(command, context, template, variables, selector, fallbackText, List.of());
+    }
+
+    private void renderImage(PluginCommandContext command, PluginContext context, String template,
+                             Map<String, Object> variables, String selector, String fallbackText,
+                             List<PluginMessageContent.Button> buttons) {
         var event = command.event();
         context.templateRenderer().render(template, variables, selector).whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
-                reply(command, context, fallbackText);
+                reply(command, context, fallbackText, buttons);
                 return;
             }
             String messageId = event.messageId();
@@ -600,7 +670,7 @@ public class McguessPlugin implements YuDreamPlugin {
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
         });
     }
 
