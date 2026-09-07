@@ -14,7 +14,7 @@ public record ProjectProgressProjectSaveRequest(
         Integer minCheckInIntervalMinutes,
         List<String> allowedCheckInTypes,
         MinecraftPolicy minecraftPolicy,
-        Long notificationConnectionId,
+        String notificationConnectionId,
         String notificationChannelId,
         Boolean enabled
 ) {

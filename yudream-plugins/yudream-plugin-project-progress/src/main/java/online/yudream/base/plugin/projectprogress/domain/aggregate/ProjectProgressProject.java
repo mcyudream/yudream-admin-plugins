@@ -23,7 +23,7 @@ public record ProjectProgressProject(
         int minCheckInIntervalMinutes,
         List<ProjectCheckInType> allowedCheckInTypes,
         ProjectMinecraftPolicy minecraftPolicy,
-        Long notificationConnectionId,
+        String notificationConnectionId,
         String notificationChannelId,
         boolean enabled,
         long createdAt,
@@ -58,7 +58,7 @@ public record ProjectProgressProject(
                                                 List<String> memberUserIds, List<ProjectStatusOption> statuses,
                                                 String defaultStatusCode, String doneStatusCode, String reworkStatusCode,
                                                 int minCheckInIntervalMinutes, List<ProjectCheckInType> allowedCheckInTypes,
-                                                ProjectMinecraftPolicy minecraftPolicy, Long notificationConnectionId, String notificationChannelId, boolean enabled) {
+                                                ProjectMinecraftPolicy minecraftPolicy, String notificationConnectionId, String notificationChannelId, boolean enabled) {
         long now = System.currentTimeMillis();
         List<ProjectStatusOption> safeStatuses = statuses == null || statuses.isEmpty() ? defaultStatuses() : statuses;
         return new ProjectProgressProject(UUID.randomUUID().toString(), name, description, managerUserIds, memberUserIds,
@@ -70,7 +70,7 @@ public record ProjectProgressProject(
                                          List<String> memberUserIds, List<ProjectStatusOption> statuses,
                                          String defaultStatusCode, String doneStatusCode, String reworkStatusCode,
                                          int minCheckInIntervalMinutes, List<ProjectCheckInType> allowedCheckInTypes,
-                                         ProjectMinecraftPolicy minecraftPolicy, Long notificationConnectionId, String notificationChannelId, boolean enabled) {
+                                         ProjectMinecraftPolicy minecraftPolicy, String notificationConnectionId, String notificationChannelId, boolean enabled) {
         return new ProjectProgressProject(id, name, description, managerUserIds, memberUserIds, statuses,
                 defaultStatusCode, doneStatusCode, reworkStatusCode, minCheckInIntervalMinutes, allowedCheckInTypes,
                 minecraftPolicy, notificationConnectionId, notificationChannelId, enabled, createdAt, System.currentTimeMillis());

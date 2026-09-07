@@ -5,6 +5,7 @@ import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectWorkDe
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.mail.PluginMailMessage;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.util.List;
@@ -31,11 +32,40 @@ public class ProjectProgressNotificationService {
 
     public void notifyPublished(ProjectProgressProject project, ProjectWorkDetail detail) {
         if (framework == null || framework.messaging() == null || project.notificationConnectionId() == null
+                || project.notificationConnectionId().isBlank()
                 || project.notificationChannelId().isBlank()) return;
-        framework.messaging().sendToChannel(String.valueOf(project.notificationConnectionId()), project.notificationChannelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT,
-                        "Project detail published\n" + project.name() + " / " + detail.title(), null, null))
+        // 官方 QQ 机器人连接发 markdown 卡片；Milky 等其他协议保持原纯文本，协议行为不变
+        PluginMessageContent content = officialConnection(project.notificationConnectionId())
+                ? new PluginMessageContent(PluginMessageContent.Type.MARKDOWN, publishedMarkdown(project, detail), null, null)
+                : new PluginMessageContent(PluginMessageContent.Type.TEXT,
+                        "Project detail published\n" + project.name() + " / " + detail.title(), null, null);
+        framework.messaging().sendToChannel(project.notificationConnectionId(), project.notificationChannelId(), content)
                 .exceptionally(ignored -> null);
+    }
+
+    private boolean officialConnection(String connectionId) {
+        try {
+            return framework.messaging().connections().stream()
+                    .filter(connection -> connection.id().equals(connectionId))
+                    .map(PluginMessagingConnection::protocol)
+                    .anyMatch("official"::equals);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private String publishedMarkdown(ProjectProgressProject project, ProjectWorkDetail detail) {
+        StringBuilder markdown = new StringBuilder("# 📣 项目细节发布\n\n**")
+                .append(project.name()).append("**\n\n## ").append(detail.title());
+        if (detail.description() != null && !detail.description().isBlank()) {
+            markdown.append("\n\n").append(detail.description().trim());
+        }
+        if (detail.dueAt() != null && detail.dueAt() > 0) {
+            markdown.append("\n\n> ⏰ 截止时间：").append(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    .withZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.Instant.ofEpochMilli(detail.dueAt())));
+        }
+        return markdown.toString();
     }
 
     private void send(List<String> userIds, String subject, String text) {

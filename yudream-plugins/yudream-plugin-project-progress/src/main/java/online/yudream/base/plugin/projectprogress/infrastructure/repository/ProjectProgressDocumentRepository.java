@@ -417,7 +417,7 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 integer(document, "minCheckInIntervalMinutes", 0),
                 checkInTypes(document.get("allowedCheckInTypes")),
                 toMinecraftPolicy(map(document.get("minecraftPolicy"))),
-                nullableNumber(document, "notificationConnectionId"),
+                nullableText(document, "notificationConnectionId"),
                 string(document, "notificationChannelId"),
                 bool(document, "enabled", true),
                 number(document, "createdAt", 0),
@@ -524,9 +524,13 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 number(document, "effectiveOnlineMillis", 0), number(document, "periodStart", 0), number(document, "periodEnd", 0));
     }
 
-    private Long nullableNumber(Map<String, Object> document, String key) {
+    private String nullableText(Map<String, Object> document, String key) {
         Object value = document == null ? null : document.get(key);
-        return value instanceof Number number ? number.longValue() : null;
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value).trim();
+        return text.isEmpty() || "null".equals(text) ? null : text;
     }
 
     private ProjectCheckInReviewStatus reviewStatus(Map<String, Object> document) {

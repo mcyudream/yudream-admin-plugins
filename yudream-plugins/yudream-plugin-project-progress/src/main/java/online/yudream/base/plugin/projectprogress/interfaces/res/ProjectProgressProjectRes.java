@@ -15,7 +15,7 @@ public record ProjectProgressProjectRes(
         int minCheckInIntervalMinutes,
         List<String> allowedCheckInTypes,
         MinecraftPolicyRes minecraftPolicy,
-        Long notificationConnectionId,
+        String notificationConnectionId,
         String notificationChannelId,
         boolean enabled,
         long createdAt,

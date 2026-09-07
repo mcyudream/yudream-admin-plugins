@@ -15,7 +15,7 @@ public record ProjectProgressProjectDTO(
         int minCheckInIntervalMinutes,
         List<String> allowedCheckInTypes,
         MinecraftPolicyDTO minecraftPolicy,
-        Long notificationConnectionId,
+        String notificationConnectionId,
         String notificationChannelId,
         boolean enabled,
         long createdAt,
