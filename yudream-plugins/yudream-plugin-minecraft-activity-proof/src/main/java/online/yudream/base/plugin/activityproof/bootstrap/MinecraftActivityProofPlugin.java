@@ -7,6 +7,7 @@ import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDepen
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
 import online.yudream.base.plugin.activityproof.interfaces.http.ActivityProofHttpFacade;
+import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginDashboardCard;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -15,11 +16,12 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.2.3",
+        version = "2.2.5",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -154,13 +156,15 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
     public static final String ACCESS_USER_PERMISSION = VIEW_PERMISSION;
     public static final String ACCESS_MANAGE_PERMISSION = MANAGE_PERMISSION;
 
+    private ActivityProofAppService appService;
+
     @Override
     public void onEnable(PluginContext context) {
         ActivityProofDocumentRepository repository = new ActivityProofDocumentRepository(context.documents());
         // 题库为软依赖：经桥接类先做无类可用性检查再解析 API 类型，provider 缺失时降级而非 NoClassDefFoundError
         ActivityQuizService quizService = new ActivityQuizService(repository,
                 () -> SoftDependencyServices.questionBank(context));
-        ActivityProofAppService appService = new ActivityProofAppService(
+        appService = new ActivityProofAppService(
                 repository,
                 context.files(),
                 context.framework(),
@@ -170,5 +174,15 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
         ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService, quizService);
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
+    }
+
+    /** QQ 群活动报名：/报名 {活动ID}；官方连接的活动通知按钮点击后即以该指令发出。 */
+    @PluginCommand(code = "activity-proof.signup", command = "报名", name = "活动报名",
+            description = "报名参加活动：/报名 活动ID，或点击活动通知下方的报名按钮",
+            permission = MinecraftActivityProofPlugin.VIEW_PERMISSION)
+    public void signup(PluginCommandContext command, PluginContext ignored) {
+        if (appService != null) {
+            appService.signupFromQq(command.event(), command.arguments(), command.userId());
+        }
     }
 }

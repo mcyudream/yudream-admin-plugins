@@ -7,6 +7,22 @@ import { createActivityProofApi } from '../api/activity-proof-api'
 import { toUserPickerResult } from './user-picker'
 import { errorMessage } from './utils'
 
+type MessagingCatalog = {
+  connections: () => Promise<ActivityQqConnection[]>
+  groups: (connectionId: string) => Promise<ActivityQqGroup[]>
+}
+
+function messagingCatalog(sdk: YuDreamPluginSdk): MessagingCatalog {
+  const client = (sdk as YuDreamPluginSdk & { messaging?: MessagingCatalog }).messaging
+  if (!client) {
+    return {
+      connections: async () => [],
+      groups: async () => [],
+    }
+  }
+  return client
+}
+
 export function useProofSettings(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
   const toast = useFaToast()
@@ -33,6 +49,8 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
     qqConnectionId: '',
     qqGroupIds: [] as string[],
     qqMessageTemplate: '',
+    qqSignupButtonEnabled: false,
+    qqSignupButtonLabel: '',
   })
 
   const settings = computed(() => status.value?.settings || null)
@@ -50,7 +68,7 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
       syncSettingsForm(nextStatus.settings)
       const nextTemplates = nextStatus.dependencies.wordTemplateReady ? await api.admin.templates() : []
       templates.value = nextTemplates
-      qqConnections.value = await api.admin.qqConnections().catch(() => [])
+      qqConnections.value = await messagingCatalog(sdk).connections().catch(() => [])
       await Promise.all([loadQqGroups(false), loadTemplateMembers()])
     }
     finally {
@@ -110,6 +128,8 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
         qqConnectionId: settingsForm.qqConnectionId,
         qqGroupIds: settingsForm.qqGroupIds,
         qqMessageTemplate: settingsForm.qqMessageTemplate,
+        qqSignupButtonEnabled: settingsForm.qqSignupButtonEnabled,
+        qqSignupButtonLabel: settingsForm.qqSignupButtonLabel,
       }))
       toast.success('配置已保存')
     }
@@ -128,7 +148,7 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
     }
     loadingQqGroups.value = true
     try {
-      qqGroups.value = await api.admin.qqGroups(settingsForm.qqConnectionId)
+      qqGroups.value = await messagingCatalog(sdk).groups(settingsForm.qqConnectionId)
       if (resetSelection) {
         const valid = new Set(qqGroups.value.map(item => item.id))
         settingsForm.qqGroupIds = settingsForm.qqGroupIds.filter(id => valid.has(id))
@@ -235,6 +255,8 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
     settingsForm.qqConnectionId = next.qqConnectionId || ''
     settingsForm.qqGroupIds = [...(next.qqGroupIds || [])]
     settingsForm.qqMessageTemplate = next.qqMessageTemplate || ''
+    settingsForm.qqSignupButtonEnabled = Boolean(next.qqSignupButtonEnabled)
+    settingsForm.qqSignupButtonLabel = next.qqSignupButtonLabel || ''
   }
 
   return {

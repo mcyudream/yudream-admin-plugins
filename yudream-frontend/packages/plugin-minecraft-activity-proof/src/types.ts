@@ -26,6 +26,8 @@ export interface ActivityProofSettings {
   qqConnectionId: string
   qqGroupIds: string[]
   qqMessageTemplate: string
+  qqSignupButtonEnabled: boolean
+  qqSignupButtonLabel: string
   updatedAt: TimeValue
 }
 
@@ -50,7 +52,8 @@ export interface ActivityTemplateMembers {
 export interface ActivityQqConnection {
   id: string
   name: string
-  platform: string
+  platform?: string | null
+  protocol?: string | null
 }
 
 export interface ActivityQqGroup {

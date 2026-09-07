@@ -59,7 +59,10 @@ import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.document.PluginRenderedDocument;
 import online.yudream.base.plugin.spi.system.document.PluginWordTemplateSummary;
 import online.yudream.base.plugin.spi.system.form.PluginFormService;
+import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessagingService;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 import online.yudream.base.plugin.spi.system.user.PluginDeptOption;
@@ -96,6 +99,9 @@ public class ActivityProofAppService {
     private static final String PDF_CONTENT_TYPE = "application/pdf";
     private static final String DEFAULT_QQ_MESSAGE_TEMPLATE =
             "【新活动】{title}\n{summary}\n报名时间：{signupTime}\n活动时间：{activityTime}";
+    // 官方 QQ 连接按 markdown 渲染：默认模板带版式；管理员自定义模板原样使用（自定义内容须自行保证是合法 markdown）
+    private static final String DEFAULT_QQ_MARKDOWN_TEMPLATE =
+            "# 📢 新活动发布\n\n**{title}**\n\n{summary}\n\n> 🕐 报名时间：{signupTime}\n> 🗓️ 活动时间：{activityTime}";
     private static final int SCAN_PAGE_SIZE = 200;
     private static final int MAX_SCAN_SIZE = 1000;
 
@@ -142,7 +148,8 @@ public class ActivityProofAppService {
         ActivityProofSettings settings = repository.settings()
                 .withDefaults(cmd.defaultActivityName(), cmd.defaultCollege(), cmd.defaultIssuer(), now)
                 .withQqNotify(Boolean.TRUE.equals(cmd.qqNotifyEnabled()), cmd.qqConnectionId(), cmd.qqGroupIds(),
-                        cmd.qqMessageTemplate(), now);
+                        cmd.qqMessageTemplate(), Boolean.TRUE.equals(cmd.qqSignupButtonEnabled()),
+                        cmd.qqSignupButtonLabel(), now);
         if (hasText(cmd.templateId())) {
             settings = withTemplate(settings, cmd.templateId());
         } else {
@@ -622,7 +629,13 @@ public class ActivityProofAppService {
         if (message.isBlank()) {
             return;
         }
-        PluginMessageContent content = new PluginMessageContent(PluginMessageContent.Type.TEXT, message, null, Map.of());
+        boolean official = officialConnection(messaging, settings.qqConnectionId());
+        // 官方 QQ 机器人走 markdown 卡片 + 报名按钮（指令按钮点击直接发出 /报名）；Milky 保持原纯文本，协议行为不变
+        PluginMessageContent content = official
+                ? new PluginMessageContent(PluginMessageContent.Type.MARKDOWN,
+                        qqNotifyMarkdown(settings.qqMessageTemplate(), activity), null, Map.of(),
+                        signupButtons(settings, activity))
+                : new PluginMessageContent(PluginMessageContent.Type.TEXT, message, null, Map.of());
         for (String groupId : settings.qqGroupIds()) {
             try {
                 messaging.sendToChannel(settings.qqConnectionId(), groupId, content);
@@ -630,6 +643,93 @@ public class ActivityProofAppService {
                 // 群通知失败不阻断活动发布
             }
         }
+    }
+
+    private boolean officialConnection(PluginMessagingService messaging, String connectionId) {
+        try {
+            return messaging.connections().stream()
+                    .filter(connection -> connection.id().equals(connectionId))
+                    .map(PluginMessagingConnection::protocol)
+                    .anyMatch("official"::equals);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private List<PluginMessageContent.Button> signupButtons(ActivityProofSettings settings, Activity activity) {
+        if (!settings.qqSignupButtonEnabled() || !activity.signupOpen(System.currentTimeMillis())) {
+            return List.of();
+        }
+        return List.of(PluginMessageContent.Button.command("signup-" + activity.id(),
+                settings.effectiveSignupButtonLabel(), "/报名 " + activity.id()));
+    }
+
+    private String qqNotifyMarkdown(String messageTemplate, Activity activity) {
+        if (hasText(messageTemplate)) {
+            return qqNotifyText(messageTemplate, activity);
+        }
+        return DEFAULT_QQ_MARKDOWN_TEMPLATE
+                .replace("{title}", text(activity.title()))
+                .replace("{summary}", text(activity.summary()))
+                .replace("{signupTime}", timeRangeText(activity.signupStart(), activity.signupEnd()))
+                .replace("{activityTime}", timeRangeText(activity.activityStart(), activity.activityEnd()))
+                .trim();
+    }
+
+    // ---------------------------------------------------------------- QQ signup command
+
+    /** QQ 群指令 / 报名按钮入口：/报名 {活动ID}，复用 joinActivity 的完整校验链并被动回复中文结果。 */
+    public void signupFromQq(PluginEvent event, List<String> arguments, Long userId) {
+        if (userId == null) {
+            replyQq(event, "当前 QQ 未绑定系统账号，请先完成绑定后再报名。");
+            return;
+        }
+        if (arguments == null || arguments.isEmpty() || !hasText(arguments.getFirst())) {
+            replyQq(event, "用法：/报名 活动ID（也可以直接点击活动通知下方的报名按钮）");
+            return;
+        }
+        String activityId = arguments.getFirst().trim();
+        try {
+            UserActivityDTO joined = joinActivity(activityId, String.valueOf(userId));
+            replyQq(event, "✅ 报名成功：" + joined.title()
+                    + "\n活动时间：" + timeRangeText(joined.activityStart(), joined.activityEnd())
+                    + (joined.requirements().isEmpty() ? "" : "\n记得完成核验要求后再导出活动证明哦"));
+        } catch (IllegalArgumentException e) {
+            replyQq(event, "❌ 报名失败：" + e.getMessage());
+        } catch (RuntimeException e) {
+            replyQq(event, "❌ 报名失败：活动不存在或已删除");
+        }
+    }
+
+    private void replyQq(PluginEvent event, String text) {
+        PluginMessagingService messaging = messagingService();
+        if (messaging == null || event == null) {
+            return;
+        }
+        try {
+            messaging.send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(),
+                    new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, qqReplyReferrer(event))));
+        } catch (RuntimeException ignored) {
+            // 回复失败不影响报名结果
+        }
+    }
+
+    /** 复制官方被动回复所需的 msg_id/event_id/message_scene/interaction_id，使回复落在原消息会话上。 */
+    private Map<String, Object> qqReplyReferrer(PluginEvent event) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (event.nativeData() instanceof Map<?, ?> data) {
+            for (String key : List.of("message_scene", "event_id", "msg_id", "interaction_id")) {
+                Object value = data.get(key);
+                if (value != null && !String.valueOf(value).isBlank()) {
+                    referrer.put(key, String.valueOf(value));
+                }
+            }
+        }
+        if (event.messageId() != null && !event.messageId().isBlank()) {
+            referrer.putIfAbsent("message_id", event.messageId());
+            referrer.putIfAbsent("msg_id", event.messageId());
+        }
+        return referrer;
     }
 
     private String qqNotifyText(String messageTemplate, Activity activity) {
@@ -1562,6 +1662,7 @@ public class ActivityProofAppService {
                 settings.templateFilename(), settings.templateUpdatedAt(),
                 settings.defaultActivityName(), settings.defaultCollege(), settings.defaultIssuer(),
                 settings.qqNotifyEnabled(), settings.qqConnectionId(), settings.qqGroupIds(), settings.qqMessageTemplate(),
+                settings.qqSignupButtonEnabled(), settings.effectiveSignupButtonLabel(),
                 settings.updatedAt());
     }
 

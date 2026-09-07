@@ -16,6 +16,8 @@ public record ActivityProofSettingsDTO(
         String qqConnectionId,
         List<String> qqGroupIds,
         String qqMessageTemplate,
+        boolean qqSignupButtonEnabled,
+        String qqSignupButtonLabel,
         long updatedAt
 ) {
 }

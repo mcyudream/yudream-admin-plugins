@@ -10,6 +10,8 @@ public record ActivityProofSettingsSaveCmd(
         Boolean qqNotifyEnabled,
         String qqConnectionId,
         List<String> qqGroupIds,
-        String qqMessageTemplate
+        String qqMessageTemplate,
+        Boolean qqSignupButtonEnabled,
+        String qqSignupButtonLabel
 ) {
 }

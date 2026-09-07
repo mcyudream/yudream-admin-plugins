@@ -321,6 +321,8 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         document.put("qqConnectionId", settings.qqConnectionId());
         document.put("qqGroupIds", new ArrayList<>(settings.qqGroupIds()));
         document.put("qqMessageTemplate", settings.qqMessageTemplate());
+        document.put("qqSignupButtonEnabled", settings.qqSignupButtonEnabled());
+        document.put("qqSignupButtonLabel", settings.qqSignupButtonLabel());
         document.put("updatedAt", settings.updatedAt());
         return stripNulls(document);
     }
@@ -521,6 +523,8 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 string(document, "qqConnectionId"),
                 stringList(document.get("qqGroupIds")),
                 string(document, "qqMessageTemplate"),
+                bool(document.get("qqSignupButtonEnabled")),
+                string(document, "qqSignupButtonLabel"),
                 number(document, "updatedAt", 0)
         );
     }

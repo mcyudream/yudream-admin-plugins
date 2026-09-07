@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea, YdTablePicker } from '@yudream/components'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useProofSettings } from '../composables/useProofSettings'
 import { userPickerColumns } from '../composables/user-picker'
 
@@ -17,11 +17,40 @@ const templateOptions = computed(() => [
   { label: '请选择模板', value: '' },
   ...model.templates.value.map(template => ({ label: `${template.name} / ${template.code}`, value: template.id })),
 ])
+function protocolLabel(item: { protocol?: string | null, platform?: string | null }) {
+  if (item.protocol === 'official') {
+    return '官方 QQ'
+  }
+  if (item.protocol === 'milky') {
+    return 'Milky'
+  }
+  return item.platform || '未知平台'
+}
+
 const qqConnectionOptions = computed(() => [
   { label: '请选择消息连接', value: '' },
-  ...qqConnections.value.map(item => ({ label: `${item.name || item.id}（${item.platform || '未知平台'}）`, value: item.id })),
+  ...qqConnections.value.map(item => ({ label: `${item.name || item.id}（${protocolLabel(item)}）`, value: item.id })),
 ])
-const qqGroupOptions = computed(() => qqGroups.value.map(item => ({ label: item.name || item.id, value: item.id })))
+const extraGroupId = ref('')
+const qqGroupOptions = computed(() => {
+  const known = qqGroups.value.map(item => ({ label: item.name || item.id, value: item.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  const extras = settingsForm.qqGroupIds
+    .filter(id => id && !knownIds.has(id))
+    .map(id => ({ label: id, value: id }))
+  return [...known, ...extras]
+})
+
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) {
+    return
+  }
+  if (!settingsForm.qqGroupIds.includes(id)) {
+    settingsForm.qqGroupIds = [...settingsForm.qqGroupIds, id]
+  }
+  extraGroupId.value = ''
+}
 
 onMounted(model.load)
 </script>
@@ -68,12 +97,26 @@ onMounted(model.load)
               <label class="grid gap-2">
                 <span>通知群（可多选）</span>
                 <FaSelect v-model="settingsForm.qqGroupIds" multiple :options="qqGroupOptions" placeholder="请选择 QQ 群" :disabled="saving || !settingsForm.qqConnectionId || loadingQqGroups" />
+                <FaInput v-model="extraGroupId" placeholder="官方群 openid，回车添加" :disabled="saving || !settingsForm.qqConnectionId" @keydown.enter.prevent="addExtraGroup" />
+                <span class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</span>
               </label>
             </div>
             <label class="grid gap-2">
               <span>通知消息模板</span>
               <FaTextarea v-model="settingsForm.qqMessageTemplate" :rows="4" placeholder="【新活动】{title}&#10;{summary}&#10;报名时间：{signupTime}&#10;活动时间：{activityTime}" />
-              <span class="text-xs text-muted-foreground">可用占位符：{title} 活动标题、{summary} 简介、{signupTime} 报名时间、{activityTime} 活动时间；留空使用默认文案。</span>
+              <span class="text-xs text-muted-foreground">可用占位符：{title} 活动标题、{summary} 简介、{signupTime} 报名时间、{activityTime} 活动时间；留空使用默认文案。官方 QQ 机器人连接按 markdown 渲染，可在模板中使用 markdown 语法（不支持表格）。</span>
+            </label>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="grid gap-1">
+                <strong>报名按钮</strong>
+                <span class="text-sm text-muted-foreground">仅在官方 QQ 机器人连接生效：活动通知下方附带报名按钮，群成员点击即完成报名；未绑定系统账号的成员会收到绑定提示。</span>
+              </div>
+              <FaSwitch v-model="settingsForm.qqSignupButtonEnabled" :disabled="saving" />
+            </div>
+            <label v-if="settingsForm.qqSignupButtonEnabled" class="grid gap-2">
+              <span>按钮文案</span>
+              <FaInput v-model="settingsForm.qqSignupButtonLabel" placeholder="✅ 我要报名" />
+              <span class="text-xs text-muted-foreground">留空使用默认文案「✅ 我要报名」；仅在报名开放期间展示按钮。</span>
             </label>
           </template>
         </div>

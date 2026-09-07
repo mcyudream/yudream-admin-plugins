@@ -31,7 +31,8 @@ public class ActivityProofWebAssembler {
 
     public ActivityProofSettingsSaveCmd toCmd(ActivityProofSettingsSaveRequest request) {
         return new ActivityProofSettingsSaveCmd(request.defaultActivityName(), request.defaultCollege(), request.defaultIssuer(),
-                request.templateId(), request.qqNotifyEnabled(), request.qqConnectionId(), request.qqGroupIds(), request.qqMessageTemplate());
+                request.templateId(), request.qqNotifyEnabled(), request.qqConnectionId(), request.qqGroupIds(), request.qqMessageTemplate(),
+                request.qqSignupButtonEnabled(), request.qqSignupButtonLabel());
     }
 
     public ActivityParticipantAddCmd toCmd(String activityId, ActivityParticipantAddRequest request) {
