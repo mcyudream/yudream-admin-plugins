@@ -162,7 +162,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
                 }
                 String uri = "base64://" + Base64.getEncoder().encodeToString(image.content());
                 context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(),
-                        new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))));
+                        new PluginMessageContent(PluginMessageContent.Type.IMAGE, uri, null, replyReferrer(event))));
             });
         } catch (RuntimeException error) {
             LOGGER.log(Level.WARNING, "[YuDreamAdmin] [AI Chatbot] my-profile failed: " + errorMessage(error), error);
@@ -245,7 +245,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private CompletableFuture<Void> processMessage(PluginEvent event) {
         QqSandboxSupport sandbox = QqSandboxSupport.from(event);
         AiChatbotGroupPolicy policy = policies.get(sandbox.policyConnectionId(), event.channelId());
-        boolean mentioned = mentions(event).contains(event.selfId());
+        boolean mentioned = mentions(event).contains(event.selfId()) || officialDirectedAtBot(event);
         appendHistory(sandbox, "group-history", policyGroupId(sandbox, event), "user", event.userId() + "：" + event.content());
         QqSandboxSupport.TriggerDecision trigger = sandbox.trigger(mentioned,
                 () -> ThreadLocalRandom.current().nextDouble() < policy.randomProbability(),
@@ -404,6 +404,55 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private List<PluginAiChatMessage> toHistory(Object value, int limit) { if (!(value instanceof List<?> rows)) return List.of(); List<PluginAiChatMessage> result = new ArrayList<>(); for (Object row : rows) if (row instanceof Map<?, ?> map) result.add(new PluginAiChatMessage(String.valueOf(map.get("role")), String.valueOf(map.get("content")))); return result.size() > limit ? result.subList(result.size() - limit, result.size()) : result; }
     @SuppressWarnings("unchecked") private void append(String collection, String id, String role, String content) { List<Map<String, String>> values = new ArrayList<>(); context.documents().findById(collection, id).map(doc -> doc.get("messages")).filter(List.class::isInstance).map(List.class::cast).ifPresent(values::addAll); values.add(Map.of("role", role, "content", content)); if (values.size() > 32) values = new ArrayList<>(values.subList(values.size() - 32, values.size())); context.documents().save(collection, id, Map.of("messages", values, "updatedAt", System.currentTimeMillis())); }
     private List<String> mentions(PluginEvent event) { Object value = event.referrer().get("mentions"); return value instanceof List<?> list ? list.stream().map(String::valueOf).toList() : List.of(); }
+    private Map<String, Object> replyReferrer(PluginEvent event) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (event.nativeData() instanceof Map<?, ?> data) {
+            Object scene = data.get("message_scene");
+            if (scene != null && !String.valueOf(scene).isBlank()) {
+                referrer.put("message_scene", String.valueOf(scene));
+            }
+            Object eventId = data.get("event_id");
+            if (eventId != null && !String.valueOf(eventId).isBlank()) {
+                referrer.put("event_id", String.valueOf(eventId));
+            }
+            Object msgId = data.get("msg_id");
+            if (msgId != null && !String.valueOf(msgId).isBlank()) {
+                referrer.put("msg_id", String.valueOf(msgId));
+            }
+            Object interactionId = data.get("interaction_id");
+            if (interactionId != null && !String.valueOf(interactionId).isBlank()) {
+                referrer.put("interaction_id", String.valueOf(interactionId));
+            }
+        }
+        if (event.messageId() != null && !event.messageId().isBlank()) {
+            referrer.putIfAbsent("message_id", event.messageId());
+            referrer.putIfAbsent("msg_id", event.messageId());
+        }
+        return referrer;
+    }
+    private boolean officialDirectedAtBot(PluginEvent event) {
+        Object referrerFlag = event.referrer().get("mentionSelf");
+        if (Boolean.TRUE.equals(referrerFlag) || "true".equalsIgnoreCase(String.valueOf(referrerFlag))) {
+            return true;
+        }
+        Object nativeData = event.nativeData();
+        if (nativeData instanceof Map<?, ?> data) {
+            Object flag = data.get("mention_self");
+            if (Boolean.TRUE.equals(flag) || "true".equalsIgnoreCase(String.valueOf(flag))) {
+                return true;
+            }
+            Object nativeType = data.get("native_type");
+            if (nativeType != null) {
+                String type = String.valueOf(nativeType);
+                return "GROUP_AT_MESSAGE_CREATE".equals(type)
+                        || "AT_MESSAGE_CREATE".equals(type)
+                        || "C2C_MESSAGE_CREATE".equals(type)
+                        || "DIRECT_MESSAGE_CREATE".equals(type)
+                        || "INTERACTION_CREATE".equals(type);
+            }
+        }
+        return false;
+    }
     private boolean hasReply(PluginEvent event) { Object value = event.referrer().get("replyMessageId"); return value != null && !String.valueOf(value).isBlank(); }
     private String errorMessage(Throwable error) { Throwable cause = error; while (cause.getCause() != null) cause = cause.getCause(); String message = cause.getMessage(); return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message; }
     private boolean asksForTools(String content) { String value = content == null ? "" : content; return value.contains("哪些工具") || value.contains("什么工具") || value.contains("工具列表") || value.contains("能调用") || value.contains("可用工具"); }
@@ -470,7 +519,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
     private String memoryId(PluginEvent event, Long userId) { return groupId(event) + ":" + userId; }
     private CompletionStage<Void> reply(PluginEvent event, String text) {
         try {
-            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))))
+            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(event))))
                     .handle((ignored, error) -> {
                         if (error != null) LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
                         return (Void) null;
@@ -486,7 +535,7 @@ public class AiChatbotPlugin implements YuDreamPlugin {
             return reply(event, message == null ? "" : message.content());
         }
         try {
-            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, message.content(), message.attachments(), event.messageId() == null ? Map.of() : Map.of("message_id", event.messageId()))))
+            return context.framework().messaging().send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), new PluginMessageContent(PluginMessageContent.Type.TEXT, message.content(), message.attachments(), replyReferrer(event))))
                     .handle((ignored, error) -> {
                         if (error != null) LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [AI Chatbot] rich reply send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId(), error);
                         return (Void) null;
