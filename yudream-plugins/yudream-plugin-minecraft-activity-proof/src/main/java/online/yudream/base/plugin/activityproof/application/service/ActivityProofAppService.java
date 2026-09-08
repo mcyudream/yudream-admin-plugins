@@ -632,11 +632,11 @@ public class ActivityProofAppService {
             return;
         }
         boolean official = officialConnection(messaging, settings.qqConnectionId());
-        // 官方 QQ 机器人走 markdown 卡片 + 报名按钮（指令按钮点击直接发出 /报名）；Milky 保持原纯文本，协议行为不变
+        // 官方 QQ 机器人走 markdown 卡片 + 交互按钮（一键报名 + 查看活动列表）；Milky 保持原纯文本，协议行为不变
         PluginMessageContent content = official
                 ? new PluginMessageContent(PluginMessageContent.Type.MARKDOWN,
                         qqNotifyMarkdown(settings.qqMessageTemplate(), activity), null, Map.of(),
-                        signupButtons(settings, activity))
+                        notifyButtons(settings, activity))
                 : new PluginMessageContent(PluginMessageContent.Type.TEXT, message, null, Map.of());
         for (String groupId : settings.qqGroupIds()) {
             try {
@@ -658,12 +658,18 @@ public class ActivityProofAppService {
         }
     }
 
-    private List<PluginMessageContent.Button> signupButtons(ActivityProofSettings settings, Activity activity) {
-        if (!settings.qqSignupButtonEnabled() || !activity.signupOpen(System.currentTimeMillis())) {
-            return List.of();
+    /**
+     * 活动发布通知的键盘按钮：报名开放且管理员开启报名按钮时给「一键报名」指令按钮（点击直接发出 /报名），
+     * 并始终附「查看活动列表」指令按钮（点击发出 /活动列表）。
+     */
+    private List<PluginMessageContent.Button> notifyButtons(ActivityProofSettings settings, Activity activity) {
+        List<PluginMessageContent.Button> buttons = new ArrayList<>();
+        if (settings.qqSignupButtonEnabled() && activity.signupOpen(System.currentTimeMillis())) {
+            buttons.add(PluginMessageContent.Button.command("signup-" + activity.id(),
+                    settings.effectiveSignupButtonLabel(), "/报名 " + activity.id()));
         }
-        return List.of(PluginMessageContent.Button.command("signup-" + activity.id(),
-                settings.effectiveSignupButtonLabel(), "/报名 " + activity.id()));
+        buttons.add(PluginMessageContent.Button.command("activity-list", "📋 查看活动列表", "/活动列表"));
+        return buttons;
     }
 
     private String qqNotifyMarkdown(String messageTemplate, Activity activity) {

@@ -118,7 +118,7 @@ async function save() {
       </div>
     </FaPageHeader>
     <FaPageMain>
-      <div v-loading="loading" class="max-w-4xl">
+      <div v-loading="loading">
         <div v-if="readonly" class="activity-readonly-banner">
           <FaIcon name="i-ri:lock-line" />该活动已结束，内容不可再编辑。
         </div>

@@ -115,9 +115,9 @@ function openEdit() {
     <FaPageMain>
       <div v-loading="loading" class="grid gap-4">
         <template v-if="activity">
-          <div class="grid gap-4 rounded-lg border p-4 md:grid-cols-[320px_minmax(0,1fr)]">
+          <div class="grid gap-4 rounded-lg border p-4" :class="coverUrl ? 'lg:grid-cols-[320px_minmax(0,1fr)]' : ''">
             <img v-if="coverUrl" :src="coverUrl" :alt="activity.title" class="activity-admin-cover" />
-            <FaDescriptions :items="infoItems" :column="2" border />
+            <FaDescriptions :items="infoItems" :column="2" border class="min-w-0" />
           </div>
 
           <div class="proof-min-w-0 grid gap-3">
