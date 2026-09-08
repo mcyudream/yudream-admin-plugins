@@ -151,6 +151,11 @@ public class YuDreamSkinRepository {
         return documents.findByField(CLOSET, "userId", userId, page, size).stream().map(this::toClosetItem).toList();
     }
 
+    /** 指定用户的全部衣柜条目（内部按 SCAN_PAGE_SIZE 翻页聚合，规避单页截断）。 */
+    public List<SkinClosetItem> findAllClosetByUser(String userId) {
+        return findAllByField(CLOSET, "userId", userId).stream().map(this::toClosetItem).toList();
+    }
+
     public Optional<SkinClosetItem> findClosetItem(String id) {
         return documents.findById(CLOSET, id).map(this::toClosetItem);
     }

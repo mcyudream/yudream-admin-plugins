@@ -1,6 +1,18 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, ComposeRule, ImportResult, Page, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, ScreenDrawResult, SessionSummary, SessionView, SharedComposeView, TagView } from '../types'
 
+type AiCatalog = {
+  providers: () => Promise<AiProviderOption[]>
+}
+
+function aiCatalog(sdk: YuDreamPluginSdk): AiCatalog {
+  const client = (sdk as YuDreamPluginSdk & { ai?: AiCatalog }).ai
+  if (!client) {
+    return { providers: async () => [] }
+  }
+  return client
+}
+
 function query(params: Record<string, string | number | undefined>) {
   const value = new URLSearchParams()
   for (const [key, item] of Object.entries(params)) {
@@ -26,6 +38,7 @@ function records<T>(promise: Promise<unknown>): Promise<T[]> {
 }
 
 export function createQuestionBankApi(sdk: YuDreamPluginSdk) {
+  const ai = aiCatalog(sdk)
   return {
     // ---------- 用户端（/me/**，仅本人练习数据） ----------
     meta: () => sdk.http.get<PracticeMeta>('/me/meta'),
@@ -65,7 +78,7 @@ export function createQuestionBankApi(sdk: YuDreamPluginSdk) {
     aiImportStart: (text: string) =>
       sdk.http.post<{ jobId: string }>('/admin/questions/ai-import/start', { text }),
     aiImportEventsUrl: (jobId: string) => sdk.http.url(`/admin/questions/ai-import/${id(jobId)}/events`),
-    aiOptions: () => records<AiProviderOption>(sdk.http.get('/admin/ai-options')),
+    aiOptions: () => ai.providers(),
     exportQuestions: (format: 'json' | 'markdown', categoryId = '', tag = '', type = '', ids: string[] = []) =>
       sdk.http.blob(`/admin/questions-export${query({ format, categoryId, tag, type, ids: ids.join(',') })}`),
     adminCategories: () => records<CategoryView>(sdk.http.get('/admin/categories')),

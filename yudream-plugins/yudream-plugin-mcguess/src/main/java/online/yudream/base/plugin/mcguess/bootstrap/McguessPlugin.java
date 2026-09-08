@@ -662,6 +662,9 @@ public class McguessPlugin implements YuDreamPlugin {
         var event = command.event();
         context.templateRenderer().render(template, variables, selector).whenComplete((image, error) -> {
             if (error != null || image == null || image.content() == null || image.content().length == 0) {
+                System.getLogger("mcguess").log(System.Logger.Level.WARNING,
+                        "棋盘图片渲染失败，已降级为文本: template=" + template,
+                        error);
                 reply(command, context, fallbackText, buttons);
                 return;
             }

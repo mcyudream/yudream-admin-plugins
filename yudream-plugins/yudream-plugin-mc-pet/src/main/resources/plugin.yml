@@ -1,0 +1,7 @@
+name: mc-pet
+displayName: 网页宠物
+description: 将 Minecraft 皮肤渲染为全站常驻的 3D 网页宠物，管理员配置默认皮肤与交互风格，用户可选用自己的角色或衣柜皮肤。
+main: online.yudream.base.plugin.mcpet.bootstrap.McPetPlugin
+version: 1.1.0
+softdepend:
+  - yudream-skin

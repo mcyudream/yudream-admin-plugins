@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaModal, FaNumberField, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, useFaModal, useFaToast, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
@@ -22,15 +22,37 @@ const error = ref('')
 const open = ref(false)
 const saving = ref(false)
 const toggling = ref('')
+const extraGroupId = ref('')
 const form = ref<GroupBinding>(empty())
 const columns: TableColumn<GroupBinding>[] = [{ accessorKey: 'siteId', header: '站点', minWidth: 180 }, { accessorKey: 'connectionId', header: '连接', minWidth: 150 }, { accessorKey: 'channelId', header: '目标群', minWidth: 180 }, { id: 'enabled', header: '状态', width: 110 }, { accessorKey: 'cooldownSeconds', header: '冷却/秒', width: 100 }, { id: 'operation', header: '操作', width: 170 }]
 
+function protocolLabel(item: Option) {
+  if (item.protocol === 'official') return '官方 QQ'
+  if (item.protocol === 'milky') return 'Milky'
+  return item.platform || '未知平台'
+}
+const connectionSelectOptions = computed(() => connections.value.map(value => ({ label: `${value.name}（${protocolLabel(value)}）`, value: value.id })))
+const groupSelectOptions = computed(() => {
+  const known = groupOptions.value.map(value => ({ label: value.name || value.id, value: value.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  if (form.value.channelId && !knownIds.has(form.value.channelId)) {
+    known.push({ label: form.value.channelId, value: form.value.channelId })
+  }
+  return known
+})
+
 function empty(): GroupBinding { return { id: uid(), siteId: '', connectionId: '', platform: 'milky', selfId: '', channelId: '', enabled: true, quietStart: '', quietEnd: '', cooldownSeconds: 0, hourlyLimit: 0, lastDeliveryAt: 0, createdAt: 0, updatedAt: 0 } }
 async function load() { loading.value = true; error.value = ''; try { const [result, sitePage, connectionOptions] = await Promise.all([api.bindings(page.value, size.value), api.sites(1, 200), api.connections()]); rows.value = result.records; total.value = result.total; sites.value = sitePage.records; connections.value = connectionOptions } catch (cause) { error.value = errorText(cause, '加载定时推送目标失败') } finally { loading.value = false } }
-async function changeConnection(connectionId: unknown) { groupOptions.value = connectionId ? await api.groups(String(connectionId)) : []; form.value.channelId = '' }
-function create() { form.value = empty(); groupOptions.value = []; open.value = true }
-async function edit(value: GroupBinding) { form.value = { ...value }; groupOptions.value = await api.groups(value.connectionId); open.value = true }
-async function save() { saving.value = true; try { const connection = connections.value.find(value => value.id === form.value.connectionId); form.value.platform = connection?.platform ?? form.value.platform; form.value.selfId = connection?.selfId ?? form.value.selfId; await api.saveBinding(form.value); toast.success('定时推送目标已保存'); open.value = false; await load() } catch (cause) { toast.error(errorText(cause, '保存定时推送目标失败')) } finally { saving.value = false } }
+async function changeConnection(connectionId: unknown) { groupOptions.value = connectionId ? await api.groups(String(connectionId)) : []; form.value.channelId = ''; extraGroupId.value = '' }
+function create() { form.value = empty(); groupOptions.value = []; extraGroupId.value = ''; open.value = true }
+async function edit(value: GroupBinding) { form.value = { ...value }; extraGroupId.value = ''; groupOptions.value = await api.groups(value.connectionId); open.value = true }
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) return
+  form.value.channelId = id
+  extraGroupId.value = ''
+}
+async function save() { saving.value = true; try { const connection = connections.value.find(value => value.id === form.value.connectionId); form.value.platform = connection?.protocol || connection?.platform || form.value.platform; form.value.selfId = connection?.userId || connection?.selfId || form.value.selfId; await api.saveBinding(form.value); toast.success('定时推送目标已保存'); open.value = false; await load() } catch (cause) { toast.error(errorText(cause, '保存定时推送目标失败')) } finally { saving.value = false } }
 async function toggle(value: GroupBinding) { toggling.value = value.id; try { await api.saveBinding({ ...value, enabled: !value.enabled }); toast.success(value.enabled ? '定时推送已停用' : '定时推送已启用'); await load() } catch (cause) { toast.error(errorText(cause, '更新定时推送状态失败')) } finally { toggling.value = '' } }
 function remove(value: GroupBinding) { modal.confirm({ title: '删除定时推送目标', content: '删除后定时采集任务不再主动推送到此群。即时链接回复不受影响。', onConfirm: async () => { await api.deleteBinding(value.id); toast.success('定时推送目标已删除'); await load() } }) }
 onMounted(load)
@@ -72,8 +94,8 @@ onMounted(load)
     <FaModal v-model="open" title="定时推送目标" class="binding-modal" :show-cancel-button="true" :confirm-button-loading="saving" @confirm="save">
       <div class="binding-form">
         <div class="field"><FaLabel>站点</FaLabel><FaSelect v-model="form.siteId" :options="sites.map(value => ({ label: value.name, value: value.id }))" placeholder="选择站点"/></div>
-        <div class="field"><FaLabel>连接</FaLabel><FaSelect v-model="form.connectionId" :options="connections.map(value => ({ label: value.name, value: value.id }))" placeholder="选择连接" @update:model-value="changeConnection"/></div>
-        <div class="field"><FaLabel>目标群</FaLabel><FaSelect v-model="form.channelId" :options="groupOptions.map(value => ({ label: value.name, value: value.id }))" placeholder="选择群"/></div>
+        <div class="field"><FaLabel>连接</FaLabel><FaSelect v-model="form.connectionId" :options="connectionSelectOptions" placeholder="选择连接" @update:model-value="changeConnection"/></div>
+        <div class="field"><FaLabel>目标群</FaLabel><FaSelect v-model="form.channelId" :options="groupSelectOptions" placeholder="选择群"/><FaInput v-model="extraGroupId" class="mt-2" placeholder="官方群 openid，回车添加" @keydown.enter.prevent="addExtraGroup"/><small class="text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留。</small></div>
         <div class="two-columns"><div class="field"><FaLabel>静默开始</FaLabel><FaInput v-model="form.quietStart" placeholder="23:00"/></div><div class="field"><FaLabel>静默结束</FaLabel><FaInput v-model="form.quietEnd" placeholder="07:00"/></div></div>
         <div class="two-columns"><div class="field"><FaLabel>冷却秒数</FaLabel><FaNumberField v-model="form.cooldownSeconds" :min="0" class="w-full"/></div><div class="field"><FaLabel>每小时上限</FaLabel><FaNumberField v-model="form.hourlyLimit" :min="0" class="w-full"/></div></div>
         <FaSwitch v-model="form.enabled">启用定时推送</FaSwitch>

@@ -4,3 +4,9 @@
 # no duplicates, every entry must be a root-reactor module. Local and branch
 # builds ignore this file and always build the full reactor.
 yudream-plugin-minecraft-activity-proof
+yudream-plugin-wallet
+yudream-plugin-authlib-injector
+yudream-plugin-mc-wiki
+yudream-plugin-yudream-skin
+yudream-plugin-mc-pet
+yudream-plugin-edu-verify

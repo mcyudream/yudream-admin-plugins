@@ -15,16 +15,50 @@ function query(filters: ActivityFilters) {
   return text ? `?${text}` : ''
 }
 
+type MessagingCatalog = {
+  connections: () => Promise<Option[]>
+  groups: (connectionId: string) => Promise<Option[]>
+}
+
+type AiCatalog = {
+  agents: () => Promise<AiAgent[]>
+  providers: () => Promise<AiProviderOption[]>
+}
+
+function messagingCatalog(sdk: YuDreamPluginSdk): MessagingCatalog {
+  const client = (sdk as YuDreamPluginSdk & { messaging?: MessagingCatalog }).messaging
+  if (!client) {
+    return {
+      connections: async () => [],
+      groups: async () => [],
+    }
+  }
+  return client
+}
+
+function aiCatalog(sdk: YuDreamPluginSdk): AiCatalog {
+  const client = (sdk as YuDreamPluginSdk & { ai?: AiCatalog }).ai
+  if (!client) {
+    return {
+      agents: async () => [],
+      providers: async () => [],
+    }
+  }
+  return client
+}
+
 export function createAiChatbotApi(sdk: YuDreamPluginSdk) {
+  const messaging = messagingCatalog(sdk)
+  const ai = aiCatalog(sdk)
   return {
     policies: () => sdk.http.get<GroupPolicy[]>('/admin/policies'),
     policy: (connectionId: string, channelId: string) => sdk.http.get<GroupPolicy>(`/admin/policy?connectionId=${encodeURIComponent(connectionId)}&channelId=${encodeURIComponent(channelId)}`),
     save: (policy: GroupPolicy) => sdk.http.request<GroupPolicy>('/admin/policy', { method: 'PUT', data: policy }),
     saveBatch: (connectionIds: string[], channelIds: string[], policy: GroupPolicy) => sdk.http.request<GroupPolicy[]>('/admin/policies/batch', { method: 'PUT', data: { connectionIds, channelIds, policy } }),
-    connections: () => sdk.http.get<Option[]>('/admin/options/connections'),
-    groups: (connectionId: string) => sdk.http.get<Option[]>(`/admin/options/groups?connectionId=${encodeURIComponent(connectionId)}`),
-    agents: () => sdk.http.get<AiAgent[]>('/admin/options/agents'),
-    aiProviders: () => sdk.http.get<AiProviderOption[]>('/admin/options/ai-providers'),
+    connections: () => messaging.connections(),
+    groups: (connectionId: string) => connectionId ? messaging.groups(connectionId) : Promise.resolve([]),
+    agents: () => ai.agents(),
+    aiProviders: () => ai.providers(),
     memoryProfiles: (page: number, size: number) => sdk.http.get<MemoryProfilePage>(`/admin/memory-profiles?page=${page}&size=${size}`),
     memoryProfile: (id: string) => sdk.http.get<MemoryProfile>('/admin/memory-profile?id=' + encodeURIComponent(id)),
     saveMemoryProfile: (profile: MemoryProfileUpdate) => sdk.http.request<MemoryProfile>('/admin/memory-profile', { method: 'PUT', data: profile }),

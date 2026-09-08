@@ -525,7 +525,12 @@ public final class WebCardApplicationService implements AutoCloseable {
     private ParseRules requireRules(String siteId) { return rules(siteId).orElseThrow(() -> new IllegalArgumentException("站点解析规则未配置")); }
     private Template requireTemplate(String id) { if (id == null || id.isBlank()) throw new IllegalArgumentException("模板未配置"); return repository.find(TEMPLATES, id, Template.class).orElseThrow(() -> new IllegalArgumentException("模板不存在")); }
     private TemplateVersion requireVersion(String id) { return repository.find(VERSIONS, id, TemplateVersion.class).orElseThrow(() -> new IllegalArgumentException("模板版本不存在")); }
-    private void requireConnectionGroup(String connectionId, String channelId) { boolean connection = messaging.connections().stream().anyMatch(item -> item.id().equals(connectionId)); boolean group = connection && messaging.groups(connectionId).stream().anyMatch(item -> item.id().equals(channelId)); if (!group) throw new IllegalArgumentException("请选择有效的连接和群"); }
+    private void requireConnectionGroup(String connectionId, String channelId) {
+        boolean connection = messaging.connections().stream().anyMatch(item -> item.id().equals(connectionId));
+        if (!connection || channelId == null || channelId.isBlank()) {
+            throw new IllegalArgumentException("请选择有效的连接和群");
+        }
+    }
     private boolean allowedNow(GroupBinding binding) {
         long now = System.currentTimeMillis(); if (binding.cooldownSeconds() > 0 && now - binding.lastDeliveryAt() < binding.cooldownSeconds() * 1000L) return false;
         if (binding.hourlyLimit() > 0) {

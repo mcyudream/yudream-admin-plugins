@@ -1,7 +1,38 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AgentProposal, AgentSession, CardTemplate, CrawlJob, DeliveryRecord, GroupBinding, Option, PageResult, ParseRules, Site, SiteRouteRule, TemplateDraftPreviewRequest, TemplateDraftPreviewResult, TemplateVersion, WorkspacePlan } from '../types'
+
+type MessagingCatalog = {
+  connections: () => Promise<Option[]>
+  groups: (connectionId: string) => Promise<Option[]>
+}
+
+type AiCatalog = {
+  agents: () => Promise<Array<{ code: string, name: string, description?: string }>>
+}
+
+function messagingCatalog(sdk: YuDreamPluginSdk): MessagingCatalog {
+  const client = (sdk as YuDreamPluginSdk & { messaging?: MessagingCatalog }).messaging
+  if (!client) {
+    return {
+      connections: async () => [],
+      groups: async () => [],
+    }
+  }
+  return client
+}
+
+function aiCatalog(sdk: YuDreamPluginSdk): AiCatalog {
+  const client = (sdk as YuDreamPluginSdk & { ai?: AiCatalog }).ai
+  if (!client) {
+    return { agents: async () => [] }
+  }
+  return client
+}
+
 export function createWebCardApi(sdk: YuDreamPluginSdk) {
   const q = (page = 1, size = 10) => `?page=${page}&size=${size}`
+  const messaging = messagingCatalog(sdk)
+  const ai = aiCatalog(sdk)
   return {
     sites: (page=1,size=10)=>sdk.http.get<PageResult<Site>>(`/admin/sites${q(page,size)}`),
     site: (id:string)=>sdk.http.get<{site:Site;headers:Record<string,string>}>(`/admin/sites/${encodeURIComponent(id)}`),
@@ -46,8 +77,11 @@ export function createWebCardApi(sdk: YuDreamPluginSdk) {
     updateProposal: (id:string,plan:WorkspacePlan)=>sdk.http.request<AgentProposal>(`/admin/agent-proposals/${encodeURIComponent(id)}`,{method:'PUT',data:{plan}}),
     applyProposal: (id:string)=>sdk.http.request<TemplateVersion>(`/admin/agent-proposals/${encodeURIComponent(id)}/apply`,{method:'POST'}),
     rejectProposal: (id:string)=>sdk.http.request<AgentProposal>(`/admin/agent-proposals/${encodeURIComponent(id)}/reject`,{method:'POST'}),
-    connections: ()=>sdk.http.get<Option[]>('/admin/options/connections'),
-    groups: (connectionId:string)=>sdk.http.get<Option[]>(`/admin/options/groups?connectionId=${encodeURIComponent(connectionId)}`),
-    agents: ()=>sdk.http.get<Option[]>('/admin/options/ai-agents'),
+    connections: ()=>messaging.connections(),
+    groups: (connectionId:string)=>connectionId ? messaging.groups(connectionId) : Promise.resolve([]),
+    agents: async ()=>{
+      const agents = await ai.agents()
+      return agents.map(item => ({ id: item.code, name: item.name }))
+    },
   }
 }

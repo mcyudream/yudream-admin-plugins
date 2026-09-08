@@ -21,9 +21,7 @@ public class QqbotAutomationHttpFacade {
     public PluginHttpResponse policy(PluginHttpRequest request) { return PluginHttpResponse.ok(policies.get(query(request, "connectionId"), query(request, "channelId"))); }
     public PluginHttpResponse save(PluginHttpRequest request) {
         AutomationPolicy policy = JsonSupport.read(request.body(), AutomationPolicy.class);
-        boolean connectionKnown = framework.messaging().connections().stream().anyMatch(item -> item.id().equals(policy.connectionId()));
-        boolean groupKnown = connectionKnown && framework.messaging().groups(policy.connectionId()).stream().anyMatch(item -> item.id().equals(policy.channelId()));
-        if (!groupKnown) throw new IllegalArgumentException("请选择当前连接中的有效群聊");
+        requireKnownGroup(policy.connectionId(), policy.channelId());
         return PluginHttpResponse.ok(policies.save(policy));
     }
     public PluginHttpResponse defaults(PluginHttpRequest request) {
@@ -76,13 +74,11 @@ public class QqbotAutomationHttpFacade {
     private void requireKnownConnection(String connectionId) {
         if (connectionId == null || connectionId.isBlank()) throw new IllegalArgumentException("connectionId cannot be blank");
         boolean known = framework.messaging().connections().stream().anyMatch(item -> connectionId.equals(item.id()));
-        if (!known) throw new IllegalArgumentException("Select a valid messaging connection");
+        if (!known) throw new IllegalArgumentException("请选择有效的消息连接");
     }
     private void requireKnownGroup(String connectionId, String channelId) {
         requireKnownConnection(connectionId);
-        if (channelId == null || channelId.isBlank()) throw new IllegalArgumentException("channelId cannot be blank");
-        boolean known = framework.messaging().groups(connectionId).stream().anyMatch(item -> channelId.equals(item.id()));
-        if (!known) throw new IllegalArgumentException("Select a valid group in the selected connection");
+        if (channelId == null || channelId.isBlank()) throw new IllegalArgumentException("请填写群 ID");
     }
     private String pathSegment(String path, int index) {
         String[] segments = (path == null ? "" : path).replaceFirst("^/+", "").split("/");

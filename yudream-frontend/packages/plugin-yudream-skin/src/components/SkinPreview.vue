@@ -126,16 +126,17 @@ const animationLabel = computed(() => animations[animationIndex.value].label)
 const animation = computed(() => animations[animationIndex.value].create())
 const hasPreview = computed(() => !!props.skin || !!props.cape)
 const viewRotation = computed(() => {
+  // skinview3d 默认相机看向模型正面：rotation.y=0 是正面，PI 是背面（实测验证）
   if (props.view === 'back') {
-    return 0
+    return Math.PI
   }
   if (props.view === 'left') {
-    return -Math.PI / 2
-  }
-  if (props.view === 'right') {
     return Math.PI / 2
   }
-  return Math.PI
+  if (props.view === 'right') {
+    return -Math.PI / 2
+  }
+  return 0
 })
 
 onMounted(() => {

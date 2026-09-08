@@ -750,7 +750,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     projectForm.minCheckInIntervalMinutes = project.minCheckInIntervalMinutes
     projectForm.allowedCheckInTypes = [...project.allowedCheckInTypes]
     projectForm.minecraftPolicy = { ...project.minecraftPolicy }
-    projectForm.notificationConnectionId = project.notificationConnectionId ?? null
+    projectForm.notificationConnectionId = project.notificationConnectionId == null ? null : String(project.notificationConnectionId)
     projectForm.notificationChannelId = project.notificationChannelId || ''
     projectForm.enabled = project.enabled
     void resolveUsers([...project.managerUserIds, ...project.memberUserIds])

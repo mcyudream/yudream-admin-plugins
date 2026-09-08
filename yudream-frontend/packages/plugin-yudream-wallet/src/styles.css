@@ -251,11 +251,12 @@
 
 .wallet-dashboard-card__body {
   display: grid;
-  flex: 1;
+  flex: 1 1 0;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
   min-width: 0;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .wallet-dashboard-card__main {
@@ -332,12 +333,14 @@
 
 .wallet-dashboard-card__actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  padding-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-1);
 }
 
 @media (max-width: 1180px) {

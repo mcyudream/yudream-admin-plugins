@@ -1,6 +1,8 @@
 export interface Option {
   id: string
   name: string
+  platform?: string | null
+  protocol?: string | null
 }
 
 export interface AiModelOption {

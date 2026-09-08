@@ -2,7 +2,7 @@ export type AccessMode = 'PUBLIC_HTTP' | 'CUSTOM_HEADERS'
 export type SourceType = 'HTML' | 'JSON' | 'RSS' | 'SITEMAP'
 export type TemplateMode = 'STRUCTURED' | 'ADVANCED'
 export interface PageResult<T> { records: T[]; total: number }
-export interface Option { id: string; name: string; platform?: string; selfId?: string }
+export interface Option { id: string; name: string; platform?: string | null; selfId?: string | null; protocol?: string | null; userId?: string | null }
 export interface Site { id: string; name: string; enabled: boolean; hosts: string[]; accessMode: AccessMode; headerNames: string[]; secretRef?: string; responseType: SourceType; redirectHosts: string[]; defaultTemplateId?: string; createdAt: number; updatedAt: number }
 export interface FieldRule { name: string; expression: string; attribute: string; type: string; required: boolean }
 export interface ParseRules { siteId: string; detailType: SourceType; fields: FieldRule[]; listExpression: string; listLinkAttribute: string; jsonItemsPath: string; canonicalField: string; contentKeyField: string; detailUrlPattern: string }

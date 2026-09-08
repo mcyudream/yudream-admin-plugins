@@ -5,8 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.Optional;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /** 图标支持：按物品点查共享渲染资产并缓存 data URI；发布版本变化时缓存失效，渲染资产更新后未命中项自愈。 */
@@ -82,5 +87,20 @@ class IconSupportTest {
         // 管理端一键更新渲染资产后，同一版本内未命中项应自愈出图（无负缓存）
         api.renders.put("minecraft:oak_log", new byte[] { 7, 7 });
         assertNotNull(icons.dataUri("minecraft:oak_log"));
+    }
+
+    @Test
+    void compactPngShrinksLargeIconsForTemplateEmbedding() throws Exception {
+        BufferedImage image = new BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.RED);
+        graphics.fillRect(0, 0, 256, 256);
+        graphics.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(image, "png", out));
+        byte[] source = out.toByteArray();
+        byte[] compacted = IconSupport.compactPng(source);
+        assertTrue(compacted.length > 0);
+        assertTrue(compacted.length < source.length);
     }
 }

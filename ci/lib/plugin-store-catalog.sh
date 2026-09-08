@@ -327,6 +327,7 @@ plugin_store_write_catalog() {
     plugin_main=$(plugin_store_jar_yaml_value main "$jar_path")
     display_name=$(plugin_store_jar_yaml_value displayName "$jar_path")
     description=$(plugin_store_jar_yaml_value description "$jar_path")
+    plugin_icon=$(plugin_store_jar_yaml_value icon "$jar_path")
     [ -n "$plugin_code" ] || plugin_store_fail "JAR plugin.yml name is required: $jar_path" || return 1
     [ -n "$plugin_version" ] || plugin_store_fail "JAR plugin.yml version is required: $jar_path" || return 1
     [ -n "$plugin_main" ] || plugin_store_fail "JAR plugin.yml main is required: $jar_path" || return 1
@@ -334,6 +335,9 @@ plugin_store_write_catalog() {
     # releaseVersion and Maven coordinates always use this plugin.yml version.
 
     icon_path=
+    if [ -n "$plugin_icon" ] && [[ "$plugin_icon" == i-* || "$plugin_icon" == *:* ]]; then
+      icon_path=$plugin_icon
+    fi
     license_json=
     source_json=
     release_notes_json=
@@ -368,6 +372,13 @@ plugin_store_write_catalog() {
       done <<EOF
 $(plugin_store_store_json_metadata "$store_file" | tr -d '\r')
 EOF
+    fi
+    if [ -z "$icon_path" ] && [ -n "$plugin_icon" ]; then
+      if [[ "$plugin_icon" == i-* || "$plugin_icon" == *:* ]]; then
+        icon_path=$plugin_icon
+      else
+        icon_path=$(plugin_store_copy_resource "$module_dir" "$output_dir" "$plugin_code" "$plugin_icon" icon "$resource_records") || return 1
+      fi
     fi
 
     artifact_id=$(basename "$module_dir")

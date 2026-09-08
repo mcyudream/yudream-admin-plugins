@@ -33,8 +33,9 @@ export interface ProjectMinecraftServerOption {
 export interface ProjectNotificationConnection {
   id: string
   name: string
-  platform: string
-  userId: string
+  platform?: string | null
+  userId?: string | null
+  protocol?: string | null
 }
 
 export interface ProjectStatusOption {
@@ -65,7 +66,7 @@ export interface ProjectProgressProject {
   minCheckInIntervalMinutes: number
   allowedCheckInTypes: string[]
   minecraftPolicy: ProjectMinecraftPolicy
-  notificationConnectionId?: number | null
+  notificationConnectionId?: string | null
   notificationChannelId: string
   enabled: boolean
   createdAt: number
@@ -179,7 +180,7 @@ export interface ProjectForm {
   minCheckInIntervalMinutes: number
   allowedCheckInTypes: string[]
   minecraftPolicy: ProjectMinecraftPolicy
-  notificationConnectionId?: number | null
+  notificationConnectionId?: string | null
   notificationChannelId: string
   enabled: boolean
 }

@@ -9,8 +9,6 @@ import type {
   ActivityProofSettings,
   ActivityProofStatus,
   ActivityProofTemplate,
-  ActivityQqConnection,
-  ActivityQqGroup,
   ActivityQuizCategoryOption,
   ActivityQuizConfig,
   ActivityQuizView,
@@ -23,6 +21,22 @@ import type {
   UserActivity,
 } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
+
+type UsersCatalog = {
+  search: (query?: { keyword?: string, page?: number, size?: number }) => Promise<ActivityUserOption[]>
+  departments: (query?: { keyword?: string, flatten?: boolean }) => Promise<ActivityDeptOption[]>
+}
+
+function usersCatalog(sdk: YuDreamPluginSdk): UsersCatalog {
+  const client = (sdk as YuDreamPluginSdk & { users?: UsersCatalog }).users
+  if (!client) {
+    return {
+      search: async () => [],
+      departments: async () => [],
+    }
+  }
+  return client
+}
 
 export interface ActivityQuery {
   keyword?: string
@@ -82,6 +96,7 @@ export interface ActivityQuizConfigPayload {
 }
 
 export function createActivityProofApi(sdk: YuDreamPluginSdk) {
+  const users = usersCatalog(sdk)
   function query(params: Record<string, string | number | boolean | undefined>) {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([key, value]) => {
@@ -100,13 +115,20 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     saveSettings: (data: Record<string, unknown>) => sdk.http.request<ActivityProofSettings>('/admin/settings', { method: 'PUT', data }),
     templates: (keyword = '', page = 1, size = 200) => sdk.http.get<ActivityProofTemplate[]>(`/admin/templates${query({ keyword, page, size })}`),
     selectTemplate: (templateId: string) => sdk.http.request<ActivityProofSettings>('/admin/template', { method: 'PUT', data: { templateId } }),
-    departments: (keyword = '') => sdk.http.get<ActivityDeptOption[]>(`/admin/departments${query({ keyword })}`),
+    departments: (keyword = '') => users.departments({ keyword, flatten: true }),
     forms: (keyword = '', page = 1, size = 200) => sdk.http.get<ActivityFormOption[]>(`/admin/forms${query({ keyword, page, size })}`),
-    userOptions: (keyword = '', page = 1, size = 20) => sdk.http.get<PageResult<ActivityUserOption>>(`/admin/user-options${query({ keyword, page, size })}`),
+    userOptions: async (keyword = '', page = 1, size = 20) => {
+      const safeSize = Math.min(Math.max(size, 1), 50)
+      const probe = await users.search({ keyword, page, size: safeSize + 1 })
+      const hasMore = probe.length > safeSize
+      const records = probe.slice(0, safeSize)
+      return {
+        records,
+        total: hasMore ? page * safeSize + 1 : (page - 1) * safeSize + records.length,
+      }
+    },
     templateMembers: (templateId: string) => sdk.http.get<ActivityTemplateMembers>(`/admin/template-members${query({ templateId })}`),
     saveTemplateMembers: (data: { templateId: string, userIds: string[] }) => sdk.http.request<ActivityTemplateMembers>('/admin/template-members', { method: 'PUT', data }),
-    qqConnections: () => sdk.http.get<ActivityQqConnection[]>('/admin/qq/connections'),
-    qqGroups: (connectionId: string) => sdk.http.get<ActivityQqGroup[]>(`/admin/qq/groups${query({ connectionId })}`),
     activities: (params: ActivityQuery = {}) => sdk.http.get<PageResult<Activity>>(`/admin/activities${query({ keyword: params.keyword, status: params.status, page: params.page ?? 1, size: params.size ?? 10 })}`),
     activity: (id: string) => sdk.http.get<Activity>(`/admin/activities/${encodeURIComponent(id)}`),
     createActivity: (data: ActivitySavePayload) => sdk.http.post<Activity>('/admin/activities', data),

@@ -456,11 +456,13 @@
 
 .activity-dashboard-card__actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   min-width: 0;
-  padding-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-1);
 }
 
 @media (max-width: 340px) {

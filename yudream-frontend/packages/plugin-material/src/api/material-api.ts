@@ -1,6 +1,18 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { BatchResult, CategoryView, CoverView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 
+type UsersCatalog = {
+  departments: (query?: { keyword?: string, flatten?: boolean }) => Promise<DeptOption[]>
+}
+
+function usersCatalog(sdk: YuDreamPluginSdk): UsersCatalog {
+  const client = (sdk as YuDreamPluginSdk & { users?: UsersCatalog }).users
+  if (!client) {
+    return { departments: async () => [] }
+  }
+  return client
+}
+
 function query(params: Record<string, string | number | undefined>) {
   const value = new URLSearchParams()
   for (const [key, item] of Object.entries(params)) {
@@ -26,6 +38,7 @@ function records<T>(promise: Promise<unknown>): Promise<T[]> {
 }
 
 export function createMaterialApi(sdk: YuDreamPluginSdk) {
+  const users = usersCatalog(sdk)
   return {
     // ---------- 用户端（/me/**，列表默认返回全部可见物料，scope=mine 只列自己的） ----------
     myMaterials: (keyword = '', type = '', categoryId = '', status = '', tag = '', page = 1, size = 20, scope = '') =>
@@ -86,7 +99,7 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
     adminBatchDelete: (ids: string[]) =>
       sdk.http.post<BatchResult>('/admin/materials/batch/delete', { ids }),
     /** 全量部门树拍平选项（label 带父级路径），供管理端可见范围选择器。 */
-    adminDepartments: (keyword = '') => records<DeptOption>(sdk.http.get(`/admin/departments${query({ keyword })}`)),
+    adminDepartments: (keyword = '') => users.departments({ keyword, flatten: true }),
     adminSetStatus: (materialId: string, status: 'ACTIVE' | 'ARCHIVED') =>
       sdk.http.request<MaterialDetail>(`/admin/materials/${id(materialId)}/status`, { method: 'PUT', data: { status } }),
     adminDelete: (materialId: string) =>

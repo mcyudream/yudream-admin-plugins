@@ -39,10 +39,27 @@ const connections = ref<Option[]>([])
 const groups = ref<Option[]>([])
 const testConnectionId = ref('')
 const testChannelId = ref('')
+const extraGroupId = ref('')
 const testUrl = ref('')
 
-const connectionOptions = computed(() => connections.value.map(item => ({ label: item.name, value: item.id })))
-const groupOptions = computed(() => groups.value.map(item => ({ label: item.name, value: item.id })))
+function protocolLabel(item: Option) {
+  if (item.protocol === 'official') {
+    return '官方 QQ'
+  }
+  if (item.protocol === 'milky') {
+    return 'Milky'
+  }
+  return item.platform || '未知平台'
+}
+const connectionOptions = computed(() => connections.value.map(item => ({ label: `${item.name}（${protocolLabel(item)}）`, value: item.id })))
+const groupOptions = computed(() => {
+  const known = groups.value.map(item => ({ label: item.name || item.id, value: item.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  const extras = testChannelId.value && !knownIds.has(testChannelId.value)
+    ? [{ label: testChannelId.value, value: testChannelId.value }]
+    : []
+  return [...known, ...extras]
+})
 
 const columns: TableColumn<MediaJob>[] = [
   { accessorKey: 'sourceUrl', header: '媒体链接', minWidth: 280, fixed: 'left' },
@@ -142,6 +159,7 @@ async function load() {
 async function openTest() {
   testConnectionId.value = ''
   testChannelId.value = ''
+  extraGroupId.value = ''
   testUrl.value = ''
   groups.value = []
   testOpen.value = true
@@ -156,6 +174,7 @@ async function openTest() {
 
 async function loadTestGroups() {
   testChannelId.value = ''
+  extraGroupId.value = ''
   groups.value = []
   if (!testConnectionId.value) return
   try {
@@ -170,8 +189,16 @@ function closeTest() {
   testOpen.value = false
   testConnectionId.value = ''
   testChannelId.value = ''
+  extraGroupId.value = ''
   testUrl.value = ''
   groups.value = []
+}
+
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) return
+  testChannelId.value = id
+  extraGroupId.value = ''
 }
 
 async function monitorTest(id: string) {
@@ -333,6 +360,8 @@ onMounted(load)
         <div class="space-y-2">
           <label class="text-sm font-medium">群聊</label>
           <FaSelect v-model="testChannelId" class="w-full" placeholder="选择群聊" :options="groupOptions" :disabled="!testConnectionId || submittingTest" />
+          <FaInput v-model="extraGroupId" class="w-full" placeholder="官方群 openid，回车添加" :disabled="!testConnectionId || submittingTest" @keydown.enter.prevent="addExtraGroup" />
+          <p class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；也可粘贴群 openid。</p>
         </div>
         <div class="space-y-2">
           <label class="text-sm font-medium">媒体链接</label>

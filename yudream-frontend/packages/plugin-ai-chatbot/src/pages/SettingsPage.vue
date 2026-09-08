@@ -17,8 +17,23 @@ const connections = ref<Option[]>([]), groups = ref<Option[]>([])
 const agents = ref<AiAgent[]>([])
 const aiProviders = ref<AiProviderOption[]>([])
 const connectionIds = ref<string[]>([]), channelIds = ref<string[]>([])
-const connectionOptions = computed(() => connections.value.map(item => ({ label: item.name, value: item.id })))
-const groupOptions = computed(() => groups.value.map(item => ({ label: `${item.name}（${item.id}）`, value: item.id })))
+const extraGroupId = ref('')
+function protocolLabel(item: Option) {
+  if (item.protocol === 'official') {
+    return '官方 QQ'
+  }
+  if (item.protocol === 'milky') {
+    return 'Milky'
+  }
+  return item.platform || '未知平台'
+}
+const connectionOptions = computed(() => connections.value.map(item => ({ label: `${item.name}（${protocolLabel(item)}）`, value: item.id })))
+const groupOptions = computed(() => {
+  const known = groups.value.map(item => ({ label: `${item.name}（${item.id}）`, value: item.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  const extras = channelIds.value.filter(id => id && !knownIds.has(id)).map(id => ({ label: id, value: id }))
+  return [...known, ...extras]
+})
 const agentOptions = computed(() => toGroupAgentOptions(agents.value))
 const profileProviderOptions = computed(() => [{ label: '跟随对话模型/宿主默认', value: '' }, ...aiProviders.value.map(provider => ({ label: provider.name || provider.code, value: provider.code }))])
 const profileModelOptions = computed(() => {
@@ -30,7 +45,13 @@ const form = reactive<PolicyForm>({ connectionId: '', channelId: '', enabled: tr
 function apply(policy: GroupPolicy) { Object.assign(form, policy, { quietHoursStart: policy.quietHoursStart ?? '', quietHoursEnd: policy.quietHoursEnd ?? '' }) }
 async function loadPolicies() { loading.value = true; try { policies.value = await api.policies() } catch (error) { message.value = error instanceof Error ? error.message : '加载配置失败' } finally { loading.value = false } }
 async function loadPolicy() { if (connectionIds.value.length !== 1 || channelIds.value.length !== 1) { message.value = '读取已有配置时请选择一个连接和一个群聊'; return } loading.value = true; try { apply(await api.policy(connectionIds.value[0], channelIds.value[0])); message.value = '' } catch (error) { message.value = error instanceof Error ? error.message : '读取群配置失败' } finally { loading.value = false } }
-async function loadGroups() { channelIds.value = []; groups.value = connectionIds.value.length === 1 ? await api.groups(connectionIds.value[0]) : [] }
+async function loadGroups() { channelIds.value = []; extraGroupId.value = ''; groups.value = connectionIds.value.length === 1 ? await api.groups(connectionIds.value[0]) : [] }
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) return
+  if (!channelIds.value.includes(id)) channelIds.value = [...channelIds.value, id]
+  extraGroupId.value = ''
+}
 async function loadOptions() { const [connectionValues, agentValues, providerValues] = await Promise.all([api.connections(), api.agents(), api.aiProviders()]); connections.value = connectionValues; agents.value = agentValues; aiProviders.value = providerValues; form.agentCode = resolveGroupAgentCode(agentOptions.value, form.agentCode) }
 async function save() { saving.value = true; message.value = ''; try { const policy = { ...form, quietHoursStart: form.quietHoursStart || null, quietHoursEnd: form.quietHoursEnd || null }; if (connectionIds.value.length && channelIds.value.length) await api.saveBatch(connectionIds.value, channelIds.value, policy); else apply(await api.save(policy)); await loadPolicies(); message.value = '已保存，下一条群消息立即按新策略处理。' } catch (error) { message.value = error instanceof Error ? error.message : '保存失败' } finally { saving.value = false } }
 onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
@@ -46,7 +67,7 @@ onMounted(async () => { await Promise.all([loadPolicies(), loadOptions()]) })
         <p v-if="message" class="rounded border px-3 py-2 text-sm">{{ message }}</p>
         <section class="grid gap-3 rounded border p-4">
           <h3>目标群聊</h3>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2"><label class="grid gap-2">机器人连接（可多选）<FaSelect v-model="connectionIds" multiple :options="connectionOptions" placeholder="选择连接" class="w-full" @change="loadGroups" /></label><label class="grid gap-2">群聊（可多选）<FaSelect v-model="channelIds" multiple :options="groupOptions" placeholder="选择群聊" class="w-full" :disabled="connectionIds.length !== 1" /></label></div>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2"><label class="grid gap-2">机器人连接（可多选）<FaSelect v-model="connectionIds" multiple :options="connectionOptions" placeholder="选择连接" class="w-full" @change="loadGroups" /></label><label class="grid gap-2">群聊（可多选）<FaSelect v-model="channelIds" multiple :options="groupOptions" placeholder="选择群聊" class="w-full" :disabled="connectionIds.length !== 1" /><FaInput v-model="extraGroupId" class="w-full" placeholder="官方群 openid，回车添加" :disabled="connectionIds.length !== 1" @keydown.enter.prevent="addExtraGroup" /><span class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</span></label></div>
           <div class="flex flex-wrap gap-2"><FaButton type="button" variant="outline" :loading="loading" @click="loadPolicy">读取此群配置</FaButton><FaSwitch v-model="form.enabled">启用机器人</FaSwitch></div>
         </section>
         <section class="grid gap-3 rounded border p-4">

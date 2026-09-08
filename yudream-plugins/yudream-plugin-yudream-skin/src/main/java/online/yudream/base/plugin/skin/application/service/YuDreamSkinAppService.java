@@ -24,6 +24,7 @@ import online.yudream.base.plugin.skin.domain.valobj.SkinSiteSettings;
 import online.yudream.base.plugin.skin.infrastructure.repository.YuDreamSkinRepository;
 import online.yudream.base.plugin.skin.infrastructure.service.YuDreamSkinMigrationService;
 import online.yudream.base.plugin.skin.infrastructure.support.HashSupport;
+import online.yudream.base.plugin.skin.api.PluginSkinClosetItem;
 import online.yudream.base.plugin.skin.api.PluginSkinProfile;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.skin.api.PluginSkinTexture;
@@ -434,6 +435,25 @@ public class YuDreamSkinAppService implements PluginSkinService {
                 .map(this::findProfileByName)
                 .flatMap(Optional::stream)
                 .toList();
+    }
+
+    @Override
+    public List<PluginSkinClosetItem> findClosetByOwner(String ownerId) {
+        if (!hasText(ownerId)) {
+            return List.of();
+        }
+        return repository.findAllClosetByUser(ownerId.trim()).stream()
+                .map(item -> new PluginSkinClosetItem(item.id(), item.textureHash(), item.itemName(), item.createdAt()))
+                .toList();
+    }
+
+    @Override
+    public PluginSkinClosetItem uploadClosetSkin(String ownerId, String name, String model, String base64) {
+        String userId = requireText(ownerId, "用户不能为空");
+        // type 置空让 SkinTextureType.from 按 model（slim/classic）解析
+        SkinTexture texture = uploadOwnTexture(
+                new TextureUploadCmd(name, null, model, "image/png", base64, false), userId, null);
+        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis());
     }
 
     @Override

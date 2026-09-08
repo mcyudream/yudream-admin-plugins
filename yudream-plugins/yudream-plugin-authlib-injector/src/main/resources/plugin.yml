@@ -1,7 +1,8 @@
 name: authlib-injector
-displayName: 外置登录认证
-description: 提供兼容 authlib-injector 与 Yggdrasil 协议的外置登录认证服务，并使用系统用户与皮肤角色资料。
+displayName: Minecraft 外置认证
+description: 为 Minecraft 客户端和服务端提供外置账号认证与角色资料服务。
+icon: i-ri:shield-keyhole-line
 main: online.yudream.base.plugin.authlib.bootstrap.AuthlibInjectorPlugin
-version: 1.1.1
+version: 1.1.2
 depend:
   - yudream-skin

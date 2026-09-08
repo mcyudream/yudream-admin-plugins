@@ -1,6 +1,7 @@
 name: web-card
 displayName: 网站卡片
-description: 安全抓取和解析网站内容，按模板生成并投递群聊卡片，支持定时采集与运行记录。
+description: 抓取网站内容并生成可定时投递的群聊卡片。
+icon: i-ri:layout-4-line
 main: online.yudream.plugin.webcard.bootstrap.WebCardPlugin
 version: 1.1.2
 agents:

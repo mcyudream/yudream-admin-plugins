@@ -73,11 +73,12 @@
 
 .authlib-dashboard-card__body {
   display: grid;
-  flex: 1;
+  flex: 1 1 0;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .authlib-dashboard-card__desc {
@@ -111,11 +112,14 @@
 
 .authlib-dashboard-card__actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-1);
 }
 
 .authlib-dashboard-card__actions span {

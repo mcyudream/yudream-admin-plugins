@@ -14,9 +14,41 @@ import type {
 } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 
+type MessagingCatalog = {
+  connections: () => Promise<ProjectNotificationConnection[]>
+}
+
+type UsersCatalog = {
+  search: (query?: { keyword?: string, deptId?: string, page?: number, size?: number }) => Promise<ProjectUserOption[]>
+  resolve: (ids: string[]) => Promise<ProjectUserOption[]>
+  departments: (query?: { keyword?: string, flatten?: boolean }) => Promise<ProjectDeptOption[]>
+}
+
+function messagingCatalog(sdk: YuDreamPluginSdk): MessagingCatalog {
+  const client = (sdk as YuDreamPluginSdk & { messaging?: MessagingCatalog }).messaging
+  if (!client) {
+    return { connections: async () => [] }
+  }
+  return client
+}
+
+function usersCatalog(sdk: YuDreamPluginSdk): UsersCatalog {
+  const client = (sdk as YuDreamPluginSdk & { users?: UsersCatalog }).users
+  if (!client) {
+    return {
+      search: async () => [],
+      resolve: async () => [],
+      departments: async () => [],
+    }
+  }
+  return client
+}
+
 const PAGE_SIZE = 200
 
 export function createProjectProgressApi(sdk: YuDreamPluginSdk) {
+  const messaging = messagingCatalog(sdk)
+  const usersCatalogClient = usersCatalog(sdk)
   function query(params: Record<string, string | number | boolean | undefined | null>) {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([key, value]) => {
@@ -46,14 +78,23 @@ export function createProjectProgressApi(sdk: YuDreamPluginSdk) {
     projects: () => getAllPages<ProjectProgressProject>('/projects'),
     personalStats: () => sdk.http.get<ProjectPersonalStats>('/me/statistics'),
     projectMemberStats: (projectId: string) => getAllPages<ProjectMemberStats>(`/admin/projects/${encodeURIComponent(projectId)}/member-statistics`),
-    users: (keyword?: string, deptId?: string) => getAllPages<ProjectUserOption>('/admin/users', { keyword, deptId }),
-    usersPage: (keyword?: string, deptId?: string, page = 1, size = 10) => sdk.http.get<ProjectUserOption[]>(`/admin/users${query({ keyword, deptId, page, size })}`),
-    resolveUsers: (ids: string[]) => ids.length
-      ? sdk.http.get<ProjectUserOption[]>(`/users/resolve${query({ ids: ids.join(',') })}`)
-      : Promise.resolve([]),
-    departments: (keyword?: string) => sdk.http.get<ProjectDeptOption[]>(`/admin/departments${query({ keyword })}`),
+    users: async (keyword?: string, deptId?: string) => {
+      const records: ProjectUserOption[] = []
+      let page = 1
+      while (true) {
+        const batch = await usersCatalogClient.search({ keyword, deptId, page, size: PAGE_SIZE })
+        records.push(...batch)
+        if (batch.length < PAGE_SIZE) {
+          return records
+        }
+        page += 1
+      }
+    },
+    usersPage: (keyword?: string, deptId?: string, page = 1, size = 10) => usersCatalogClient.search({ keyword, deptId, page, size }),
+    resolveUsers: (ids: string[]) => ids.length ? usersCatalogClient.resolve(ids) : Promise.resolve([]),
+    departments: (keyword?: string) => usersCatalogClient.departments({ keyword }),
     minecraftServers: (includeDisabled = false) => sdk.http.get<ProjectMinecraftServerOption[]>(`/admin/minecraft/servers${query({ includeDisabled })}`),
-    notificationConnections: () => sdk.http.get<ProjectNotificationConnection[]>('/admin/notification-connections'),
+    notificationConnections: () => messaging.connections(),
     createProject: (data: Record<string, unknown>) => sdk.http.post<ProjectProgressProject>('/admin/projects', data),
     updateProject: (id: string, data: Record<string, unknown>) => sdk.http.request<ProjectProgressProject>(`/admin/projects/${encodeURIComponent(id)}`, { method: 'PUT', data }),
     deleteProject: (id: string) => sdk.http.request(`/admin/projects/${encodeURIComponent(id)}`, { method: 'DELETE' }),

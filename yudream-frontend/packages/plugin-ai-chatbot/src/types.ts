@@ -1,5 +1,5 @@
 export interface GroupPolicy { connectionId: string; channelId: string; enabled: boolean; randomProbability: number; groupContextLimit: number; personalContextLimit: number; contextExpansionLimit: number; cooldownSeconds: number; hourlyReplyLimit: number; quietHoursStart: string | null; quietHoursEnd: string | null; systemPrompt: string; persona: string; randomToolCallingEnabled: boolean; longTermMemoryEnabled: boolean; semanticMemoryTopK: number; agentCode: string; providerCode?: string; modelCode?: string; profileProviderCode?: string; profileModelCode?: string; profileAnalysisMessageCount: number; profileAutoAnalysisIntervalMinutes: number; groupToolOpenAccess: boolean; mentionReplyInjection?: string }
-export interface Option { id: string; name: string }
+export interface Option { id: string; name: string; platform?: string | null; protocol?: string | null }
 export interface AiAgent { code: string; name: string; description: string }
 export interface AiModelOption { code: string; name: string }
 export interface AiProviderOption { code: string; name: string; models: AiModelOption[] }

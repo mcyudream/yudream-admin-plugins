@@ -6,6 +6,7 @@ import {
   FaCard,
   FaDrawer,
   FaIcon,
+  FaInput,
   FaPageHeader,
   FaPageMain,
   FaPagination,
@@ -52,10 +53,27 @@ const size = ref(10)
 const total = ref(0)
 const editorOpen = ref(false)
 const editorChannelId = ref('')
+const extraGroupId = ref('')
 const editorDraft = ref<AutomationPolicyOverride>(emptyOverride())
 
-const connectionOptions = computed(() => connections.value.map(item => ({ label: item.name, value: item.id })))
-const groupOptions = computed(() => groups.value.map(item => ({ label: item.name, value: item.id })))
+function protocolLabel(item: Option) {
+  if (item.protocol === 'official') {
+    return '官方 QQ'
+  }
+  if (item.protocol === 'milky') {
+    return 'Milky'
+  }
+  return item.platform || '未知平台'
+}
+const connectionOptions = computed(() => connections.value.map(item => ({ label: `${item.name}（${protocolLabel(item)}）`, value: item.id })))
+const groupOptions = computed(() => {
+  const known = groups.value.map(item => ({ label: item.name || item.id, value: item.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  const extras = [editorChannelId.value, ...overrides.value.map(item => item.channelId)]
+    .filter(id => id && !knownIds.has(id))
+    .map(id => ({ label: id, value: id }))
+  return [...known, ...extras]
+})
 const editorTitle = computed(() => editorChannelId.value ? `群级覆盖：${groupName(editorChannelId.value)}` : '新增群级覆盖')
 
 const columns: TableColumn<AutomationPolicyOverride>[] = [
@@ -146,8 +164,16 @@ async function saveDefault() {
 
 function openCreate() {
   editorChannelId.value = ''
+  extraGroupId.value = ''
   editorDraft.value = emptyOverride(connectionId.value)
   editorOpen.value = true
+}
+
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) return
+  editorChannelId.value = id
+  extraGroupId.value = ''
 }
 
 async function openEdit(row: AutomationPolicyOverride) {
@@ -166,6 +192,7 @@ async function openEdit(row: AutomationPolicyOverride) {
 function closeEditor() {
   editorOpen.value = false
   editorChannelId.value = ''
+  extraGroupId.value = ''
   editorDraft.value = emptyOverride(connectionId.value)
 }
 
@@ -374,6 +401,8 @@ onMounted(async () => {
         <section v-if="!editorChannelId" class="space-y-2">
           <label class="text-sm font-medium">群聊</label>
           <FaSelect v-model="editorChannelId" class="w-full" placeholder="选择需要单独配置的群聊" :options="groupOptions" />
+          <FaInput v-model="extraGroupId" class="w-full" placeholder="官方群 openid，回车添加" @keydown.enter.prevent="addExtraGroup" />
+          <p class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</p>
         </section>
         <section v-else class="border-b pb-4">
           <p class="text-sm text-muted-foreground">当前群聊</p>
