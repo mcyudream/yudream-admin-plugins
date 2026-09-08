@@ -51,7 +51,7 @@ class MediaJobServiceTest {
             int port = server.getAddress().getPort();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + port, false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
+            MediaJobService service = service(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "抖音分享文本 https://v.douyin.com/example 复制打开抖音"));
 
@@ -74,33 +74,48 @@ class MediaJobServiceTest {
     }
 
     @Test
-    void downloadsBilibiliShortLinksThroughTheDedicatedDockerEndpoint() throws Exception {
+    void downloadsBilibiliThroughProviderMetadataAndLocalCdnDownload() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
-        AtomicReference<String> requestUri = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
-        server.createContext("/api/bilibili/web/download", exchange -> {
-            requestUri.set(exchange.getRequestURI().toString());
+        AtomicReference<String> metadataUri = new AtomicReference<>();
+        server.createContext("/api/bilibili/web/fetch_one_video", exchange -> {
+            metadataUri.set(exchange.getRequestURI().toString());
+            writeJson(exchange, 200, "{\"code\":200,\"data\":{\"code\":0,\"data\":{\"cid\":40009337567}}}");
+        });
+        server.createContext("/cdn/video.mp4", exchange -> {
+            byte[] video = "bilibili-video-content".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "video/mp4");
-            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"bilibili_BV1kFKG6pEvU_40009337567.mp4\"");
-            exchange.sendResponseHeaders(200, 0);
+            exchange.sendResponseHeaders(200, video.length);
+            exchange.getResponseBody().write(video);
             exchange.close();
         });
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        String playUrlEndpointPrevious = System.getProperty("YUDREAM_QQBOT_BILIBILI_PLAYURL_ENDPOINT");
         try {
             server.start();
+            int port = server.getAddress().getPort();
+            server.createContext("/playurl", exchange -> writeJson(exchange, 200,
+                    "{\"code\":0,\"data\":{\"durl\":[{\"url\":\"http://localhost:" + port + "/cdn/video.mp4\"}]}}"));
+            System.setProperty("YUDREAM_QQBOT_BILIBILI_PLAYURL_ENDPOINT", "http://localhost:" + port + "/playurl");
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
-                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest));
+                    "http://localhost:" + port, false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents, framework(sentMessages, sentRequest), mediaSettings);
 
-            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://b23.tv/ypOBBNS"));
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://www.bilibili.com/video/BV1kFKG6pEvU"));
 
             await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
-            assertEquals("/api/bilibili/web/download?url=https%3A%2F%2Fb23.tv%2FypOBBNS", requestUri.get());
-            assertEquals("file:///media/bilibili_video/bilibili_BV1kFKG6pEvU_40009337567.mp4", sentRequest.get().content().content());
+            assertEquals("/api/bilibili/web/fetch_one_video?bv_id=BV1kFKG6pEvU", metadataUri.get());
+            assertEquals("file:///media/bilibili_video/bilibili_BV1kFKG6pEvU.mp4", sentRequest.get().content().content());
+            assertEquals("bilibili-video-content", Files.readString(mediaDirectory.resolve("bilibili_video/bilibili_BV1kFKG6pEvU.mp4")));
         } finally {
+            restoreProperty("YUDREAM_QQBOT_BILIBILI_PLAYURL_ENDPOINT", playUrlEndpointPrevious);
             server.stop(0);
+            deleteTree(mediaDirectory);
         }
     }
 
@@ -120,7 +135,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
+            MediaJobService service = service(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -156,7 +171,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages));
+            MediaJobService service = service(policies, documents, framework(sentMessages));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -177,15 +192,13 @@ class MediaJobServiceTest {
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         HttpServer server = douyinServer(200, "{\"data\":{\"comments\":[]}}");
         Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
-        String hostDirectoryPrevious = System.getProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY");
-        String containerDirectoryPrevious = System.getProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY");
         try {
-            System.setProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", mediaDirectory.toString());
-            System.setProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", "/milky-media");
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/milky-media");
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
+            MediaJobService service = service(policies, documents, framework(sentMessages, null, requests, forwardedPayload), mediaSettings);
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -195,8 +208,6 @@ class MediaJobServiceTest {
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.AUDIO, requests.getFirst().content().type());
             assertTrue(requests.getFirst().content().content().startsWith("file:///milky-media/douyin_audio/"));
         } finally {
-            restoreProperty("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", hostDirectoryPrevious);
-            restoreProperty("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", containerDirectoryPrevious);
             server.stop(0);
             deleteTree(mediaDirectory);
         }
@@ -205,7 +216,7 @@ class MediaJobServiceTest {
     @Test
     void pagesNewestJobsFirstAndClearsAllJobs() {
         InMemoryDocuments documents = new InMemoryDocuments();
-        MediaJobService service = new MediaJobService(new AutomationPolicyService(documents), documents, framework(new AtomicInteger()));
+        MediaJobService service = service(new AutomationPolicyService(documents), documents, framework(new AtomicInteger()));
         documents.save("media-job", "older", Map.of("id", "older", "createdAt", 100L));
         documents.save("media-job", "newest", Map.of("id", "newest", "createdAt", 300L));
         documents.save("media-job", "middle", Map.of("id", "middle", "createdAt", 200L));
@@ -228,7 +239,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", false, false,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
+            MediaJobService service = service(policies, documents, framework(sentMessages, null, requests, forwardedPayload));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/image-post"));
 
@@ -253,7 +264,7 @@ class MediaJobServiceTest {
             int port = server.getAddress().getPort();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + port + "/parse", false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+            MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -270,7 +281,7 @@ class MediaJobServiceTest {
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         policies.saveDefaults(new AutomationPolicy("connection-a", "", false, true, "http://localhost:8080/parse", false,
                 List.of(), List.of(), false, true, "", ""));
-        MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+        MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://example.test/not-media")));
@@ -288,7 +299,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort() + "/parse", false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+            MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -310,7 +321,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+            MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -342,7 +353,39 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(new AtomicInteger()));
+            MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals(2, attempts.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void retriesTransientDouyinRiskControlForbidden() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            if (attempts.incrementAndGet() == 1) {
+                writeJson(exchange, 200, "{\"code\":400,\"message\":\"HTTP状态错误: 403\"}");
+                return;
+            }
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, 200, "{\"data\":{\"comments\":[]}}"));
+        try {
+            server.start();
+            policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents, framework(new AtomicInteger()));
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-a", "group-a", "https://v.douyin.com/example"));
 
@@ -366,7 +409,7 @@ class MediaJobServiceTest {
             server.start();
             policies.saveDefaults(new AutomationPolicy("connection-a", "", true, true,
                     "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
-            MediaJobService service = new MediaJobService(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
+            MediaJobService service = service(policies, documents, framework(sentMessages, sentRequest, null, forwardedPayload));
             PluginEvent event = new PluginEvent("", "message_receive", "milky", "user-a", "group-a", "https://v.douyin.com/example",
                     "", "", Map.of(), "", null, "connection-a", "self-a", "message-a");
 
@@ -506,6 +549,15 @@ class MediaJobServiceTest {
                 });
     }
 
+    private MediaJobService service(AutomationPolicyService policies, InMemoryDocuments documents, FrameworkServices framework) {
+        return service(policies, documents, framework, new MediaStorageSettings(new InMemorySecrets()));
+    }
+
+    private MediaJobService service(AutomationPolicyService policies, InMemoryDocuments documents, FrameworkServices framework,
+                                    MediaStorageSettings mediaSettings) {
+        return new MediaJobService(policies, documents, framework, mediaSettings);
+    }
+
     private Map<String, Object> job(InMemoryDocuments documents, String id) {
         return documents.findById("media-job", id).orElseThrow();
     }
@@ -527,6 +579,14 @@ class MediaJobServiceTest {
         try (var paths = Files.walk(root)) {
             for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
         }
+    }
+
+    private static final class InMemorySecrets implements online.yudream.base.plugin.spi.system.secret.PluginSecretStore {
+        private final Map<String, byte[]> values = new HashMap<>();
+
+        @Override public void put(String key, byte[] secret) { values.put(key, secret); }
+        @Override public Optional<byte[]> get(String key) { return Optional.ofNullable(values.get(key)); }
+        @Override public boolean delete(String key) { return values.remove(key) != null; }
     }
 
     private static final class InMemoryDocuments implements PluginDocumentStore {

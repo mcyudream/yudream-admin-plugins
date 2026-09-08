@@ -29,6 +29,17 @@ export interface AutomationPolicy {
   failClosed: boolean
   providerCode: string
   modelCode: string
+  riskMonitorEnabled: boolean
+  riskBatchSize: number
+  riskAlertConfidence: number
+  riskAlertGroup: boolean
+  riskAlertAdmin: boolean
+  riskAlertAdminUserIds: string[]
+  riskMuteEnabled: boolean
+  riskMuteLowConfidence: number
+  riskMuteLowSeconds: number
+  riskMuteHighConfidence: number
+  riskMuteHighSeconds: number
 }
 
 export interface AutomationPolicyOverride {
@@ -44,6 +55,17 @@ export interface AutomationPolicyOverride {
   failClosed: boolean | null
   providerCode: string | null
   modelCode: string | null
+  riskMonitorEnabled: boolean | null
+  riskBatchSize: number | null
+  riskAlertConfidence: number | null
+  riskAlertGroup: boolean | null
+  riskAlertAdmin: boolean | null
+  riskAlertAdminUserIds: string[] | null
+  riskMuteEnabled: boolean | null
+  riskMuteLowConfidence: number | null
+  riskMuteLowSeconds: number | null
+  riskMuteHighConfidence: number | null
+  riskMuteHighSeconds: number | null
 }
 
 export interface MediaJob {
@@ -65,6 +87,18 @@ export interface MediaJobTestRequest {
   sourceUrl: string
 }
 
+export interface MediaStorageSettings {
+  hostDirectory: string | null
+  containerDirectory: string
+}
+
+export interface UserOption {
+  id: string
+  username: string
+  nickname: string
+  deptNames?: string[]
+}
+
 export interface PageResult<T> {
   records: T[]
   total: number
@@ -81,6 +115,17 @@ export const POLICY_OVERRIDE_FIELDS = [
   'failClosed',
   'providerCode',
   'modelCode',
+  'riskMonitorEnabled',
+  'riskBatchSize',
+  'riskAlertConfidence',
+  'riskAlertGroup',
+  'riskAlertAdmin',
+  'riskAlertAdminUserIds',
+  'riskMuteEnabled',
+  'riskMuteLowConfidence',
+  'riskMuteLowSeconds',
+  'riskMuteHighConfidence',
+  'riskMuteHighSeconds',
 ] as const
 
 export type PolicyOverrideField = (typeof POLICY_OVERRIDE_FIELDS)[number]
@@ -99,11 +144,22 @@ export function emptyPolicy(connectionId = '', channelId = ''): AutomationPolicy
     failClosed: true,
     providerCode: '',
     modelCode: '',
+    riskMonitorEnabled: false,
+    riskBatchSize: 20,
+    riskAlertConfidence: 80,
+    riskAlertGroup: false,
+    riskAlertAdmin: false,
+    riskAlertAdminUserIds: [],
+    riskMuteEnabled: false,
+    riskMuteLowConfidence: 70,
+    riskMuteLowSeconds: 600,
+    riskMuteHighConfidence: 90,
+    riskMuteHighSeconds: 86400,
   }
 }
 
 export function completeOverride(policy: AutomationPolicy): AutomationPolicyOverride {
-  return { ...policy, approvedAnswers: [...policy.approvedAnswers], rejectedAnswers: [...policy.rejectedAnswers] }
+  return { ...policy, approvedAnswers: [...policy.approvedAnswers], rejectedAnswers: [...policy.rejectedAnswers], riskAlertAdminUserIds: [...policy.riskAlertAdminUserIds] }
 }
 
 export function emptyOverride(connectionId = '', channelId = ''): AutomationPolicyOverride {
@@ -120,6 +176,17 @@ export function emptyOverride(connectionId = '', channelId = ''): AutomationPoli
     failClosed: null,
     providerCode: null,
     modelCode: null,
+    riskMonitorEnabled: null,
+    riskBatchSize: null,
+    riskAlertConfidence: null,
+    riskAlertGroup: null,
+    riskAlertAdmin: null,
+    riskAlertAdminUserIds: null,
+    riskMuteEnabled: null,
+    riskMuteLowConfidence: null,
+    riskMuteLowSeconds: null,
+    riskMuteHighConfidence: null,
+    riskMuteHighSeconds: null,
   }
 }
 
@@ -137,5 +204,16 @@ export function policyFromOverride(override: AutomationPolicyOverride): Automati
     failClosed: override.failClosed ?? true,
     providerCode: override.providerCode ?? '',
     modelCode: override.modelCode ?? '',
+    riskMonitorEnabled: override.riskMonitorEnabled ?? false,
+    riskBatchSize: override.riskBatchSize ?? 20,
+    riskAlertConfidence: override.riskAlertConfidence ?? 80,
+    riskAlertGroup: override.riskAlertGroup ?? false,
+    riskAlertAdmin: override.riskAlertAdmin ?? false,
+    riskAlertAdminUserIds: override.riskAlertAdminUserIds ?? [],
+    riskMuteEnabled: override.riskMuteEnabled ?? false,
+    riskMuteLowConfidence: override.riskMuteLowConfidence ?? 70,
+    riskMuteLowSeconds: override.riskMuteLowSeconds ?? 600,
+    riskMuteHighConfidence: override.riskMuteHighConfidence ?? 90,
+    riskMuteHighSeconds: override.riskMuteHighSeconds ?? 86400,
   }
 }

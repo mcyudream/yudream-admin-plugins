@@ -9,19 +9,32 @@ public record AutomationPolicyOverride(String connectionId, String channelId, Bo
                                        String mediaProviderEndpoint, Boolean joinVerificationEnabled,
                                        List<String> approvedAnswers, List<String> rejectedAnswers,
                                        Boolean aiFallbackEnabled, Boolean failClosed, String providerCode,
-                                       String modelCode) {
+                                       String modelCode,
+                                       Boolean riskMonitorEnabled, Integer riskBatchSize,
+                                       Integer riskAlertConfidence, Boolean riskAlertGroup, Boolean riskAlertAdmin,
+                                       List<String> riskAlertAdminUserIds,
+                                       Boolean riskMuteEnabled, Integer riskMuteLowConfidence, Long riskMuteLowSeconds,
+                                       Integer riskMuteHighConfidence, Long riskMuteHighSeconds) {
+
+    /** 兼容旧调用方的 12 参构造：风险监测字段全部继承（null）。 */
     public AutomationPolicyOverride(String connectionId, String channelId, Boolean enabled, Boolean mediaEnabled,
                                     String mediaProviderEndpoint, Boolean joinVerificationEnabled,
                                     List<String> approvedAnswers, List<String> rejectedAnswers,
-                                    Boolean aiFallbackEnabled, Boolean failClosed, String providerCode) {
+                                    Boolean aiFallbackEnabled, Boolean failClosed, String providerCode,
+                                    String modelCode) {
         this(connectionId, channelId, enabled, mediaEnabled, mediaProviderEndpoint, joinVerificationEnabled,
-                approvedAnswers, rejectedAnswers, aiFallbackEnabled, failClosed, providerCode, null);
+                approvedAnswers, rejectedAnswers, aiFallbackEnabled, failClosed, providerCode, modelCode,
+                null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static AutomationPolicyOverride complete(AutomationPolicy policy) {
         return new AutomationPolicyOverride(policy.connectionId(), policy.channelId(), policy.enabled(),
                 policy.mediaEnabled(), policy.mediaProviderEndpoint(), policy.joinVerificationEnabled(),
                 policy.approvedAnswers(), policy.rejectedAnswers(), policy.aiFallbackEnabled(), policy.failClosed(),
-                policy.providerCode(), policy.modelCode());
+                policy.providerCode(), policy.modelCode(),
+                policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
+                policy.riskAlertGroup(), policy.riskAlertAdmin(), policy.riskAlertAdminUserIds(),
+                policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
     }
 }

@@ -54,6 +54,8 @@ class McCatalogLazyTest {
         assertEquals(1, lazy.guessTargetCount());
         assertEquals("minecraft:chest", lazy.randomTarget(new Random(1)).id());
         assertTrue(lazy.iconItems().isEmpty());
+        assertEquals(0, lazy.iconItemCount());
+        assertEquals(lazy.items(), lazy.visualPool(1));
         assertTrue(lazy.familyOf("minecraft:chest").isEmpty());
         // 合成树与出现分数走实际目录的缓存实现
         assertEquals(3, lazy.treeOf("minecraft:chest").nodeCount());

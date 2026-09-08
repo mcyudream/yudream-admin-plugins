@@ -171,7 +171,7 @@ public class FogAppService {
         if (found.isPresent()) {
             return found.get();
         }
-        List<McItem> pool = catalog.iconItems();
+        List<McItem> pool = catalog.visualPool(1);
         McItem target = pool.get(random.nextInt(pool.size()));
         FogGame game = new FogGame(UUID.randomUUID().toString(),
                 event.connectionId(), event.platform(), event.channelId(), target.id(),

@@ -10,3 +10,5 @@ yudream-plugin-mc-wiki
 yudream-plugin-yudream-skin
 yudream-plugin-mc-pet
 yudream-plugin-edu-verify
+yudream-plugin-mcguess
+yudream-plugin-qqbot-automation

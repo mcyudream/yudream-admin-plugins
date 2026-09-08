@@ -51,7 +51,11 @@ public class AutomationPolicyService {
         AutomationPolicy normalized = new AutomationPolicy(policy.connectionId(), "", policy.enabled(),
                 policy.mediaEnabled(), text(policy.mediaProviderEndpoint()), policy.joinVerificationEnabled(),
                 safe(policy.approvedAnswers()), safe(policy.rejectedAnswers()), policy.aiFallbackEnabled(),
-                policy.failClosed(), text(policy.providerCode()), text(policy.modelCode()));
+                policy.failClosed(), text(policy.providerCode()), text(policy.modelCode()),
+                policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
+                policy.riskAlertGroup(), policy.riskAlertAdmin(), safe(policy.riskAlertAdminUserIds()),
+                policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
         validateEffective(normalized);
         documents.save(DEFAULT_COLLECTION, normalized.connectionId(), toDocument(normalized));
         return normalized;
@@ -169,7 +173,18 @@ public class AutomationPolicyService {
                 value(override.aiFallbackEnabled(), defaults.aiFallbackEnabled()),
                 value(override.failClosed(), defaults.failClosed()),
                 value(override.providerCode(), defaults.providerCode()),
-                value(override.modelCode(), defaults.modelCode()));
+                value(override.modelCode(), defaults.modelCode()),
+                value(override.riskMonitorEnabled(), defaults.riskMonitorEnabled()),
+                value(override.riskBatchSize(), defaults.riskBatchSize()),
+                value(override.riskAlertConfidence(), defaults.riskAlertConfidence()),
+                value(override.riskAlertGroup(), defaults.riskAlertGroup()),
+                value(override.riskAlertAdmin(), defaults.riskAlertAdmin()),
+                value(override.riskAlertAdminUserIds(), defaults.riskAlertAdminUserIds()),
+                value(override.riskMuteEnabled(), defaults.riskMuteEnabled()),
+                value(override.riskMuteLowConfidence(), defaults.riskMuteLowConfidence()),
+                value(override.riskMuteLowSeconds(), defaults.riskMuteLowSeconds()),
+                value(override.riskMuteHighConfidence(), defaults.riskMuteHighConfidence()),
+                value(override.riskMuteHighSeconds(), defaults.riskMuteHighSeconds()));
     }
 
     private List<AutomationPolicyOverride> mergedOverrides(String connectionId) {
@@ -228,7 +243,18 @@ public class AutomationPolicyService {
                 bool(document.get("mediaEnabled"), defaults.mediaEnabled()), text(document.get("mediaProviderEndpoint")),
                 bool(document.get("joinVerificationEnabled"), defaults.joinVerificationEnabled()), strings(document.get("approvedAnswers")),
                 strings(document.get("rejectedAnswers")), bool(document.get("aiFallbackEnabled"), defaults.aiFallbackEnabled()),
-                bool(document.get("failClosed"), defaults.failClosed()), text(document.get("providerCode")), text(document.get("modelCode")));
+                bool(document.get("failClosed"), defaults.failClosed()), text(document.get("providerCode")), text(document.get("modelCode")),
+                bool(document.get("riskMonitorEnabled"), defaults.riskMonitorEnabled()),
+                integer(document.get("riskBatchSize"), defaults.riskBatchSize()),
+                integer(document.get("riskAlertConfidence"), defaults.riskAlertConfidence()),
+                bool(document.get("riskAlertGroup"), defaults.riskAlertGroup()),
+                bool(document.get("riskAlertAdmin"), defaults.riskAlertAdmin()),
+                strings(document.get("riskAlertAdminUserIds")),
+                bool(document.get("riskMuteEnabled"), defaults.riskMuteEnabled()),
+                integer(document.get("riskMuteLowConfidence"), defaults.riskMuteLowConfidence()),
+                longValue(document.get("riskMuteLowSeconds"), defaults.riskMuteLowSeconds()),
+                integer(document.get("riskMuteHighConfidence"), defaults.riskMuteHighConfidence()),
+                longValue(document.get("riskMuteHighSeconds"), defaults.riskMuteHighSeconds()));
     }
 
     private AutomationPolicyOverride overrideFromDocument(Map<String, Object> document) {
@@ -237,14 +263,24 @@ public class AutomationPolicyService {
                 nullableText(document.get("mediaProviderEndpoint")), nullableBoolean(document.get("joinVerificationEnabled")),
                 nullableStrings(document, "approvedAnswers"), nullableStrings(document, "rejectedAnswers"),
                 nullableBoolean(document.get("aiFallbackEnabled")), nullableBoolean(document.get("failClosed")),
-                nullableText(document.get("providerCode")), nullableText(document.get("modelCode")));
+                nullableText(document.get("providerCode")), nullableText(document.get("modelCode")),
+                nullableBoolean(document.get("riskMonitorEnabled")), nullableInteger(document.get("riskBatchSize")),
+                nullableInteger(document.get("riskAlertConfidence")), nullableBoolean(document.get("riskAlertGroup")),
+                nullableBoolean(document.get("riskAlertAdmin")), nullableStrings(document, "riskAlertAdminUserIds"),
+                nullableBoolean(document.get("riskMuteEnabled")), nullableInteger(document.get("riskMuteLowConfidence")),
+                nullableLong(document.get("riskMuteLowSeconds")), nullableInteger(document.get("riskMuteHighConfidence")),
+                nullableLong(document.get("riskMuteHighSeconds")));
     }
 
     private AutomationPolicyOverride normalize(AutomationPolicyOverride policy) {
         return new AutomationPolicyOverride(text(policy.connectionId()), text(policy.channelId()), policy.enabled(),
                 policy.mediaEnabled(), nullableText(policy.mediaProviderEndpoint()), policy.joinVerificationEnabled(),
                 nullableList(policy.approvedAnswers()), nullableList(policy.rejectedAnswers()), policy.aiFallbackEnabled(),
-                policy.failClosed(), nullableText(policy.providerCode()), nullableText(policy.modelCode()));
+                policy.failClosed(), nullableText(policy.providerCode()), nullableText(policy.modelCode()),
+                policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
+                policy.riskAlertGroup(), policy.riskAlertAdmin(), nullableList(policy.riskAlertAdminUserIds()),
+                policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
     }
 
     private Map<String, Object> toDocument(AutomationPolicy policy) {
@@ -261,6 +297,17 @@ public class AutomationPolicyService {
         value.put("failClosed", policy.failClosed());
         value.put("providerCode", policy.providerCode());
         value.put("modelCode", policy.modelCode());
+        value.put("riskMonitorEnabled", policy.riskMonitorEnabled());
+        value.put("riskBatchSize", policy.riskBatchSize());
+        value.put("riskAlertConfidence", policy.riskAlertConfidence());
+        value.put("riskAlertGroup", policy.riskAlertGroup());
+        value.put("riskAlertAdmin", policy.riskAlertAdmin());
+        value.put("riskAlertAdminUserIds", safe(policy.riskAlertAdminUserIds()));
+        value.put("riskMuteEnabled", policy.riskMuteEnabled());
+        value.put("riskMuteLowConfidence", policy.riskMuteLowConfidence());
+        value.put("riskMuteLowSeconds", policy.riskMuteLowSeconds());
+        value.put("riskMuteHighConfidence", policy.riskMuteHighConfidence());
+        value.put("riskMuteHighSeconds", policy.riskMuteHighSeconds());
         value.put("updatedAt", System.currentTimeMillis());
         return value;
     }
@@ -279,18 +326,42 @@ public class AutomationPolicyService {
         put(value, "failClosed", policy.failClosed());
         put(value, "providerCode", policy.providerCode());
         put(value, "modelCode", policy.modelCode());
+        put(value, "riskMonitorEnabled", policy.riskMonitorEnabled());
+        put(value, "riskBatchSize", policy.riskBatchSize());
+        put(value, "riskAlertConfidence", policy.riskAlertConfidence());
+        put(value, "riskAlertGroup", policy.riskAlertGroup());
+        put(value, "riskAlertAdmin", policy.riskAlertAdmin());
+        put(value, "riskAlertAdminUserIds", policy.riskAlertAdminUserIds());
+        put(value, "riskMuteEnabled", policy.riskMuteEnabled());
+        put(value, "riskMuteLowConfidence", policy.riskMuteLowConfidence());
+        put(value, "riskMuteLowSeconds", policy.riskMuteLowSeconds());
+        put(value, "riskMuteHighConfidence", policy.riskMuteHighConfidence());
+        put(value, "riskMuteHighSeconds", policy.riskMuteHighSeconds());
         value.put("updatedAt", System.currentTimeMillis());
         return value;
     }
 
     private void validateEffective(AutomationPolicy policy) {
-        if (!policy.mediaEnabled() || policy.mediaProviderEndpoint() == null || policy.mediaProviderEndpoint().isBlank()) {
-            return;
+        if (policy.mediaEnabled() && policy.mediaProviderEndpoint() != null && !policy.mediaProviderEndpoint().isBlank()) {
+            try {
+                URI.create(policy.mediaProviderEndpoint().trim());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("Media provider endpoint is invalid", exception);
+            }
         }
-        try {
-            URI.create(policy.mediaProviderEndpoint().trim());
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Media provider endpoint is invalid", exception);
+        if (policy.riskBatchSize() < 5 || policy.riskBatchSize() > 100) {
+            throw new IllegalArgumentException("风险监测送检条数需在 5-100 之间");
+        }
+        for (int confidence : new int[]{policy.riskAlertConfidence(), policy.riskMuteLowConfidence(), policy.riskMuteHighConfidence()}) {
+            if (confidence < 0 || confidence > 100) {
+                throw new IllegalArgumentException("置信度阈值需在 0-100 之间");
+            }
+        }
+        if (policy.riskMuteLowConfidence() > policy.riskMuteHighConfidence()) {
+            throw new IllegalArgumentException("禁言低档置信度不能高于高档置信度");
+        }
+        if (policy.riskMuteLowSeconds() < 0 || policy.riskMuteHighSeconds() < 0) {
+            throw new IllegalArgumentException("禁言时长不能为负数");
         }
     }
 
@@ -298,7 +369,10 @@ public class AutomationPolicyService {
         return new AutomationPolicy(policy.connectionId(), channelId, policy.enabled(), policy.mediaEnabled(),
                 policy.mediaProviderEndpoint(), policy.joinVerificationEnabled(), policy.approvedAnswers(),
                 policy.rejectedAnswers(), policy.aiFallbackEnabled(), policy.failClosed(), policy.providerCode(),
-                policy.modelCode());
+                policy.modelCode(), policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
+                policy.riskAlertGroup(), policy.riskAlertAdmin(), policy.riskAlertAdminUserIds(),
+                policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
     }
 
     private <T> T value(T override, T fallback) {
@@ -335,6 +409,42 @@ public class AutomationPolicyService {
 
     private Boolean nullableBoolean(Object value) {
         return value instanceof Boolean result ? result : null;
+    }
+
+    private int integer(Object value, int fallback) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value != null && !String.valueOf(value).isBlank()) {
+            try {
+                return Integer.parseInt(String.valueOf(value).trim());
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
+    }
+
+    private long longValue(Object value, long fallback) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value != null && !String.valueOf(value).isBlank()) {
+            try {
+                return Long.parseLong(String.valueOf(value).trim());
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
+    }
+
+    private Integer nullableInteger(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
+    }
+
+    private Long nullableLong(Object value) {
+        return value instanceof Number number ? number.longValue() : null;
     }
 
     private String text(Object value) {

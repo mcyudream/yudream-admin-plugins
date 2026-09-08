@@ -5,8 +5,10 @@ import type {
   AutomationPolicyOverride,
   MediaJob,
   MediaJobTestRequest,
+  MediaStorageSettings,
   Option,
   PageResult,
+  UserOption,
 } from '../types'
 
 type MessagingCatalog = {
@@ -54,5 +56,8 @@ export function createQqbotAutomationApi(sdk: YuDreamPluginSdk) {
     mediaJobs: (page: number, size: number) => sdk.http.get<PageResult<MediaJob>>(`/admin/media-jobs?page=${page}&size=${size}`),
     clearMediaJobs: () => sdk.http.request<{ deleted: number }>('/admin/media-jobs', { method: 'DELETE' }),
     startMediaTest: (request: MediaJobTestRequest) => sdk.http.request<{ id: string; trigger: string }>('/admin/media-jobs/test', { method: 'POST', data: request }),
+    mediaSettings: () => sdk.http.get<MediaStorageSettings>('/admin/media-settings'),
+    saveMediaSettings: (settings: MediaStorageSettings) => sdk.http.request<MediaStorageSettings>('/admin/media-settings', { method: 'PUT', data: settings }),
+    userOptions: (keyword: string, page: number, size: number) => sdk.http.get<PageResult<UserOption>>(`/admin/options/users?keyword=${encodeURIComponent(keyword)}&page=${page}&size=${size}`),
   }
 }

@@ -8,6 +8,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -22,8 +23,9 @@ public class HolAppService {
     private final IconSupport icons;
     private final McguessSupport support;
     private final Random random = new Random();
-    /** 出题池：带图标且至少在一条合成链中出现过的物品，惰性构建。 */
+    /** 出题池：带图标且至少在一条合成链中出现过的物品，惰性构建；目录版本变化时重建。 */
     private volatile List<McItem> pool;
+    private volatile String poolVersion;
 
     public HolAppService(McCatalog catalog, IconSupport icons, McguessSupport support) {
         this.catalog = catalog;
@@ -127,29 +129,39 @@ public class HolAppService {
     // ---------------------------------------------------------------- 内部支撑
 
     private List<McItem> pool() {
+        String version = catalog.version();
         List<McItem> cached = pool;
-        if (cached == null) {
-            synchronized (this) {
-                cached = pool;
-                if (cached == null) {
-                    cached = catalog.iconItems().stream()
-                            .filter(item -> catalog.occurrenceScore(item.id()) > 0)
-                            .toList();
-                    pool = cached;
-                }
-            }
+        if (cached != null && Objects.equals(poolVersion, version)) {
+            return cached;
         }
-        return cached;
+        synchronized (this) {
+            if (pool != null && Objects.equals(poolVersion, catalog.version())) {
+                return pool;
+            }
+            List<McItem> source = catalog.iconItems().isEmpty() ? catalog.items() : catalog.iconItems();
+            cached = source.stream()
+                    .filter(item -> catalog.occurrenceScore(item.id()) > 0)
+                    .toList();
+            pool = cached;
+            poolVersion = catalog.version();
+            return cached;
+        }
     }
 
     private String randomFromPool() {
         List<McItem> candidates = pool();
+        if (candidates.isEmpty()) {
+            throw new IllegalStateException("当前没有可用于比大小的物品，请先在 mc-wiki 管理端发布配方数据");
+        }
         return candidates.get(random.nextInt(candidates.size())).id();
     }
 
     /** 抽一张与 avoid 不同且出现次数不同的 B（次数相同无法判定高低）。 */
     private String dealNext(String avoidId, int avoidScore) {
         List<McItem> candidates = pool();
+        if (candidates.isEmpty()) {
+            throw new IllegalStateException("当前没有可用于比大小的物品，请先在 mc-wiki 管理端发布配方数据");
+        }
         for (int attempt = 0; attempt < 200; attempt++) {
             McItem candidate = candidates.get(random.nextInt(candidates.size()));
             if (!candidate.id().equals(avoidId) && catalog.occurrenceScore(candidate.id()) != avoidScore) {

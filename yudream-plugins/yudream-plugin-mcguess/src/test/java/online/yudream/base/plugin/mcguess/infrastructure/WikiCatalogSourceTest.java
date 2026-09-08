@@ -90,4 +90,18 @@ class WikiCatalogSourceTest {
         assertTrue(second.byId("minecraft:spruce_log").isPresent());
         assertTrue(second.byId("minecraft:oak_log").isEmpty());
     }
+
+    @Test
+    void rebuildsWhenRendersBecomeAvailableOnSameVersion() {
+        StubMcWikiApi api = apiWith("1.20.6", "minecraft:oak_log");
+        WikiCatalogSource source = new WikiCatalogSource(() -> Optional.of(api), followsPublished(api));
+        McCatalog first = source.get();
+        assertTrue(first.iconItems().isEmpty());
+        api.renders.put("minecraft:oak_log", new byte[]{1});
+        McCatalog second = source.get();
+        assertEquals(2, api.itemsCalls);
+        assertEquals(1, second.iconItemCount());
+        assertSame(second, source.get());
+        assertEquals(2, api.itemsCalls);
+    }
 }

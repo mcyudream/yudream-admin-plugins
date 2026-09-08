@@ -6,6 +6,7 @@ import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
+import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
@@ -35,22 +36,28 @@ import java.util.logging.Logger;
 
 public class MediaJobService {
     private static final String DEFAULT_DOCKER_ENDPOINT = "http://127.0.0.1";
-    private static final String DEFAULT_MILKY_MEDIA_DIRECTORY = "/media";
+    private static final String DEFAULT_BILIBILI_PLAYURL_ENDPOINT = "https://api.bilibili.com/x/player/playurl";
+    private static final String BILIBILI_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+    private static final String BILIBILI_REFERER = "https://www.bilibili.com";
     private static final int DOCUMENT_SCAN_SIZE = 200;
     private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
+    private static final Pattern BILIBILI_BV_ID = Pattern.compile("BV[0-9A-Za-z]{10}");
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
     private final FrameworkServices framework;
+    private final MediaStorageSettings mediaSettings;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(MEDIA_TIMEOUT).build();
     private final ObjectMapper json = new ObjectMapper();
 
-    public MediaJobService(AutomationPolicyService policies, PluginDocumentStore documents, FrameworkServices framework) {
+    public MediaJobService(AutomationPolicyService policies, PluginDocumentStore documents, FrameworkServices framework,
+                           MediaStorageSettings mediaSettings) {
         this.policies = policies;
         this.documents = documents;
         this.framework = framework;
+        this.mediaSettings = mediaSettings;
     }
 
     public void handle(PluginEvent event) {
@@ -144,16 +151,16 @@ public class MediaJobService {
         LOGGER.info("[YuDreamAdmin] [QQ 群自动化] media job queued: id=" + id + ", trigger=" + trigger);
         MediaRequest request;
         try {
-            request = request(policy, sourceUrl);
+            request = request(policy, sourceUrl, isOfficial(connectionId));
         } catch (Exception error) {
             LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] media job request failed: id=" + id + ", source=" + sourceUrl, error);
             save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
             return;
         }
         resolveMediaWithRetry(request, 3).whenComplete((media, error) -> {
-                    if (error != null || media == null || media.deliveryUri().isBlank()) {
+                    if (error != null || media == null || (media.deliveryUri().isBlank() && media.imageUrls().isEmpty())) {
                         if (isDouyinImageDownload(request, error)) {
-                            sendDouyinImagePost(request, target).whenComplete((ignored, imageError) -> {
+                            sendDouyinImagePostWithRetry(request, target, 3).whenComplete((ignored, imageError) -> {
                                 if (imageError != null) {
                                     LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media image post failed: id=" + id, imageError);
                                     save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(imageError));
@@ -181,6 +188,13 @@ public class MediaJobService {
     }
 
     private CompletionStage<DeliveryResult> deliver(MediaRequest request, DeliveryTarget target, ResolvedMedia media) {
+        // 官方 QQ 机器人没有合并转发和本地文件能力：只发公网视频；图文贴逐张发图
+        if (request.official()) {
+            if (!media.imageUrls().isEmpty()) {
+                return sendOfficialImages(target, media.imageUrls()).thenApply(ignored -> DeliveryResult.success());
+            }
+            return sendResult(target, media.deliveryUri()).thenApply(ignored -> DeliveryResult.success());
+        }
         if (!request.dockerDownload() || !isDouyinSource(request.sourceUrl())) {
             return sendResult(target, media.deliveryUri()).thenApply(ignored -> DeliveryResult.success());
         }
@@ -193,7 +207,22 @@ public class MediaJobService {
                         .thenApply(ignored -> new DeliveryResult(result.error())));
     }
 
+    /** 官方连接图文贴降级：图片逐张单发（官方协议无合并转发），最多 9 张。 */
+    private CompletionStage<?> sendOfficialImages(DeliveryTarget target, List<String> imageUrls) {
+        CompletionStage<?> chain = CompletableFuture.completedFuture(null);
+        for (String imageUrl : imageUrls.stream().limit(9).toList()) {
+            chain = chain.thenCompose(ignored -> framework.messaging().send(new PluginMessageRequest(
+                    target.connectionId(), target.platform(), target.selfId(), target.channelId(),
+                    new PluginMessageContent(PluginMessageContent.Type.IMAGE, imageUrl,
+                            List.of(new PluginMessageContent.Attachment(imageUrl, "image.jpg", "image/jpeg")), target.referrer()))));
+        }
+        return chain;
+    }
+
     private java.util.concurrent.CompletionStage<?> sendResult(DeliveryTarget target, String downloadUrl) {
+        if (downloadUrl == null || downloadUrl.isBlank()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("媒体解析未产出可发送的地址"));
+        }
         return framework.messaging().send(new PluginMessageRequest(target.connectionId(), target.platform(), target.selfId(), target.channelId(),
                 new PluginMessageContent(PluginMessageContent.Type.VIDEO, downloadUrl,
                         java.util.List.of(new PluginMessageContent.Attachment(downloadUrl, "video.mp4", "video/mp4")), target.referrer())));
@@ -251,8 +280,8 @@ public class MediaJobService {
 
     private CompletionStage<String> localizeDouyinAudio(String audioUrl) {
         if (!nonBlank(audioUrl)) return CompletableFuture.completedFuture(null);
-        String hostDirectory = runtimeSetting("YUDREAM_QQBOT_MILKY_MEDIA_HOST_DIRECTORY", null);
-        String containerDirectory = runtimeSetting("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", DEFAULT_MILKY_MEDIA_DIRECTORY);
+        String hostDirectory = mediaSettings.hostDirectory();
+        String containerDirectory = mediaSettings.containerDirectory();
         if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) return CompletableFuture.completedFuture(null);
         try {
             Path destination = Path.of(hostDirectory).resolve("douyin_audio");
@@ -491,18 +520,32 @@ public class MediaJobService {
                 .orElseThrow(() -> new IllegalArgumentException("Messaging connection is unavailable"));
     }
 
-    private MediaRequest request(AutomationPolicy policy, String sourceUrl) {
+    private MediaRequest request(AutomationPolicy policy, String sourceUrl, boolean official) {
         String configured = configuredEndpoint(policy);
         URI configuredEndpoint = URI.create(configured);
+        if (official) {
+            // 官方连接无法读取 Milky 共享目录的本地文件：一律改走 JSON 元数据拿公网地址
+            if (isBilibiliSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
+                URI origin = URI.create(configuredEndpoint.getScheme() + "://" + configuredEndpoint.getAuthority());
+                return new MediaRequest(origin, false, sourceUrl, true);
+            }
+            if (isDouyinSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
+                URI metadataEndpoint = URI.create(appendUrlQuery(
+                        douyinApiEndpoint(configuredEndpoint, "/api/hybrid/video_data"), sourceUrl) + "&minimal=false");
+                return new MediaRequest(metadataEndpoint, false, sourceUrl, true);
+            }
+            return new MediaRequest(appendUrlQuery(configuredEndpoint, sourceUrl), false, sourceUrl, true);
+        }
         if (isBilibiliSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
-            return new MediaRequest(appendBilibiliDownloadQuery(configuredEndpoint, sourceUrl), true, sourceUrl);
+            URI origin = URI.create(configuredEndpoint.getScheme() + "://" + configuredEndpoint.getAuthority());
+            return new MediaRequest(origin, true, sourceUrl, false);
         }
         if (isDouyinDockerEndpoint(configuredEndpoint)) {
             URI downloadEndpoint = appendDouyinDownloadQuery(douyinDownloadEndpoint(configuredEndpoint), sourceUrl);
-            return new MediaRequest(downloadEndpoint, true, sourceUrl);
+            return new MediaRequest(downloadEndpoint, true, sourceUrl, false);
         }
         URI endpoint = appendUrlQuery(configuredEndpoint, sourceUrl);
-        return new MediaRequest(endpoint, false, sourceUrl);
+        return new MediaRequest(endpoint, false, sourceUrl, false);
     }
 
     private String configuredEndpoint(AutomationPolicy policy) {
@@ -516,22 +559,174 @@ public class MediaJobService {
     }
 
     private java.util.concurrent.CompletionStage<ResolvedMedia> resolveMedia(MediaRequest request) {
+        if ((request.dockerDownload() || request.official()) && isBilibiliSource(request.sourceUrl())) {
+            return resolveBilibiliMedia(request);
+        }
         HttpRequest httpRequest = HttpRequest.newBuilder(request.endpoint()).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(httpRequest, bodyHandler(request)).thenApply(response -> {
+            if (request.official()) {
+                return officialMedia(response);
+            }
             String downloadUrl = downloadUrl(request, response);
             String deliveryUri = request.dockerDownload() ? sharedFileUri(response) : downloadUrl;
-            return new ResolvedMedia(downloadUrl, deliveryUri);
+            return new ResolvedMedia(downloadUrl, deliveryUri, List.of());
         });
     }
 
-    private CompletionStage<ResolvedMedia> resolveMediaWithRetry(MediaRequest request, int attempts) {
-        return resolveMedia(request).handle((media, error) -> {
-            if (error == null || attempts <= 1 || !retryableParserFailure(error)) {
-                return error == null ? CompletableFuture.completedFuture(media) : CompletableFuture.<ResolvedMedia>failedFuture(error);
+    /**
+     * 官方连接的媒体解析：从解析服务 JSON 元数据中取公网视频地址；图文贴没有视频地址时降级为图片列表，
+     * 由发送端逐张发出（官方协议无合并转发）。
+     */
+    private ResolvedMedia officialMedia(HttpResponse<String> response) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Media provider HTTP " + response.statusCode() + ": " + providerMessage(response.body()));
+        }
+        JsonNode body;
+        try {
+            body = json.readTree(response.body());
+        } catch (Exception exception) {
+            throw new IllegalStateException("Media provider returned invalid JSON", exception);
+        }
+        String videoUrl = findUrl(body);
+        if (nonBlank(videoUrl)) {
+            return new ResolvedMedia(videoUrl, videoUrl, List.of());
+        }
+        List<String> images = douyinImageUrls(body.path("data").isObject() ? body.path("data") : body);
+        if (!images.isEmpty()) {
+            return new ResolvedMedia(null, "", images.stream().filter(this::nonBlank).limit(9).toList());
+        }
+        throw new IllegalStateException("Media provider did not return a downloadable URL");
+    }
+
+    /**
+     * Stock parser deployments have no Bilibili download route, so resolve the cid through the
+     * provider, fetch a single-file mp4 address from the Bilibili playurl API and store it in the
+     * shared Milky media directory ourselves. 官方连接跳过落盘，直接返回公网 CDN 地址。
+     */
+    private CompletionStage<ResolvedMedia> resolveBilibiliMedia(MediaRequest request) {
+        return bilibiliBvId(request)
+                .thenCompose(bvId -> fetchBilibiliCid(request, bvId)
+                        .thenCompose(cid -> fetchBilibiliPlayUrl(bvId, cid))
+                        .thenCompose(playUrl -> request.official()
+                                ? CompletableFuture.completedFuture(new ResolvedMedia(playUrl, playUrl, List.of()))
+                                : downloadBilibiliMedia(bvId, playUrl)));
+    }
+
+    private CompletionStage<String> bilibiliBvId(MediaRequest request) {
+        Matcher matcher = BILIBILI_BV_ID.matcher(request.sourceUrl());
+        if (matcher.find()) return CompletableFuture.completedFuture(matcher.group());
+        if (!request.sourceUrl().contains("b23.tv")) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Bilibili link did not include a BV id"));
+        }
+        HttpRequest resolve = HttpRequest.newBuilder(URI.create(request.sourceUrl())).timeout(MEDIA_TIMEOUT).GET().build();
+        return client.sendAsync(resolve, HttpResponse.BodyHandlers.discarding()).thenApply(response -> {
+            Matcher redirected = BILIBILI_BV_ID.matcher(response.headers().firstValue("Location").orElse(""));
+            if (redirected.find()) return redirected.group();
+            throw new IllegalStateException("Bilibili short link did not redirect to a BV id");
+        });
+    }
+
+    private CompletionStage<String> fetchBilibiliCid(MediaRequest request, String bvId) {
+        URI endpoint = URI.create(douyinApiEndpoint(request.endpoint(), "/api/bilibili/web/fetch_one_video") + "?bv_id=" + bvId);
+        HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(MEDIA_TIMEOUT).GET().build();
+        return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).thenApply(response -> {
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Bilibili metadata HTTP " + response.statusCode() + ": " + providerMessage(response.body()));
             }
+            try {
+                JsonNode cid = json.readTree(response.body()).path("data").path("data").path("cid");
+                if (!cid.isNumber() && !cid.isTextual()) {
+                    throw new IllegalStateException("Bilibili video did not return a cid");
+                }
+                return cid.asText();
+            } catch (IllegalStateException exception) {
+                throw exception;
+            } catch (Exception exception) {
+                throw new IllegalStateException("Bilibili metadata returned invalid JSON", exception);
+            }
+        });
+    }
+
+    private CompletionStage<String> fetchBilibiliPlayUrl(String bvId, String cid) {
+        String base = runtimeSetting("YUDREAM_QQBOT_BILIBILI_PLAYURL_ENDPOINT", DEFAULT_BILIBILI_PLAYURL_ENDPOINT);
+        URI endpoint = URI.create(base + (base.contains("?") ? "&" : "?")
+                + "bvid=" + bvId + "&cid=" + URLEncoder.encode(cid, StandardCharsets.UTF_8)
+                + "&qn=64&platform=html5&high_quality=1");
+        HttpRequest playUrlRequest = HttpRequest.newBuilder(endpoint).timeout(MEDIA_TIMEOUT)
+                .header("User-Agent", BILIBILI_USER_AGENT)
+                .header("Referer", BILIBILI_REFERER)
+                .GET().build();
+        return client.sendAsync(playUrlRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).thenApply(response -> {
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Bilibili playurl HTTP " + response.statusCode());
+            }
+            try {
+                JsonNode durl = json.readTree(response.body()).path("data").path("durl");
+                if (durl.isArray() && !durl.isEmpty()) {
+                    JsonNode first = durl.get(0);
+                    String primary = first.path("url").asText();
+                    if (nonBlank(primary)) return primary;
+                    String backup = firstUrl(first.path("backup_url"));
+                    if (nonBlank(backup)) return backup;
+                }
+                throw new IllegalStateException("Bilibili playurl did not return a downloadable URL");
+            } catch (IllegalStateException exception) {
+                throw exception;
+            } catch (Exception exception) {
+                throw new IllegalStateException("Bilibili playurl returned invalid JSON", exception);
+            }
+        });
+    }
+
+    private CompletionStage<ResolvedMedia> downloadBilibiliMedia(String bvId, String playUrl) {
+        String hostDirectory = mediaSettings.hostDirectory();
+        String containerDirectory = mediaSettings.containerDirectory();
+        if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) {
+            return CompletableFuture.completedFuture(new ResolvedMedia(playUrl, playUrl, List.of()));
+        }
+        try {
+            Path destination = Path.of(hostDirectory).resolve("bilibili_video");
+            Files.createDirectories(destination);
+            String filename = "bilibili_" + bvId + ".mp4";
+            Path temporary = Files.createTempFile(destination, ".video-", ".part");
+            HttpRequest download = HttpRequest.newBuilder(URI.create(playUrl)).timeout(MEDIA_TIMEOUT)
+                    .header("User-Agent", BILIBILI_USER_AGENT)
+                    .header("Referer", BILIBILI_REFERER)
+                    .GET().build();
+            return client.sendAsync(download, HttpResponse.BodyHandlers.ofFile(temporary)).thenApply(response -> {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    throw new IllegalStateException("Bilibili CDN HTTP " + response.statusCode());
+                }
+                try {
+                    Files.move(temporary, destination.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception exception) {
+                    throw new IllegalStateException("Could not store Bilibili video for Milky", exception);
+                }
+                String deliveryUri = URI.create("file://" + containerDirectory.replaceAll("/+$", "") + "/bilibili_video/" + filename).toString();
+                return new ResolvedMedia(playUrl, deliveryUri, List.of());
+            });
+        } catch (Exception exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+    }
+
+    private CompletionStage<ResolvedMedia> resolveMediaWithRetry(MediaRequest request, int attempts) {
+        return withRetry(() -> resolveMedia(request), attempts);
+    }
+
+    private CompletionStage<?> sendDouyinImagePostWithRetry(MediaRequest request, DeliveryTarget target, int attempts) {
+        return withRetry(() -> sendDouyinImagePost(request, target), attempts);
+    }
+
+    private <T> CompletionStage<T> withRetry(java.util.function.Supplier<CompletionStage<T>> action, int attempts) {
+        return action.get().handle((value, error) -> {
+            if (error == null || attempts <= 1 || !retryableParserFailure(error)) {
+                return error == null ? CompletableFuture.completedFuture(value) : CompletableFuture.<T>failedFuture(error);
+            }
+            long delaySeconds = 3L * (4 - Math.min(attempts, 3));
             return CompletableFuture.supplyAsync(() -> null,
-                            CompletableFuture.delayedExecutor(2, java.util.concurrent.TimeUnit.SECONDS))
-                    .thenCompose(ignored -> resolveMediaWithRetry(request, attempts - 1));
+                            CompletableFuture.delayedExecutor(delaySeconds, java.util.concurrent.TimeUnit.SECONDS))
+                    .thenCompose(ignored -> withRetry(action, attempts - 1));
         }).thenCompose(stage -> stage);
     }
 
@@ -539,8 +734,14 @@ public class MediaJobService {
         Throwable root = error;
         while (root != null && root.getCause() != null) root = root.getCause();
         String message = root == null ? "" : String.valueOf(root.getMessage());
+        // Douyin risk control and Bilibili metadata hiccups are transient: the same link usually
+        // succeeds on a later attempt, so they are worth retrying before failing the job.
         return message.contains("AwemeIdFetcher") || message.contains("请求端点失败")
-                || message.contains("Media provider HTTP 502") || message.contains("Media provider HTTP 503");
+                || message.contains("Media provider HTTP 502") || message.contains("Media provider HTTP 503")
+                || message.contains("HTTP状态错误") || message.contains("An error occurred")
+                || message.contains("did not return a cid") || message.contains("Bilibili playurl")
+                || message.contains("Bilibili CDN") || message.contains("Bilibili short link")
+                || message.contains("Bilibili metadata HTTP 502") || message.contains("Bilibili metadata HTTP 503");
     }
 
     private String downloadUrl(MediaRequest request, HttpResponse<String> response) {
@@ -577,10 +778,9 @@ public class MediaJobService {
         if (directory == null) {
             throw new IllegalStateException("Media provider returned an unsupported media filename: " + filename);
         }
-        String root = System.getenv().getOrDefault("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY", DEFAULT_MILKY_MEDIA_DIRECTORY)
-                .replace('\\', '/').replaceAll("/+$", "");
+        String root = mediaSettings.containerDirectory().replace('\\', '/').replaceAll("/+$", "");
         if (!root.startsWith("/")) {
-            throw new IllegalStateException("YUDREAM_QQBOT_MILKY_MEDIA_DIRECTORY must be an absolute container path");
+            throw new IllegalStateException("Milky media container directory must be an absolute container path");
         }
         return URI.create("file://" + root + "/" + directory + "/" + URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20")).toString();
     }
@@ -634,17 +834,6 @@ public class MediaJobService {
     private URI appendDouyinDownloadQuery(URI endpoint, String sourceUrl) {
         return URI.create(endpoint + (endpoint.getQuery() == null ? "?" : "&")
                 + "url=" + URLEncoder.encode(sourceUrl, StandardCharsets.UTF_8) + "&prefix=false&with_watermark=false");
-    }
-
-    private URI appendBilibiliDownloadQuery(URI configured, String sourceUrl) {
-        String configuredText = configured.toString();
-        int queryIndex = configuredText.indexOf('?');
-        String base = queryIndex >= 0 ? configuredText.substring(0, queryIndex) : configuredText;
-        String query = queryIndex >= 0 ? configuredText.substring(queryIndex) : "";
-        String rawPath = configured.getRawPath();
-        String origin = rawPath == null || rawPath.isEmpty() ? base : base.substring(0, base.length() - rawPath.length());
-        return URI.create(origin + "/api/bilibili/web/download" + query
-                + (query.isEmpty() ? "?" : "&") + "url=" + URLEncoder.encode(sourceUrl, StandardCharsets.UTF_8));
     }
 
     private URI appendUrlQuery(URI endpoint, String sourceUrl) {
@@ -743,8 +932,19 @@ public class MediaJobService {
         return message.substring(0, Math.min(message.length(), 240));
     }
 
-    private record MediaRequest(URI endpoint, boolean dockerDownload, String sourceUrl) { }
-    private record ResolvedMedia(String downloadUrl, String deliveryUri) { }
+    private boolean isOfficial(String connectionId) {
+        try {
+            return framework.messaging().connections().stream()
+                    .filter(connection -> connection.id().equals(connectionId))
+                    .map(PluginMessagingConnection::protocol)
+                    .anyMatch("official"::equals);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private record MediaRequest(URI endpoint, boolean dockerDownload, String sourceUrl, boolean official) { }
+    private record ResolvedMedia(String downloadUrl, String deliveryUri, List<String> imageUrls) { }
     private record CommentFetch(List<Map<String, Object>> messages, Throwable error) { }
     private record DeliveryResult(Throwable commentError) {
         private static DeliveryResult success() { return new DeliveryResult(null); }

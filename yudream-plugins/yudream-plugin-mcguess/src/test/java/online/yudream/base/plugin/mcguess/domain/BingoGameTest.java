@@ -8,6 +8,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -92,5 +93,14 @@ class BingoGameTest {
         game.claim(25, "qq", "u");
         assertNull(game.findCompletedLine());
         assertEquals(4, game.claimedCount());
+    }
+
+    @Test
+    void invalidCellThrowsChineseBounds() {
+        BingoGame game = newGame();
+        IndexOutOfBoundsException error = assertThrows(IndexOutOfBoundsException.class, () -> game.claim(0, "qq", "u"));
+        assertTrue(error.getMessage().contains("1-25"));
+        assertThrows(IndexOutOfBoundsException.class, () -> game.isClaimed(26));
+        assertThrows(IndexOutOfBoundsException.class, () -> game.claimerOf(-1));
     }
 }

@@ -1,0 +1,4 @@
+/* qqbot-automation 插件样式（宿主 UnoCSS 不扫描插件包，任意值类一律落到这里） */
+.qqbot-automation-drawer {
+  width: min(860px, 100vw);
+}

@@ -16,6 +16,8 @@ import {
   useFaModal,
   useFaToast,
   type TableColumn,
+  type YdTablePickerQuery,
+  type YdTablePickerResult,
 } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createQqbotAutomationApi } from '../api/qqbot-automation-api'
@@ -30,7 +32,10 @@ import {
   type AutomationPolicyOverride,
   type AiProviderOption,
   type Option,
+  type UserOption,
 } from '../types'
+
+type UserPickerRow = UserOption & { label: string }
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createQqbotAutomationApi(props.sdk)
@@ -55,6 +60,9 @@ const editorOpen = ref(false)
 const editorChannelId = ref('')
 const extraGroupId = ref('')
 const editorDraft = ref<AutomationPolicyOverride>(emptyOverride())
+const mediaSettingsDraft = ref({ hostDirectory: '', containerDirectory: '/media' })
+const savingMediaSettings = ref(false)
+const userLabelCache = ref<Record<string, string>>({})
 
 function protocolLabel(item: Option) {
   if (item.protocol === 'official') {
@@ -65,6 +73,12 @@ function protocolLabel(item: Option) {
   }
   return item.platform || '未知平台'
 }
+
+function protocolVariant(item: Option | undefined) {
+  return item?.protocol === 'official' ? 'default' as const : 'secondary' as const
+}
+
+const currentConnection = computed(() => connections.value.find(item => item.id === connectionId.value))
 const connectionOptions = computed(() => connections.value.map(item => ({ label: `${item.name}（${protocolLabel(item)}）`, value: item.id })))
 const groupOptions = computed(() => {
   const known = groups.value.map(item => ({ label: item.name || item.id, value: item.id }))
@@ -77,11 +91,12 @@ const groupOptions = computed(() => {
 const editorTitle = computed(() => editorChannelId.value ? `群级覆盖：${groupName(editorChannelId.value)}` : '新增群级覆盖')
 
 const columns: TableColumn<AutomationPolicyOverride>[] = [
-  { id: 'group', header: '群聊', width: 220, fixed: 'left' },
-  { id: 'enabled', header: '策略状态', width: 130, align: 'center' },
-  { id: 'overrides', header: '覆盖字段', width: 120, align: 'center' },
-  { id: 'media', header: '媒体解析', width: 130, align: 'center' },
-  { id: 'operation', header: '操作', width: 180, fixed: 'right', align: 'center' },
+  { id: 'group', header: '群聊', width: 200, fixed: 'left' },
+  { id: 'enabled', header: '策略状态', width: 120, align: 'center' },
+  { id: 'media', header: '媒体解析', width: 110, align: 'center' },
+  { id: 'risk', header: '风险监测', width: 110, align: 'center' },
+  { id: 'overrides', header: '覆盖字段', width: 110, align: 'center' },
+  { id: 'operation', header: '操作', width: 170, fixed: 'right', align: 'center' },
 ]
 
 function groupName(channelId: string) {
@@ -100,6 +115,25 @@ function policyState(override: AutomationPolicyOverride) {
 function mediaState(override: AutomationPolicyOverride) {
   if (override.mediaEnabled === null) return '继承默认'
   return override.mediaEnabled ? '已开启' : '已关闭'
+}
+
+function riskState(override: AutomationPolicyOverride) {
+  if (override.riskMonitorEnabled === null) return '继承默认'
+  return override.riskMonitorEnabled ? '已开启' : '已关闭'
+}
+
+async function fetchUserOptions(query: YdTablePickerQuery): Promise<YdTablePickerResult<UserPickerRow>> {
+  try {
+    const result = await api.userOptions(query.keyword, query.page, query.size)
+    const list = result.records.map(user => ({ ...user, label: user.nickname || user.username || user.id }))
+    for (const row of list) {
+      userLabelCache.value[row.id] = row.label
+    }
+    return { list, total: Number(result.total) || 0 }
+  }
+  catch {
+    return { list: [], total: 0 }
+  }
 }
 
 function showError(value: unknown, fallback: string) {
@@ -240,6 +274,24 @@ function changeConnection(value: unknown) {
   connectionId.value = String(value ?? '')
 }
 
+async function saveMediaSettings() {
+  savingMediaSettings.value = true
+  try {
+    const saved = await api.saveMediaSettings({
+      hostDirectory: mediaSettingsDraft.value.hostDirectory.trim() || null,
+      containerDirectory: mediaSettingsDraft.value.containerDirectory.trim(),
+    })
+    mediaSettingsDraft.value = { hostDirectory: saved.hostDirectory ?? '', containerDirectory: saved.containerDirectory || '/media' }
+    toast.success('媒体存储设置已保存')
+  }
+  catch (cause) {
+    showError(cause, '保存媒体存储设置失败')
+  }
+  finally {
+    savingMediaSettings.value = false
+  }
+}
+
 watch(connectionId, () => {
   page.value = 1
   groups.value = []
@@ -256,9 +308,10 @@ watch([page, size], () => {
 
 onMounted(async () => {
   try {
-    const [connectionOptions, providers] = await Promise.all([api.connections(), api.aiOptions()])
+    const [connectionOptions, providers, settings] = await Promise.all([api.connections(), api.aiOptions(), api.mediaSettings()])
     connections.value = connectionOptions
     aiProviders.value = providers
+    mediaSettingsDraft.value = { hostDirectory: settings.hostDirectory ?? '', containerDirectory: settings.containerDirectory || '/media' }
   }
   catch (cause) {
     showError(cause, '加载 QQ 连接失败')
@@ -270,13 +323,20 @@ onMounted(async () => {
   <section>
     <FaPageHeader title="群自动化策略" description="配置连接默认策略，并按需为单独群聊覆盖指定字段。" />
 
-    <FaPageMain class="space-y-4">
+    <FaPageMain class="space-y-5">
       <FaAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
 
-      <section class="space-y-4 rounded-lg border p-4">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div class="space-y-2">
-            <label class="text-sm font-medium">QQ 连接</label>
+      <div class="grid grid-cols-1 gap-5 xl:grid-cols-5">
+        <!-- 连接选择 -->
+        <section class="rounded-xl border p-5 xl:col-span-2">
+          <div class="mb-4 flex items-center gap-2">
+            <FaIcon name="i-lucide:cable" class="text-primary" />
+            <div>
+              <h2 class="text-sm font-semibold">QQ 连接</h2>
+              <p class="mt-0.5 text-xs text-muted-foreground">策略按连接隔离，切换连接后加载其默认策略与群级覆盖。</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
             <FaSelect
               class="w-full sm:w-72"
               placeholder="选择连接"
@@ -285,33 +345,77 @@ onMounted(async () => {
               :disabled="loading"
               @update:model-value="changeConnection"
             />
+            <FaButton variant="outline" :disabled="!connectionId || loading" @click="loadCurrentConnection">
+              <FaIcon name="i-lucide:refresh-cw" />
+              刷新
+            </FaButton>
           </div>
-          <FaButton variant="outline" :disabled="!connectionId || loading" @click="loadCurrentConnection">
-            <FaIcon name="i-lucide:refresh-cw" />
-            刷新
+          <div v-if="currentConnection" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <FaTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</FaTag>
+            <span v-if="currentConnection.protocol === 'official'">官方连接：媒体走公网直链，禁言与入群审批走官方适配接口。</span>
+            <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
+          </div>
+        </section>
+
+        <!-- 媒体存储 -->
+        <section class="rounded-xl border p-5 xl:col-span-3">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <FaIcon name="i-lucide:hard-drive" class="text-primary" />
+              <div>
+                <h2 class="text-sm font-semibold">媒体存储</h2>
+                <p class="mt-0.5 text-xs text-muted-foreground">Milky 共享媒体目录，加密保存在插件密钥库；留空宿主机目录后不再落盘转发。</p>
+              </div>
+            </div>
+            <FaButton variant="outline" :loading="savingMediaSettings" @click="saveMediaSettings">保存媒体存储</FaButton>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium">宿主机媒体目录</label>
+              <FaInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="如 D:/media 或 /data/media" clearable />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium">容器内媒体目录</label>
+              <FaInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/media" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 连接默认策略 -->
+      <section class="rounded-xl border">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h2 class="text-base font-semibold">连接默认策略</h2>
+            <p class="mt-1 text-sm text-muted-foreground">未覆盖的群级字段会使用这里的配置。</p>
+          </div>
+          <FaButton :loading="savingDefault" :disabled="!connectionId || loading" @click="saveDefault">
+            <FaIcon name="i-lucide:save" />
+            保存默认策略
           </FaButton>
         </div>
-
-        <template v-if="connectionId">
-          <div class="border-t pt-4">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 class="text-base font-semibold">连接默认策略</h2>
-                <p class="mt-1 text-sm text-muted-foreground">未覆盖的群级字段会使用这里的配置。</p>
-              </div>
-              <FaButton :loading="savingDefault" :disabled="loading" @click="saveDefault">保存默认策略</FaButton>
-            </div>
-            <PolicyFieldsForm :base-policy="defaultPolicy" :override="defaultDraft" :ai-providers="aiProviders" :allow-inheritance="false" @update:override="defaultDraft = $event" />
-          </div>
-        </template>
-
-        <div v-else class="py-8 text-center text-sm text-muted-foreground">选择一个 QQ 连接后配置策略。</div>
+        <div v-if="connectionId" class="p-5">
+          <PolicyFieldsForm
+            :base-policy="defaultPolicy"
+            :override="defaultDraft"
+            :ai-providers="aiProviders"
+            :allow-inheritance="false"
+            :user-fetcher="fetchUserOptions"
+            :user-labels="userLabelCache"
+            @update:override="defaultDraft = $event"
+          />
+        </div>
+        <div v-else class="py-12 text-center text-sm text-muted-foreground">
+          <FaIcon name="i-lucide:mouse-pointer-click" class="mx-auto mb-2 text-2xl text-muted-foreground/60" />
+          选择一个 QQ 连接后配置策略。
+        </div>
       </section>
 
-      <section class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+      <!-- 群级覆盖 -->
+      <section class="rounded-xl border">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            <h2 class="text-lg font-semibold">群级覆盖</h2>
+            <h2 class="text-base font-semibold">群级覆盖</h2>
             <p class="mt-1 text-sm text-muted-foreground">只保存需要差异化的字段；删除覆盖后立即恢复继承。</p>
           </div>
           <FaButton :disabled="!connectionId || loading" @click="openCreate">
@@ -320,66 +424,73 @@ onMounted(async () => {
           </FaButton>
         </div>
 
-        <FaResponsiveTable
-          v-loading="loading"
-          row-key="channelId"
-          table-root-class="overflow-hidden rounded-lg"
-          border
-          stripe
-          column-visibility
-          :columns="columns"
-          :data="overrides"
-          empty-text="当前连接还没有群级覆盖"
-        >
-          <template #cell-group="{ row }"><span class="font-medium">{{ groupName(row.original.channelId) }}</span></template>
-          <template #cell-enabled="{ row }"><FaTag :variant="policyState(row.original).variant">{{ policyState(row.original).label }}</FaTag></template>
-          <template #cell-overrides="{ row }">{{ countOverrides(row.original) }} 项</template>
-          <template #cell-media="{ row }">{{ mediaState(row.original) }}</template>
-          <template #cell-operation="{ row }">
-            <div class="flex-center gap-2">
-              <FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton>
-              <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
-            </div>
-          </template>
-          <template #card="{ row }">
-            <FaCard class="w-full">
-              <div class="flex flex-col gap-3">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="min-w-0 break-words text-base font-semibold">{{ groupName(row.channelId) }}</span>
-                  <div class="flex gap-1">
-                    <FaTag :variant="policyState(row).variant">{{ policyState(row).label }}</FaTag>
-                  </div>
-                </div>
-                <div class="flex flex-col gap-1 text-sm">
-                  <div class="flex gap-2">
-                    <span class="shrink-0 text-secondary-foreground/60">群聊 ID</span>
-                    <span class="break-all">{{ row.channelId }}</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <span class="shrink-0 text-secondary-foreground/60">覆盖字段</span>
-                    <span>{{ countOverrides(row) }} 项</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <span class="shrink-0 text-secondary-foreground/60">媒体解析</span>
-                    <span>{{ mediaState(row) }}</span>
-                  </div>
-                </div>
-                <div class="flex flex-wrap gap-2 border-t pt-3">
-                  <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
-                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
-                </div>
+        <div class="p-5">
+          <FaResponsiveTable
+            v-loading="loading"
+            row-key="channelId"
+            table-root-class="overflow-hidden rounded-lg"
+            border
+            stripe
+            column-visibility
+            :columns="columns"
+            :data="overrides"
+            empty-text="当前连接还没有群级覆盖"
+          >
+            <template #cell-group="{ row }"><span class="font-medium">{{ groupName(row.original.channelId) }}</span></template>
+            <template #cell-enabled="{ row }"><FaTag :variant="policyState(row.original).variant">{{ policyState(row.original).label }}</FaTag></template>
+            <template #cell-media="{ row }">{{ mediaState(row.original) }}</template>
+            <template #cell-risk="{ row }">{{ riskState(row.original) }}</template>
+            <template #cell-overrides="{ row }">{{ countOverrides(row.original) }} 项</template>
+            <template #cell-operation="{ row }">
+              <div class="flex-center gap-2">
+                <FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton>
+                <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
               </div>
-            </FaCard>
-          </template>
-        </FaResponsiveTable>
+            </template>
+            <template #card="{ row }">
+              <FaCard class="w-full">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="min-w-0 break-words text-base font-semibold">{{ groupName(row.channelId) }}</span>
+                    <div class="flex gap-1">
+                      <FaTag :variant="policyState(row).variant">{{ policyState(row).label }}</FaTag>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1 text-sm">
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">群聊 ID</span>
+                      <span class="break-all">{{ row.channelId }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">媒体解析</span>
+                      <span>{{ mediaState(row) }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">风险监测</span>
+                      <span>{{ riskState(row) }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">覆盖字段</span>
+                      <span>{{ countOverrides(row) }} 项</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 border-t pt-3">
+                    <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                    <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+                  </div>
+                </div>
+              </FaCard>
+            </template>
+          </FaResponsiveTable>
 
-        <FaPagination
-          v-if="connectionId"
-          v-model:page="page"
-          v-model:size="size"
-          :total="total"
-          class="mt-3"
-        />
+          <FaPagination
+            v-if="connectionId"
+            v-model:page="page"
+            v-model:size="size"
+            :total="total"
+            class="mt-3"
+          />
+        </div>
       </section>
     </FaPageMain>
 
@@ -392,23 +503,33 @@ onMounted(async () => {
       confirm-button-text="保存覆盖"
       :confirm-button-loading="savingOverride"
       :confirm-button-disabled="!editorChannelId"
-      content-class="w-[min(760px,100vw)]"
+      content-class="qqbot-automation-drawer"
       @confirm="saveOverride"
       @cancel="closeEditor"
       @close="closeEditor"
     >
-      <div class="space-y-6">
-        <section v-if="!editorChannelId" class="space-y-2">
+      <div class="space-y-5">
+        <section v-if="!editorChannelId" class="space-y-3 rounded-xl border p-4">
           <label class="text-sm font-medium">群聊</label>
           <FaSelect v-model="editorChannelId" class="w-full" placeholder="选择需要单独配置的群聊" :options="groupOptions" />
           <FaInput v-model="extraGroupId" class="w-full" placeholder="官方群 openid，回车添加" @keydown.enter.prevent="addExtraGroup" />
           <p class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</p>
         </section>
-        <section v-else class="border-b pb-4">
-          <p class="text-sm text-muted-foreground">当前群聊</p>
-          <p class="mt-1 font-medium">{{ groupName(editorChannelId) }}</p>
+        <section v-else class="flex items-center gap-3 rounded-xl border bg-muted/30 px-4 py-3">
+          <FaIcon name="i-lucide:messages-square" class="text-primary" />
+          <div>
+            <p class="text-xs text-muted-foreground">当前群聊</p>
+            <p class="mt-0.5 font-medium">{{ groupName(editorChannelId) }}</p>
+          </div>
         </section>
-        <PolicyFieldsForm :base-policy="defaultPolicy" :override="editorDraft" :ai-providers="aiProviders" @update:override="editorDraft = $event" />
+        <PolicyFieldsForm
+          :base-policy="defaultPolicy"
+          :override="editorDraft"
+          :ai-providers="aiProviders"
+          :user-fetcher="fetchUserOptions"
+          :user-labels="userLabelCache"
+          @update:override="editorDraft = $event"
+        />
       </div>
     </FaDrawer>
   </section>

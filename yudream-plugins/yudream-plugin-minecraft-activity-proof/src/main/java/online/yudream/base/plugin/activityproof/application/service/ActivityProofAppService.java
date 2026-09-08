@@ -81,6 +81,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -104,6 +105,7 @@ public class ActivityProofAppService {
             "# 📢 新活动发布\n\n**{title}**\n\n{summary}\n\n> 🕐 报名时间：{signupTime}\n> 🗓️ 活动时间：{activityTime}";
     private static final int SCAN_PAGE_SIZE = 200;
     private static final int MAX_SCAN_SIZE = 1000;
+    private static final int QQ_ACTIVITY_LIST_LIMIT = 5;
 
     private final ActivityProofRepository repository;
     private final PluginFileStore files;
@@ -699,6 +701,108 @@ public class ActivityProofAppService {
         } catch (RuntimeException e) {
             replyQq(event, "❌ 报名失败：活动不存在或已删除");
         }
+    }
+
+    // ---------------------------------------------------------------- QQ activity list command
+
+    /** QQ 群指令 /活动列表：展示未结束的已发布活动（最多 5 条，按活动开始时间升序），官方连接附一键报名按钮。 */
+    public void listActivitiesFromQq(PluginEvent event) {
+        PluginMessagingService messaging = messagingService();
+        if (messaging == null || event == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        List<Activity> activities = repository.activities(null, ActivityStatus.PUBLISHED.name(), 1, SCAN_PAGE_SIZE).stream()
+                .filter(activity -> !activity.activityEnded(now))
+                .sorted(Comparator.comparingLong(ActivityProofAppService::activitySortTime))
+                .limit(QQ_ACTIVITY_LIST_LIMIT)
+                .toList();
+        if (activities.isEmpty()) {
+            replyQq(event, "当前没有进行中的活动，敬请期待～");
+            return;
+        }
+        // 官方 QQ 机器人发 markdown 列表 + 每个报名中的活动一个指令按钮；Milky 等其他协议发纯文本并提示 /报名 指令
+        PluginMessageContent content = officialConnection(messaging, event.connectionId())
+                ? new PluginMessageContent(PluginMessageContent.Type.MARKDOWN, qqActivityListMarkdown(activities, now), null,
+                        qqReplyReferrer(event), qqActivityListButtons(activities, now))
+                : new PluginMessageContent(PluginMessageContent.Type.TEXT, qqActivityListText(activities, now), null,
+                        qqReplyReferrer(event));
+        try {
+            messaging.send(new PluginMessageRequest(event.connectionId(), event.platform(), event.selfId(), event.channelId(), content));
+        } catch (RuntimeException ignored) {
+            // 列表回复失败无需兜底
+        }
+    }
+
+    private String qqActivityListMarkdown(List<Activity> activities, long now) {
+        StringBuilder builder = new StringBuilder("# 📋 活动列表\n");
+        int index = 1;
+        for (Activity activity : activities) {
+            builder.append("\n**").append(index++).append(". ").append(text(activity.title())).append("**\n");
+            builder.append("> 🕐 报名时间：").append(timeRangeText(activity.signupStart(), activity.signupEnd()))
+                    .append("（").append(signupStatusText(activity, now)).append("）\n");
+            builder.append("> 🗓️ 活动时间：").append(timeRangeText(activity.activityStart(), activity.activityEnd())).append('\n');
+        }
+        builder.append("\n点击对应按钮即可一键报名");
+        return builder.toString().trim();
+    }
+
+    private String qqActivityListText(List<Activity> activities, long now) {
+        StringBuilder builder = new StringBuilder("【活动列表】");
+        int index = 1;
+        for (Activity activity : activities) {
+            builder.append('\n').append(index++).append(". ").append(text(activity.title()));
+            builder.append("\n报名时间：").append(timeRangeText(activity.signupStart(), activity.signupEnd()))
+                    .append("（").append(signupStatusText(activity, now)).append("）");
+            builder.append("\n活动时间：").append(timeRangeText(activity.activityStart(), activity.activityEnd()));
+            if (activity.signupOpen(now)) {
+                builder.append("\n报名指令：/报名 ").append(activity.id());
+            }
+        }
+        return builder.toString();
+    }
+
+    /** 与发布通知共用「报名按钮」开关；列表里多个活动并排，按钮标签带活动名前缀便于区分。 */
+    private List<PluginMessageContent.Button> qqActivityListButtons(List<Activity> activities, long now) {
+        ActivityProofSettings settings;
+        try {
+            settings = currentSettings();
+        } catch (RuntimeException e) {
+            settings = null;
+        }
+        if (settings == null || !settings.qqSignupButtonEnabled()) {
+            return List.of();
+        }
+        List<PluginMessageContent.Button> buttons = new ArrayList<>();
+        for (Activity activity : activities) {
+            if (!activity.signupOpen(now)) {
+                continue;
+            }
+            buttons.add(PluginMessageContent.Button.command("signup-" + activity.id(),
+                    qqListButtonLabel(activity.title()), "/报名 " + activity.id()));
+        }
+        return buttons;
+    }
+
+    // 官方按钮标签长度有限，截断活动名保证标签可读
+    private String qqListButtonLabel(String title) {
+        String trimmed = text(title);
+        return "报名·" + (trimmed.length() <= 7 ? trimmed : trimmed.substring(0, 7));
+    }
+
+    private String signupStatusText(Activity activity, long now) {
+        if (activity.signupOpen(now)) {
+            return "报名中";
+        }
+        if (activity.signupStart() > 0 && now < activity.signupStart()) {
+            return "报名未开始";
+        }
+        return "报名已截止";
+    }
+
+    // 未配置开始时间的活动排在最后
+    private static long activitySortTime(Activity activity) {
+        return activity.activityStart() > 0 ? activity.activityStart() : Long.MAX_VALUE;
     }
 
     private void replyQq(PluginEvent event, String text) {

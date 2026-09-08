@@ -21,7 +21,7 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.2.5",
+        version = "2.2.6",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -183,6 +183,16 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
     public void signup(PluginCommandContext command, PluginContext ignored) {
         if (appService != null) {
             appService.signupFromQq(command.event(), command.arguments(), command.userId());
+        }
+    }
+
+    /** QQ 群活动列表：/活动列表，展示未结束的已发布活动（最多 5 条），官方连接附一键报名按钮。 */
+    @PluginCommand(code = "activity-proof.list", command = "活动列表", name = "活动列表",
+            description = "查看未结束的活动列表（最多 5 条），官方 QQ 连接可点击按钮一键报名",
+            permission = MinecraftActivityProofPlugin.VIEW_PERMISSION)
+    public void activityList(PluginCommandContext command, PluginContext ignored) {
+        if (appService != null) {
+            appService.listActivitiesFromQq(command.event());
         }
     }
 }

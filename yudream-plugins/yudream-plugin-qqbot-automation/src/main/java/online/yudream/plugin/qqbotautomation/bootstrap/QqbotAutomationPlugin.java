@@ -9,14 +9,17 @@ import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter;
 import online.yudream.plugin.qqbotautomation.application.service.AutomationPolicyService;
+import online.yudream.plugin.qqbotautomation.application.service.GroupModerationService;
 import online.yudream.plugin.qqbotautomation.application.service.JoinVerificationService;
 import online.yudream.plugin.qqbotautomation.application.service.MediaJobService;
+import online.yudream.plugin.qqbotautomation.application.service.MediaStorageSettings;
+import online.yudream.plugin.qqbotautomation.application.service.RiskMonitorService;
 import online.yudream.plugin.qqbotautomation.interfaces.controller.QqbotAutomationController;
 import online.yudream.plugin.qqbotautomation.interfaces.http.QqbotAutomationHttpFacade;
 
 import java.util.Set;
 
-@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.0.0", description = "群申请验证与媒体链接处理")
+@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.2.0", description = "群申请验证、媒体链接处理与群聊风险监测")
 @PluginPermissions({@PluginPermission(code = QqbotAutomationPlugin.MANAGE_PERMISSION, name = "管理 QQ 群自动化", module = "平台插件", description = "维护群策略、媒体任务与自动审核")})
 @PluginFrontend(moduleName = "qqbotAutomation", menuTitle = "QQ 群自动化", menuIcon = "i-ri:chat-settings-line", menuSort = 66, routes = {
         @PluginRoute(path = "/platform/plugins/qqbot-automation/admin/policies", name = "platform-plugin-qqbot-automation-policies", title = "群自动化策略", icon = "i-ri:settings-3-line", component = "qqbot-automation/Policies", permission = QqbotAutomationPlugin.MANAGE_PERMISSION, sort = 10),
@@ -28,10 +31,15 @@ public class QqbotAutomationPlugin implements YuDreamPlugin {
     @Override public void onEnable(PluginContext context) {
         AutomationPolicyService policies = new AutomationPolicyService(context.documents());
         policies.migrateLegacyPolicies();
-        JoinVerificationService verification = new JoinVerificationService(policies, context.framework());
-        MediaJobService mediaJobs = new MediaJobService(policies, context.documents(), context.framework());
-        context.registerHttpController(new QqbotAutomationController(new QqbotAutomationHttpFacade(policies, mediaJobs, context.framework())));
+        MediaStorageSettings mediaSettings = new MediaStorageSettings(context.secrets());
+        mediaSettings.migrateLegacyEnvironment();
+        GroupModerationService moderation = new GroupModerationService(context.framework());
+        JoinVerificationService verification = new JoinVerificationService(policies, context.framework(), moderation);
+        MediaJobService mediaJobs = new MediaJobService(policies, context.documents(), context.framework(), mediaSettings);
+        RiskMonitorService riskMonitor = new RiskMonitorService(policies, context.documents(), context.framework(), moderation);
+        context.registerHttpController(new QqbotAutomationController(new QqbotAutomationHttpFacade(policies, mediaJobs, context.framework(), mediaSettings)));
         context.interactions().onNative(new PluginInteractionFilter(Set.of("group_request"), "milky", null, null), verification::handle);
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), mediaJobs::handle);
+        context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), riskMonitor::handle);
     }
 }

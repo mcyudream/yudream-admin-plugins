@@ -146,6 +146,7 @@ public class BingoAppService {
             List<Map<String, Object>> cellRows = new ArrayList<>();
             List<String> cells = game.getCells();
             boolean revealAll = won || lost;
+            List<Integer> winCells = game.getWinCells();
             for (int i = 0; i < cells.size(); i++) {
                 int cellNo = i + 1;
                 boolean claimed = game.isClaimed(cellNo);
@@ -156,7 +157,7 @@ public class BingoAppService {
                 cellRow.put("icon", icons.dataUri(cells.get(i)));
                 cellRow.put("claimed", claimed);
                 cellRow.put("claimerQq", game.claimerQqOf(cellNo));
-                cellRow.put("win", game.getWinCells().contains(i));
+                cellRow.put("win", winCells.contains(i));
                 cellRows.add(cellRow);
             }
 
@@ -183,7 +184,7 @@ public class BingoAppService {
         if (found.isPresent()) {
             return found.get();
         }
-        List<String> pool = new ArrayList<>(catalog.iconItems().stream().map(McItem::id).toList());
+        List<String> pool = new ArrayList<>(catalog.visualPool(BingoGame.CELL_COUNT).stream().map(McItem::id).toList());
         Collections.shuffle(pool, random);
         BingoGame game = new BingoGame(UUID.randomUUID().toString(),
                 event.connectionId(), event.platform(), event.channelId(),

@@ -6,8 +6,10 @@ import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicyOverride;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
+import online.yudream.plugin.qqbotautomation.application.dto.MediaStorageSettingsRequest;
 import online.yudream.plugin.qqbotautomation.application.service.AutomationPolicyService;
 import online.yudream.plugin.qqbotautomation.application.service.MediaJobService;
+import online.yudream.plugin.qqbotautomation.application.service.MediaStorageSettings;
 import online.yudream.plugin.qqbotautomation.interfaces.support.JsonSupport;
 
 import java.net.URLDecoder;
@@ -16,7 +18,9 @@ import java.util.Map;
 
 public class QqbotAutomationHttpFacade {
     private final AutomationPolicyService policies; private final MediaJobService mediaJobs; private final FrameworkServices framework;
-    public QqbotAutomationHttpFacade(AutomationPolicyService policies, MediaJobService mediaJobs, FrameworkServices framework) { this.policies = policies; this.mediaJobs = mediaJobs; this.framework = framework; }
+    private final MediaStorageSettings mediaSettings;
+    public QqbotAutomationHttpFacade(AutomationPolicyService policies, MediaJobService mediaJobs, FrameworkServices framework,
+                                     MediaStorageSettings mediaSettings) { this.policies = policies; this.mediaJobs = mediaJobs; this.framework = framework; this.mediaSettings = mediaSettings; }
     public PluginHttpResponse policies() { return PluginHttpResponse.ok(policies.list()); }
     public PluginHttpResponse policy(PluginHttpRequest request) { return PluginHttpResponse.ok(policies.get(query(request, "connectionId"), query(request, "channelId"))); }
     public PluginHttpResponse save(PluginHttpRequest request) {
@@ -68,9 +72,36 @@ public class QqbotAutomationHttpFacade {
     public PluginHttpResponse connections() { return PluginHttpResponse.ok(framework.messaging().connections()); }
     public PluginHttpResponse groups(PluginHttpRequest request) { return PluginHttpResponse.ok(framework.messaging().groups(query(request, "connectionId"))); }
     public PluginHttpResponse aiOptions() { return PluginHttpResponse.ok(framework.ai().providers()); }
+    /** 风险告警管理员的带标签用户选择器；SPI 无总数统计，多取一条探测下一页。 */
+    public PluginHttpResponse users(PluginHttpRequest request) {
+        if (framework.users() == null) {
+            return PluginHttpResponse.ok(Map.of("records", java.util.List.of(), "total", 0));
+        }
+        int page = Math.max(number(request, "page", 1), 1);
+        int size = Math.min(Math.max(number(request, "size", 10), 1), 50);
+        String keyword = query(request, "keyword");
+        java.util.List<online.yudream.base.plugin.spi.system.user.PluginUserOption> probe = framework.users()
+                .searchUsers(keyword == null || keyword.isBlank() ? null : keyword.trim(), null, page, size + 1);
+        boolean hasMore = probe.size() > size;
+        java.util.List<Map<String, Object>> records = probe.stream().limit(size).map(option -> {
+            Map<String, Object> item = new java.util.LinkedHashMap<String, Object>();
+            item.put("id", option.id());
+            item.put("username", option.username() == null ? "" : option.username());
+            item.put("nickname", option.nickname() == null ? "" : option.nickname());
+            item.put("deptNames", option.deptNames() == null ? java.util.List.of() : option.deptNames());
+            return item;
+        }).toList();
+        long total = hasMore ? (long) page * size + 1 : (long) (page - 1) * size + records.size();
+        return PluginHttpResponse.ok(Map.of("records", records, "total", total));
+    }
     public PluginHttpResponse mediaJob(PluginHttpRequest request) { return PluginHttpResponse.ok(mediaJobs.find(pathSegment(request.path(), 2))); }
     public PluginHttpResponse mediaJobs(PluginHttpRequest request) { return PluginHttpResponse.ok(Map.of("records", mediaJobs.page(number(request, "page", 1), number(request, "size", 10)), "total", mediaJobs.total())); }
     public PluginHttpResponse clearMediaJobs() { return PluginHttpResponse.ok(Map.of("deleted", mediaJobs.clear())); }
+    public PluginHttpResponse mediaSettings() { return PluginHttpResponse.ok(mediaSettings.view()); }
+    public PluginHttpResponse saveMediaSettings(PluginHttpRequest request) {
+        MediaStorageSettingsRequest settings = JsonSupport.read(request.body(), MediaStorageSettingsRequest.class);
+        return PluginHttpResponse.ok(mediaSettings.save(settings.hostDirectory(), settings.containerDirectory()));
+    }
     private void requireKnownConnection(String connectionId) {
         if (connectionId == null || connectionId.isBlank()) throw new IllegalArgumentException("connectionId cannot be blank");
         boolean known = framework.messaging().connections().stream().anyMatch(item -> connectionId.equals(item.id()));

@@ -48,16 +48,18 @@ public class SpotGenerator {
         throw new IllegalStateException("找茬出题失败：没有可用的配方");
     }
 
-    /** 替换物：优先同族带图标变体；否则取配方之外的随机带图标物品。 */
+    /** 替换物：优先同族带图标变体；否则取配方之外的随机带图标物品。无渲染资产时回退全量物品。 */
     private McItem pickReplacement(String correctId, List<String> grid, Random random) {
+        boolean requireIcon = !catalog.iconItems().isEmpty();
         List<McItem> family = catalog.familyOf(correctId).stream()
-                .filter(McItem::icon)
+                .filter(item -> !requireIcon || item.icon())
                 .filter(item -> !grid.contains(item.id()))
                 .toList();
         if (!family.isEmpty()) {
             return family.get(random.nextInt(family.size()));
         }
-        List<McItem> outsiders = catalog.iconItems().stream()
+        List<McItem> source = requireIcon ? catalog.iconItems() : catalog.items();
+        List<McItem> outsiders = source.stream()
                 .filter(item -> !item.id().equals(correctId))
                 .filter(item -> !grid.contains(item.id()))
                 .toList();

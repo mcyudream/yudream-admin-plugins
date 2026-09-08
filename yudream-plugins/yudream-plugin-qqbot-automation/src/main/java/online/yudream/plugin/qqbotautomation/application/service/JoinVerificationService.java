@@ -19,8 +19,18 @@ public class JoinVerificationService {
     private static final Set<String> DECIDED = ConcurrentHashMap.newKeySet();
     private final AutomationPolicyService policies;
     private final FrameworkServices framework;
+    private final GroupModerationService moderation;
 
-    public JoinVerificationService(AutomationPolicyService policies, FrameworkServices framework) { this.policies = policies; this.framework = framework; }
+    public JoinVerificationService(AutomationPolicyService policies, FrameworkServices framework, GroupModerationService moderation) {
+        this.policies = policies;
+        this.framework = framework;
+        this.moderation = moderation;
+    }
+
+    /** 兼容旧调用方：未提供群管理原语时按 Milky 行为运行（官方判定视为非官方）。 */
+    public JoinVerificationService(AutomationPolicyService policies, FrameworkServices framework) {
+        this(policies, framework, new GroupModerationService(framework));
+    }
 
     public void handle(PluginEvent event) {
         AutomationPolicy policy = policies.get(event.connectionId(), event.channelId());
@@ -47,8 +57,12 @@ public class JoinVerificationService {
         boolean approve = decision == Decision.APPROVE;
         String requestId = value(event.referrer().get("requestId"));
         String decisionKey = event.connectionId() + ":" + requestId;
-        framework.messagingRaw().invoke(event.connectionId(), approve ? "accept_group_request" : "reject_group_request",
-                groupRequestPayload(event, requestId)).whenComplete((ignored, error) -> {
+        // 官方机器人走适配器的审批接口（group_openid + member_openid）；Milky 沿用通知序号审批
+        var action = moderation.isOfficial(event.connectionId())
+                ? moderation.approveJoin(event.connectionId(), event.channelId(), event.userId(), approve)
+                : framework.messagingRaw().invoke(event.connectionId(), approve ? "accept_group_request" : "reject_group_request",
+                        groupRequestPayload(event, requestId));
+        action.whenComplete((ignored, error) -> {
             if (error != null) {
                 LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] group request decision send failed: connection=" + event.connectionId() + ", channel=" + event.channelId() + ", decision=" + decision, error);
                 DECIDED.remove(decisionKey);
@@ -65,6 +79,7 @@ public class JoinVerificationService {
         if (event.nativeData() instanceof Map<?, ?> nativeData) {
             nativeData.forEach((key, value) -> payload.put(String.valueOf(key), value));
         }
+        // Milky 的 notification_seq 是数值；仅 Milky 分支会走到这里
         payload.putIfAbsent("notification_seq", Long.parseLong(requestId));
         payload.putIfAbsent("notification_type", "group_invited_join_request".equals(event.nativeType())
                 ? "invited_join_request" : "join_request");

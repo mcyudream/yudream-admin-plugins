@@ -106,21 +106,31 @@ public class BingoGame implements ChannelGame {
     }
 
     public boolean isClaimed(int cell) {
+        requireValidCell(cell);
         return !claimers.get(cell - 1).isEmpty();
     }
 
     public String claimerOf(int cell) {
+        requireValidCell(cell);
         return claimers.get(cell - 1);
     }
 
     public String claimerQqOf(int cell) {
+        requireValidCell(cell);
         return claimerQqs.get(cell - 1);
     }
 
     /** 点亮某格。 */
     public void claim(int cell, String qq, String userId) {
+        requireValidCell(cell);
         claimers.set(cell - 1, userId == null ? "" : userId);
         claimerQqs.set(cell - 1, qq == null ? "" : qq);
+    }
+
+    private static void requireValidCell(int cell) {
+        if (!isValidCell(cell)) {
+            throw new IndexOutOfBoundsException("宾果格子序号必须在 1-" + CELL_COUNT + " 之间，实际=" + cell);
+        }
     }
 
     public int claimedCount() {

@@ -165,6 +165,9 @@ public class McCatalog {
     /** 随机出题：从可合成且合成树非平凡的物品池中纯随机选取。 */
     public McItem randomTarget(Random random) {
         McCatalog self = d();
+        if (self.guessTargets.isEmpty()) {
+            throw new IllegalStateException("当前数据版本没有可出题物品，请检查 mc-wiki 是否已发布配方数据");
+        }
         return self.guessTargets.get(random.nextInt(self.guessTargets.size()));
     }
 
@@ -172,9 +175,34 @@ public class McCatalog {
         return d().guessTargets.size();
     }
 
+    public int iconItemCount() {
+        return d().iconItems.size();
+    }
+
     /** 带图标的物品池（迷雾猜图标 / 宾果棋盘出题用）。 */
     public List<McItem> iconItems() {
         return d().iconItems;
+    }
+
+    /**
+     * 视觉玩法出题池：优先带渲染图标的物品。云端已发布 wiki 但尚未一键更新渲染资产时
+     * {@link #iconItems()} 为空，回退到全量物品（图标可能空白，{@code IconSupport.dataUri} 会返回 null）。
+     * 数量仍不足时抛出中文 IllegalStateException，避免 Random.nextInt(0) / subList 越界把 JVM 英文异常漏到 QQ。
+     */
+    public List<McItem> visualPool(int minSize) {
+        if (minSize < 1) {
+            throw new IllegalArgumentException("minSize 必须为正");
+        }
+        McCatalog self = d();
+        if (self.iconItems.size() >= minSize) {
+            return self.iconItems;
+        }
+        if (self.items.size() >= minSize) {
+            return self.items;
+        }
+        throw new IllegalStateException("当前数据版本可用物品不足 " + minSize
+                + " 个（带图标 " + self.iconItems.size() + " 个，全部 "
+                + self.items.size() + " 个），请先在 mc-wiki 导入并发布资源版本");
     }
 
     /**
