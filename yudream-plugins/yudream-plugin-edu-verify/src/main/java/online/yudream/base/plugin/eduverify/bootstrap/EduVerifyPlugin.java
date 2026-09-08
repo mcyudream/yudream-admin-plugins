@@ -51,7 +51,7 @@ import java.util.logging.Logger;
         @PluginPermission(code = EduVerifyPlugin.MANAGE_PERMISSION, name = "管理学历认证", module = "学历认证",
                 description = "审核认证申请、维护邮箱域名白名单与认证策略")
 })
-@PluginFrontend(moduleName = "edu-verify", menuTitle = "学历认证", menuIcon = "i-ri:school-line", menuSort = 36, routes = {
+@PluginFrontend(moduleName = "edu-verify", menuTitle = "学历认证", menuIcon = "i-ri:school-line", menuSort = 36, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/edu-verify", name = "edu-verify-public", title = "高校学历认证",
                 icon = "i-ri:school-line", component = "edu-verify/Public", hideInMenu = true, publicAccess = true),
         @PluginRoute(path = "/platform/plugins/edu-verify/admin", name = "platform-plugin-edu-verify-admin", title = "认证审核",

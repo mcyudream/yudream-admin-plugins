@@ -46,6 +46,7 @@ import java.util.Map;
         menuTitle = "世界地图",
         menuIcon = "i-ri:map-2-line",
         menuSort = 90,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/world-map",

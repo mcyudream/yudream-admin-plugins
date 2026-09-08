@@ -1,6 +1,7 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import markdownEditorStyles from 'md-editor-v3/lib/style.css?inline'
-import activityProofStyles from './styles.css?inline'
+import 'md-editor-v3/lib/style.css'
+import 'virtual:uno.css'
+import './styles.css'
 import ActivityProofPlugin from './ActivityProofPlugin.vue'
 import DashboardActivityCard from './components/DashboardActivityCard.vue'
 
@@ -42,22 +43,7 @@ export const routes = {
   'minecraft-activity-proof/Settings': Settings,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-minecraft-activity-proof-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = `${markdownEditorStyles}\n${activityProofStyles}`
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Square,
-  install,
 })

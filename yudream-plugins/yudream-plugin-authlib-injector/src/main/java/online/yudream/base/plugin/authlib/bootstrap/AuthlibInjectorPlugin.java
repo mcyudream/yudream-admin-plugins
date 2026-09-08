@@ -47,6 +47,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         menuTitle = "Authlib",
         menuIcon = "i-ri:key-2-line",
         menuSort = 36,
+        styles = {"style.css"},
         routes = @PluginRoute(
                 path = "/platform/plugins/authlib-injector/admin/status",
                 name = "platform-plugin-authlib-injector-admin-status",

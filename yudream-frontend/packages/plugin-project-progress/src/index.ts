@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import styles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import ProjectProgressPlugin from './ProjectProgressPlugin.vue'
 
 export const Dashboard = ProjectProgressPlugin
@@ -49,22 +50,7 @@ export {
   Settings as 'project-progress/Settings',
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-project-progress-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = styles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Dashboard,
-  install,
 })

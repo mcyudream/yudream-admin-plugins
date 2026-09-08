@@ -1,4 +1,5 @@
 import vue from '@vitejs/plugin-vue'
+import { yuDreamPluginUnoCss } from '@yudream/plugin-sdk/uno-config'
 import { yuDreamPluginSharedAliases } from '@yudream/plugin-sdk/vite-shared'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
@@ -6,7 +7,7 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ command }) => ({
   // Remote entry assets must resolve beside the plugin entry inside its JAR, not from the host site root.
   base: './',
-  plugins: [vue()],
+  plugins: [vue(), yuDreamPluginUnoCss()],
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
@@ -35,6 +36,7 @@ export default defineConfig(({ command }) => ({
       entry: 'src/index.ts',
       formats: ['es'],
       fileName: () => 'remoteEntry.js',
+      cssFileName: 'style',
     },
   },
 }))

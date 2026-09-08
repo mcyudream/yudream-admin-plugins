@@ -41,6 +41,7 @@ import java.util.Map;
         menuTitle = "猜词游戏",
         menuIcon = "i-ri:gamepad-line",
         menuSort = 60,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/wordle/overview",

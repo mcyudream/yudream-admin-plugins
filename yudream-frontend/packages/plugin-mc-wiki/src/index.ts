@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import mcWikiStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import McWikiPlugin from './McWikiPlugin.vue'
 
 export const CraftingRecipes = McWikiPlugin
@@ -18,22 +19,7 @@ export const routes = {
   'mc-wiki/Versions': Versions,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-mc-wiki-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = mcWikiStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: CraftingRecipes,
-  install,
 })

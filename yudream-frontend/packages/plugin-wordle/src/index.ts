@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import wordleStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import WordlePlugin from './WordlePlugin.vue'
 
 export const Overview = WordlePlugin
@@ -21,22 +22,7 @@ export const routes = {
   'wordle/MyStats': MyStats,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-wordle-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = wordleStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Overview,
-  install,
 })

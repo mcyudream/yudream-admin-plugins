@@ -63,6 +63,7 @@ import java.util.Map;
         menuTitle = "钱包",
         menuIcon = "i-ri:wallet-3-line",
         menuSort = 30,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-wallet",

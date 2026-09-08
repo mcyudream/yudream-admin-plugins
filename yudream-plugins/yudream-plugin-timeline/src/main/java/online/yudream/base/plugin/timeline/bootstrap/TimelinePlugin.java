@@ -20,7 +20,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginPermission(code = TimelinePlugin.MANAGE_PERMISSION, name = "管理大事记", module = "大事记",
                 description = "维护时间轴事件：创建、编辑、发布/下架与删除")
 })
-@PluginFrontend(moduleName = "timeline", menuTitle = "大事记", menuIcon = "i-ri:time-line", menuSort = 74, routes = {
+@PluginFrontend(moduleName = "timeline", menuTitle = "大事记", menuIcon = "i-ri:time-line", menuSort = 74, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/timeline/admin", name = "platform-plugin-timeline-admin", title = "事件管理",
                 icon = "i-ri:calendar-event-line", component = "timeline/Admin", permission = TimelinePlugin.MANAGE_PERMISSION, sort = 10),
         @PluginRoute(path = "/timeline", name = "timeline-public", title = "大事记",

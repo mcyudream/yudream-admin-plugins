@@ -35,7 +35,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginPermission(code = McWikiPlugin.VIEW_PERMISSION, name = "查看 MC 百科", module = "平台插件", description = "查看公开 Minecraft 资源"),
         @PluginPermission(code = McWikiPlugin.MANAGE_PERMISSION, name = "管理 MC 百科", module = "平台插件", description = "管理版本、导入任务和发布资源")
 })
-@PluginFrontend(moduleName = "mc-wiki", menuTitle = "MC 百科", menuIcon = "i-ri:gamepad-line", menuSort = 70, routes = {
+@PluginFrontend(moduleName = "mc-wiki", menuTitle = "MC 百科", menuIcon = "i-ri:gamepad-line", menuSort = 70, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/mc-wiki/catalog/crafting-recipes", name = "mc-wiki-catalog-crafting-recipes", title = "合成配方", icon = "i-ri:hammer-line", component = "mc-wiki/CraftingRecipes", permission = McWikiPlugin.VIEW_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/mc-wiki/catalog/items", name = "mc-wiki-catalog-items", title = "物品图鉴", icon = "i-ri:archive-line", component = "mc-wiki/Items", permission = McWikiPlugin.VIEW_PERMISSION, sort = 15),
         @PluginRoute(path = "/platform/plugins/mc-wiki/admin/versions", name = "mc-wiki-versions", title = "百科版本", icon = "i-ri:git-branch-line", component = "mc-wiki/Versions", permission = McWikiPlugin.MANAGE_PERMISSION, sort = 20),

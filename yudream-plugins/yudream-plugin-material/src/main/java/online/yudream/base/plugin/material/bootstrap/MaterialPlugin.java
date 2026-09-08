@@ -33,7 +33,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginPermission(code = MaterialPlugin.MANAGE_PERMISSION, name = "管理物料库", module = "电子物料库",
                 description = "跨用户物料管理与分类维护")
 })
-@PluginFrontend(moduleName = "material", menuTitle = "物料库", menuIcon = "i-ri:folder-image-line", menuSort = 72, routes = {
+@PluginFrontend(moduleName = "material", menuTitle = "物料库", menuIcon = "i-ri:folder-image-line", menuSort = 72, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/material", name = "platform-plugin-material-list", title = "物料库",
                 icon = "i-ri:folder-image-line", component = "material/Library", permission = MaterialPlugin.VIEW_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/material/detail", name = "platform-plugin-material-detail", title = "物料详情",

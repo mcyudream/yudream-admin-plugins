@@ -24,7 +24,7 @@ import java.util.Set;
 
 @PluginSpec(code = WebCardPlugin.CODE, name = "web-card", version = "1.0.2", description = "将已配置网站内容解析并渲染为群聊卡片。")
 @PluginPermissions(@PluginPermission(code = WebCardPlugin.MANAGE_PERMISSION, name = "管理网站卡片", module = "平台插件", description = "管理网站规则、模板、采集和群投递"))
-@PluginFrontend(moduleName = "webCard", menuTitle = "网站卡片", menuIcon = "i-ri:layout-masonry-line", menuSort = 67, routes = {
+@PluginFrontend(moduleName = "webCard", menuTitle = "网站卡片", menuIcon = "i-ri:layout-masonry-line", menuSort = 67, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/web-card/admin/studio", name = "platform-plugin-web-card-studio", title = "Agent 工作台", icon = "i-ri:sparkling-2-line", component = "web-card/Studio", permission = WebCardPlugin.MANAGE_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/web-card/admin/sites", name = "platform-plugin-web-card-sites", title = "站点与解析", icon = "i-ri:global-line", component = "web-card/Sites", permission = WebCardPlugin.MANAGE_PERMISSION, sort = 20),
         @PluginRoute(path = "/platform/plugins/web-card/admin/templates", name = "platform-plugin-web-card-templates", title = "卡片模板", icon = "i-ri:layout-4-line", component = "web-card/TemplateDesigner", permission = WebCardPlugin.MANAGE_PERMISSION, sort = 21),

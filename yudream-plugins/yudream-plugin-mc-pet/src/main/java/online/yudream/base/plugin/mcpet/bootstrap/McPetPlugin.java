@@ -36,6 +36,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         menuTitle = "网页宠物",
         menuIcon = "i-ri:ghost-smile-line",
         menuSort = 32,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/mc-pet",

@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import ponyStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import PonyPlugin from './PonyPlugin.vue'
 
 export const Overview = PonyPlugin
@@ -18,22 +19,7 @@ export const routes = {
   'pony/MyStats': MyStats,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-pony-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = ponyStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Overview,
-  install,
 })

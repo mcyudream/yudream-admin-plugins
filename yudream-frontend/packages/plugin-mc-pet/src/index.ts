@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import mcPetStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import GlobalPet from './components/GlobalPet.vue'
 import AdminDefaultsPage from './pages/AdminDefaultsPage.vue'
 import AdminPetsPage from './pages/AdminPetsPage.vue'
@@ -20,22 +21,7 @@ export const routes = {
   'mc-pet/GlobalPet': GlobalPet,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-mc-pet-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    document.head.appendChild(style)
-  }
-  style.id = id
-  style.textContent = mcPetStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Home,
-  install,
 })

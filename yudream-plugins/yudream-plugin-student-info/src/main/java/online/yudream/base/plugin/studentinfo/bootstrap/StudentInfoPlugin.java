@@ -30,6 +30,7 @@ import online.yudream.base.plugin.studentinfo.interfaces.http.StudentInfoHttpFac
         menuTitle = "学生信息",
         menuIcon = "i-ri:id-card-line",
         menuSort = 35,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-student-info",

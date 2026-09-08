@@ -1,6 +1,7 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import markdownEditorStyles from 'md-editor-v3/lib/style.css?inline'
-import eduVerifyStyles from './styles.css?inline'
+import 'md-editor-v3/lib/style.css'
+import 'virtual:uno.css'
+import './styles.css'
 import PublicVerifyForm from './components/PublicVerifyForm.vue'
 import AdminReviewPage from './pages/AdminReviewPage.vue'
 import DomainsPage from './pages/DomainsPage.vue'
@@ -26,31 +27,7 @@ export const routes = {
   'edu-verify/Settings': Settings,
 }
 
-const STYLE_ID = 'yudream-plugin-edu-verify-style'
-
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  let style = document.getElementById(STYLE_ID) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = STYLE_ID
-    document.head.appendChild(style)
-  }
-  style.textContent = `${markdownEditorStyles}\n${eduVerifyStyles}`
-}
-
-export function dispose() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  document.getElementById(STYLE_ID)?.remove()
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Public,
-  install,
-  dispose,
 })

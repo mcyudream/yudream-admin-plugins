@@ -37,6 +37,7 @@ import java.util.Map;
         menuTitle = "小马归位",
         menuIcon = "i-ri:chess-line",
         menuSort = 61,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/pony/overview",

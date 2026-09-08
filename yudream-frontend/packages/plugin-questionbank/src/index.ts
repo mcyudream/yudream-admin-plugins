@@ -1,7 +1,8 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import markdownEditorStyles from 'md-editor-v3/lib/style.css?inline'
+import 'md-editor-v3/lib/style.css'
 import QuestionBankPlugin from './QuestionBankPlugin.vue'
-import questionBankStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 
 export const Practice = QuestionBankPlugin
 export const Session = QuestionBankPlugin
@@ -54,27 +55,7 @@ export const routes = {
   'questionbank/QuizRank': QuizRank,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-questionbank-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.textContent = `${markdownEditorStyles}\n${questionBankStyles}`
-}
-
-export function dispose() {
-  document.getElementById('yudream-plugin-questionbank-style')?.remove()
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Practice,
-  install,
-  dispose,
 })

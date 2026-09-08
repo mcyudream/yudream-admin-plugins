@@ -1,4 +1,5 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
+import 'virtual:uno.css'
 import SitesPage from './pages/SitesPage.vue'
 import TemplateDesignerPage from './pages/TemplateDesignerPage.vue'
 import AgentWorkspacePage from './pages/AgentWorkspacePage.vue'

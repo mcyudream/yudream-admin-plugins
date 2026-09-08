@@ -74,6 +74,7 @@ import java.util.function.Supplier;
         menuTitle = "MC 猜谜",
         menuIcon = "i-ri:treasure-map-line",
         menuSort = 61,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/mcguess/overview",

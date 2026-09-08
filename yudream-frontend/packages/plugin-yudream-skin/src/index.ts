@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import skinStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import DashboardCurrentPlayerCard from './components/DashboardCurrentPlayerCard.vue'
 import DashboardLegacyActionCard from './components/DashboardLegacyActionCard.vue'
 import DashboardSkinPreviewCard from './components/DashboardSkinPreviewCard.vue'
@@ -53,23 +54,7 @@ export const routes = {
   'blessing-skin/System': Settings,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-yudream-skin-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.id = id
-  style.textContent = skinStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Dashboard,
-  install,
 })

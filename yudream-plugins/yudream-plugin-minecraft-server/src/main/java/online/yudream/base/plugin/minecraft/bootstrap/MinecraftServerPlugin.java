@@ -54,6 +54,7 @@ import java.util.Set;
         menuTitle = "MC 服务器",
         menuIcon = "i-ri:gamepad-line",
         menuSort = 45,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server",

@@ -37,7 +37,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginPermission(code = QuestionBankPlugin.MANAGE_PERMISSION, name = "管理题库", module = "题库",
                 description = "题目/分类/标签维护、导入导出与跨用户练习记录")
 })
-@PluginFrontend(moduleName = "questionbank", menuTitle = "题库", menuIcon = "i-ri:questionnaire-line", menuSort = 73, routes = {
+@PluginFrontend(moduleName = "questionbank", menuTitle = "题库", menuIcon = "i-ri:questionnaire-line", menuSort = 73, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/questionbank", name = "platform-plugin-questionbank-practice", title = "题库练习",
                 icon = "i-ri:questionnaire-line", component = "questionbank/Practice", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/questionbank/session", name = "platform-plugin-questionbank-session", title = "作答",

@@ -1,5 +1,6 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
-import walletStyles from './styles.css?inline'
+import 'virtual:uno.css'
+import './styles.css'
 import DashboardBalanceCard from './components/DashboardBalanceCard.vue'
 import WalletPlugin from './WalletPlugin.vue'
 
@@ -30,23 +31,7 @@ export const routes = {
   'yudream-wallet/System': Settings,
 }
 
-export function install() {
-  if (typeof document === 'undefined') {
-    return
-  }
-  const id = 'yudream-plugin-wallet-style'
-  let style = document.getElementById(id) as HTMLStyleElement | null
-  if (!style) {
-    style = document.createElement('style')
-    style.id = id
-    document.head.appendChild(style)
-  }
-  style.id = id
-  style.textContent = walletStyles
-}
-
 export default defineYuDreamPlugin({
   routes,
   default: Home,
-  install,
 })

@@ -51,6 +51,7 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
         menuIcon = "i-ri:id-card-line",
         menuSort = 35,
         parentCode = "plugin:yudream-student-info:module:yudreamStudentInfo",
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-student-info/activity-square",

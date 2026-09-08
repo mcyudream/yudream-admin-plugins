@@ -7,7 +7,7 @@ catalog:
   '@vitejs/plugin-vue': ^6.0.7
   '@vue/tsconfig': ^0.9.1
   '@yudream/components': 1.2.1
-  '@yudream/plugin-sdk': 1.3.0
+  '@yudream/plugin-sdk': 1.4.0
   qrcode: ^1.5.4
   typescript: ^6.0.3
   vite: ^8.0.16
@@ -18,5 +18,5 @@ allowBuilds:
   vue-demi: true
 minimumReleaseAgeExclude:
   - '@yudream/components@1.2.1'
-  - '@yudream/plugin-sdk@1.3.0'
+  - '@yudream/plugin-sdk@1.4.0'
   - '@jboltai/tokui@0.1.7'

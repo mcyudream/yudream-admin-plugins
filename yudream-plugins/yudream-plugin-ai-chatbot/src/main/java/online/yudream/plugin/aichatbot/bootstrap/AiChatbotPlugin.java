@@ -48,7 +48,7 @@ import java.util.logging.Logger;
 
 @PluginSpec(code = AiChatbotPlugin.CODE, name = "ai-chatbot", version = "1.0.0", description = "群聊 AI 回复与用户专属上下文。")
 @PluginPermissions({@PluginPermission(code = AiChatbotPlugin.USE_PERMISSION, name = "使用 AI 群聊", module = "平台插件", description = "@机器人进行 AI 对话"), @PluginPermission(code = AiChatbotPlugin.MANAGE_PERMISSION, name = "管理 AI 群聊", module = "平台插件", description = "管理群聊机器人策略")})
-@PluginFrontend(moduleName = "aiChatbot", menuTitle = "AI 群聊机器人", menuIcon = "i-ri:robot-2-line", menuSort = 65, routes = {
+@PluginFrontend(moduleName = "aiChatbot", menuTitle = "AI 群聊机器人", menuIcon = "i-ri:robot-2-line", menuSort = 65, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/settings", name = "platform-plugin-ai-chatbot-settings", title = "群聊配置", icon = "i-ri:settings-3-line", component = "ai-chatbot/Settings", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/memory-profiles", name = "platform-plugin-ai-chatbot-memory-profiles", title = "记忆画像", icon = "i-ri:brain-line", component = "ai-chatbot/MemoryProfiles", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 20),
         @PluginRoute(path = "/platform/plugins/ai-chatbot/admin/activity", name = "platform-plugin-ai-chatbot-activity", title = "用户画像", icon = "i-ri:user-heart-line", component = "ai-chatbot/UserProfileWorkbench", permission = AiChatbotPlugin.MANAGE_PERMISSION, sort = 30)

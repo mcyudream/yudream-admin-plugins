@@ -95,6 +95,7 @@ import java.util.concurrent.CompletionStage;
         menuTitle = "皮肤",
         menuIcon = "i-ri:t-shirt-2-line",
         menuSort = 19,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-skin/dashboard",

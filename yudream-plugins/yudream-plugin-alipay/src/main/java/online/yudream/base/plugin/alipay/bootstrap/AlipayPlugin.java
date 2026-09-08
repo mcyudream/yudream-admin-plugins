@@ -35,6 +35,7 @@ import online.yudream.base.plugin.wallet.api.PluginWalletService;
         menuIcon = "i-ri:wallet-3-line",
         menuSort = 30,
         parentCode = "plugin:yudream-wallet:module:yudreamWallet",
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/yudream-alipay/orders",

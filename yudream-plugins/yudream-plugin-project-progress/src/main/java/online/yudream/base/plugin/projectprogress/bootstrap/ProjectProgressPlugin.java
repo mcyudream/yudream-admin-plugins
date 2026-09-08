@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
         menuTitle = "项目进度",
         menuIcon = "i-ri:progress-5-line",
         menuSort = 50,
+        styles = {"style.css"},
         routes = {
                 @PluginRoute(
                         path = "/platform/plugins/project-progress/dashboard",
