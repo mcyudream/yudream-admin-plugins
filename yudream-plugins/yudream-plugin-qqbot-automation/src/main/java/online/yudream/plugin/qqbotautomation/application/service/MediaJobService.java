@@ -8,9 +8,12 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessagingConnection;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
+import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
+import online.yudream.plugin.qqbotautomation.bootstrap.QqbotAutomationPlugin;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -42,6 +45,7 @@ public class MediaJobService {
     private static final int DOCUMENT_SCAN_SIZE = 200;
     private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
+    private static final Duration OFFICIAL_FILE_TTL = Duration.ofHours(6);
     private static final Pattern BILIBILI_BV_ID = Pattern.compile("BV[0-9A-Za-z]{10}");
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
@@ -188,7 +192,6 @@ public class MediaJobService {
     }
 
     private CompletionStage<DeliveryResult> deliver(MediaRequest request, DeliveryTarget target, ResolvedMedia media) {
-        // 官方 QQ 机器人没有合并转发和本地文件能力：只发公网视频；图文贴逐张发图
         if (request.official()) {
             if (!media.imageUrls().isEmpty()) {
                 return sendOfficialImages(target, media.imageUrls()).thenApply(ignored -> DeliveryResult.success());
@@ -523,29 +526,16 @@ public class MediaJobService {
     private MediaRequest request(AutomationPolicy policy, String sourceUrl, boolean official) {
         String configured = configuredEndpoint(policy);
         URI configuredEndpoint = URI.create(configured);
-        if (official) {
-            // 官方连接无法读取 Milky 共享目录的本地文件：一律改走 JSON 元数据拿公网地址
-            if (isBilibiliSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
-                URI origin = URI.create(configuredEndpoint.getScheme() + "://" + configuredEndpoint.getAuthority());
-                return new MediaRequest(origin, false, sourceUrl, true);
-            }
-            if (isDouyinSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
-                URI metadataEndpoint = URI.create(appendUrlQuery(
-                        douyinApiEndpoint(configuredEndpoint, "/api/hybrid/video_data"), sourceUrl) + "&minimal=false");
-                return new MediaRequest(metadataEndpoint, false, sourceUrl, true);
-            }
-            return new MediaRequest(appendUrlQuery(configuredEndpoint, sourceUrl), false, sourceUrl, true);
-        }
         if (isBilibiliSource(sourceUrl) && isDouyinDockerEndpoint(configuredEndpoint)) {
             URI origin = URI.create(configuredEndpoint.getScheme() + "://" + configuredEndpoint.getAuthority());
-            return new MediaRequest(origin, true, sourceUrl, false);
+            return new MediaRequest(origin, true, sourceUrl, official);
         }
         if (isDouyinDockerEndpoint(configuredEndpoint)) {
             URI downloadEndpoint = appendDouyinDownloadQuery(douyinDownloadEndpoint(configuredEndpoint), sourceUrl);
-            return new MediaRequest(downloadEndpoint, true, sourceUrl, false);
+            return new MediaRequest(downloadEndpoint, true, sourceUrl, official);
         }
         URI endpoint = appendUrlQuery(configuredEndpoint, sourceUrl);
-        return new MediaRequest(endpoint, false, sourceUrl, false);
+        return new MediaRequest(endpoint, false, sourceUrl, official);
     }
 
     private String configuredEndpoint(AutomationPolicy policy) {
@@ -559,57 +549,110 @@ public class MediaJobService {
     }
 
     private java.util.concurrent.CompletionStage<ResolvedMedia> resolveMedia(MediaRequest request) {
-        if ((request.dockerDownload() || request.official()) && isBilibiliSource(request.sourceUrl())) {
+        if (request.dockerDownload() && isBilibiliSource(request.sourceUrl())) {
             return resolveBilibiliMedia(request);
         }
         HttpRequest httpRequest = HttpRequest.newBuilder(request.endpoint()).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(httpRequest, bodyHandler(request)).thenApply(response -> {
-            if (request.official()) {
-                return officialMedia(response);
-            }
             String downloadUrl = downloadUrl(request, response);
-            String deliveryUri = request.dockerDownload() ? sharedFileUri(response) : downloadUrl;
-            return new ResolvedMedia(downloadUrl, deliveryUri, List.of());
+            String milkyUri = request.dockerDownload() ? sharedFileUri(response) : downloadUrl;
+            if (request.official() && request.dockerDownload()) {
+                return publishOfficialFile(response, milkyUri);
+            }
+            return new ResolvedMedia(downloadUrl, milkyUri, List.of());
         });
     }
 
     /**
-     * 官方连接的媒体解析：从解析服务 JSON 元数据中取公网视频地址；图文贴没有视频地址时降级为图片列表，
-     * 由发送端逐张发出（官方协议无合并转发）。
+     * 官方连接读不到 Milky 的 file:// 共享目录，所以把解析服务已经下载好的文件再写进插件 FileStore，
+     * 用文件预览 SPI 签发一条带过期时间的公网直链发给官方机器人。
      */
-    private ResolvedMedia officialMedia(HttpResponse<String> response) {
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("Media provider HTTP " + response.statusCode() + ": " + providerMessage(response.body()));
+    private ResolvedMedia publishOfficialFile(HttpResponse<String> response, String milkyUri) {
+        String filename = response.headers().firstValue("Content-Disposition")
+                .flatMap(this::filename)
+                .orElseThrow(() -> new IllegalStateException("Media provider did not include a downloadable filename"));
+        if (filename.endsWith("_images.zip") || filename.endsWith("_images_watermark.zip")) {
+            throw new DouyinImageDownloadException();
         }
-        JsonNode body;
+        String hostDirectory = mediaSettings.hostDirectory();
+        String containerDirectory = mediaSettings.containerDirectory();
+        if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) {
+            throw new IllegalStateException("官方连接需要先在策略页填写媒体存储目录，才能签发公网直链");
+        }
+        String relative = milkyUri.replaceFirst("^file://" + Pattern.quote(containerDirectory.replaceAll("/+$", "")) + "/", "");
+        Path file = Path.of(hostDirectory).resolve(relative.replace('/', java.io.File.separatorChar));
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalStateException("Media provider file is missing after download");
+        }
         try {
-            body = json.readTree(response.body());
+            byte[] bytes = Files.readAllBytes(file);
+            String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
+            files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, contentType(filename));
+            String publicUrl = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
+            if (!nonBlank(publicUrl)) {
+                throw new IllegalStateException("File preview is not enabled, so official connections cannot send media");
+            }
+            return new ResolvedMedia(publicUrl, publicUrl, List.of());
+        } catch (IllegalStateException exception) {
+            throw exception;
         } catch (Exception exception) {
-            throw new IllegalStateException("Media provider returned invalid JSON", exception);
+            throw new IllegalStateException("Could not publish media for official QQ", exception);
         }
-        String videoUrl = findUrl(body);
-        if (nonBlank(videoUrl)) {
-            return new ResolvedMedia(videoUrl, videoUrl, List.of());
-        }
-        List<String> images = douyinImageUrls(body.path("data").isObject() ? body.path("data") : body);
-        if (!images.isEmpty()) {
-            return new ResolvedMedia(null, "", images.stream().filter(this::nonBlank).limit(9).toList());
-        }
-        throw new IllegalStateException("Media provider did not return a downloadable URL");
+    }
+
+    private PluginFileStore files() {
+        return framework.files(QqbotAutomationPlugin.CODE);
+    }
+
+    private String contentType(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".mp4")) return "video/mp4";
+        if (lower.endsWith(".mp3")) return "audio/mpeg";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        return "application/octet-stream";
     }
 
     /**
      * Stock parser deployments have no Bilibili download route, so resolve the cid through the
      * provider, fetch a single-file mp4 address from the Bilibili playurl API and store it in the
-     * shared Milky media directory ourselves. 官方连接跳过落盘，直接返回公网 CDN 地址。
+     * shared Milky media directory ourselves. 官方连接再签发一条公网直链。
      */
     private CompletionStage<ResolvedMedia> resolveBilibiliMedia(MediaRequest request) {
         return bilibiliBvId(request)
                 .thenCompose(bvId -> fetchBilibiliCid(request, bvId)
                         .thenCompose(cid -> fetchBilibiliPlayUrl(bvId, cid))
-                        .thenCompose(playUrl -> request.official()
-                                ? CompletableFuture.completedFuture(new ResolvedMedia(playUrl, playUrl, List.of()))
-                                : downloadBilibiliMedia(bvId, playUrl)));
+                        .thenCompose(playUrl -> downloadBilibiliMedia(bvId, playUrl)
+                                .thenApply(media -> request.official() ? publishOfficialBilibili(media) : media)));
+    }
+
+    private ResolvedMedia publishOfficialBilibili(ResolvedMedia milky) {
+        String hostDirectory = mediaSettings.hostDirectory();
+        String containerDirectory = mediaSettings.containerDirectory();
+        if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) {
+            throw new IllegalStateException("官方连接需要先在策略页填写媒体存储目录，才能签发公网直链");
+        }
+        String relative = milky.deliveryUri().replaceFirst("^file://" + Pattern.quote(containerDirectory.replaceAll("/+$", "")) + "/", "");
+        Path file = Path.of(hostDirectory).resolve(relative.replace('/', java.io.File.separatorChar));
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalStateException("Bilibili file is missing after download");
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(file);
+            String filename = file.getFileName().toString();
+            String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
+            files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, "video/mp4");
+            String publicUrl = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
+            if (!nonBlank(publicUrl)) {
+                throw new IllegalStateException("File preview is not enabled, so official connections cannot send media");
+            }
+            return new ResolvedMedia(publicUrl, publicUrl, List.of());
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Could not publish Bilibili media for official QQ", exception);
+        }
     }
 
     private CompletionStage<String> bilibiliBvId(MediaRequest request) {

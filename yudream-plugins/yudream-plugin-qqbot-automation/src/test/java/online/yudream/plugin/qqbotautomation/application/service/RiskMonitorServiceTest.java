@@ -29,7 +29,7 @@ class RiskMonitorServiceTest {
         policies.saveDefaults(new AutomationPolicy("connection-a", "", true, false, "", false,
                 List.of(), List.of(), false, true, "", "",
                 true, 5, 60, true, true, List.of("1001"),
-                true, 50, 600, 90, 86400));
+                true, 50, 600, 90, 86400, "alert-group"));
         AtomicReference<String> aiPrompt = new AtomicReference<>();
         AtomicReference<Map<String, Object>> mutePayload = new AtomicReference<>();
         AtomicInteger rawCalls = new AtomicInteger();
@@ -50,7 +50,9 @@ class RiskMonitorServiceTest {
         assertEquals("set_group_member_mute", mutePayload.get().get("method"));
         assertEquals(12345L, mutePayload.get().get("user_id"));
         assertEquals(86400L, mutePayload.get().get("duration"));
-        assertEquals(1, groupMessages.size(), "群内应收到风险告警");
+        assertEquals(1, groupMessages.size(), "指定告警群应收到风险告警");
+        assertEquals("alert-group", groupMessages.getFirst().channelId());
+        assertTrue(String.valueOf(groupMessages.getFirst().content().content()).contains("来源群：777"));
         assertTrue(String.valueOf(groupMessages.getFirst().content().content()).contains("置信度 95"));
         assertEquals(List.of("1001"), dmUserIds, "管理员应收到定向告警");
         assertEquals(1, documents.values("risk-check-log").size(), "应落审计记录");
@@ -63,7 +65,7 @@ class RiskMonitorServiceTest {
         policies.saveDefaults(new AutomationPolicy("connection-a", "", true, false, "", false,
                 List.of(), List.of(), false, true, "", "",
                 true, 5, 60, true, true, List.of("1001"),
-                true, 50, 600, 90, 86400));
+                true, 50, 600, 90, 86400, "alert-group"));
         AtomicReference<String> aiPrompt = new AtomicReference<>();
         AtomicInteger rawCalls = new AtomicInteger();
         List<PluginMessageRequest> groupMessages = new ArrayList<>();

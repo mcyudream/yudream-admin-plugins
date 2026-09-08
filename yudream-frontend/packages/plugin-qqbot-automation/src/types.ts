@@ -35,6 +35,7 @@ export interface AutomationPolicy {
   riskAlertGroup: boolean
   riskAlertAdmin: boolean
   riskAlertAdminUserIds: string[]
+  riskAlertGroupChannelId: string
   riskMuteEnabled: boolean
   riskMuteLowConfidence: number
   riskMuteLowSeconds: number
@@ -61,6 +62,7 @@ export interface AutomationPolicyOverride {
   riskAlertGroup: boolean | null
   riskAlertAdmin: boolean | null
   riskAlertAdminUserIds: string[] | null
+  riskAlertGroupChannelId: string | null
   riskMuteEnabled: boolean | null
   riskMuteLowConfidence: number | null
   riskMuteLowSeconds: number | null
@@ -121,6 +123,7 @@ export const POLICY_OVERRIDE_FIELDS = [
   'riskAlertGroup',
   'riskAlertAdmin',
   'riskAlertAdminUserIds',
+  'riskAlertGroupChannelId',
   'riskMuteEnabled',
   'riskMuteLowConfidence',
   'riskMuteLowSeconds',
@@ -150,6 +153,7 @@ export function emptyPolicy(connectionId = '', channelId = ''): AutomationPolicy
     riskAlertGroup: false,
     riskAlertAdmin: false,
     riskAlertAdminUserIds: [],
+    riskAlertGroupChannelId: '',
     riskMuteEnabled: false,
     riskMuteLowConfidence: 70,
     riskMuteLowSeconds: 600,
@@ -159,7 +163,13 @@ export function emptyPolicy(connectionId = '', channelId = ''): AutomationPolicy
 }
 
 export function completeOverride(policy: AutomationPolicy): AutomationPolicyOverride {
-  return { ...policy, approvedAnswers: [...policy.approvedAnswers], rejectedAnswers: [...policy.rejectedAnswers], riskAlertAdminUserIds: [...policy.riskAlertAdminUserIds] }
+  return {
+    ...policy,
+    approvedAnswers: [...policy.approvedAnswers],
+    rejectedAnswers: [...policy.rejectedAnswers],
+    riskAlertAdminUserIds: [...policy.riskAlertAdminUserIds],
+    riskAlertGroupChannelId: policy.riskAlertGroupChannelId ?? '',
+  }
 }
 
 export function emptyOverride(connectionId = '', channelId = ''): AutomationPolicyOverride {
@@ -182,6 +192,7 @@ export function emptyOverride(connectionId = '', channelId = ''): AutomationPoli
     riskAlertGroup: null,
     riskAlertAdmin: null,
     riskAlertAdminUserIds: null,
+    riskAlertGroupChannelId: null,
     riskMuteEnabled: null,
     riskMuteLowConfidence: null,
     riskMuteLowSeconds: null,
@@ -210,6 +221,7 @@ export function policyFromOverride(override: AutomationPolicyOverride): Automati
     riskAlertGroup: override.riskAlertGroup ?? false,
     riskAlertAdmin: override.riskAlertAdmin ?? false,
     riskAlertAdminUserIds: override.riskAlertAdminUserIds ?? [],
+    riskAlertGroupChannelId: override.riskAlertGroupChannelId ?? '',
     riskMuteEnabled: override.riskMuteEnabled ?? false,
     riskMuteLowConfidence: override.riskMuteLowConfidence ?? 70,
     riskMuteLowSeconds: override.riskMuteLowSeconds ?? 600,

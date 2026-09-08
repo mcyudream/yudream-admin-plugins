@@ -103,6 +103,27 @@ class AutomationPolicyServiceTest {
         assertEquals("", saved.mediaProviderEndpoint());
     }
 
+    @Test
+    void requiresAlertGroupWhenGroupAlertsAreEnabled() {
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService service = new AutomationPolicyService(documents);
+        try {
+            service.saveDefaults(new AutomationPolicy("connection-a", "", true, false, "", false,
+                    List.of(), List.of(), false, true, "", "",
+                    true, 20, 80, true, false, List.of(),
+                    false, 70, 600, 90, 86400, ""));
+            throw new AssertionError("开启群告警但未指定推送群时应拒绝保存");
+        } catch (IllegalArgumentException exception) {
+            assertEquals("开启群告警时必须指定推送群", exception.getMessage());
+        }
+
+        AutomationPolicy saved = service.saveDefaults(new AutomationPolicy("connection-a", "", true, false, "", false,
+                List.of(), List.of(), false, true, "", "",
+                true, 20, 80, true, false, List.of(),
+                false, 70, 600, 90, 86400, "alert-group"));
+        assertEquals("alert-group", saved.riskAlertGroupChannelId());
+    }
+
     private AutomationPolicy defaults(String connectionId) {
         return new AutomationPolicy(connectionId, "", true, true, "http://localhost:8080/parser", true,
                 List.of("allow"), List.of("deny"), true, false, "provider-a", "model-a");

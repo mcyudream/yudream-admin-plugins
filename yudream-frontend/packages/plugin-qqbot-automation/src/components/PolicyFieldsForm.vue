@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   FaIcon,
   FaInput,
@@ -24,11 +24,13 @@ const props = withDefaults(defineProps<{
   allowInheritance?: boolean
   userFetcher?: (query: YdTablePickerQuery) => Promise<YdTablePickerResult<UserPickerRow>>
   userLabels?: Record<string, string>
+  groupOptions?: { label: string, value: string }[]
 }>(), {
   aiProviders: () => [],
   allowInheritance: true,
   userFetcher: undefined,
   userLabels: undefined,
+  groupOptions: () => [],
 })
 
 const emit = defineEmits<{
@@ -108,6 +110,24 @@ const adminUserIds = computed(() => (valueFor('riskAlertAdminUserIds') as string
 function setAdminUsers(ids: string[]) {
   update('riskAlertAdminUserIds', ids)
 }
+
+const extraAlertGroupId = ref('')
+
+function addExtraAlertGroup() {
+  const id = extraAlertGroupId.value.trim()
+  if (!id) return
+  update('riskAlertGroupChannelId', id)
+  extraAlertGroupId.value = ''
+}
+
+const alertGroupOptions = computed(() => {
+  const known = [...props.groupOptions]
+  const current = String(valueFor('riskAlertGroupChannelId') ?? '')
+  if (current && !known.some(item => item.value === current)) {
+    known.push({ label: current, value: current })
+  }
+  return known
+})
 </script>
 
 <template>
@@ -247,8 +267,8 @@ function setAdminUsers(ids: string[]) {
       <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
           <div class="min-w-0">
-            <p class="text-sm font-medium">群内推送告警</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">在检测到风险的群里发送提醒</p>
+            <p class="text-sm font-medium">推送到指定群</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">风险告警发到单独指定的群，而不是出事的那个群</p>
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
@@ -269,6 +289,31 @@ function setAdminUsers(ids: string[]) {
             <FaSwitch :model-value="Boolean(valueFor('riskAlertAdmin'))" :disabled="isInherited('riskAlertAdmin')" @update:model-value="update('riskAlertAdmin', $event ?? false)" />
           </div>
         </div>
+      </div>
+
+      <div v-if="valueFor('riskAlertGroup')" class="mt-4 space-y-2">
+        <div class="flex items-center justify-between gap-3">
+          <label class="text-sm font-medium">告警推送群</label>
+          <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
+            <FaSwitch :model-value="!isInherited('riskAlertGroupChannelId')" @update:model-value="setOverride('riskAlertGroupChannelId', $event ?? false)" />
+          </FaTooltip>
+        </div>
+        <FaSelect
+          class="w-full"
+          placeholder="选择接收告警的群"
+          :options="alertGroupOptions"
+          :model-value="String(valueFor('riskAlertGroupChannelId') ?? '')"
+          :disabled="isInherited('riskAlertGroupChannelId')"
+          @update:model-value="update('riskAlertGroupChannelId', String($event ?? ''))"
+        />
+        <FaInput
+          v-model="extraAlertGroupId"
+          class="w-full"
+          placeholder="官方群 openid，回车添加"
+          :disabled="isInherited('riskAlertGroupChannelId')"
+          @keydown.enter.prevent="addExtraAlertGroup"
+        />
+        <p class="text-xs text-muted-foreground">告警不会发回出事群。官方 QQ 没有完整群列表时，可粘贴群 openid 后回车添加。</p>
       </div>
 
       <div v-if="valueFor('riskAlertAdmin') && userFetcher" class="mt-4 space-y-2">
@@ -417,7 +462,7 @@ function setAdminUsers(ids: string[]) {
         <FaIcon name="i-lucide:user-check" class="text-primary" />
         <div>
           <h3 class="text-sm font-semibold">入群审核规则</h3>
-          <p class="mt-0.5 text-xs text-muted-foreground">每行一个匹配答案；Milky 与官方 QQ 连接均已适配。</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">每行一个匹配答案。官方 QQ 只处理入群申请事件（GROUP_JOIN_REQUEST），机器人必须是该群管理员并订阅群成员事件；已入群通知（GROUP_MEMBER_ADD）无法再审批。</p>
         </div>
       </div>
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

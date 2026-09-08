@@ -426,6 +426,46 @@ class MediaJobServiceTest {
         }
     }
 
+    @Test
+    void officialConnectionPublishesDownloadedFileAsSignedUrl() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")) || "FAILED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("https://files.example.test/official.mp4", sentRequest.get().content().content());
+            assertTrue(storedKey.get().startsWith("official/"));
+            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, sentRequest.get().content().type());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
     private HttpServer responseServer(String path, AtomicReference<String> requestUri, String responseBody) throws IOException {
         return responseServer(path, requestUri, 200, responseBody);
     }
@@ -545,6 +585,49 @@ class MediaJobServiceTest {
                 (proxy, method, args) -> switch (method.getName()) {
                     case "messaging" -> messaging;
                     case "messagingRaw" -> rawMessaging;
+                    default -> null;
+                });
+    }
+
+    private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                                AtomicReference<String> storedKey) {
+        PluginMessagingService messaging = (PluginMessagingService) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{PluginMessagingService.class}, (proxy, method, args) -> {
+                    if ("connections".equals(method.getName())) {
+                        return List.of(new PluginMessagingConnection("connection-official", "Official", "official", "self-a", "official"));
+                    }
+                    if (method.getName().startsWith("send")) {
+                        sentMessages.incrementAndGet();
+                        if (sentRequest != null && args != null && args.length > 0 && args[0] instanceof PluginMessageRequest request) {
+                            sentRequest.set(request);
+                        }
+                        return CompletableFuture.completedFuture(new PluginMessageResult(List.of("message-a"), false, false));
+                    }
+                    return null;
+                });
+        PluginMessagingRawService rawMessaging = (PluginMessagingRawService) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{PluginMessagingRawService.class}, (proxy, method, args) -> CompletableFuture.completedFuture(Map.of()));
+        online.yudream.base.plugin.spi.system.storage.PluginFileStore files = (online.yudream.base.plugin.spi.system.storage.PluginFileStore)
+                Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[]{online.yudream.base.plugin.spi.system.storage.PluginFileStore.class}, (proxy, method, args) -> {
+                            if ("put".equals(method.getName())) {
+                                storedKey.set(String.valueOf(args[0]));
+                                return args[0];
+                            }
+                            return null;
+                        });
+        online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService preview =
+                (online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService) Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[]{online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService.class}, (proxy, method, args) -> {
+                            if ("signedFileUrl".equals(method.getName())) return "https://files.example.test/official.mp4";
+                            return null;
+                        });
+        return (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{FrameworkServices.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "messaging" -> messaging;
+                    case "messagingRaw" -> rawMessaging;
+                    case "files" -> files;
+                    case "filePreview" -> preview;
                     default -> null;
                 });
     }

@@ -55,7 +55,8 @@ public class AutomationPolicyService {
                 policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
                 policy.riskAlertGroup(), policy.riskAlertAdmin(), safe(policy.riskAlertAdminUserIds()),
                 policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
-                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds(),
+                text(policy.riskAlertGroupChannelId()));
         validateEffective(normalized);
         documents.save(DEFAULT_COLLECTION, normalized.connectionId(), toDocument(normalized));
         return normalized;
@@ -184,7 +185,8 @@ public class AutomationPolicyService {
                 value(override.riskMuteLowConfidence(), defaults.riskMuteLowConfidence()),
                 value(override.riskMuteLowSeconds(), defaults.riskMuteLowSeconds()),
                 value(override.riskMuteHighConfidence(), defaults.riskMuteHighConfidence()),
-                value(override.riskMuteHighSeconds(), defaults.riskMuteHighSeconds()));
+                value(override.riskMuteHighSeconds(), defaults.riskMuteHighSeconds()),
+                value(override.riskAlertGroupChannelId(), defaults.riskAlertGroupChannelId()));
     }
 
     private List<AutomationPolicyOverride> mergedOverrides(String connectionId) {
@@ -254,7 +256,8 @@ public class AutomationPolicyService {
                 integer(document.get("riskMuteLowConfidence"), defaults.riskMuteLowConfidence()),
                 longValue(document.get("riskMuteLowSeconds"), defaults.riskMuteLowSeconds()),
                 integer(document.get("riskMuteHighConfidence"), defaults.riskMuteHighConfidence()),
-                longValue(document.get("riskMuteHighSeconds"), defaults.riskMuteHighSeconds()));
+                longValue(document.get("riskMuteHighSeconds"), defaults.riskMuteHighSeconds()),
+                text(document.get("riskAlertGroupChannelId")));
     }
 
     private AutomationPolicyOverride overrideFromDocument(Map<String, Object> document) {
@@ -269,7 +272,8 @@ public class AutomationPolicyService {
                 nullableBoolean(document.get("riskAlertAdmin")), nullableStrings(document, "riskAlertAdminUserIds"),
                 nullableBoolean(document.get("riskMuteEnabled")), nullableInteger(document.get("riskMuteLowConfidence")),
                 nullableLong(document.get("riskMuteLowSeconds")), nullableInteger(document.get("riskMuteHighConfidence")),
-                nullableLong(document.get("riskMuteHighSeconds")));
+                nullableLong(document.get("riskMuteHighSeconds")),
+                nullableText(document.get("riskAlertGroupChannelId")));
     }
 
     private AutomationPolicyOverride normalize(AutomationPolicyOverride policy) {
@@ -280,7 +284,8 @@ public class AutomationPolicyService {
                 policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
                 policy.riskAlertGroup(), policy.riskAlertAdmin(), nullableList(policy.riskAlertAdminUserIds()),
                 policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
-                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds(),
+                nullableText(policy.riskAlertGroupChannelId()));
     }
 
     private Map<String, Object> toDocument(AutomationPolicy policy) {
@@ -308,6 +313,7 @@ public class AutomationPolicyService {
         value.put("riskMuteLowSeconds", policy.riskMuteLowSeconds());
         value.put("riskMuteHighConfidence", policy.riskMuteHighConfidence());
         value.put("riskMuteHighSeconds", policy.riskMuteHighSeconds());
+        value.put("riskAlertGroupChannelId", policy.riskAlertGroupChannelId());
         value.put("updatedAt", System.currentTimeMillis());
         return value;
     }
@@ -337,6 +343,7 @@ public class AutomationPolicyService {
         put(value, "riskMuteLowSeconds", policy.riskMuteLowSeconds());
         put(value, "riskMuteHighConfidence", policy.riskMuteHighConfidence());
         put(value, "riskMuteHighSeconds", policy.riskMuteHighSeconds());
+        put(value, "riskAlertGroupChannelId", policy.riskAlertGroupChannelId());
         value.put("updatedAt", System.currentTimeMillis());
         return value;
     }
@@ -363,6 +370,9 @@ public class AutomationPolicyService {
         if (policy.riskMuteLowSeconds() < 0 || policy.riskMuteHighSeconds() < 0) {
             throw new IllegalArgumentException("禁言时长不能为负数");
         }
+        if (policy.riskAlertGroup() && (policy.riskAlertGroupChannelId() == null || policy.riskAlertGroupChannelId().isBlank())) {
+            throw new IllegalArgumentException("开启群告警时必须指定推送群");
+        }
     }
 
     private AutomationPolicy withChannel(AutomationPolicy policy, String channelId) {
@@ -372,7 +382,8 @@ public class AutomationPolicyService {
                 policy.modelCode(), policy.riskMonitorEnabled(), policy.riskBatchSize(), policy.riskAlertConfidence(),
                 policy.riskAlertGroup(), policy.riskAlertAdmin(), policy.riskAlertAdminUserIds(),
                 policy.riskMuteEnabled(), policy.riskMuteLowConfidence(), policy.riskMuteLowSeconds(),
-                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds());
+                policy.riskMuteHighConfidence(), policy.riskMuteHighSeconds(),
+                policy.riskAlertGroupChannelId());
     }
 
     private <T> T value(T override, T fallback) {

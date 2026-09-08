@@ -323,78 +323,75 @@ onMounted(async () => {
   <section>
     <FaPageHeader title="群自动化策略" description="配置连接默认策略，并按需为单独群聊覆盖指定字段。" />
 
-    <FaPageMain class="space-y-5">
+    <FaPageMain>
+      <div class="qqbot-automation-page">
       <FaAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
 
-      <div class="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <!-- 连接选择 -->
-        <section class="rounded-xl border p-5 xl:col-span-2">
-          <div class="mb-4 flex items-center gap-2">
-            <FaIcon name="i-lucide:cable" class="text-primary" />
+      <div class="qa-row">
+        <section class="qa-card">
+          <div class="qa-card-head">
             <div>
-              <h2 class="text-sm font-semibold">QQ 连接</h2>
-              <p class="mt-0.5 text-xs text-muted-foreground">策略按连接隔离，切换连接后加载其默认策略与群级覆盖。</p>
+              <h2 class="qa-title">QQ 连接</h2>
+              <p class="qa-desc">切换连接后加载该连接的默认策略与群级覆盖。</p>
             </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <FaSelect
-              class="w-full sm:w-72"
-              placeholder="选择连接"
-              :model-value="connectionId"
-              :options="connectionOptions"
-              :disabled="loading"
-              @update:model-value="changeConnection"
-            />
-            <FaButton variant="outline" :disabled="!connectionId || loading" @click="loadCurrentConnection">
+            <FaButton variant="outline" size="sm" :disabled="!connectionId || loading" @click="loadCurrentConnection">
               <FaIcon name="i-lucide:refresh-cw" />
               刷新
             </FaButton>
           </div>
-          <div v-if="currentConnection" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <FaTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</FaTag>
-            <span v-if="currentConnection.protocol === 'official'">官方连接：媒体走公网直链，禁言与入群审批走官方适配接口。</span>
-            <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
+          <div class="qa-card-body">
+            <div class="qa-select-row">
+              <FaSelect
+                placeholder="选择连接"
+                :model-value="connectionId"
+                :options="connectionOptions"
+                :disabled="loading"
+                @update:model-value="changeConnection"
+              />
+            </div>
+            <div v-if="currentConnection" class="qa-hint">
+              <FaTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</FaTag>
+              <span v-if="currentConnection.protocol === 'official'">官方连接：媒体签发公网直链发送；入群审批走官方申请事件（机器人须为群管理员），告警发到单独指定群。</span>
+              <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
+            </div>
           </div>
         </section>
 
-        <!-- 媒体存储 -->
-        <section class="rounded-xl border p-5 xl:col-span-3">
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-              <FaIcon name="i-lucide:hard-drive" class="text-primary" />
-              <div>
-                <h2 class="text-sm font-semibold">媒体存储</h2>
-                <p class="mt-0.5 text-xs text-muted-foreground">Milky 共享媒体目录，加密保存在插件密钥库；留空宿主机目录后不再落盘转发。</p>
-              </div>
+        <section class="qa-card">
+          <div class="qa-card-head">
+            <div>
+              <h2 class="qa-title">媒体存储</h2>
+              <p class="qa-desc">Milky 共享目录，加密保存在插件密钥库；官方连接也依赖此目录签发公网直链。</p>
             </div>
-            <FaButton variant="outline" :loading="savingMediaSettings" @click="saveMediaSettings">保存媒体存储</FaButton>
+            <FaButton variant="outline" size="sm" :loading="savingMediaSettings" @click="saveMediaSettings">保存</FaButton>
           </div>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div class="space-y-2">
-              <label class="text-sm font-medium">宿主机媒体目录</label>
-              <FaInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="如 D:/media 或 /data/media" clearable />
-            </div>
-            <div class="space-y-2">
-              <label class="text-sm font-medium">容器内媒体目录</label>
-              <FaInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/media" />
+          <div class="qa-card-body">
+            <div class="qa-fields">
+              <div class="qa-field">
+                <label class="qa-label">宿主机媒体目录</label>
+                <FaInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="如 D:/media 或 /data/media" clearable />
+              </div>
+              <div class="qa-field">
+                <label class="qa-label">容器内媒体目录</label>
+                <FaInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/media" />
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-      <!-- 连接默认策略 -->
-      <section class="rounded-xl border">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+      <section class="qa-card">
+        <div class="qa-card-head">
           <div>
-            <h2 class="text-base font-semibold">连接默认策略</h2>
-            <p class="mt-1 text-sm text-muted-foreground">未覆盖的群级字段会使用这里的配置。</p>
+            <h2 class="qa-title">连接默认策略</h2>
+            <p class="qa-desc">未覆盖的群级字段会使用这里的配置。</p>
           </div>
-          <FaButton :loading="savingDefault" :disabled="!connectionId || loading" @click="saveDefault">
+          <FaButton size="sm" :loading="savingDefault" :disabled="!connectionId || loading" @click="saveDefault">
             <FaIcon name="i-lucide:save" />
             保存默认策略
           </FaButton>
         </div>
-        <div v-if="connectionId" class="p-5">
+        <div v-if="connectionId" class="qa-card-body">
           <PolicyFieldsForm
             :base-policy="defaultPolicy"
             :override="defaultDraft"
@@ -402,29 +399,26 @@ onMounted(async () => {
             :allow-inheritance="false"
             :user-fetcher="fetchUserOptions"
             :user-labels="userLabelCache"
+            :group-options="groupOptions"
             @update:override="defaultDraft = $event"
           />
         </div>
-        <div v-else class="py-12 text-center text-sm text-muted-foreground">
-          <FaIcon name="i-lucide:mouse-pointer-click" class="mx-auto mb-2 text-2xl text-muted-foreground/60" />
-          选择一个 QQ 连接后配置策略。
-        </div>
+        <div v-else class="qa-empty">选择一个 QQ 连接后配置策略。</div>
       </section>
 
-      <!-- 群级覆盖 -->
-      <section class="rounded-xl border">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+      <section class="qa-card">
+        <div class="qa-card-head">
           <div>
-            <h2 class="text-base font-semibold">群级覆盖</h2>
-            <p class="mt-1 text-sm text-muted-foreground">只保存需要差异化的字段；删除覆盖后立即恢复继承。</p>
+            <h2 class="qa-title">群级覆盖</h2>
+            <p class="qa-desc">只保存需要差异化的字段；删除覆盖后立即恢复继承。</p>
           </div>
-          <FaButton :disabled="!connectionId || loading" @click="openCreate">
+          <FaButton size="sm" :disabled="!connectionId || loading" @click="openCreate">
             <FaIcon name="i-lucide:plus" />
             新增群级覆盖
           </FaButton>
         </div>
 
-        <div class="p-5">
+        <div class="qa-card-body">
           <FaResponsiveTable
             v-loading="loading"
             row-key="channelId"
@@ -492,6 +486,7 @@ onMounted(async () => {
           />
         </div>
       </section>
+      </div>
     </FaPageMain>
 
     <FaDrawer
@@ -528,6 +523,7 @@ onMounted(async () => {
           :ai-providers="aiProviders"
           :user-fetcher="fetchUserOptions"
           :user-labels="userLabelCache"
+          :group-options="groupOptions"
           @update:override="editorDraft = $event"
         />
       </div>

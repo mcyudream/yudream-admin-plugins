@@ -33,11 +33,22 @@ public class JoinVerificationService {
     }
 
     public void handle(PluginEvent event) {
-        AutomationPolicy policy = policies.get(event.connectionId(), event.channelId());
-        if (!policy.enabled() || !policy.joinVerificationEnabled()) return;
-        String requestId = value(event.referrer().get("requestId"));
-        if (requestId.isBlank() || !DECIDED.add(event.connectionId() + ":" + requestId)) return;
-        String comment = event.content() == null ? "" : event.content();
+        AutomationPolicy policy = policies.resolve(event.connectionId(), event.channelId());
+        if (!policy.enabled() || !policy.joinVerificationEnabled()) {
+            LOGGER.fine("[YuDreamAdmin] [QQ 群自动化] skip join verification: connection=" + event.connectionId()
+                    + ", channel=" + event.channelId() + ", enabled=" + policy.enabled()
+                    + ", joinVerificationEnabled=" + policy.joinVerificationEnabled());
+            return;
+        }
+        String requestId = joinRequestId(event);
+        if (requestId.isBlank() || !DECIDED.add(event.connectionId() + ":" + requestId)) {
+            if (requestId.isBlank()) {
+                LOGGER.warning("[YuDreamAdmin] [QQ 群自动化] skip join verification without request id: connection="
+                        + event.connectionId() + ", channel=" + event.channelId() + ", user=" + event.userId());
+            }
+            return;
+        }
+        String comment = joinComment(event);
         Decision decision = ruleDecision(comment, policy);
         if (decision == Decision.UNDECIDED && policy.aiFallbackEnabled()) {
             framework.ai().chat(new PluginAiChatRequest("只输出 ALLOW 或 REJECT。根据入群验证文本判断是否可通过，无法确认时输出 REJECT。", comment,
@@ -55,11 +66,11 @@ public class JoinVerificationService {
     private void decide(PluginEvent event, Decision decision) {
         if (decision == Decision.UNDECIDED) return;
         boolean approve = decision == Decision.APPROVE;
-        String requestId = value(event.referrer().get("requestId"));
+        String requestId = joinRequestId(event);
         String decisionKey = event.connectionId() + ":" + requestId;
-        // 官方机器人走适配器的审批接口（group_openid + member_openid）；Milky 沿用通知序号审批
+        // 官方机器人走适配器的审批接口（group_openid + member_openid + join_request_id）；Milky 沿用通知序号审批
         var action = moderation.isOfficial(event.connectionId())
-                ? moderation.approveJoin(event.connectionId(), event.channelId(), event.userId(), approve)
+                ? moderation.approveJoin(event.connectionId(), event.channelId(), event.userId(), approve, requestId)
                 : framework.messagingRaw().invoke(event.connectionId(), approve ? "accept_group_request" : "reject_group_request",
                         groupRequestPayload(event, requestId));
         action.whenComplete((ignored, error) -> {
@@ -84,6 +95,82 @@ public class JoinVerificationService {
         payload.putIfAbsent("notification_type", "group_invited_join_request".equals(event.nativeType())
                 ? "invited_join_request" : "join_request");
         return payload;
+    }
+
+    private String joinRequestId(PluginEvent event) {
+        String requestId = value(event.referrer() == null ? null : event.referrer().get("requestId"));
+        if (!requestId.isBlank()) {
+            return requestId;
+        }
+        requestId = nativeText(event, "join_request_id", "request_id", "notification_seq", "id");
+        if (!requestId.isBlank()) {
+            return requestId;
+        }
+        return event.messageId() == null ? "" : event.messageId().trim();
+    }
+
+    private String joinComment(PluginEvent event) {
+        if (event.content() != null && !event.content().isBlank()) {
+            return event.content();
+        }
+        String comment = nativeText(event, "comment", "verify_message");
+        if (!comment.isBlank()) {
+            return comment;
+        }
+        Object verifyInfo = nativeValue(event, "verify_info");
+        if (verifyInfo instanceof Map<?, ?> info) {
+            Object message = info.get("verify_message");
+            if (message != null && !String.valueOf(message).isBlank()) {
+                return String.valueOf(message).trim();
+            }
+            Object list = info.get("review_qa_list");
+            if (list instanceof List<?> qaList) {
+                StringBuilder builder = new StringBuilder();
+                for (Object item : qaList) {
+                    if (!(item instanceof Map<?, ?> qa)) {
+                        continue;
+                    }
+                    String question = value(qa.get("question")).trim();
+                    String answer = value(qa.get("answer")).trim();
+                    if (question.isEmpty() && answer.isEmpty()) {
+                        continue;
+                    }
+                    if (!builder.isEmpty()) {
+                        builder.append('\n');
+                    }
+                    if (!question.isEmpty()) {
+                        builder.append(question).append('：');
+                    }
+                    builder.append(answer);
+                }
+                if (!builder.isEmpty()) {
+                    return builder.toString();
+                }
+            }
+        }
+        return "";
+    }
+
+    private String nativeText(PluginEvent event, String... keys) {
+        for (String key : keys) {
+            Object value = nativeValue(event, key);
+            if (value != null && !String.valueOf(value).isBlank()) {
+                return String.valueOf(value).trim();
+            }
+        }
+        return "";
+    }
+
+    private Object nativeValue(PluginEvent event, String key) {
+        if (!(event.nativeData() instanceof Map<?, ?> nativeData)) {
+            return null;
+        }
+        Object value = nativeData.get(key);
+        if (value != null) {
+            return value;
+        }
+        Object nested = nativeData.get("native");
+        return nested instanceof Map<?, ?> nestedNative ? nestedNative.get(key) : null;
     }
 
     private Decision ruleDecision(String comment, AutomationPolicy policy) {

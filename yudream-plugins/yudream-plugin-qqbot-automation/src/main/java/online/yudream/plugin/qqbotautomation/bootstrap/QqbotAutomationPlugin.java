@@ -19,7 +19,7 @@ import online.yudream.plugin.qqbotautomation.interfaces.http.QqbotAutomationHttp
 
 import java.util.Set;
 
-@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.2.0", description = "群申请验证、媒体链接处理与群聊风险监测")
+@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.2.1", description = "群申请验证、媒体链接处理与群聊风险监测")
 @PluginPermissions({@PluginPermission(code = QqbotAutomationPlugin.MANAGE_PERMISSION, name = "管理 QQ 群自动化", module = "平台插件", description = "维护群策略、媒体任务与自动审核")})
 @PluginFrontend(moduleName = "qqbotAutomation", menuTitle = "QQ 群自动化", menuIcon = "i-ri:chat-settings-line", menuSort = 66, routes = {
         @PluginRoute(path = "/platform/plugins/qqbot-automation/admin/policies", name = "platform-plugin-qqbot-automation-policies", title = "群自动化策略", icon = "i-ri:settings-3-line", component = "qqbot-automation/Policies", permission = QqbotAutomationPlugin.MANAGE_PERMISSION, sort = 10),

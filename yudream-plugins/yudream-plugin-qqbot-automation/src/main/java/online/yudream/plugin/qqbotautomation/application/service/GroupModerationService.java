@@ -49,10 +49,22 @@ public class GroupModerationService {
 
     /** 官方连接的入群审批；Milky 的审批沿用 accept_group_request/reject_group_request（在 JoinVerificationService）。 */
     public CompletionStage<?> approveJoin(String connectionId, String groupId, String userId, boolean approve) {
+        return approveJoin(connectionId, groupId, userId, approve, null);
+    }
+
+    public CompletionStage<?> approveJoin(String connectionId, String groupId, String userId, boolean approve, String joinRequestId) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("group_id", groupId);
         payload.put("user_id", userId);
         payload.put("approve", approve);
+        payload.put("op", approve ? "approve" : "decline");
+        if (joinRequestId != null && !joinRequestId.isBlank()) {
+            payload.put("join_request_id", joinRequestId);
+            payload.put("request_id", joinRequestId);
+        }
+        if (!approve) {
+            payload.put("reject_reason", "入群验证未通过");
+        }
         return framework.messagingRaw().invoke(connectionId, "set_group_add_request", payload);
     }
 

@@ -27,7 +27,7 @@ import java.util.logging.Logger;
 /**
  * 群聊风险监测：每个群按策略累计消息，满 N 条整批送 AI 审核；送检内容带完整用户上下文
  * （QQ/openid、已绑定账号昵称、时间），AI 逐条给出风险判定与置信度，按置信度自动禁言
- * （Milky set_group_member_mute / 官方 restrict_chat_setting）并向群内/管理员推送告警。
+     * （Milky set_group_member_mute / 官方 restrict_chat_setting）并向指定告警群/管理员推送告警。
  */
 public class RiskMonitorService {
     private static final String LOG_COLLECTION = "risk-check-log";
@@ -150,17 +150,23 @@ public class RiskMonitorService {
 
     private void pushAlerts(String connectionId, String channelId, AutomationPolicy policy, RiskFinding finding,
                             String disposition, String platform, String selfId) {
-        String text = "⚠️ 群聊风险提醒\n发送者：" + finding.message().nickname() + "（" + finding.message().userId() + "）"
+        String text = "⚠️ 群聊风险提醒\n来源群：" + channelId
+                + "\n发送者：" + finding.message().nickname() + "（" + finding.message().userId() + "）"
                 + "\n类型：" + finding.category() + "（置信度 " + finding.confidence() + "%）"
                 + "\n内容：" + preview(finding.message().content())
                 + "\n判定理由：" + finding.reason()
                 + "\n处置：" + disposition;
         if (policy.riskAlertGroup()) {
-            try {
-                framework.messaging().send(new PluginMessageRequest(connectionId, platform, selfId, channelId,
-                        new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, Map.of())));
-            } catch (RuntimeException e) {
-                LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk group alert failed: channel=" + channelId, e);
+            String alertChannelId = policy.riskAlertGroupChannelId() == null ? "" : policy.riskAlertGroupChannelId().trim();
+            if (alertChannelId.isBlank()) {
+                LOGGER.warning("[YuDreamAdmin] [QQ 群自动化] risk group alert skipped: alert group not configured, source=" + channelId);
+            } else {
+                try {
+                    framework.messaging().send(new PluginMessageRequest(connectionId, platform, selfId, alertChannelId,
+                            new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, Map.of())));
+                } catch (RuntimeException e) {
+                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk group alert failed: channel=" + alertChannelId, e);
+                }
             }
         }
         if (policy.riskAlertAdmin()) {
