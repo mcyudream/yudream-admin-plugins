@@ -1,4 +1,43 @@
 /* qqbot-automation 插件样式（宿主 UnoCSS 不扫描插件包，任意值类一律落到这里） */
+
+/* 宿主全局 CSS 中不存在、但本插件模板用到的工具类，由插件按 wind4 语义自行补齐。
+   新增模板类前先确认宿主已生成，否则在此登记。 */
+.p-5 {
+  padding: 1.25rem;
+}
+
+.min-h-28 {
+  min-height: 7rem;
+}
+
+.space-y-5 > :not(:first-child) {
+  margin-top: 1.25rem;
+}
+
+.w-\[min\(560px\2c calc\(100\%-2rem\)\)\] {
+  width: min(560px, calc(100% - 2rem));
+}
+
+@media (min-width: 40rem) {
+  .sm\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+}
+
+@media (min-width: 64rem) {
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lg\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+}
+
 .qqbot-automation-drawer {
   width: min(860px, 100vw);
 }
