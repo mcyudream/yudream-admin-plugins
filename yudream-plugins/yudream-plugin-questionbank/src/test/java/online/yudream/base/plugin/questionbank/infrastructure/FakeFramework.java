@@ -18,11 +18,13 @@ import online.yudream.base.plugin.spi.system.user.PluginDeptOption;
 import online.yudream.base.plugin.spi.system.user.PluginQqBindingService;
 import online.yudream.base.plugin.spi.system.user.PluginUserCreate;
 import online.yudream.base.plugin.spi.system.user.PluginUserDept;
+import online.yudream.base.plugin.spi.system.user.PluginUserField;
 import online.yudream.base.plugin.spi.system.user.PluginUserOption;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfileUpdate;
 import online.yudream.base.plugin.spi.system.user.PluginUserRole;
 import online.yudream.base.plugin.spi.system.user.PluginUserService;
+import online.yudream.base.plugin.spi.system.user.PluginUserTag;
 
 /** 宿主 FrameworkServices 假实现：仅 users() 有语义（返回 用户{id} 昵称），其余未用端口返回 null。 */
 public final class FakeFramework implements FrameworkServices {
@@ -162,6 +164,19 @@ public final class FakeFramework implements FrameworkServices {
 
         @Override
         public void updateProfile(Long userId, PluginUserProfileUpdate update) {
+        }
+
+        @Override
+        public List<PluginUserTag> listTags(Long userId) {
+            return List.of();
+        }
+
+        @Override
+        public void replaceTags(Long userId, String namespace, List<PluginUserTag> tags) {
+        }
+
+        @Override
+        public void replaceFields(Long userId, String namespace, List<PluginUserField> fields) {
         }
     }
 }
