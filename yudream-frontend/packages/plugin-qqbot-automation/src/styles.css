@@ -6,13 +6,13 @@
 .qqbot-automation-page {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .qqbot-automation-page .qa-card {
-  border: 1px solid hsl(var(--border));
+  border: 1px solid oklch(var(--border));
   border-radius: 10px;
-  background: hsl(var(--background));
+  background: oklch(var(--card));
 }
 
 .qqbot-automation-page .qa-card-head {
@@ -20,13 +20,13 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid hsl(var(--border));
+  gap: 8px 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid oklch(var(--border));
 }
 
 .qqbot-automation-page .qa-card-body {
-  padding: 12px 14px;
+  padding: 16px;
 }
 
 .qqbot-automation-page .qa-title {
@@ -40,19 +40,19 @@
   margin: 2px 0 0;
   font-size: 12px;
   line-height: 1.4;
-  color: hsl(var(--muted-foreground));
+  color: oklch(var(--muted-foreground));
 }
 
 .qqbot-automation-page .qa-row {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  gap: 12px;
+  gap: 16px;
 }
 
 .qqbot-automation-page .qa-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
+  gap: 12px 16px;
 }
 
 .qqbot-automation-page .qa-field {
@@ -67,12 +67,12 @@
 }
 
 .qqbot-automation-page .qa-hint {
-  margin-top: 8px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
+  color: oklch(var(--muted-foreground));
 }
 
 .qqbot-automation-page .qa-select-row {
@@ -87,10 +87,10 @@
 }
 
 .qqbot-automation-page .qa-empty {
-  padding: 24px 14px;
+  padding: 24px 16px;
   text-align: center;
   font-size: 13px;
-  color: hsl(var(--muted-foreground));
+  color: oklch(var(--muted-foreground));
 }
 
 @media (max-width: 1100px) {
