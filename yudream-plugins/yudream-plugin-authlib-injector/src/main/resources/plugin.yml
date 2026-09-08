@@ -3,6 +3,6 @@ displayName: Minecraft 外置认证
 description: 为 Minecraft 客户端和服务端提供外置账号认证与角色资料服务。
 icon: i-ri:shield-keyhole-line
 main: online.yudream.base.plugin.authlib.bootstrap.AuthlibInjectorPlugin
-version: 1.1.2
+version: 1.1.3
 depend:
   - yudream-skin

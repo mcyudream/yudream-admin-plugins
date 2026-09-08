@@ -60,29 +60,43 @@
   gap: 3px;
 }
 
-.authlib-dashboard-card {
+/* 宿主远程卡片外包一层无高度的 div，必须先把这一层接进首页网格的 flex 高度链。 */
+[data-yudream-plugin="authlib-injector"] {
   display: flex;
-  flex: 1;
+  flex: 1 1 0%;
   flex-direction: column;
-  gap: 14px;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.authlib-dashboard-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   margin: 2px 16px 16px;
   overflow: hidden;
 }
 
 .authlib-dashboard-card__body {
-  display: grid;
-  flex: 1 1 0;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
 }
 
 .authlib-dashboard-card__desc {
   display: -webkit-box;
+  flex: 0 0 auto;
   margin: 0;
   overflow: hidden;
   -webkit-line-clamp: 2;
@@ -94,20 +108,62 @@
 }
 
 .authlib-dashboard-card__endpoint {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-self: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
   width: 100%;
   min-width: 0;
   min-height: 46px;
+  padding: 10px 12px;
+  color: var(--color-text-1);
+  text-align: left;
   cursor: copy;
+  background: var(--color-fill-1);
+  border: 1px solid var(--color-border-2);
+  border-radius: 8px;
+  -webkit-user-drag: element;
+  user-select: none;
+}
+
+.authlib-dashboard-card__endpoint:hover {
+  background: var(--color-fill-2);
+  border-color: var(--color-border-3);
 }
 
 .authlib-dashboard-card__endpoint code {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.authlib-dashboard-card__copy {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--color-text-3);
+  font-size: 16px;
+}
+
+.authlib-dashboard-card__hint {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.authlib-dashboard-card__hint .fa-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-size: 13px;
 }
 
 .authlib-dashboard-card__actions {
@@ -116,15 +172,11 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   min-width: 0;
+  margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--color-border-1);
-}
-
-.authlib-dashboard-card__actions span {
-  color: var(--color-text-3);
-  font-size: 12px;
 }
 
 @media (max-width: 1180px) {

@@ -378,13 +378,25 @@
   font-size: 13px;
 }
 
-.activity-dashboard-card {
+/* 宿主远程卡片外包一层无高度的 div，必须先把这一层接进首页网格的 flex 高度链。 */
+[data-yudream-plugin="minecraft-activity-proof"] {
   display: flex;
-  flex: 1;
+  flex: 1 1 0%;
   flex-direction: column;
-  gap: 12px;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.activity-dashboard-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   margin: 2px 16px 16px;
   overflow: hidden;
 }
@@ -406,7 +418,7 @@
 
 .activity-dashboard-card__body {
   display: grid;
-  flex: 1;
+  flex: 1 1 auto;
   gap: 12px;
   align-content: start;
   min-width: 0;
@@ -461,6 +473,7 @@
   gap: 8px;
   align-items: center;
   min-width: 0;
+  margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--color-border-1);
 }

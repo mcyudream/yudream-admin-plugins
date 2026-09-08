@@ -23,13 +23,20 @@ async function copyEndpoint() {
 }
 
 function handleDragStart(event: DragEvent) {
-  if (!event.dataTransfer) return
+  if (!event.dataTransfer) {
+    return
+  }
+  event.stopPropagation()
   event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.dropEffect = 'copy'
   event.dataTransfer.setData('text/plain', dragPayload.value)
+  event.dataTransfer.setData('text/uri-list', endpointUrl.value)
 }
 
 function absoluteUrl(url: string) {
-  if (/^https?:\/\//i.test(url)) return url
+  if (/^https?:\/\//i.test(url)) {
+    return url
+  }
   return `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`
 }
 </script>
@@ -38,8 +45,8 @@ function absoluteUrl(url: string) {
   <div class="dashboard-card__content authlib-dashboard-card">
     <div class="authlib-dashboard-card__body">
       <p v-if="card.description" class="authlib-dashboard-card__desc">{{ card.description }}</p>
-      <FaButton
-        variant="outline"
+      <button
+        type="button"
         class="authlib-dashboard-card__endpoint"
         title="复制 API 地址，也可拖拽到支持导入配置的客户端"
         draggable="true"
@@ -47,11 +54,16 @@ function absoluteUrl(url: string) {
         @dragstart="handleDragStart"
       >
         <code>{{ endpointUrl }}</code>
-        <FaIcon name="i-ri:file-copy-line" />
-      </FaButton>
+        <span class="authlib-dashboard-card__copy">
+          <FaIcon name="i-ri:file-copy-line" />
+        </span>
+      </button>
+      <p class="authlib-dashboard-card__hint">
+        <FaIcon name="i-ri:information-line" />
+        <span>点击复制地址，也可拖到支持导入配置的客户端</span>
+      </p>
     </div>
     <div class="authlib-dashboard-card__actions">
-      <span>Yggdrasil 服务根地址</span>
       <FaButton v-if="card.actionPath" size="sm" variant="outline" @click="onOpen?.(card)">打开管理</FaButton>
     </div>
   </div>
