@@ -6,4 +6,3 @@
 yudream-plugin-minecraft-activity-proof
 yudream-plugin-wallet
 yudream-plugin-authlib-injector
-yudream-plugin-qqbot-automation
