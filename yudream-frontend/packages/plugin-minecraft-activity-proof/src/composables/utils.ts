@@ -174,6 +174,24 @@ export function resolveFileUrl(sdk: YuDreamPluginSdk, value: string | null | und
   return normalized ? sdk.files.assetUrl(normalized) : ''
 }
 
+/** 列表封面走平台 `/content/thumb`；宿主未升级时 CoverThumb 会回退原图。 */
+export function resolveThumbUrl(sdk: YuDreamPluginSdk, value: string | null | undefined) {
+  const normalized = normalizeFileUrl(value)
+  if (!normalized) {
+    return ''
+  }
+  const thumb = toFileThumbPath(normalized)
+  return /^https?:\/\//i.test(thumb) ? thumb : sdk.files.assetUrl(thumb)
+}
+
+function toFileThumbPath(url: string) {
+  if (/\/content\/thumb(?:\?.*)?$/i.test(url)) {
+    return url
+  }
+  const match = url.match(/^(.*\/api\/files\/(?:public\/)?\d+\/content)(?:\?.*)?$/i)
+  return match ? `${match[1]}/thumb` : url
+}
+
 export function normalizeMarkdownFileUrls(text: string | null | undefined) {
   const raw = text || ''
   if (!raw) {

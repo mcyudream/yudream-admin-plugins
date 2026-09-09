@@ -46,6 +46,7 @@ public class MediaJobService {
     private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
     private static final Duration OFFICIAL_FILE_TTL = Duration.ofHours(6);
+    static final long OFFICIAL_INLINE_BASE64_LIMIT_BYTES = 32L * 1024 * 1024;
     private static final Pattern BILIBILI_BV_ID = Pattern.compile("BV[0-9A-Za-z]{10}");
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
@@ -596,12 +597,8 @@ public class MediaJobService {
             byte[] bytes = Files.readAllBytes(file);
             String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
             files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, contentType(filename));
-            String publicUrl = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
-            if (!nonBlank(publicUrl)) {
-                throw new IllegalStateException("File preview is not enabled, so official connections cannot send media");
-            }
-            LOG.info(PluginLogger.MEDIA, "官方媒体已签发直链: filename=" + filename + ", bytes=" + bytes.length);
-            return new ResolvedMedia(publicUrl, publicUrl, List.of());
+            String source = officialDeliverySource(bytes, filename, objectKey);
+            return new ResolvedMedia(source, source, List.of());
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -684,6 +681,98 @@ public class MediaJobService {
                 + "。插件跑在 YuDream 后端容器里，可读目录要填后端能看到的挂载点（这份 compose 是 /media），解析容器目录填解析服务写入路径（截图是 /app/download）。不要填宿主机 /opt/yudream-douyin-api/download。");
     }
 
+    /**
+     * 官方机器人只接受公网 http(s) 或 base64://。宿主 {@code signedFileUrl} 签发的是
+     * {@code /api/public/preview/file/...} 相对路径，必须拼上文件预览回源基址，
+     * 没有公网基址时才把已读入内存的小文件改成内联 base64。
+     */
+    private String officialDeliverySource(byte[] bytes, String filename, String objectKey) {
+        String signed = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
+        String absolute = absolutePublicUrl(signed);
+        if (nonBlank(absolute)) {
+            LOG.info(PluginLogger.MEDIA, "官方媒体已签发直链: filename=" + filename
+                    + ", bytes=" + bytes.length + ", mode=url");
+            return absolute;
+        }
+        if (bytes.length > OFFICIAL_INLINE_BASE64_LIMIT_BYTES) {
+            throw new IllegalStateException("官方机器人无法拉取相对路径文件（签发=" + signed
+                    + "）。请在「平台能力 > 文件预览」配置公网回源地址，或确保签发的是 http(s) 直链。"
+                    + "当前文件 " + bytes.length + " 字节超过内联 base64 上限 "
+                    + OFFICIAL_INLINE_BASE64_LIMIT_BYTES + " 字节。");
+        }
+        String encoded = java.util.Base64.getEncoder().encodeToString(bytes);
+        LOG.info(PluginLogger.MEDIA, "官方媒体改用内联 base64: filename=" + filename
+                + ", bytes=" + bytes.length + ", signed=" + signed);
+        return "base64://" + encoded;
+    }
+
+    private String absolutePublicUrl(String signed) {
+        if (!nonBlank(signed)) {
+            return "";
+        }
+        String value = signed.trim();
+        if (value.startsWith("https://") || value.startsWith("http://")
+                || value.startsWith("base64://") || value.startsWith("data:")) {
+            return value;
+        }
+        String base = framework.filePreview().callbackBaseUrl();
+        if (!nonBlank(base)) {
+            return "";
+        }
+        String path = value.startsWith("/") ? value : "/" + value;
+        return trimSlash(base) + path;
+    }
+
+    private String trimSlash(String value) {
+        return value.replaceAll("/+$", "");
+    }
+
+    /**
+     * 官方机器人只接受公网 http(s) 或 base64://。宿主 signedFileUrl 签发的是
+     * /api/public/preview/file/... 相对路径，必须拼上文件预览回源基址；
+     * 没有公网基址时才把已读入内存的小文件改成内联 base64。
+     */
+    private String officialDeliverySource(byte[] bytes, String filename, String objectKey) {
+        String signed = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
+        String absolute = absolutePublicUrl(signed);
+        if (nonBlank(absolute)) {
+            LOG.info(PluginLogger.MEDIA, "官方媒体已签发直链: filename=" + filename
+                    + ", bytes=" + bytes.length + ", mode=url");
+            return absolute;
+        }
+        if (bytes.length > OFFICIAL_INLINE_BASE64_LIMIT_BYTES) {
+            throw new IllegalStateException("官方机器人无法拉取相对路径文件（签发=" + signed
+                    + "）。请在「平台能力 > 文件预览」配置公网回源地址，或确保签发的是 http(s) 直链。"
+                    + "当前文件 " + bytes.length + " 字节超过内联 base64 上限 "
+                    + OFFICIAL_INLINE_BASE64_LIMIT_BYTES + " 字节。");
+        }
+        String encoded = java.util.Base64.getEncoder().encodeToString(bytes);
+        LOG.info(PluginLogger.MEDIA, "官方媒体改用内联 base64: filename=" + filename
+                + ", bytes=" + bytes.length + ", signed=" + signed);
+        return "base64://" + encoded;
+    }
+
+    private String absolutePublicUrl(String signed) {
+        if (!nonBlank(signed)) {
+            return "";
+        }
+        String value = signed.trim();
+        if (value.startsWith("https://") || value.startsWith("http://")
+                || value.startsWith("base64://") || value.startsWith("data:")) {
+            return value;
+        }
+        String base = framework.filePreview().callbackBaseUrl();
+        if (!nonBlank(base)) {
+            return "";
+        }
+        String path = value.startsWith("/") ? value : "/" + value;
+        return trimSlash(base) + path;
+    }
+
+    private String trimSlash(String value) {
+        return value.replaceAll("/+$", "");
+    }
+
     private PluginFileStore files() {
         return framework.files(QqbotAutomationPlugin.CODE);
     }
@@ -723,11 +812,8 @@ public class MediaJobService {
             String filename = file.getFileName().toString();
             String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
             files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, "video/mp4");
-            String publicUrl = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
-            if (!nonBlank(publicUrl)) {
-                throw new IllegalStateException("File preview is not enabled, so official connections cannot send media");
-            }
-            return new ResolvedMedia(publicUrl, publicUrl, List.of());
+            String source = officialDeliverySource(bytes, filename, objectKey);
+            return new ResolvedMedia(source, source, List.of());
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {

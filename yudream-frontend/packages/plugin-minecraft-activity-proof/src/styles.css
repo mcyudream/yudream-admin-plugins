@@ -2,6 +2,24 @@
   min-height: 100%;
 }
 
+.activity-cover-thumb {
+  display: block;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.activity-cover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.activity-card-cover .activity-cover-thumb {
+  width: 100%;
+  height: 100%;
+}
+
 .proof-page {
   display: grid;
   gap: 18px;
@@ -520,4 +538,8 @@
 
 .proof-table-w1680 {
   min-width: 1680px;
+}
+
+.proof-table-w1740 {
+  min-width: 1740px;
 }

@@ -5,6 +5,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTag } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import CoverThumb from '../components/CoverThumb.vue'
 import { useSquare } from '../composables/useSquare'
 import { activityStage, activityStageTag, formatTimeRange, isActivityEnded } from '../composables/utils'
 
@@ -60,7 +61,12 @@ function openDetail(activity: UserActivity) {
             @keydown.enter="openDetail(activity)"
           >
             <div class="activity-card-cover">
-              <img v-if="activity.coverUrl" :src="model.coverOf(activity)" :alt="activity.title" loading="lazy">
+              <CoverThumb
+                v-if="activity.coverUrl"
+                :src="model.coverThumbOf(activity)"
+                :fallback-src="model.coverOf(activity)"
+                :alt="activity.title"
+              />
               <div v-else class="activity-card-cover-placeholder">
                 <FaIcon name="i-ri:image-line" class="text-3xl" />
               </div>

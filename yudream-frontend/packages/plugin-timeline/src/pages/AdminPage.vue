@@ -4,8 +4,9 @@ import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventSummary } from '../types'
 import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
+import CoverThumb from '../components/CoverThumb.vue'
 import EventEditorModal from '../components/EventEditorModal.vue'
-import { EVENT_TYPE_OPTIONS, eventTypeMeta, formatEventDate, formatTime, resolveImageUrl } from '../composables/utils'
+import { EVENT_TYPE_OPTIONS, eventTypeMeta, formatEventDate, formatTime, resolveImageUrl, resolveThumbUrl } from '../composables/utils'
 
 const props = defineProps<{ model: TimelinePluginModel }>()
 const model = props.model
@@ -40,8 +41,12 @@ function applyFilters() {
   void model.loadAdminEvents(1)
 }
 
-function coverThumb(row: TimelineEventSummary) {
+function coverUrl(row: TimelineEventSummary) {
   return resolveImageUrl(model.sdk, row.coverImage)
+}
+
+function coverThumb(row: TimelineEventSummary) {
+  return resolveThumbUrl(model.sdk, row.coverImage)
 }
 
 function openCreate() {
@@ -118,7 +123,13 @@ onMounted(() => {
         </template>
         <template #cell-title="{ row }">
           <div class="tl-event-cell">
-            <img v-if="row.original.coverImage" :src="coverThumb(row.original)" :alt="row.original.title" class="tl-event-thumb">
+            <CoverThumb
+              v-if="row.original.coverImage"
+              :src="coverThumb(row.original)"
+              :fallback-src="coverUrl(row.original)"
+              :alt="row.original.title"
+              img-class="tl-event-thumb"
+            />
             <div class="tl-event-cell-text">
               <span class="tl-event-cell-title" :title="row.original.title">
                 <FaTag :variant="eventTypeMeta(row.original.eventType).tagVariant" class="tl-event-type-tag">
@@ -159,7 +170,13 @@ onMounted(() => {
         <FaCard v-for="row in model.adminEvents" :key="row.id">
           <div class="tl-mobile-card">
             <div class="tl-mobile-card-head">
-              <img v-if="row.coverImage" :src="coverThumb(row)" :alt="row.title" class="tl-event-thumb">
+              <CoverThumb
+                v-if="row.coverImage"
+                :src="coverThumb(row)"
+                :fallback-src="coverUrl(row)"
+                :alt="row.title"
+                img-class="tl-event-thumb"
+              />
               <div class="tl-event-cell-text">
                 <span class="tl-event-cell-title">
                   <FaTag :variant="eventTypeMeta(row.eventType).tagVariant" class="tl-event-type-tag">

@@ -2,7 +2,7 @@ import type { UserActivity } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
-import { resolveFileUrl } from './utils'
+import { resolveFileUrl, resolveThumbUrl } from './utils'
 
 export function useSquare(sdk: YuDreamPluginSdk) {
   const api = createActivityProofApi(sdk)
@@ -26,11 +26,16 @@ export function useSquare(sdk: YuDreamPluginSdk) {
     return resolveFileUrl(sdk, activity.coverUrl)
   }
 
+  function coverThumbOf(activity: UserActivity) {
+    return resolveThumbUrl(sdk, activity.coverUrl)
+  }
+
   return {
     loading,
     activities,
     pager,
     load,
     coverOf,
+    coverThumbOf,
   }
 }

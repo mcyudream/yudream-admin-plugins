@@ -219,8 +219,32 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
     }
 
     @Override
+    public List<ActivityQuizAttempt> quizAttemptsByActivity(String activityId) {
+        if (activityId == null || activityId.isBlank()) {
+            return List.of();
+        }
+        String target = activityId.trim();
+        return scan(QUIZ_ATTEMPTS).stream()
+                .filter(row -> target.equals(string(row, "activityId")))
+                .map(this::toQuizAttempt)
+                .toList();
+    }
+
+    @Override
     public ActivityQuizAttempt saveQuizAttempt(ActivityQuizAttempt attempt) {
         return toQuizAttempt(documents.save(QUIZ_ATTEMPTS, attempt.id(), quizAttemptDocument(attempt)));
+    }
+
+    @Override
+    public void deleteQuizAttempt(String id) {
+        if (id != null && !id.isBlank()) {
+            documents.delete(QUIZ_ATTEMPTS, id.trim());
+        }
+    }
+
+    @Override
+    public void deleteAutoJoinExclusionsByActivity(String activityId) {
+        deleteByActivityId(AUTO_JOIN_EXCLUSIONS, activityId);
     }
 
     @Override
@@ -295,6 +319,22 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 return result;
             }
             page++;
+        }
+    }
+
+    private void deleteByActivityId(String collection, String activityId) {
+        if (activityId == null || activityId.isBlank()) {
+            return;
+        }
+        String target = activityId.trim();
+        for (Map<String, Object> row : scan(collection)) {
+            if (!target.equals(string(row, "activityId"))) {
+                continue;
+            }
+            String id = string(row, "id");
+            if (!id.isBlank()) {
+                documents.delete(collection, id);
+            }
         }
     }
 

@@ -16,6 +16,10 @@ public final class MaterialFileStorage {
         return "materials/" + materialId + "/v" + version + "/file";
     }
 
+    public String coverObjectKey(String materialId, int version) {
+        return "materials/" + materialId + "/v" + version + "/cover.jpg";
+    }
+
     public String put(String objectKey, InputStream input, long contentLength, String contentType) {
         return files.put(objectKey, input, contentLength, contentType);
     }

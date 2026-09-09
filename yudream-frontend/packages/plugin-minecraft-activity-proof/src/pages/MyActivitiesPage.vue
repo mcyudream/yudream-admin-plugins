@@ -6,6 +6,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import CoverThumb from '../components/CoverThumb.vue'
 import { useMyActivities } from '../composables/useMyActivities'
 import { formatTime, formatTimeRange, isActivityEnded } from '../composables/utils'
 
@@ -77,7 +78,12 @@ function openDetail(row: MyParticipation) {
       >
         <template #cell-activity="{ row }">
           <div class="flex items-center gap-2">
-            <img v-if="row.original.coverUrl" :src="model.coverOf(row.original)" alt="" class="activity-table-cover">
+            <CoverThumb
+              v-if="row.original.coverUrl"
+              :src="model.coverThumbOf(row.original)"
+              :fallback-src="model.coverOf(row.original)"
+              img-class="activity-table-cover"
+            />
             <div class="grid gap-1">
               <strong>{{ row.original.title }}</strong>
               <FaTag v-if="ended(row.original)" variant="secondary" class="w-fit">已结束</FaTag>

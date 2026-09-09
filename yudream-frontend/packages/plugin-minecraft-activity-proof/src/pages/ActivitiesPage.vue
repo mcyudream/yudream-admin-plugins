@@ -36,7 +36,7 @@ const columns: TableColumn<Activity>[] = [
   { id: 'activityTime', header: '活动时间', width: 210 },
   { id: 'participants', header: '参与/通过', width: 110, align: 'center' },
   { id: 'createdAt', header: '创建时间', width: 170 },
-  { id: 'operation', header: '操作', width: 380, align: 'center', fixed: 'right' },
+  { id: 'operation', header: '操作', width: 440, align: 'center', fixed: 'right' },
 ]
 
 function statusTag(row: Activity) {
@@ -84,7 +84,7 @@ function openDetail(row: Activity) {
         v-loading="loading"
         row-key="id"
         table-root-class="proof-table-scroll"
-        table-class="proof-table-w1680"
+        table-class="proof-table-w1740"
         border
         stripe
         column-visibility
@@ -144,7 +144,6 @@ function openDetail(row: Activity) {
               结束
             </FaButton>
             <FaButton
-              v-if="row.original.status === 'DRAFT'"
               size="sm"
               variant="destructive"
               :loading="actingId === row.original.id"
@@ -188,7 +187,7 @@ function openDetail(row: Activity) {
                 <FaButton v-if="row.status !== 'CLOSED'" size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
                 <FaButton v-if="row.status === 'DRAFT'" size="sm" :loading="actingId === row.id" @click="model.publish(row)">发布</FaButton>
                 <FaButton v-if="row.status === 'PUBLISHED'" size="sm" variant="outline" :loading="actingId === row.id" @click="model.close(row)">结束</FaButton>
-                <FaButton v-if="row.status === 'DRAFT'" size="sm" variant="destructive" :loading="actingId === row.id" @click="model.remove(row)">删除</FaButton>
+                <FaButton size="sm" variant="destructive" :loading="actingId === row.id" @click="model.remove(row)">删除</FaButton>
               </div>
             </div>
           </FaCard>

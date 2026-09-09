@@ -121,6 +121,31 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     }
   }
 
+  function remove(onDeleted?: () => void) {
+    const current = activity.value
+    if (!current || acting.value) {
+      return
+    }
+    modal.confirm({
+      title: '删除活动',
+      content: `确认删除活动「${current.title}」吗？参与记录、答题进度和该活动的证明导出将一并删除，且不可恢复。`,
+      onConfirm: async () => {
+        acting.value = true
+        try {
+          await api.admin.deleteActivity(current.id)
+          toast.success('活动已删除')
+          onDeleted?.()
+        }
+        catch (error) {
+          toast.warning(errorMessage(error))
+        }
+        finally {
+          acting.value = false
+        }
+      },
+    })
+  }
+
   async function verify(row: ActivityParticipantAdmin) {
     if (!activity.value || verifyingId.value) {
       return
@@ -310,6 +335,7 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     refresh,
     publish,
     close,
+    remove,
     verify,
     verifyAll,
     syncServerParticipants,

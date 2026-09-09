@@ -44,7 +44,32 @@ public class MinecraftServerAppAssembler {
     }
 
     public MinecraftServerMapDTO toDTO(MinecraftServerMap map) {
-        return new MinecraftServerMapDTO(map.fileId(), map.originalName(), map.publicAccess());
+        return new MinecraftServerMapDTO(map.fileId(), map.originalName(), map.publicAccess(), blankToNull(map.externalUrl()));
+    }
+
+    public MinecraftServerDTO toUserDTO(MinecraftServerDTO dto) {
+        if (dto.map() == null) {
+            return dto;
+        }
+        MinecraftServerMapDTO map = dto.map().publicAccess() ? dto.map() : dto.map().withoutExternalUrl();
+        return new MinecraftServerDTO(
+                dto.id(),
+                dto.name(),
+                dto.descriptionMarkdown(),
+                dto.enabled(),
+                dto.sort(),
+                dto.endpoints(),
+                dto.seasons(),
+                dto.currentSeason(),
+                dto.status(),
+                map,
+                dto.createdAt(),
+                dto.updatedAt()
+        );
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     public MinecraftServerDTO.EndpointDTO toDTO(MinecraftServerEndpoint endpoint) {

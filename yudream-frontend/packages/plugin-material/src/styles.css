@@ -286,7 +286,13 @@
   overflow: hidden;
 }
 
-.material-thumb img {
+.material-cover {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.material-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;

@@ -49,6 +49,24 @@ export function resolveImageUrl(sdk: YuDreamPluginSdk, url: string | null | unde
   return /^https?:\/\//i.test(raw) ? raw : sdk.files.assetUrl(raw)
 }
 
+/** 列表封面走平台 `/content/thumb`；宿主未升级时 CoverThumb 会回退原图。 */
+export function resolveThumbUrl(sdk: YuDreamPluginSdk, url: string | null | undefined) {
+  const raw = normalizeFileUrl(url)
+  if (!raw) {
+    return ''
+  }
+  const thumb = toFileThumbPath(raw)
+  return /^https?:\/\//i.test(thumb) ? thumb : sdk.files.assetUrl(thumb)
+}
+
+function toFileThumbPath(url: string) {
+  if (/\/content\/thumb(?:\?.*)?$/i.test(url)) {
+    return url
+  }
+  const match = url.match(/^(.*\/api\/files\/(?:public\/)?\d+\/content)(?:\?.*)?$/i)
+  return match ? `${match[1]}/thumb` : url
+}
+
 // 渲染前把内容里的文件引用解析成当前环境可访问的地址
 export function resolveMarkdownFileUrls(sdk: YuDreamPluginSdk, text: string | null | undefined) {
   const raw = (text || '')

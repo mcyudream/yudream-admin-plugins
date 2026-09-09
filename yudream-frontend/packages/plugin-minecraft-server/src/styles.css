@@ -376,6 +376,22 @@
   background: var(--mc-surface-soft);
 }
 
+.mc-map-link-form {
+  display: grid;
+  gap: 12px;
+}
+
+.mc-map-link-form > :last-child {
+  display: flex;
+  align-items: end;
+}
+
+@media (min-width: 768px) {
+  .mc-map-link-form {
+    grid-template-columns: minmax(0, 1fr) 200px auto;
+  }
+}
+
 @media (max-width: 720px) {
   .mc-hero,
   .mc-status-board {

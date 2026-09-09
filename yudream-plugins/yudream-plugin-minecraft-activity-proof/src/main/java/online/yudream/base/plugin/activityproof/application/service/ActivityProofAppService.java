@@ -289,8 +289,18 @@ public class ActivityProofAppService {
 
     public void deleteActivity(String id) {
         Activity activity = requireActivity(id);
-        if (activity.status() != ActivityStatus.DRAFT) {
-            throw new IllegalArgumentException("只有草稿状态的活动可以删除；已发布活动请先结束");
+        for (ActivityParticipation participation : allParticipations(activity.id())) {
+            repository.deleteParticipation(participation.id());
+        }
+        for (ActivityQuizAttempt attempt : repository.quizAttemptsByActivity(activity.id())) {
+            repository.deleteQuizAttempt(attempt.id());
+        }
+        repository.deleteQuizConfig(activity.id());
+        repository.deleteAutoJoinExclusionsByActivity(activity.id());
+        for (ActivityProofExportRecord record : allExportRecords()) {
+            if (activity.id().equals(record.activityId())) {
+                deleteExportRecord(record.id());
+            }
         }
         repository.deleteActivity(activity.id());
     }

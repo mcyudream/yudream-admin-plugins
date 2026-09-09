@@ -224,7 +224,7 @@ public final class MaterialMeController {
                 materialService.listVisibleTags(HttpSupport.requireUserId(request)))));
     }
 
-    /** 批量签发图片物料的封面地址（签名公开路径）；非图片、不可见或已删除的 id 静默跳过。 */
+    /** 批量签发图片物料的缩略图地址；非图片、无封面、不可见或已删除的 id 静默跳过，不回退签发原图。 */
     @PluginHttpEndpoint(method = "GET", path = "/me/covers", permission = MaterialPlugin.VIEW_PERMISSION)
     public PluginHttpResponse covers(PluginHttpRequest request) {
         return HttpSupport.guard(() -> {
@@ -237,8 +237,13 @@ public final class MaterialMeController {
                     if (material.type() != MaterialType.IMAGE) {
                         continue;
                     }
-                    MaterialVersion version = materialService.resolveVersion(material, null);
-                    records.add(java.util.Map.of("id", id, "url", previewService.signedFilePath(material, version)));
+                    MaterialVersion version = materialService.ensureCover(
+                            materialService.resolveVersion(material, null));
+                    String coverUrl = previewService.signedCoverPath(version);
+                    if (coverUrl == null || coverUrl.isBlank()) {
+                        continue;
+                    }
+                    records.add(java.util.Map.of("id", id, "url", coverUrl));
                 }
                 catch (NotFoundException e) {
                     // 已删除或不可见的 id 不出现在结果中

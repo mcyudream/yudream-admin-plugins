@@ -14,6 +14,7 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.io.IOException;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerMapSaveRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerMapLinkRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerMapPublicAccessRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -61,6 +62,11 @@ public class MinecraftServerHttpFacade {
     public PluginHttpResponse saveMap(PluginHttpRequest request) {
         MinecraftServerMapSaveRequest body = JsonSupport.read(request.body(), MinecraftServerMapSaveRequest.class);
         return PluginHttpResponse.ok(assembler.toRes(appService.saveMap(pathSegment(request.path(), 2), body.fileId())));
+    }
+
+    public PluginHttpResponse saveMapLink(PluginHttpRequest request) {
+        MinecraftServerMapLinkRequest body = JsonSupport.read(request.body(), MinecraftServerMapLinkRequest.class);
+        return PluginHttpResponse.ok(assembler.toRes(appService.saveMapLink(pathSegment(request.path(), 2), body.url(), body.originalName())));
     }
 
     public PluginHttpResponse setMapPublicAccess(PluginHttpRequest request) {

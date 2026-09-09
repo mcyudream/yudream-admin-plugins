@@ -19,6 +19,7 @@ import online.yudream.base.plugin.material.domain.Material;
 import online.yudream.base.plugin.material.domain.MaterialType;
 import online.yudream.base.plugin.material.domain.MaterialVersion;
 import online.yudream.base.plugin.material.infrastructure.CategoryRepository;
+import online.yudream.base.plugin.material.infrastructure.CoverImageSupport;
 import online.yudream.base.plugin.material.infrastructure.Ids;
 import online.yudream.base.plugin.material.infrastructure.MaterialFileStorage;
 import online.yudream.base.plugin.material.infrastructure.MaterialRepository;
@@ -133,9 +134,10 @@ public final class MaterialService {
         String ownerName = resolveUserName(ownerId);
         VisibilityAssignment visibility = resolveVisibilityForUser(ownerId, command.visibility(), command.deptIds());
         StoredPayload payload = storePayload(storage.objectKey(id, 1), platform, MaterialType.extOf(filename));
+        String coverKey = storeCover(id, 1, MaterialType.extOf(filename), payload.objectKey());
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, 1), id, 1,
                 payload.objectKey(), filename, MaterialType.extOf(filename), payload.size(),
-                payload.contentType(), null, ownerId, ownerName, now);
+                payload.contentType(), null, ownerId, ownerName, now, coverKey);
         versions.save(version);
         Material material = new Material(id, displayName(command.name(), filename), MaterialType.extOf(filename),
                 MaterialType.fromFilename(filename), blankToNull(command.categoryId()), normalizeTags(command.tags()),
@@ -197,9 +199,10 @@ public final class MaterialService {
         long now = System.currentTimeMillis();
         String ext = MaterialType.extOf(filename);
         StoredPayload payload = storePayload(storage.objectKey(id, next), platform, ext);
+        String coverKey = storeCover(id, next, ext, payload.objectKey());
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, next), id, next,
                 payload.objectKey(), filename, ext, payload.size(), payload.contentType(),
-                normalizeNote(command.note()), actorId, resolveUserName(actorId), now);
+                normalizeNote(command.note()), actorId, resolveUserName(actorId), now, coverKey);
         versions.save(version);
         Material updated = material.withCurrentVersion(version, now);
         materials.save(updated);
@@ -228,7 +231,7 @@ public final class MaterialService {
             MaterialVersion version = versions.find(id, versionNumber)
                     .orElseThrow(() -> new IllegalArgumentException("版本 v" + versionNumber + " 不存在"));
             versions.delete(version.id());
-            storage.deleteQuietly(version.objectKey());
+            deleteStored(version);
         }
     }
 
@@ -470,6 +473,35 @@ public final class MaterialService {
                 .orElseThrow(() -> new NotFoundException("版本 v" + target + " 不存在"));
     }
 
+    /**
+     * 确保版本有库页缩略图：新上传已在落库时生成；旧数据在首次签发封面时补生成。
+     * 生成失败返回原版本（封面字段仍为空），调用方不得回退签发原图。
+     */
+    public MaterialVersion ensureCover(MaterialVersion version) {
+        if (version == null) {
+            return null;
+        }
+        if (hasCoverKey(version)) {
+            return version;
+        }
+        if (!CoverImageSupport.rasterizable(version.ext())) {
+            return version;
+        }
+        synchronized (lockOf(version.materialId())) {
+            MaterialVersion latest = versions.find(version.materialId(), version.version()).orElse(version);
+            if (hasCoverKey(latest)) {
+                return latest;
+            }
+            String coverKey = storeCover(latest.materialId(), latest.version(), latest.ext(), latest.objectKey());
+            if (coverKey == null) {
+                return latest;
+            }
+            MaterialVersion updated = latest.withCoverObjectKey(coverKey);
+            versions.save(updated);
+            return updated;
+        }
+    }
+
     public byte[] readBytes(MaterialVersion version) {
         PluginStoredFile stored = storage.getOrNull(version.objectKey());
         if (stored == null || stored.inputStream() == null) {
@@ -490,7 +522,7 @@ public final class MaterialService {
     void deleteCascade(Material material) {
         for (MaterialVersion version : versions.listByMaterial(material.id())) {
             versions.delete(version.id());
-            storage.deleteQuietly(version.objectKey());
+            deleteStored(version);
         }
         shares.deleteByMaterial(material.id());
         materials.delete(material.id());
@@ -538,6 +570,40 @@ public final class MaterialService {
         catch (Exception e) {
             throw new IllegalStateException("文件落库失败：" + e.getMessage(), e);
         }
+    }
+
+    /** 从已落库原图生成 JPEG 缩略图；不可栅格化或解码失败时返回 null，不影响原文件。 */
+    private String storeCover(String materialId, int version, String ext, String sourceObjectKey) {
+        if (!CoverImageSupport.rasterizable(ext)) {
+            return null;
+        }
+        PluginStoredFile stored = storage.getOrNull(sourceObjectKey);
+        if (stored == null || stored.inputStream() == null) {
+            return null;
+        }
+        try (InputStream input = stored.inputStream()) {
+            byte[] jpeg = CoverImageSupport.thumbnailJpeg(input);
+            if (jpeg == null || jpeg.length == 0) {
+                return null;
+            }
+            String coverKey = storage.coverObjectKey(materialId, version);
+            storage.put(coverKey, new ByteArrayInputStream(jpeg), jpeg.length, CoverImageSupport.COVER_CONTENT_TYPE);
+            return coverKey;
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void deleteStored(MaterialVersion version) {
+        storage.deleteQuietly(version.objectKey());
+        if (hasCoverKey(version)) {
+            storage.deleteQuietly(version.coverObjectKey());
+        }
+    }
+
+    private static boolean hasCoverKey(MaterialVersion version) {
+        return version.coverObjectKey() != null && !version.coverObjectKey().isBlank();
     }
 
     private PageResult<MaterialSummary> page(List<Material> filtered, int page, int size) {

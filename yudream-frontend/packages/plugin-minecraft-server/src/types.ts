@@ -51,9 +51,10 @@ export interface MinecraftStatusSnapshot {
 }
 
 export interface MinecraftServerMap {
-  fileId: string
+  fileId?: string
   originalName?: string
   publicAccess: boolean
+  externalUrl?: string
 }
 
 export interface MinecraftServer {

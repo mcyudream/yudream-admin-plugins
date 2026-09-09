@@ -1,7 +1,12 @@
 package online.yudream.base.plugin.material.application;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import javax.imageio.ImageIO;
 import online.yudream.base.plugin.material.application.command.CreateMaterialCommand;
 import online.yudream.base.plugin.material.application.command.NewVersionCommand;
 import online.yudream.base.plugin.material.application.command.UpdateMaterialCommand;
@@ -28,6 +33,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,6 +43,7 @@ class MaterialServiceTest {
     private FakeFileStore files;
     private FakeFramework framework;
     private MaterialRepository materials;
+    private MaterialVersionRepository versions;
     private MaterialService service;
 
     @BeforeEach
@@ -44,7 +52,8 @@ class MaterialServiceTest {
         files = new FakeFileStore();
         framework = new FakeFramework();
         materials = new MaterialRepository(docs);
-        service = new MaterialService(materials, new MaterialVersionRepository(docs),
+        versions = new MaterialVersionRepository(docs);
+        service = new MaterialService(materials, versions,
                 new CategoryRepository(docs), new MaterialFileStorage(files),
                 new PlatformFileIntake(framework), new ShareRepository(docs), framework);
         framework.addPlatformFile("pf-1", "first-bytes".getBytes(StandardCharsets.UTF_8), "application/octet-stream");
@@ -351,5 +360,66 @@ class MaterialServiceTest {
         assertEquals("b.png", MaterialService.sanitizeFilename("a/b.png"));
         assertEquals("file", MaterialService.sanitizeFilename("../file"));
         assertThrows(IllegalArgumentException.class, () -> MaterialService.sanitizeFilename("  "));
+    }
+
+    @Test
+    void createPngStoresCoverJpeg() {
+        framework.addPlatformFile("pf-png", samplePng(64, 48), "image/png");
+        MaterialDetail created = createAs("7", "pf-png", "a.png", "图");
+        String id = created.material().id();
+        assertTrue(files.exists("materials/" + id + "/v1/file"));
+        assertTrue(files.exists("materials/" + id + "/v1/cover.jpg"));
+        MaterialVersion version = versions.find(id, 1).orElseThrow();
+        assertEquals("materials/" + id + "/v1/cover.jpg", version.coverObjectKey());
+    }
+
+    @Test
+    void createPsdDoesNotStoreCover() {
+        MaterialDetail created = createAs("7", "pf-1", "海报.psd", "海报");
+        String id = created.material().id();
+        assertFalse(files.exists("materials/" + id + "/v1/cover.jpg"));
+        assertNull(versions.find(id, 1).orElseThrow().coverObjectKey());
+    }
+
+    @Test
+    void ensureCoverBackfillsLegacyVersion() {
+        framework.addPlatformFile("pf-png", samplePng(80, 80), "image/png");
+        MaterialDetail created = createAs("7", "pf-png", "a.png", "图");
+        String id = created.material().id();
+        MaterialVersion original = versions.find(id, 1).orElseThrow();
+        files.delete(original.coverObjectKey());
+        versions.save(original.withCoverObjectKey(null));
+        assertFalse(files.exists("materials/" + id + "/v1/cover.jpg"));
+
+        MaterialVersion filled = service.ensureCover(original.withCoverObjectKey(null));
+        assertNotNull(filled.coverObjectKey());
+        assertTrue(files.exists(filled.coverObjectKey()));
+        assertEquals(filled.coverObjectKey(), versions.find(id, 1).orElseThrow().coverObjectKey());
+    }
+
+    @Test
+    void deleteMineRemovesCoverObject() {
+        framework.addPlatformFile("pf-png", samplePng(32, 32), "image/png");
+        MaterialDetail created = createAs("7", "pf-png", "a.png", "图");
+        String id = created.material().id();
+        service.deleteMine("7", id);
+        assertFalse(files.exists("materials/" + id + "/v1/file"));
+        assertFalse(files.exists("materials/" + id + "/v1/cover.jpg"));
+    }
+
+    private static byte[] samplePng(int width, int height) {
+        try {
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            graphics.setColor(Color.BLUE);
+            graphics.fillRect(0, 0, width, height);
+            graphics.dispose();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", buffer);
+            return buffer.toByteArray();
+        }
+        catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

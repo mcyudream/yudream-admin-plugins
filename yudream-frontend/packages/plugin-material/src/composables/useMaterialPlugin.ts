@@ -18,6 +18,8 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   const tags = ref<TagView[]>([])
   /** 封面图：materialId -> 签名公开地址（仅图片类型物料有值）。 */
   const covers = ref<Record<string, string>>({})
+  let librarySeq = 0
+  let coverSeq = 0
 
   // ---------- 用户端：详情 ----------
   const detail = ref<MaterialDetail | null>(null)
@@ -64,19 +66,27 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadLibrary() {
+    const seq = ++librarySeq
     loading.value = true
     try {
       const page = await api.myMaterials(libraryFilters.keyword, libraryFilters.type, libraryFilters.categoryId,
         libraryFilters.status, libraryFilters.tag, libraryPager.page, libraryPager.size, libraryFilters.scope)
+      if (seq !== librarySeq) {
+        return
+      }
       library.value = page.records
       libraryPager.total = Number(page.total)
       void loadCovers()
     }
     catch (error) {
-      toast.error(errorMessage(error))
+      if (seq === librarySeq) {
+        toast.error(errorMessage(error))
+      }
     }
     finally {
-      loading.value = false
+      if (seq === librarySeq) {
+        loading.value = false
+      }
     }
   }
 
@@ -106,23 +116,37 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  /** 为当前页的图片物料批量签发封面地址；其余类型前端用类型图标兜底。 */
+  /** 为当前页的图片物料批量签发缩略图地址；无封面时前端用类型图标兜底。 */
   async function loadCovers() {
+    const seq = ++coverSeq
+    const visibleIds = new Set(library.value.map(item => item.id))
     const ids = library.value.filter(item => item.type === 'IMAGE').map(item => item.id).slice(0, 60)
     if (ids.length === 0) {
-      covers.value = {}
+      if (seq === coverSeq) {
+        covers.value = {}
+      }
       return
     }
     try {
       const records = await api.myCovers(ids)
-      const map: Record<string, string> = {}
-      for (const record of records) {
-        map[record.id] = sdk.files.assetUrl(record.url)
+      if (seq !== coverSeq) {
+        return
       }
-      covers.value = map
+      const next: Record<string, string> = { ...covers.value }
+      for (const key of Object.keys(next)) {
+        if (!visibleIds.has(key)) {
+          delete next[key]
+        }
+      }
+      for (const record of records) {
+        next[record.id] = sdk.files.assetUrl(record.url)
+      }
+      covers.value = next
     }
     catch {
-      covers.value = {}
+      if (seq === coverSeq) {
+        covers.value = {}
+      }
     }
   }
 

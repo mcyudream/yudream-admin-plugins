@@ -2,6 +2,24 @@
   min-height: 100%;
 }
 
+.tl-cover-thumb {
+  display: block;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.tl-cover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tl-card-cover .tl-cover-thumb {
+  width: 100%;
+  height: 100%;
+}
+
 /* ---------------- 管理端 ---------------- */
 
 .tl-toolbar {

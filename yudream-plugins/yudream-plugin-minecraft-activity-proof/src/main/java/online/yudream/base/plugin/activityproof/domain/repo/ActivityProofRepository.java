@@ -65,7 +65,13 @@ public interface ActivityProofRepository {
 
     Optional<ActivityQuizAttempt> quizAttempt(String activityId, String userId);
 
+    List<ActivityQuizAttempt> quizAttemptsByActivity(String activityId);
+
     ActivityQuizAttempt saveQuizAttempt(ActivityQuizAttempt attempt);
+
+    void deleteQuizAttempt(String id);
+
+    void deleteAutoJoinExclusionsByActivity(String activityId);
 
     Optional<ActivityProofTemplateMembers> templateMembers(Long templateId);
 

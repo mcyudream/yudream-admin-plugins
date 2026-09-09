@@ -26,6 +26,9 @@ public class MinecraftServerAdminController {
     @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/map", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse saveMap(PluginHttpRequest request) { return http.saveMap(request); }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/map/link", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveMapLink(PluginHttpRequest request) { return http.saveMapLink(request); }
+
     @PluginHttpEndpoint(method = "PUT", path = "/admin/servers/{serverId}/map/public", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse setMapPublicAccess(PluginHttpRequest request) { return http.setMapPublicAccess(request); }
 

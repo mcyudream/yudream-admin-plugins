@@ -16,7 +16,8 @@ public record MaterialVersion(
         String note,
         String uploaderId,
         String uploaderName,
-        long createdAt
+        long createdAt,
+        String coverObjectKey
 ) {
     public static String idOf(String materialId, int version) {
         return materialId + "#" + String.format("%06d", version);
@@ -35,6 +36,7 @@ public record MaterialVersion(
         DocValues.put(doc, "uploaderId", uploaderId);
         DocValues.put(doc, "uploaderName", uploaderName);
         doc.put("createdAt", createdAt);
+        DocValues.put(doc, "coverObjectKey", coverObjectKey);
         return doc;
     }
 
@@ -51,6 +53,12 @@ public record MaterialVersion(
                 DocValues.str(doc, "note"),
                 DocValues.str(doc, "uploaderId"),
                 DocValues.str(doc, "uploaderName"),
-                DocValues.lng(doc, "createdAt"));
+                DocValues.lng(doc, "createdAt"),
+                DocValues.str(doc, "coverObjectKey"));
+    }
+
+    public MaterialVersion withCoverObjectKey(String newCoverObjectKey) {
+        return new MaterialVersion(id, materialId, version, objectKey, originalName, ext, size, contentType,
+                note, uploaderId, uploaderName, createdAt, newCoverObjectKey);
     }
 }

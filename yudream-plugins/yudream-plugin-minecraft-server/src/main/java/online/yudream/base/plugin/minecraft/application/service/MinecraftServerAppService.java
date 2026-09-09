@@ -92,6 +92,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         int safeSize = safeSize(size);
         List<MinecraftServerDTO> records = repository.list(safePage, safeSize, includeDisabled).stream()
                 .map(server -> assembler.toDTO(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
+                .map(dto -> includeDisabled ? dto : assembler.toUserDTO(dto))
                 .toList();
         return new MinecraftPageDTO<>(records, repository.count(includeDisabled));
     }
@@ -127,7 +128,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public void deleteServer(String serverId) {
         MinecraftServer server = requireServer(serverId);
-        if (server.map() != null && !server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
+        deleteStoredMapFile(server);
         repository.delete(serverId);
     }
 
@@ -143,11 +144,18 @@ public class MinecraftServerAppService implements PluginMinecraftService {
             byte[] bytes = input.readAllBytes();
             if (bytes.length < 4 || bytes[0] != 'P' || bytes[1] != 'K' || bytes[2] != 3 || bytes[3] != 4) throw new IllegalArgumentException("地图文件必须是 ZIP 压缩包");
             String objectKey = "servers/" + server.id() + "/map.zip";
-            if (server.map() != null && !server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
+            deleteStoredMapFile(server);
             files.put(objectKey, new ByteArrayInputStream(bytes), bytes.length, "application/zip");
-            MinecraftServer saved = repository.save(server.withMap(new MinecraftServerMap(fileId, objectKey, fileId + ".zip", false)));
+            MinecraftServer saved = repository.save(server.withMap(MinecraftServerMap.storedFile(fileId, objectKey, fileId + ".zip", false)));
             return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
         } catch (IOException e) { throw new IllegalStateException("读取地图文件失败", e); }
+    }
+
+    public MinecraftServerDTO saveMapLink(String serverId, String url, String originalName) {
+        MinecraftServer server = requireServer(serverId);
+        deleteStoredMapFile(server);
+        MinecraftServer saved = repository.save(server.withMap(MinecraftServerMap.externalLink(url, originalName, false)));
+        return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
     }
 
     public MinecraftServerDTO setMapPublicAccess(String serverId, boolean publicAccess) {
@@ -160,7 +168,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     public MinecraftServerDTO deleteMap(String serverId) {
         MinecraftServer server = requireServer(serverId);
         if (server.map() == null) throw new IllegalArgumentException("服务器尚未上传地图");
-        if (!server.map().objectKey().isBlank()) files.delete(server.map().objectKey());
+        deleteStoredMapFile(server);
         MinecraftServer saved = repository.save(server.withMap(null));
         return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
     }
@@ -170,6 +178,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         if (!allowClosed && !server.enabled()) throw new IllegalArgumentException("服务器不存在");
         MinecraftServerMap map = server.map();
         if (map == null || (publicOnly && !map.publicAccess())) throw new IllegalArgumentException("地图不存在");
+        if (map.external()) throw new IllegalArgumentException("请使用网盘链接下载");
         PluginStoredFile file = files.get(map.objectKey());
         if (file == null) throw new IllegalArgumentException("地图文件不存在");
         return file;
@@ -194,7 +203,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     }
 
     public MinecraftServerDTO userDetail(String serverId, boolean refreshStatus) {
-        MinecraftServerDTO detail = detail(serverId, refreshStatus);
+        MinecraftServerDTO detail = assembler.toUserDTO(detail(serverId, refreshStatus));
         if (!detail.enabled()) {
             throw new IllegalArgumentException("服务器不存在");
         }
@@ -205,13 +214,13 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     public MinecraftPageDTO<MinecraftServerDTO> archivedServers(int page, int size) {
         List<MinecraftServerDTO> records = allServers(true).stream().filter(server -> !server.enabled())
                 .skip((long) (safePage(page) - 1) * safeSize(size)).limit(safeSize(size))
-                .map(server -> assembler.toDTO(server, repository.findStatus(server.id()).orElse(null))).toList();
+                .map(server -> assembler.toUserDTO(assembler.toDTO(server, repository.findStatus(server.id()).orElse(null)))).toList();
         long total = allServers(true).stream().filter(server -> !server.enabled()).count();
         return new MinecraftPageDTO<>(records, total);
     }
 
     public MinecraftServerDTO archivedDetail(String serverId) {
-        MinecraftServerDTO detail = detail(serverId, false);
+        MinecraftServerDTO detail = assembler.toUserDTO(detail(serverId, false));
         if (detail.enabled()) throw new IllegalArgumentException("关闭服务器不存在");
         return detail;
     }
@@ -1003,5 +1012,11 @@ public class MinecraftServerAppService implements PluginMinecraftService {
             throw new IllegalArgumentException(message);
         }
         return value.trim();
+    }
+
+    private void deleteStoredMapFile(MinecraftServer server) {
+        if (server.map() != null && !server.map().objectKey().isBlank()) {
+            files.delete(server.map().objectKey());
+        }
     }
 }

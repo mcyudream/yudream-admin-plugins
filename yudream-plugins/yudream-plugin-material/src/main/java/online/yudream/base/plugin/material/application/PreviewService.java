@@ -39,6 +39,18 @@ public final class PreviewService {
         return filePreview.signedFileUrl(pluginCode, version.objectKey(), displayName(material, version));
     }
 
+    /** 签发库页缩略图；没有封面对象时返回 null，前端回退类型图标，避免把原图塞进列表。 */
+    public String signedCoverPath(MaterialVersion version) {
+        if (version == null) {
+            return null;
+        }
+        String key = version.coverObjectKey();
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        return filePreview.signedFileUrl(pluginCode, key, "cover.jpg");
+    }
+
     /** 分享页预览：文件地址走分享 token 端点（自带凭证的绝对地址），决策委托平台 previewExternal。 */
     public PreviewInfo previewShared(Material material, MaterialVersion version, String shareToken, PluginHttpRequest request) {
         String filename = displayName(material, version);

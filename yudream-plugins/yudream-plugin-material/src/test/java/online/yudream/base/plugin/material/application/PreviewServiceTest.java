@@ -40,9 +40,14 @@ class PreviewServiceTest {
             return callbackBase;
         }
 
+        String lastSignedObjectKey;
+        String lastSignedFilename;
+
         @Override
         public String signedFileUrl(String pluginCode, String objectKey, String filename) {
             lastPluginCode = pluginCode;
+            lastSignedObjectKey = objectKey;
+            lastSignedFilename = filename;
             return nextSignedUrl;
         }
 
@@ -83,7 +88,7 @@ class PreviewServiceTest {
     private static MaterialVersion version(Material material) {
         return new MaterialVersion(MaterialVersion.idOf(material.id(), 1), material.id(), 1,
                 "materials/m1/v1/file", "素材." + material.ext(), material.ext(), 1024L,
-                "image/png", null, "7", "用户7", System.currentTimeMillis());
+                "image/png", null, "7", "用户7", System.currentTimeMillis(), null);
     }
 
     private static PluginHttpRequest request(Map<String, List<String>> headers) {
@@ -121,6 +126,19 @@ class PreviewServiceTest {
         String url = service.signedFilePath(material, version(material));
         assertEquals("/api/public/preview/file/tok/file", url);
         assertEquals("material", stub.lastPluginCode);
+        assertEquals("materials/m1/v1/file", stub.lastSignedObjectKey);
+    }
+
+    @Test
+    void signedCoverPathUsesCoverObjectAndSkipsMissing() {
+        MaterialVersion withCover = new MaterialVersion(MaterialVersion.idOf("m1", 1), "m1", 1,
+                "materials/m1/v1/file", "素材.png", "png", 1024L,
+                "image/png", null, "7", "用户7", System.currentTimeMillis(), "materials/m1/v1/cover.jpg");
+        assertEquals("/api/public/preview/file/tok/file", service.signedCoverPath(withCover));
+        assertEquals("materials/m1/v1/cover.jpg", stub.lastSignedObjectKey);
+        assertEquals("cover.jpg", stub.lastSignedFilename);
+        assertNull(service.signedCoverPath(version(material("png", MaterialType.IMAGE))));
+        assertNull(service.signedCoverPath(null));
     }
 
     @Test
@@ -166,7 +184,7 @@ class PreviewServiceTest {
                 "7", "用户7", Material.VISIBILITY_PRIVATE, List.of(), List.of(), 1, 1024L, null, Material.STATUS_ACTIVE, now, now);
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf("m1", 1), "m1", 1,
                 "materials/m1/v1/file", "素材.docx", "docx", 1024L,
-                null, null, "7", "用户7", now);
+                null, null, "7", "用户7", now, null);
         service.previewShared(material, version, "t1", request(Map.of()));
         assertEquals("docx", stub.lastExternalExt);
     }

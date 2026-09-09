@@ -261,6 +261,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("objectKey", map.objectKey());
         document.put("originalName", map.originalName());
         document.put("publicAccess", map.publicAccess());
+        document.put("externalUrl", map.externalUrl());
         return document;
     }
 
@@ -269,8 +270,16 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         if (!(value instanceof Map<?, ?> raw)) return null;
         Map<String, Object> document = (Map<String, Object>) raw;
         String fileId = string(document, "fileId");
-        return fileId == null || fileId.isBlank() ? null : new MinecraftServerMap(fileId, string(document, "objectKey"),
-                string(document, "originalName"), bool(document, "publicAccess", false));
+        String objectKey = string(document, "objectKey");
+        String originalName = string(document, "originalName");
+        boolean publicAccess = bool(document, "publicAccess", false);
+        String externalUrl = string(document, "externalUrl");
+        boolean hasFile = objectKey != null && !objectKey.isBlank();
+        boolean hasLink = externalUrl != null && !externalUrl.isBlank();
+        if (!hasFile && !hasLink) {
+            return null;
+        }
+        return new MinecraftServerMap(fileId, objectKey, originalName, publicAccess, externalUrl);
     }
 
     private Map<String, Object> endpointDocument(MinecraftServerEndpoint endpoint) {

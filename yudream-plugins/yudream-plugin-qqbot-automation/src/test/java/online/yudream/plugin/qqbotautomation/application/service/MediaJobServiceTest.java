@@ -467,6 +467,242 @@ class MediaJobServiceTest {
     }
 
     @Test
+    void officialConnectionPrefixesRelativeSignedUrlWithCallbackBase() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", "https://admin.example.test/"), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("https://admin.example.test/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionFallsBackToBase64WhenSignedUrlIsRelative() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", ""), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("base64://" + java.util.Base64.getEncoder().encodeToString("official-video".getBytes(StandardCharsets.UTF_8)),
+                    sentRequest.get().content().content());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionFailsLargeFileWithoutPublicUrl() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.write(video.resolve("douyin_7663032596767428986.mp4"), new byte[(int) MediaJobService.OFFICIAL_INLINE_BASE64_LIMIT_BYTES + 1]);
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", ""), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "FAILED".equals(job(documents, jobId).get("status")));
+            String error = String.valueOf(job(documents, jobId).get("error"));
+            assertTrue(error.contains("回源") || error.contains("base64"), error);
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionPrefixesRelativeSignedUrlWithCallbackBase() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", "https://admin.example.test/"), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("https://admin.example.test/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionFallsBackToBase64WhenSignedUrlIsRelative() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", ""), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("base64://" + java.util.Base64.getEncoder().encodeToString("official-video".getBytes(StandardCharsets.UTF_8)),
+                    sentRequest.get().content().content());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionFailsLargeFileWithoutPublicUrl() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.write(video.resolve("douyin_7663032596767428986.mp4"), new byte[(int) MediaJobService.OFFICIAL_INLINE_BASE64_LIMIT_BYTES + 1]);
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey,
+                            "/api/public/preview/file/token/video.mp4", ""), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "FAILED".equals(job(documents, jobId).get("status")));
+            String error = String.valueOf(job(documents, jobId).get("error"));
+            assertTrue(error.contains("回源") || error.contains("base64"), error);
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
     void officialConnectionWaitsAndDecodesSharedFilename() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
@@ -680,6 +916,16 @@ class MediaJobServiceTest {
 
     private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
                                                 AtomicReference<String> storedKey) {
+        return officialFramework(sentMessages, sentRequest, storedKey, "https://files.example.test/official.mp4", "");
+    }
+
+    private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                                AtomicReference<String> storedKey, String signedUrl, String callbackBaseUrl) {
+        return officialFramework(sentMessages, sentRequest, storedKey, "https://files.example.test/official.mp4", "");
+    }
+
+    private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                                AtomicReference<String> storedKey, String signedUrl, String callbackBaseUrl) {
         PluginMessagingService messaging = (PluginMessagingService) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{PluginMessagingService.class}, (proxy, method, args) -> {
                     if ("connections".equals(method.getName())) {
@@ -708,7 +954,9 @@ class MediaJobServiceTest {
         online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService preview =
                 (online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService) Proxy.newProxyInstance(getClass().getClassLoader(),
                         new Class<?>[]{online.yudream.base.plugin.spi.system.preview.PluginFilePreviewService.class}, (proxy, method, args) -> {
-                            if ("signedFileUrl".equals(method.getName())) return "https://files.example.test/official.mp4";
+                            if ("signedFileUrl".equals(method.getName())) return signedUrl;
+                            if ("callbackBaseUrl".equals(method.getName())) return callbackBaseUrl                            if ("signedFileUrl".equals(method.getName())) return signedUrl;
+                            if ("callbackBaseUrl".equals(method.getName())) return callbackBaseUrl;
                             return null;
                         });
         return (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{FrameworkServices.class},

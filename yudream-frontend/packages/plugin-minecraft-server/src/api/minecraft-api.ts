@@ -22,6 +22,7 @@ export function createMinecraftApi(sdk: YuDreamPluginSdk) {
     remove: (id: string) => sdk.http.request(`/admin/servers/${serverPath(id)}`, { method: 'DELETE' }),
     refreshStatus: (id: string) => sdk.http.post<MinecraftServer>(`/admin/servers/${serverPath(id)}/status/refresh`),
     saveMap: (id: string, fileId: string) => sdk.http.post<MinecraftServer>(`/admin/servers/${serverPath(id)}/map`, { fileId }),
+    saveMapLink: (id: string, url: string, originalName?: string) => sdk.http.post<MinecraftServer>(`/admin/servers/${serverPath(id)}/map/link`, { url, originalName }),
     setMapPublicAccess: (id: string, publicAccess: boolean) => sdk.http.request<MinecraftServer>(`/admin/servers/${serverPath(id)}/map/public`, { method: 'PUT', data: { publicAccess } }),
     downloadAdminMap: (id: string) => sdk.http.blob(`/admin/servers/${serverPath(id)}/map/download`),
     deleteMap: (id: string) => sdk.http.request(`/admin/servers/${serverPath(id)}/map`, { method: 'DELETE' }),

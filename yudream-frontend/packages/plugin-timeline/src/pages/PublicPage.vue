@@ -3,8 +3,9 @@ import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventSummary } from '../types'
 import { FaIcon } from '@yudream/components'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import CoverThumb from '../components/CoverThumb.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
-import { eventTypeChip, eventTypeClass, eventTypeMeta, eventYear, formatEventDate, resolveImageUrl } from '../composables/utils'
+import { eventTypeChip, eventTypeClass, eventTypeMeta, eventYear, formatEventDate, resolveImageUrl, resolveThumbUrl } from '../composables/utils'
 
 const props = defineProps<{ model: TimelinePluginModel }>()
 const model = props.model
@@ -37,6 +38,10 @@ const earliestYear = computed(() => {
 
 function coverUrl(event: TimelineEventSummary) {
   return resolveImageUrl(model.sdk, event.coverImage)
+}
+
+function coverThumb(event: TimelineEventSummary) {
+  return resolveThumbUrl(model.sdk, event.coverImage)
 }
 
 // 滚动显现：进入视口的卡片播放上浮动画
@@ -203,7 +208,7 @@ onBeforeUnmount(() => {
             <span class="tl-node" aria-hidden="true"><span class="tl-dot" /></span>
             <button type="button" class="tl-card" :class="`tl-card--${eventTypeClass(event.eventType)}`" @click="openEvent(event)">
               <span v-if="event.coverImage" class="tl-card-cover">
-                <img :src="coverUrl(event)" :alt="event.title" loading="lazy">
+                <CoverThumb :src="coverThumb(event)" :fallback-src="coverUrl(event)" :alt="event.title" />
               </span>
               <span class="tl-card-body">
                 <span class="tl-type-badge" :class="`tl-type-badge--${eventTypeClass(event.eventType)}`">

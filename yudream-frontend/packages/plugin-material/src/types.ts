@@ -99,7 +99,7 @@ export interface TagView {
   count: number | string
 }
 
-/** 封面签发结果：url 为平台签名公开路径（/api/**），需经 sdk.files.assetUrl() 转绝对地址。 */
+/** 封面签发结果：url 为缩略图的平台签名公开路径（/api/**），需经 sdk.files.assetUrl() 转绝对地址。 */
 export interface CoverView {
   id: string
   url: string

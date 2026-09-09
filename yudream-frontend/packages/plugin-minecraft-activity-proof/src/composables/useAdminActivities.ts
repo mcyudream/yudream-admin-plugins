@@ -89,7 +89,7 @@ export function useAdminActivities(sdk: YuDreamPluginSdk) {
     }
     modal.confirm({
       title: '删除活动',
-      content: `确认删除草稿活动「${row.title}」吗？该操作不可恢复。`,
+      content: `确认删除活动「${row.title}」吗？参与记录、答题进度和该活动的证明导出将一并删除，且不可恢复。`,
       onConfirm: async () => {
         actingId.value = row.id
         try {

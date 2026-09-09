@@ -3,7 +3,7 @@ displayName: Minecraft 活动平台
 description: 发布和管理 Minecraft 活动，核验参与证明并支持结果导出。
 icon: i-ri:calendar-check-line
 main: online.yudream.base.plugin.activityproof.bootstrap.MinecraftActivityProofPlugin
-version: 2.2.9
+version: 2.3.0
 depend:
   - yudream-student-info
 softdepend:

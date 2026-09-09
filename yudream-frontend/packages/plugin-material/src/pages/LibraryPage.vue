@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EditMaterialModal from '../components/EditMaterialModal.vue'
 import ImportFolderModal from '../components/ImportFolderModal.vue'
+import MaterialCover from '../components/MaterialCover.vue'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
 import ShareModal from '../components/ShareModal.vue'
 import { formatSize, MATERIAL_TYPES, TYPE_ICONS, visibilityLabel } from '../types'
@@ -236,7 +237,7 @@ onMounted(() => {
           <div v-if="model.library.length" class="material-grid">
             <div v-for="row in model.library" :key="row.id" class="material-card">
               <div class="material-thumb" @click="goDetail(row)">
-                <img v-if="model.covers[row.id]" :src="model.covers[row.id]" :alt="row.name" loading="lazy">
+                <MaterialCover v-if="model.covers[row.id]" :src="model.covers[row.id]" :alt="row.name" />
                 <div v-else class="material-thumb-icon">
                   <FaIcon :name="typeIcon(row)" />
                   <span class="material-thumb-ext">.{{ row.ext || '?' }}</span>

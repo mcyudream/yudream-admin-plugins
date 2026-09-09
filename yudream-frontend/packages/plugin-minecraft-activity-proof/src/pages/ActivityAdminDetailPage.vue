@@ -101,8 +101,11 @@ function openEdit() {
         <FaButton v-if="activity?.status === 'DRAFT'" :loading="acting" @click="model.publish">
           <FaIcon name="i-ri:send-plane-line" />发布
         </FaButton>
-        <FaButton v-if="activity?.status === 'PUBLISHED'" variant="destructive" :loading="acting" @click="model.close">
+        <FaButton v-if="activity?.status === 'PUBLISHED'" variant="outline" :loading="acting" @click="model.close">
           <FaIcon name="i-ri:stop-circle-line" />结束活动
+        </FaButton>
+        <FaButton v-if="activity" variant="destructive" :loading="acting" @click="model.remove(back)">
+          <FaIcon name="i-ri:delete-bin-line" />删除
         </FaButton>
         <FaButton variant="outline" :loading="verifyingAll" :disabled="!participants.length" @click="model.verifyAll">
           <FaIcon name="i-ri:checkbox-multiple-line" />批量核验

@@ -17,7 +17,7 @@ public record MinecraftServerRes(
         long updatedAt
 ) {
 
-    public record MapRes(String fileId, String originalName, boolean publicAccess) {}
+    public record MapRes(String fileId, String originalName, boolean publicAccess, String externalUrl) {}
 
     public record EndpointRes(
             String id,

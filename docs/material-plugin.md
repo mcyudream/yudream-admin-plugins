@@ -6,7 +6,7 @@
 
 用户可上传电子物料（PPT/Excel/PSD/图片/视频/音频/PDF/Office 文档/文本等），在线预览（kkFileView 由宿主平台能力统一提供）、下载、删除、更新（每次更新产生新版本，可回溯/回滚）、生成公开分享外链；管理员可跨用户管理全部物料、维护分类。预览引擎配置已上移为宿主平台能力（平台能力 > 文件预览，部署/运行双闸门），插件自身不含预览设置。
 
-不在本期范围：格式级在线编辑（Office/PSD 协同编辑、文本在线编辑）、缩略图服务、全文检索。
+不在本期范围：格式级在线编辑（Office/PSD 协同编辑、文本在线编辑）、全文检索。
 
 ## 2. 关键架构决策
 
@@ -15,7 +15,7 @@
    签名公开端点由宿主提供（HMAC-SHA256 短时效 token，默认 30 分钟，凭据从 `YUDREAM_CREDENTIAL_KEY` 派生；token 绑定 pluginCode+objectKey+过期时间），Range 分段流式输出，不再内存缓冲整文件。文件名放在路径最后一段（含扩展名），保证 kkFileView 按扩展名识别类型。
 2. **配置在宿主平台能力**：kkFileView 服务地址（baseUrl）、回源基址（callbackBaseUrl）、officePreviewType、token 时效、预览大小上限随「平台能力 > 文件预览」能力模块入库，管理入口即平台能力页（权限 `platform:capability:*`），**不写配置文件**；部署侧另有环境闸门 `PLATFORM_FILE_PREVIEW_ENABLED` 控制能力是否出现。插件不再持有预览设置（§9 演进第 1 条已落地）。
 3. **上传走宿主桥**：插件 HTTP 层 body 只有 String（无 multipart），故前端先用 `sdk.files.uploadImage`（通用任意文件）上传到宿主 `/api/files/upload`，拿到 `fileId` 后调用插件 `POST /me/materials {fileId, ...}`，后端用 `framework().platformFile(fileId)` 读流并复制进插件 `files()` 命名空间。不进度条（宿主 SDK 无进度回调，与现有插件一致），上传中态用 spinner。
-4. **文件存储**：`context.files()`（S3/RustFS）。objectKey 不可变：`materials/{materialId}/v{n}/file`，原始文件名只存元数据。删除版本/物料时同步删对象。
+4. **文件存储**：`context.files()`（S3/RustFS）。objectKey 不可变：`materials/{materialId}/v{n}/file`，原始文件名只存元数据。光栅图额外写入 `materials/{materialId}/v{n}/cover.jpg`（最长边约 400px 的 JPEG）供库页缩略图，避免浏览器并发拉取原图。删除版本/物料时同步删对象与封面。
 5. **文档存储**（`context.documents()`，Mongo）：四个集合（§3）。规避宿主两个已知坑：`_id` 字典序升序（物料 id 用**倒置毫秒时间戳**保证「字典序=最新在前」）；`findByField` 有先分页后过滤的回归，**只用 findAll 200/页扫描 + 内存过滤**。宿主 save 会覆写 `id` 字段，文档内不使用 `id` 承载业务字段。
 6. **版本并发**：每物料一把 striped lock 内完成「读 currentVersion → 写新 version 文档 → 更新物料指针」，防并发上传拿到相同版本号。回滚只是移动 `currentVersion` 指针，不动对象。
 7. **权限模型**：`plugin:material:view`（用户端 /me/** 的读操作）、`plugin:material:manage`（/admin/** 全部）。/me 归属只取 `principal.userId()`，无管理员越权分支；管理员在用户端同样只能看自己的。`/public/share/**` 无权限注解，仅靠存储型分享凭证；签名文件端点由宿主暴露，不在插件内。
@@ -48,6 +48,7 @@
 | id | string | `{materialId}#{版本号补零6位}` |
 | materialId / version | string / int | |
 | objectKey | string | `materials/{materialId}/v{n}/file` |
+| coverObjectKey | string|null | 库页 JPEG 缩略图 `materials/{materialId}/v{n}/cover.jpg`；SVG/ICO 等无法栅格化或生成失败时为空 |
 | originalName / size / contentType | | 该版本元数据 |
 | note | string | 版本备注（可选） |
 | uploaderId / uploaderName / createdAt | | |
@@ -81,7 +82,7 @@
 | GET /me/categories | 分类列表（选择器用） |
 | GET /me/departments | 当前用户**自己加入的部门**选项（DEPT 可见范围选择器用；普通用户不暴露全量部门树） |
 | GET /me/tags | 标签云（自己未归档物料的标签计数，次数降序，最多 100 个） |
-| GET /me/covers?ids=a,b,c | 批量签发图片物料封面（≤60 个 id，返回 `{id, url}` 列表；url 为平台签名公开路径 `/api/public/preview/file/...`，前端用 `sdk.files.assetUrl()` 解析；非图片/越权/已删除的 id 静默跳过） |
+| GET /me/covers?ids=a,b,c | 批量签发图片物料**缩略图**（≤60 个 id，返回 `{id, url}`；url 指向 `cover.jpg` 的平台签名公开路径。首次访问时为旧数据补生成缩略图；无封面/非图片/越权/已删除的 id 静默跳过，不回退签发原图） |
 
 ### 管理端 /admin/**（permission=manage）
 | 方法/路径 | 说明 |
@@ -130,7 +131,7 @@
 | /platform/plugins/material/admin | material/Admin | manage | 跨用户物料表格（FaTable 勾选；行操作 预览/编辑/新版本/分享/下载/归档/删除；批量 移动分组/打标签(追加·覆盖)/归档/恢复/删除） |
 | /platform/plugins/material/admin/categories | material/Categories | manage | 分类表格维护 |
 
-布局（用户特别要求重视）：库页为「头部工具区 + 左侧栏 + 卡片网格」三段式——FaPageHeader 内嵌搜索框/类型筛选/上传按钮；左侧栏（`material-sidebar`，200px sticky）含分类导航（带物料计数）、标签云（点击精确筛选、再点取消）、状态筛选；主区 `material-grid` 为 `repeat(auto-fill, minmax(180px, 1fr))` 缩略图卡片（正方形缩略区：图片物料显示 /me/covers 签发的公开封面，其余类型显示类型图标 + 扩展名），悬停浮现 预览/下载/编辑/分享/删除 图标操作层，卡片下方显示名称与 类型/大小/当前版本；≤900px 侧栏收为顶部区块。详情页桌面左右分栏（`material-detail-layout` 3fr/2fr——左侧预览卡片含版本切换选择器，右侧版本历史表格含预览/下载/回滚/删除行操作），≤1100px 自动单列堆叠；预览容器最小高 420px、iframe 70vh，图片直读用棋盘格衬底。
+布局（用户特别要求重视）：库页为「头部工具区 + 左侧栏 + 卡片网格」三段式——FaPageHeader 内嵌搜索框/类型筛选/上传按钮；左侧栏（`material-sidebar`，200px sticky）含分类导航（带物料计数）、标签云（点击精确筛选、再点取消）、状态筛选；主区 `material-grid` 为 `repeat(auto-fill, minmax(180px, 1fr))` 缩略图卡片（正方形缩略区：图片物料显示 `/me/covers` 签发的 JPEG 缩略图，前端视口内最多同时加载 2 张；无封面或 SVG 等无法栅格化的格式显示类型图标 + 扩展名），悬停浮现 预览/下载/编辑/分享/删除 图标操作层，卡片下方显示名称与 类型/大小/当前版本；≤900px 侧栏收为顶部区块。详情页桌面左右分栏（`material-detail-layout` 3fr/2fr——左侧预览卡片含版本切换选择器，右侧版本历史表格含预览/下载/回滚/删除行操作），≤1100px 自动单列堆叠；预览容器最小高 420px、iframe 70vh，图片直读用棋盘格衬底。
 
 ## 7. 安全与边界
 
@@ -144,6 +145,7 @@
 ## 8. 已知限制（写入 releaseNotes/文档）
 
 - 下载端点仍采用内存缓冲（占用与文件等量的堆内存）；预览走平台签名端点 Range 分段流式输出，不再整文件入内存，大小受平台 maxPreviewSizeMb 约束。
+- 库页缩略图在上传时生成（最长边约 400px JPEG）；旧数据首次打开库页时补生成。SVG/ICO/AVIF 等 ImageIO 不稳定的格式不生成封面，前端显示类型图标。
 - 上传无真实进度条（宿主 SDK 限制）。
 - kkFileView 需能网络可达宿主（callbackBaseUrl）；容器部署时注意回源地址。
 
@@ -178,4 +180,4 @@
 | 预览提示签名无效/已过期（404） | token 默认 30 分钟，kkFileView 首次拉取慢时可在「平台能力 > 文件预览」调大时效；刷新预览即重签 |
 | 预览提示「文件过大」 | 在「平台能力 > 文件预览」调大预览大小上限，或接受仅下载 |
 | 未启用时预览显示 NONE | 能力停用时仅图片/视频/音频/PDF/文本可浏览器直读，其余须先在平台能力页启用文件预览 |
-| 能力页测试失败 | 检查 `baseUrl` 是否可从**宿主后端**访问（测试请求由宿主后端发出，不是浏览器）；同源反代部署下后端会以 `FILE_PREVIEW_KKFILEVIEW_INTERNAL_URL` 内网地址兜底探测 |
+| 物料库翻页/筛选后前端无法请求后端 | Firefox 每域名并发约 6 条：库页此前并发拉原图会占满连接。1.7.0 起封面只签发 JPEG 缩略图，前端视口内最多同时加载 2 张 |

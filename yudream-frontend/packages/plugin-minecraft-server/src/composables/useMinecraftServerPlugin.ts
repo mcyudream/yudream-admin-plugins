@@ -243,6 +243,23 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  async function saveMapLink(url: string, originalName?: string) {
+    const serverId = serverForm.id
+    if (!serverId) throw new Error('请先保存服务器，再填写网盘链接')
+    const trimmed = url.trim()
+    if (!trimmed) throw new Error('请填写网盘下载链接')
+    mapOperating.value = true
+    try {
+      const saved = await api.saveMapLink(serverId, trimmed, originalName?.trim() || undefined)
+      replaceServer(saved)
+      editServer(saved)
+      toast.success('网盘链接已保存')
+    }
+    finally {
+      mapOperating.value = false
+    }
+  }
+
   async function uploadMap(file: File, onProgress?: (percent: number) => void) {
     const serverId = serverForm.id
     const validationError = zipValidationError(file)
@@ -676,6 +693,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     toggleServerEnabled,
     deleteServer,
     uploadMap,
+    saveMapLink,
     setMapPublicAccess,
     deleteMap,
     downloadMap,
