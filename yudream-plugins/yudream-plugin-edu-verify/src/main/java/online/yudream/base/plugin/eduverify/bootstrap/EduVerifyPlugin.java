@@ -29,9 +29,12 @@ import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.auth.AuthEventListener;
+import online.yudream.base.plugin.spi.system.auth.ExtensionVeto;
 import online.yudream.base.plugin.spi.system.auth.IdentityVerificationMethod;
 import online.yudream.base.plugin.spi.system.auth.IdentityVerificationProvider;
 import online.yudream.base.plugin.spi.system.auth.IdentityVerificationResult;
+import online.yudream.base.plugin.spi.system.auth.RegisterAttempt;
+import online.yudream.base.plugin.spi.system.auth.RegisterInterceptor;
 import online.yudream.base.plugin.spi.system.auth.UserRegisteredEvent;
 import online.yudream.base.plugin.spi.system.auth.VerificationSubject;
 
@@ -64,7 +67,7 @@ import java.util.logging.Logger;
 public final class EduVerifyPlugin implements YuDreamPlugin {
 
     public static final String CODE = "edu-verify";
-    public static final String VERSION = "1.5.2";
+    public static final String VERSION = "1.5.3";
     public static final String MANAGE_PERMISSION = "plugin:edu-verify:manage";
     public static final String METHOD_CODE = "edu-verify";
 
@@ -91,6 +94,7 @@ public final class EduVerifyPlugin implements YuDreamPlugin {
         context.registerHttpController(new EduVerifyPublicController(http));
         context.registerHttpController(new EduVerifyAdminController(http));
         context.registerExtension(IdentityVerificationProvider.class, new EduVerifyIdentityProvider(app));
+        context.registerExtension(RegisterInterceptor.class, new EduVerifyRegisterInterceptor(app));
         context.registerExtension(AuthEventListener.class, new EduVerifyAuthListener(app));
 
         ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -144,21 +148,43 @@ public final class EduVerifyPlugin implements YuDreamPlugin {
 
         @Override
         public IdentityVerificationResult check(VerificationSubject subject) {
-            if (subject == null || subject.email() == null || subject.email().isBlank()) {
-                return IdentityVerificationResult.unverified("请先填写注册邮箱");
-            }
-            if (app.isPassed(subject.email())) {
-                app.ensureEmailDomainPass(subject.email());
-                return IdentityVerificationResult.passed();
-            }
-            if (app.isPendingMail(subject.email())) {
-                return IdentityVerificationResult.unverified("学信网报告邮件确认中，请使用学信网页面将报告发送到指定邮箱后再注册");
-            }
-            if (app.isPending(subject.email())) {
-                return IdentityVerificationResult.unverified("人工审核中，审核通过后即可注册");
-            }
-            return IdentityVerificationResult.unverified("请先完成高校学历认证（教育邮箱、学信网在线验证码或人工审核）");
+            return gate(app, subject == null ? null : subject.email());
         }
+    }
+
+    private static final class EduVerifyRegisterInterceptor implements RegisterInterceptor {
+
+        private final EduVerifyAppService app;
+
+        private EduVerifyRegisterInterceptor(EduVerifyAppService app) {
+            this.app = app;
+        }
+
+        @Override
+        public ExtensionVeto onBeforeRegister(RegisterAttempt attempt) {
+            IdentityVerificationResult result = gate(app, attempt == null ? null : attempt.email());
+            if (result.verified()) {
+                return ExtensionVeto.allow();
+            }
+            return ExtensionVeto.deny(result.message());
+        }
+    }
+
+    static IdentityVerificationResult gate(EduVerifyAppService app, String email) {
+        if (email == null || email.isBlank()) {
+            return IdentityVerificationResult.unverified("请先填写注册邮箱");
+        }
+        if (app.isPassed(email)) {
+            app.ensureEmailDomainPass(email);
+            return IdentityVerificationResult.passed();
+        }
+        if (app.isPendingMail(email)) {
+            return IdentityVerificationResult.unverified("学信网报告邮件确认中，请使用学信网页面将报告发送到指定邮箱后再注册");
+        }
+        if (app.isPending(email)) {
+            return IdentityVerificationResult.unverified("人工审核中，审核通过后即可注册");
+        }
+        return IdentityVerificationResult.unverified("请先完成高校学历认证（教育邮箱、学信网在线验证码或人工审核）");
     }
 
     private static final class EduVerifyAuthListener implements AuthEventListener {

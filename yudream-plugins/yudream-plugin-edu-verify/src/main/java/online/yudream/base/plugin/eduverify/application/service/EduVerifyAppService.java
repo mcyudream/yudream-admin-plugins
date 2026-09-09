@@ -474,7 +474,7 @@ public class EduVerifyAppService {
                 sanitizeTutorial(next.chsiTutorialMarkdown(), VerifySettings.defaults().chsiTutorialMarkdown()),
                 sanitizeTutorial(next.manualTutorialMarkdown(), VerifySettings.defaults().manualTutorialMarkdown()),
                 next.manualNotifyEnabled(),
-                sanitizeNotifyGroups(next.manualNotifyGroups()),
+                sanitizeNotifyGroups(next.manualNotifyEnabled(), next.manualNotifyGroups()),
                 sanitizeNotifyTemplate(next.manualNotifyTemplate()),
                 next.chsiMailConfirmationEnabled(),
                 sanitizeMailboxId(next.chsiMailboxId()),
@@ -960,8 +960,14 @@ public class EduVerifyAppService {
         return value;
     }
 
-    private static List<VerifySettings.NotifyGroupTarget> sanitizeNotifyGroups(List<VerifySettings.NotifyGroupTarget> targets) {
+    private static List<VerifySettings.NotifyGroupTarget> sanitizeNotifyGroups(
+            boolean enabled,
+            List<VerifySettings.NotifyGroupTarget> targets
+    ) {
         if (targets == null || targets.isEmpty()) {
+            if (enabled) {
+                throw new IllegalArgumentException("启用群通知需要选择消息连接与至少一个群");
+            }
             return List.of();
         }
         Map<String, VerifySettings.NotifyGroupTarget> unique = new LinkedHashMap<>();
@@ -973,6 +979,12 @@ public class EduVerifyAppService {
                 throw new IllegalArgumentException("审核通知目标格式不正确");
             }
             unique.putIfAbsent(target.connectionId() + ":" + target.groupId(), target);
+        }
+        if (unique.isEmpty()) {
+            if (enabled) {
+                throw new IllegalArgumentException("启用群通知需要选择消息连接与至少一个群");
+            }
+            return List.of();
         }
         if (unique.size() > 20) {
             throw new IllegalArgumentException("最多配置 20 个审核通知群");

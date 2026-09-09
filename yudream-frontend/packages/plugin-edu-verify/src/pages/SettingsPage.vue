@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { VerifySettings } from '../types'
-import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaNumberField, FaPageHeader, FaPageMain, FaSwitch, useFaToast } from '@yudream/components'
+import type { NotifyGroupTarget, VerifySettings } from '../types'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaLabel, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, useFaToast } from '@yudream/components'
 import { MdEditor } from 'md-editor-v3'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { createEduVerifyApi } from '../api/edu-verify-api'
 import { errorMessage } from '../types'
 
@@ -50,9 +50,49 @@ const fromDomainsText = ref('chsi.com.cn')
 const mailKeywordsText = ref('在线验证报告')
 const reportUrlTemplate = ref(DEFAULT_REPORT_URL)
 const selectors = reactive({ ...DEFAULT_SELECTORS })
+const notifyConnectionId = ref('')
+const notifyGroupIds = ref<string[]>([])
+const extraGroupId = ref('')
+const qqConnections = ref<Array<{ id: string, name: string, protocol?: string | null, platform?: string | null }>>([])
+const qqGroups = ref<Array<{ id: string, name: string }>>([])
+const loadingQqGroups = ref(false)
+
+function protocolLabel(item: { protocol?: string | null, platform?: string | null }) {
+  if (item.protocol === 'official') {
+    return '官方 QQ'
+  }
+  if (item.protocol === 'milky') {
+    return 'Milky'
+  }
+  return item.platform || '未知平台'
+}
+
+const qqConnectionOptions = computed(() => [
+  { label: '请选择消息连接', value: '' },
+  ...qqConnections.value.map(item => ({ label: `${item.name || item.id}（${protocolLabel(item)}）`, value: item.id })),
+])
+const qqGroupOptions = computed(() => {
+  const known = qqGroups.value.map(item => ({ label: item.name || item.id, value: item.id }))
+  const knownIds = new Set(known.map(item => item.value))
+  const extras = notifyGroupIds.value
+    .filter(id => id && !knownIds.has(id))
+    .map(id => ({ label: id, value: id }))
+  return [...known, ...extras]
+})
 
 function splitList(value: string) {
   return value.split(/[\n,，;；]+/).map(item => item.trim()).filter(Boolean)
+}
+
+function selectedNotifyGroups(): NotifyGroupTarget[] {
+  const connectionId = notifyConnectionId.value.trim()
+  if (!connectionId) {
+    return []
+  }
+  return notifyGroupIds.value
+    .map(id => id.trim())
+    .filter(Boolean)
+    .map(groupId => ({ connectionId, groupId }))
 }
 
 function apply(data: VerifySettings) {
@@ -63,11 +103,58 @@ function apply(data: VerifySettings) {
     chsiAllowedFromDomains: data.chsiAllowedFromDomains?.length ? data.chsiAllowedFromDomains : ['chsi.com.cn'],
     chsiMailKeywords: data.chsiMailKeywords?.length ? data.chsiMailKeywords : ['在线验证报告'],
     chsiMailWaitMinutes: data.chsiMailWaitMinutes || 15,
+    manualNotifyGroups: Array.isArray(data.manualNotifyGroups) ? data.manualNotifyGroups : [],
   })
   fromDomainsText.value = (form.chsiAllowedFromDomains || []).join('\n')
   mailKeywordsText.value = (form.chsiMailKeywords || []).join('\n')
   reportUrlTemplate.value = data.chsiReportUrlTemplate || DEFAULT_REPORT_URL
   Object.assign(selectors, DEFAULT_SELECTORS, data.chsiSelectors || {})
+  const groups = form.manualNotifyGroups || []
+  notifyConnectionId.value = groups.find(item => item.connectionId)?.connectionId || ''
+  notifyGroupIds.value = groups
+    .filter(item => item.connectionId === notifyConnectionId.value && item.groupId)
+    .map(item => item.groupId)
+}
+
+async function loadQqGroups(resetSelection = false) {
+  if (!notifyConnectionId.value) {
+    qqGroups.value = []
+    if (resetSelection) {
+      notifyGroupIds.value = []
+    }
+    return
+  }
+  loadingQqGroups.value = true
+  try {
+    qqGroups.value = await props.sdk.messaging.groups(notifyConnectionId.value)
+    if (resetSelection) {
+      const valid = new Set(qqGroups.value.map(item => item.id))
+      notifyGroupIds.value = notifyGroupIds.value.filter(id => valid.has(id))
+    }
+  }
+  catch (cause) {
+    qqGroups.value = []
+    toast.warning(errorMessage(cause, '加载 QQ 群失败'))
+  }
+  finally {
+    loadingQqGroups.value = false
+  }
+}
+
+function changeNotifyConnection() {
+  extraGroupId.value = ''
+  void loadQqGroups(true)
+}
+
+function addExtraGroup() {
+  const id = extraGroupId.value.trim()
+  if (!id) {
+    return
+  }
+  if (!notifyGroupIds.value.includes(id)) {
+    notifyGroupIds.value = [...notifyGroupIds.value, id]
+  }
+  extraGroupId.value = ''
 }
 
 async function load() {
@@ -75,6 +162,8 @@ async function load() {
   error.value = ''
   try {
     apply(await api.settings())
+    qqConnections.value = await props.sdk.messaging.connections().catch(() => [])
+    await loadQqGroups()
   }
   catch (cause) {
     error.value = errorMessage(cause, '加载设置失败')
@@ -85,11 +174,17 @@ async function load() {
 }
 
 async function save() {
+  const groups = selectedNotifyGroups()
+  if (form.manualNotifyEnabled && (!notifyConnectionId.value || !groups.length)) {
+    toast.warning('开启群通知需要选择消息连接与至少一个群')
+    return
+  }
   saving.value = true
   error.value = ''
   try {
     apply(await api.saveSettings({
       ...form,
+      manualNotifyGroups: groups,
       chsiAllowedFromDomains: splitList(fromDomainsText.value),
       chsiMailKeywords: splitList(mailKeywordsText.value),
       chsiReportUrlTemplate: reportUrlTemplate.value,
@@ -189,6 +284,18 @@ onMounted(load)
               <small>通知失败不会阻断用户提交，失败会记录到审核审计日志。</small>
             </div>
           </div>
+          <template v-if="form.manualNotifyEnabled">
+            <div class="ev-settings-grid">
+              <FaLabel label="消息连接" class="ev-field">
+                <FaSelect v-model="notifyConnectionId" :options="qqConnectionOptions" :disabled="saving" @update:model-value="changeNotifyConnection" />
+              </FaLabel>
+              <FaLabel label="通知群（可多选）" class="ev-field">
+                <FaSelect v-model="notifyGroupIds" multiple :options="qqGroupOptions" placeholder="请选择 QQ 群" :disabled="saving || !notifyConnectionId || loadingQqGroups" />
+                <FaInput v-model="extraGroupId" placeholder="官方群 openid，回车添加" :disabled="saving || !notifyConnectionId" @keydown.enter.prevent="addExtraGroup" />
+                <span class="ev-field-hint">官方 QQ 没有完整历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</span>
+              </FaLabel>
+            </div>
+          </template>
           <FaLabel label="通知模板" class="ev-field">
             <FaInput v-model="form.manualNotifyTemplate" class="w-full" maxlength="2000" />
             <span class="ev-field-hint">可用变量：{email}、{realName}、{schoolName}、{materialCount}</span>
