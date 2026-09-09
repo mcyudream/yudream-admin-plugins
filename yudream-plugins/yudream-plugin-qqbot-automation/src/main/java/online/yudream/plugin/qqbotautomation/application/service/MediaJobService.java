@@ -727,52 +727,6 @@ public class MediaJobService {
         return value.replaceAll("/+$", "");
     }
 
-    /**
-     * 官方机器人只接受公网 http(s) 或 base64://。宿主 signedFileUrl 签发的是
-     * /api/public/preview/file/... 相对路径，必须拼上文件预览回源基址；
-     * 没有公网基址时才把已读入内存的小文件改成内联 base64。
-     */
-    private String officialDeliverySource(byte[] bytes, String filename, String objectKey) {
-        String signed = framework.filePreview().signedFileUrl(QqbotAutomationPlugin.CODE, objectKey, filename);
-        String absolute = absolutePublicUrl(signed);
-        if (nonBlank(absolute)) {
-            LOG.info(PluginLogger.MEDIA, "官方媒体已签发直链: filename=" + filename
-                    + ", bytes=" + bytes.length + ", mode=url");
-            return absolute;
-        }
-        if (bytes.length > OFFICIAL_INLINE_BASE64_LIMIT_BYTES) {
-            throw new IllegalStateException("官方机器人无法拉取相对路径文件（签发=" + signed
-                    + "）。请在「平台能力 > 文件预览」配置公网回源地址，或确保签发的是 http(s) 直链。"
-                    + "当前文件 " + bytes.length + " 字节超过内联 base64 上限 "
-                    + OFFICIAL_INLINE_BASE64_LIMIT_BYTES + " 字节。");
-        }
-        String encoded = java.util.Base64.getEncoder().encodeToString(bytes);
-        LOG.info(PluginLogger.MEDIA, "官方媒体改用内联 base64: filename=" + filename
-                + ", bytes=" + bytes.length + ", signed=" + signed);
-        return "base64://" + encoded;
-    }
-
-    private String absolutePublicUrl(String signed) {
-        if (!nonBlank(signed)) {
-            return "";
-        }
-        String value = signed.trim();
-        if (value.startsWith("https://") || value.startsWith("http://")
-                || value.startsWith("base64://") || value.startsWith("data:")) {
-            return value;
-        }
-        String base = framework.filePreview().callbackBaseUrl();
-        if (!nonBlank(base)) {
-            return "";
-        }
-        String path = value.startsWith("/") ? value : "/" + value;
-        return trimSlash(base) + path;
-    }
-
-    private String trimSlash(String value) {
-        return value.replaceAll("/+$", "");
-    }
-
     private PluginFileStore files() {
         return framework.files(QqbotAutomationPlugin.CODE);
     }
