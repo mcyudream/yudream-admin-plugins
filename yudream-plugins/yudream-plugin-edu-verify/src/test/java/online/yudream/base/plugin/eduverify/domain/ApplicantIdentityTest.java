@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApplicantIdentityTest {
@@ -29,6 +30,15 @@ class ApplicantIdentityTest {
     @Test
     void fallsBackToExistingWhenOverrideBlank() {
         ApplicantIdentity identity = ApplicantIdentity.require(" ", null, "旧名", "旧校");
+        assertEquals("旧名", identity.realName());
+        assertEquals("旧校", identity.schoolName());
+    }
+
+    @Test
+    void optionalReturnsNullWhenNameOrSchoolMissing() {
+        assertNull(ApplicantIdentity.optional("", "某某大学", null, null));
+        assertNull(ApplicantIdentity.optional("张三", " ", null, null));
+        ApplicantIdentity identity = ApplicantIdentity.optional("", "", "旧名", "旧校");
         assertEquals("旧名", identity.realName());
         assertEquals("旧校", identity.schoolName());
     }

@@ -40,8 +40,8 @@ export function createEduVerifyApi(sdk: YuDreamPluginSdk) {
     publicStatus: (email: string) => http.get<StatusPayload>(`/public/status${query({ email })}`),
     sendEmailCode: (email: string) => http.post<EmailSendResult>('/public/email/send-code', { email }),
     verifyEmailCode: (email: string, code: string) => http.post<VerificationRecord>('/public/email/verify', { email, code }),
-    chsiVerify: (email: string, vcode: string, realName: string, schoolName: string) =>
-      http.post<ChsiVerifyResult>('/public/chsi/verify', { email, vcode, realName, schoolName }),
+    chsiVerify: (email: string, vcode: string) =>
+      http.post<ChsiVerifyResult>('/public/chsi/verify', { email, vcode }),
     chsiConfirm: (email: string) => http.post<ChsiVerifyResult>('/public/chsi/confirm', { email }),
     publicManualSubmit: (payload: {
       email: string

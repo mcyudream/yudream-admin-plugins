@@ -200,7 +200,7 @@ onMounted(load)
             <FaSwitch v-model="form.chsiMailConfirmationEnabled" />
             <div class="ev-switch-copy">
               <strong>启用官方报告邮件确认</strong>
-              <small>用户须在学信网报告页使用官方「发送到邮箱」按钮，把报告发到站点指定收件邮箱。错误发件域、错误验证码、超时或 IMAP 不可用都不会通过。</small>
+              <small>用户须在学信网报告页使用官方「发送到邮箱」按钮，把报告发到站点指定收件邮箱。系统会从邮件正文或 PDF 附件抽取 16 位验证码并与用户填写的码比对。错误发件域、错误验证码、超时或 IMAP 不可用都不会通过。</small>
             </div>
           </div>
           <div class="ev-settings-grid">
@@ -218,7 +218,7 @@ onMounted(load)
           </FaLabel>
           <FaLabel label="邮件关键词" class="ev-field">
             <FaInput v-model="mailKeywordsText" class="w-full" maxlength="400" placeholder="在线验证报告" />
-            <span class="ev-field-hint">主题或正文必须同时包含验证码和这些关键词。</span>
+            <span class="ev-field-hint">主题、正文或 PDF 附件必须同时包含验证码和这些关键词。验证码会忽略空格与大小写。</span>
           </FaLabel>
         </FaCard>
 

@@ -22,6 +22,15 @@ public record ApplicantIdentity(String realName, String schoolName) {
         return require(firstNonBlank(realName, fallbackName), firstNonBlank(schoolName, fallbackSchool));
     }
 
+    public static ApplicantIdentity optional(String realName, String schoolName, String fallbackName, String fallbackSchool) {
+        String name = firstNonBlank(realName, fallbackName);
+        String school = firstNonBlank(schoolName, fallbackSchool);
+        if (name == null || school == null) {
+            return null;
+        }
+        return require(name, school);
+    }
+
     public List<PluginUserTag> personnelTags(String statusLabel) {
         List<PluginUserTag> tags = new ArrayList<>();
         tags.add(new PluginUserTag(EduVerifyPlugin.CODE, "name", realName));

@@ -207,7 +207,7 @@ public class EduVerifyAppService {
         return switch (result.kind()) {
             case "PASSED" -> {
                 chsiSessions.delete(email);
-                ApplicantIdentity identity = ApplicantIdentity.require(result.realName(), result.schoolName(), realName, schoolName);
+                ApplicantIdentity identity = ApplicantIdentity.require(result.realName(), result.schoolName());
                 if (!settings.chsiMailConfirmationEnabled()) {
                     EduVerification passed = pass(email, VerificationChannel.CHSI, identity.realName(), identity.schoolName(),
                             "学信网在线验证码核验通过", code, List.of(), now, settings);
@@ -823,11 +823,15 @@ public class EduVerifyAppService {
     }
 
     private String resolveMailboxId(VerifySettings settings) {
-        if (settings.chsiMailboxId() != null && !settings.chsiMailboxId().isBlank()) {
-            return settings.chsiMailboxId().trim();
-        }
         String hostId = framework.inboundMail().mailboxId();
-        return hostId == null ? "" : hostId.trim();
+        String configured = settings.chsiMailboxId() == null ? "" : settings.chsiMailboxId().trim();
+        if (configured.isBlank()) {
+            return hostId == null ? "" : hostId.trim();
+        }
+        if (hostId != null && !hostId.isBlank() && !configured.equals(hostId.trim())) {
+            return hostId.trim();
+        }
+        return configured;
     }
 
     private Map<String, Object> degradeToManual(
@@ -847,7 +851,7 @@ public class EduVerifyAppService {
         if (existing != null && "PASSED".equals(existing.status()) && existing.passed(now)) {
             throw new IllegalArgumentException("该邮箱已通过认证，无需重复提交");
         }
-        ApplicantIdentity identity = ApplicantIdentity.require(
+        ApplicantIdentity identity = ApplicantIdentity.optional(
                 realName, schoolName,
                 existing == null ? null : existing.realName(),
                 existing == null ? null : existing.schoolName()
@@ -855,8 +859,8 @@ public class EduVerifyAppService {
         String note = "学信网自动核验未完成，已转入人工审核。请补充证明材料，管理员将核对姓名与学校。";
         EduVerification pending = new EduVerification(
                 id, email, existing == null ? null : existing.userId(), "MANUAL", "PENDING",
-                identity.realName(),
-                identity.schoolName(),
+                identity == null ? null : identity.realName(),
+                identity == null ? null : identity.schoolName(),
                 note,
                 vcode,
                 existing == null ? List.of() : existing.materials(),
@@ -865,7 +869,7 @@ public class EduVerifyAppService {
         );
         verifications.save(pending);
         audit("SYSTEM", "chsi", "CHSI_DEGRADE", "CHSI", email, pending.userId(),
-                identity.audit(message, null));
+                identity == null ? (message == null ? "学信网核验失败" : message) : identity.audit(message, null));
         syncUserTags(pending.userId());
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("status", "DEGRADED");

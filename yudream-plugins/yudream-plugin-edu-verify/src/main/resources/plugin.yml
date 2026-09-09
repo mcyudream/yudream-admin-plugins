@@ -3,4 +3,4 @@ displayName: 学历认证
 description: 提供教育邮箱、在线验证码和人工审核等学历认证方式。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.eduverify.bootstrap.EduVerifyPlugin
-version: 1.5.0
+version: 1.5.2

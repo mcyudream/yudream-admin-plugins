@@ -210,21 +210,11 @@ async function verifyChsi() {
     error.value = '请填写 16 位学信网在线验证码'
     return
   }
-  if (!chsiRealName.value.trim()) {
-    error.value = '请填写真实姓名'
-    return
-  }
-  if (!chsiSchoolName.value.trim()) {
-    error.value = '请填写学校名称'
-    return
-  }
   chsiBusy.value = true
   try {
     const result = await api.chsiVerify(
       email.value.trim(),
       chsiVcode.value.trim(),
-      chsiRealName.value.trim(),
-      chsiSchoolName.value.trim(),
     )
     if (result.status === 'PASSED' && result.verification) {
       markPassed(result.verification, '学信网核验已通过，可继续注册。', '学信网认证通过')
@@ -361,16 +351,9 @@ onUnmounted(() => {
             <FaInput v-model="email" class="w-full" maxlength="120" placeholder="用于绑定认证记录并完成注册" />
             <span class="ev-field-hint">不必是教育邮箱。核验通过后请用同一邮箱注册。</span>
           </FaLabel>
-          <FaLabel label="真实姓名" class="ev-field">
-            <FaInput v-model="chsiRealName" class="w-full" maxlength="40" placeholder="与学信网报告一致" />
-          </FaLabel>
-          <FaLabel label="学校名称" class="ev-field">
-            <FaInput v-model="chsiSchoolName" class="w-full" maxlength="80" placeholder="如：某某大学" />
-            <span class="ev-field-hint">自动核验失败转入人工审核时，管理员将按此处填写的姓名与学校留档。</span>
-          </FaLabel>
           <FaLabel label="16 位在线验证码" class="ev-field">
             <FaInput v-model="chsiVcode" class="w-full" maxlength="16" placeholder="学信档案在线验证码" />
-            <span class="ev-field-hint">{{ mailConfirmationEnabled ? '请先在学信网申请报告并填写 16 位验证码。报告页通过后，还须用学信网官方发送按钮把报告发到指定邮箱，两步都通过后才可注册。' : '请先在学信网申请《学籍在线验证报告》或《学历证书电子注册备案表》，再填写 16 位验证码。系统会读取官方报告页核验，无需图形验证码。' }}</span>
+            <span class="ev-field-hint">{{ mailConfirmationEnabled ? '请先在学信网申请报告并填写 16 位验证码。姓名和学校从官方报告页截取，无需手填。报告页通过后，还须用学信网官方发送按钮把报告发到指定邮箱，两步都通过后才可注册。' : '请先在学信网申请《学籍在线验证报告》或《学历证书电子注册备案表》，再填写 16 位验证码。系统会读取官方报告页并截取姓名和学校，无需手填。' }}</span>
           </FaLabel>
           <div class="ev-actions ev-actions-end">
             <FaButton v-if="pendingMail" type="button" variant="outline" :loading="chsiBusy" @click="confirmChsiMail">

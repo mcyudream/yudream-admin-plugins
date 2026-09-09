@@ -91,11 +91,14 @@ class ChsiMailConfirmationTest {
 
     @Test
     void htmlSuccessWaitsForOfficialMailWhenConfirmationEnabled() {
-        Map<String, Object> result = app.chsiVerify(EMAIL, VCODE, "张三", "某某大学");
+        Map<String, Object> result = app.chsiVerify(EMAIL, VCODE, "", "");
         assertEquals("PENDING_MAIL", result.get("status"));
         assertTrue(app.isPendingMail(EMAIL));
         assertFalse(app.isPassed(EMAIL));
-        assertEquals("PENDING_MAIL", verifications.findById("CHSI:" + EMAIL).orElseThrow().status());
+        EduVerification waiting = verifications.findById("CHSI:" + EMAIL).orElseThrow();
+        assertEquals("PENDING_MAIL", waiting.status());
+        assertEquals("张三", waiting.realName());
+        assertEquals("某某大学", waiting.schoolName());
     }
 
     @Test
@@ -118,7 +121,7 @@ class ChsiMailConfirmationTest {
         assertEquals(VCODE, inboundMail.lastQuery.verificationCode());
         assertTrue(inboundMail.lastQuery.allowedFromDomains().contains("chsi.com.cn"));
         assertTrue(inboundMail.lastQuery.requiredKeywords().contains("在线验证报告"));
-        assertEquals("chsi-report", inboundMail.lastQuery.mailboxId());
+        assertEquals("default", inboundMail.lastQuery.mailboxId());
     }
 
     @Test
@@ -192,7 +195,7 @@ class ChsiMailConfirmationTest {
 
         @Override
         public String mailboxId() {
-            return "chsi-report";
+            return "default";
         }
 
         @Override
