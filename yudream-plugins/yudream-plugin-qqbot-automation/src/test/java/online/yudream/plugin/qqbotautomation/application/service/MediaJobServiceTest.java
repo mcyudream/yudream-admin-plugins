@@ -467,7 +467,7 @@ class MediaJobServiceTest {
     }
 
     @Test
-    void officialConnectionPrefixesRelativeSignedUrlWithCallbackBase() throws Exception {
+    void officialConnectionSendsSignedPreviewUrlEvenWithCallbackBase() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
@@ -498,7 +498,8 @@ class MediaJobServiceTest {
 
             await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
-            assertEquals("https://admin.example.test/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
+            assertEquals("/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
+            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, sentRequest.get().content().type());
         } finally {
             server.stop(0);
             deleteTree(mediaDirectory);
@@ -506,7 +507,7 @@ class MediaJobServiceTest {
     }
 
     @Test
-    void officialConnectionFallsBackToBase64WhenSignedUrlIsRelative() throws Exception {
+    void officialConnectionSendsRelativeSignedUrlWithoutCallbackBase() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
@@ -537,8 +538,7 @@ class MediaJobServiceTest {
 
             await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
-            assertEquals("base64://" + java.util.Base64.getEncoder().encodeToString("official-video".getBytes(StandardCharsets.UTF_8)),
-                    sentRequest.get().content().content());
+            assertEquals("/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
         } finally {
             server.stop(0);
             deleteTree(mediaDirectory);
@@ -546,7 +546,7 @@ class MediaJobServiceTest {
     }
 
     @Test
-    void officialConnectionFailsLargeFileWithoutPublicUrl() throws Exception {
+    void officialConnectionSendsSignedUrlForLargeVideoWithoutPublicUrl() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
         InMemoryDocuments documents = new InMemoryDocuments();
@@ -555,7 +555,7 @@ class MediaJobServiceTest {
         Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
         Path video = mediaDirectory.resolve("douyin_video");
         Files.createDirectories(video);
-        Files.write(video.resolve("douyin_7663032596767428986.mp4"), new byte[(int) MediaJobService.OFFICIAL_INLINE_BASE64_LIMIT_BYTES + 1]);
+        Files.write(video.resolve("douyin_7663032596767428986.mp4"), new byte[256 * 1024]);
         HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         server.createContext("/api/download", exchange -> {
             exchange.getResponseHeaders().set("Content-Type", "video/mp4");
@@ -575,9 +575,9 @@ class MediaJobServiceTest {
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
 
-            await(() -> "FAILED".equals(job(documents, jobId).get("status")));
-            String error = String.valueOf(job(documents, jobId).get("error"));
-            assertTrue(error.contains("回源") || error.contains("base64"), error);
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("/api/public/preview/file/token/video.mp4", sentRequest.get().content().content());
         } finally {
             server.stop(0);
             deleteTree(mediaDirectory);
