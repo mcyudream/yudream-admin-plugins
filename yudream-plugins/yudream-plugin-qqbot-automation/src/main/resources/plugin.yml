@@ -3,4 +3,4 @@ displayName: QQ 群自动化
 description: 配置入群审核、群消息处理和媒体链接任务。
 icon: i-ri:chat-settings-line
 main: online.yudream.plugin.qqbotautomation.bootstrap.QqbotAutomationPlugin
-version: 1.2.2
+version: 1.2.6

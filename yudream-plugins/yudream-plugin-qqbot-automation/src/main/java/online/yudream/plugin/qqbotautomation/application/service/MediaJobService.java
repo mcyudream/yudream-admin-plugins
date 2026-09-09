@@ -49,6 +49,7 @@ public class MediaJobService {
     private static final Pattern BILIBILI_BV_ID = Pattern.compile("BV[0-9A-Za-z]{10}");
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
+    private static final PluginLogger LOG = PluginLogger.of(MediaJobService.class);
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
     private final FrameworkServices framework;
@@ -66,14 +67,20 @@ public class MediaJobService {
 
     public void handle(PluginEvent event) {
         AutomationPolicy policy = policies.resolve(event.connectionId(), event.channelId());
-        if (!policy.enabled() || !policy.mediaEnabled()) return;
+        if (!policy.enabled() || !policy.mediaEnabled()) {
+            return;
+        }
         Matcher matcher = MEDIA_LINK.matcher(event.content() == null ? "" : event.content());
-        if (!matcher.find()) return;
+        if (!matcher.find()) {
+            return;
+        }
+        LOG.info(PluginLogger.MEDIA, "检测到分享链接: connection=" + event.connectionId()
+                + ", group=" + event.channelId() + ", url=" + matcher.group());
         try {
             start(UUID.randomUUID().toString(), event.connectionId(), event.channelId(), matcher.group(), policy,
                     new DeliveryTarget(event.connectionId(), event.platform(), event.selfId(), event.channelId(), replyTo(event), event.selfId()), "EVENT");
         } catch (Exception error) {
-            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] media job start failed: connection=" + event.connectionId() + ", channel=" + event.channelId(), error);
+            LOGGER.log(Level.SEVERE, "[QQ 群自动化] [媒体解析] media job start failed: connection=" + event.connectionId() + ", channel=" + event.channelId(), error);
         }
     }
 
@@ -152,12 +159,12 @@ public class MediaJobService {
     private void start(String id, String connectionId, String channelId, String sourceUrl, AutomationPolicy policy,
                        DeliveryTarget target, String trigger) {
         save(id, connectionId, channelId, sourceUrl, trigger, "QUEUED", null, null);
-        LOGGER.info("[YuDreamAdmin] [QQ 群自动化] media job queued: id=" + id + ", trigger=" + trigger);
+        LOGGER.info("[QQ 群自动化] [媒体解析] media job queued: id=" + id + ", trigger=" + trigger);
         MediaRequest request;
         try {
             request = request(policy, sourceUrl, isOfficial(connectionId));
         } catch (Exception error) {
-            LOGGER.log(Level.SEVERE, "[YuDreamAdmin] [QQ 群自动化] media job request failed: id=" + id + ", source=" + sourceUrl, error);
+            LOGGER.log(Level.SEVERE, "[QQ 群自动化] [媒体解析] media job request failed: id=" + id + ", source=" + sourceUrl, error);
             save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
             return;
         }
@@ -166,7 +173,7 @@ public class MediaJobService {
                         if (isDouyinImageDownload(request, error)) {
                             sendDouyinImagePostWithRetry(request, target, 3).whenComplete((ignored, imageError) -> {
                                 if (imageError != null) {
-                                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media image post failed: id=" + id, imageError);
+                                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] media image post failed: id=" + id, imageError);
                                     save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(imageError));
                                     return;
                                 }
@@ -174,18 +181,18 @@ public class MediaJobService {
                             });
                             return;
                         }
-                        LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media job failed: id=" + id + ", source=" + sourceUrl, error);
+                        LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] media job failed: id=" + id + ", source=" + sourceUrl, error);
                         save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(error));
                         return;
                     }
                     deliver(request, target, media).whenComplete((delivery, sendError) -> {
                         if (sendError != null) {
-                            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] media job send failed: id=" + id, sendError);
+                            LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] media job send failed: id=" + id, sendError);
                             save(id, connectionId, channelId, sourceUrl, trigger, "SEND_FAILED", media.downloadUrl(), sanitize(sendError));
                             return;
                         }
                         if (delivery.commentError() != null) saveCommentError(id, sanitize(delivery.commentError()));
-                        LOGGER.info("[YuDreamAdmin] [QQ 群自动化] media job completed: id=" + id);
+                        LOGGER.info("[QQ 群自动化] [媒体解析] media job completed: id=" + id);
                         save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", media.downloadUrl(), null);
                     });
                 });
@@ -262,13 +269,13 @@ public class MediaJobService {
                             .map(uri -> forwardNode(nickname, userId, Map.of("type", "image", "data", Map.of("uri", uri))))
                             .toList());
                     return localizeDouyinAudio(douyinAudioUrl(data)).handle((audioUri, error) -> {
-                                if (error != null) LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin audio localization failed", error);
+                                if (error != null) LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin audio localization failed", error);
                                 return audioUri;
                             })
                             .thenCompose(audioUri -> {
                                 return fetchDouyinCommentsForMedia(request, data.path("aweme_id").asText(), target)
                                         .exceptionally(error -> {
-                                            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin comments fetch failed", error);
+                                            LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin comments fetch failed", error);
                                             return List.of();
                                         })
                                         .thenCompose(comments -> {
@@ -318,7 +325,7 @@ public class MediaJobService {
                 .thenCompose(audioUri -> sendDouyinRecord(target, audioUri))
                 // Audio is an enhancement. A failed download or record send must not fail delivered media/comments.
                 .exceptionally(error -> {
-                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin audio delivery failed", error);
+                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin audio delivery failed", error);
                     return null;
                 });
     }
@@ -329,7 +336,7 @@ public class MediaJobService {
                 new PluginMessageContent(PluginMessageContent.Type.AUDIO, audioUrl,
                         List.of(new PluginMessageContent.Attachment(audioUrl, "douyin-audio.mp3", "audio/mpeg")), Map.of())))
                 .exceptionally(error -> {
-                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] douyin record send failed", error);
+                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin record send failed", error);
                     return null;
                 });
     }
@@ -579,11 +586,12 @@ public class MediaJobService {
         if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) {
             throw new IllegalStateException("官方连接需要先在策略页填写媒体存储目录，才能签发公网直链");
         }
-        String relative = milkyUri.replaceFirst("^file://" + Pattern.quote(containerDirectory.replaceAll("/+$", "")) + "/", "");
-        Path file = Path.of(hostDirectory).resolve(relative.replace('/', java.io.File.separatorChar));
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalStateException("Media provider file is missing after download");
-        }
+        List<Path> candidates = resolveSharedFiles(hostDirectory, containerDirectory, milkyUri);
+        LOG.info(PluginLogger.MEDIA, "官方媒体落盘核对: uri=" + milkyUri
+                + ", hostDir=" + hostDirectory
+                + ", containerDir=" + containerDirectory
+                + ", candidates=" + candidates);
+        Path file = waitForSharedFile(candidates, milkyUri);
         try {
             byte[] bytes = Files.readAllBytes(file);
             String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
@@ -592,12 +600,88 @@ public class MediaJobService {
             if (!nonBlank(publicUrl)) {
                 throw new IllegalStateException("File preview is not enabled, so official connections cannot send media");
             }
+            LOG.info(PluginLogger.MEDIA, "官方媒体已签发直链: filename=" + filename + ", bytes=" + bytes.length);
             return new ResolvedMedia(publicUrl, publicUrl, List.of());
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {
             throw new IllegalStateException("Could not publish media for official QQ", exception);
         }
+    }
+
+    private List<Path> resolveSharedFiles(String hostDirectory, String containerDirectory, String milkyUri) {
+        String relative = sharedRelativePath(containerDirectory, milkyUri);
+        java.util.LinkedHashSet<Path> files = new java.util.LinkedHashSet<>();
+        for (Path root : mediaReadRoots(hostDirectory, containerDirectory)) {
+            files.add(root.resolve(relative.replace('/', java.io.File.separatorChar)).normalize());
+        }
+        return List.copyOf(files);
+    }
+
+    List<Path> mediaReadRoots(String hostDirectory, String containerDirectory) {
+        java.util.LinkedHashSet<Path> roots = new java.util.LinkedHashSet<>();
+        if (nonBlank(hostDirectory)) {
+            roots.add(Path.of(hostDirectory).normalize());
+        }
+        roots.add(Path.of("/media").normalize());
+        if (nonBlank(containerDirectory) && containerDirectory.startsWith("/")) {
+            roots.add(Path.of(containerDirectory).normalize());
+        }
+        return List.copyOf(roots);
+    }
+
+    private String sharedRelativePath(String containerDirectory, String milkyUri) {
+        String root = containerDirectory.replace('\\', '/').replaceAll("/+$", "");
+        String uri = milkyUri == null ? "" : milkyUri.replace('\\', '/');
+        String prefix = "file://" + root + "/";
+        String relative;
+        if (uri.startsWith(prefix)) {
+            relative = uri.substring(prefix.length());
+        } else {
+            relative = uri.replaceFirst("^file://" + Pattern.quote(root) + "/", "");
+        }
+        return decodePathSegment(relative);
+    }
+
+    private String decodePathSegment(String relative) {
+        String[] parts = relative.split("/");
+        StringBuilder decoded = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (!decoded.isEmpty()) {
+                decoded.append('/');
+            }
+            decoded.append(java.net.URLDecoder.decode(part.replace("+", "%20"), StandardCharsets.UTF_8));
+        }
+        return decoded.toString();
+    }
+
+    private Path waitForSharedFile(List<Path> files, String milkyUri) {
+        long deadline = System.nanoTime() + Duration.ofSeconds(8).toNanos();
+        while (System.nanoTime() < deadline) {
+            for (Path file : files) {
+                if (Files.isRegularFile(file)) {
+                    LOG.info(PluginLogger.MEDIA, "官方媒体已找到落盘文件: " + file);
+                    return file;
+                }
+            }
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        for (Path file : files) {
+            if (Files.isRegularFile(file)) {
+                return file;
+            }
+        }
+        throw new IllegalStateException("Media provider file is missing after download: uri=" + milkyUri
+                + ", tried=" + files
+                + "。插件跑在 YuDream 后端容器里，可读目录要填后端能看到的挂载点（这份 compose 是 /media），解析容器目录填解析服务写入路径（截图是 /app/download）。不要填宿主机 /opt/yudream-douyin-api/download。");
     }
 
     private PluginFileStore files() {
@@ -633,11 +717,7 @@ public class MediaJobService {
         if (!nonBlank(hostDirectory) || !containerDirectory.startsWith("/")) {
             throw new IllegalStateException("官方连接需要先在策略页填写媒体存储目录，才能签发公网直链");
         }
-        String relative = milky.deliveryUri().replaceFirst("^file://" + Pattern.quote(containerDirectory.replaceAll("/+$", "")) + "/", "");
-        Path file = Path.of(hostDirectory).resolve(relative.replace('/', java.io.File.separatorChar));
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalStateException("Bilibili file is missing after download");
-        }
+        Path file = waitForSharedFile(resolveSharedFiles(hostDirectory, containerDirectory, milky.deliveryUri()), milky.deliveryUri());
         try {
             byte[] bytes = Files.readAllBytes(file);
             String filename = file.getFileName().toString();
@@ -829,8 +909,27 @@ public class MediaJobService {
     }
 
     private java.util.Optional<String> filename(String contentDisposition) {
-        Matcher matcher = Pattern.compile("(?i)filename=\\\"?([^\\\";]+)").matcher(contentDisposition);
-        return matcher.find() ? java.util.Optional.of(matcher.group(1).trim()) : java.util.Optional.empty();
+        if (contentDisposition == null || contentDisposition.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        Matcher encoded = Pattern.compile("(?i)filename\\*\\s*=\\s*([^']*)''([^;]+)").matcher(contentDisposition);
+        if (encoded.find()) {
+            return java.util.Optional.of(decodeFilename(encoded.group(2).trim()));
+        }
+        Matcher matcher = Pattern.compile("(?i)filename\\s*=\\s*\"?([^\";]+)").matcher(contentDisposition);
+        if (!matcher.find()) {
+            return java.util.Optional.empty();
+        }
+        String raw = matcher.group(1).trim();
+        return java.util.Optional.of(raw.contains("%") ? decodeFilename(raw) : raw);
+    }
+
+    private String decodeFilename(String value) {
+        try {
+            return java.net.URLDecoder.decode(value.replace("+", "%20"), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ignored) {
+            return value;
+        }
     }
 
     private String findUrl(JsonNode node) {

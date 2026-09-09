@@ -143,61 +143,61 @@ const alertGroupOptions = computed(() => {
           </p>
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">自动化策略</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">允许群消息触发自动化处理</p>
+      <div class="qa-switch-grid">
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">自动化策略</p>
+            <p class="qa-switch-tile__desc">允许群消息触发自动化处理</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('enabled')" @update:model-value="setOverride('enabled', $event ?? false)" />
             </FaTooltip>
             <FaSwitch :model-value="Boolean(valueFor('enabled'))" :disabled="isInherited('enabled')" @update:model-value="update('enabled', $event ?? false)" />
           </div>
         </div>
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">媒体解析</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">处理抖音和 Bilibili 分享链接</p>
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">媒体解析</p>
+            <p class="qa-switch-tile__desc">处理抖音和 Bilibili 分享链接</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('mediaEnabled')" @update:model-value="setOverride('mediaEnabled', $event ?? false)" />
             </FaTooltip>
             <FaSwitch :model-value="Boolean(valueFor('mediaEnabled'))" :disabled="isInherited('mediaEnabled')" @update:model-value="update('mediaEnabled', $event ?? false)" />
           </div>
         </div>
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">入群验证</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">自动审核匹配的入群申请</p>
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">入群验证</p>
+            <p class="qa-switch-tile__desc">自动审核匹配的入群申请</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('joinVerificationEnabled')" @update:model-value="setOverride('joinVerificationEnabled', $event ?? false)" />
             </FaTooltip>
             <FaSwitch :model-value="Boolean(valueFor('joinVerificationEnabled'))" :disabled="isInherited('joinVerificationEnabled')" @update:model-value="update('joinVerificationEnabled', $event ?? false)" />
           </div>
         </div>
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">AI 兜底</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">入群验证规则未命中时再请求 AI</p>
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">AI 兜底</p>
+            <p class="qa-switch-tile__desc">入群验证规则未命中时再请求 AI</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('aiFallbackEnabled')" @update:model-value="setOverride('aiFallbackEnabled', $event ?? false)" />
             </FaTooltip>
             <FaSwitch :model-value="Boolean(valueFor('aiFallbackEnabled'))" :disabled="isInherited('aiFallbackEnabled')" @update:model-value="update('aiFallbackEnabled', $event ?? false)" />
           </div>
         </div>
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3 sm:col-span-2">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">风险监测</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">累计群消息批量送 AI 审核，按置信度自动禁言并推送告警</p>
+        <div class="qa-switch-tile qa-switch-tile--wide">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">风险监测</p>
+            <p class="qa-switch-tile__desc">累计群消息批量送 AI 审核，按置信度自动禁言并推送告警</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('riskMonitorEnabled')" @update:model-value="setOverride('riskMonitorEnabled', $event ?? false)" />
             </FaTooltip>
@@ -241,7 +241,7 @@ const alertGroupOptions = computed(() => {
           <p class="mt-0.5 text-xs text-muted-foreground">送检内容包含发送者 QQ、绑定账号昵称与时间，AI 按条判定风险与置信度。</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="qa-form-grid">
         <div class="space-y-2">
           <div class="flex items-center justify-between gap-3">
             <label class="text-sm font-medium">送检条数</label>
@@ -264,25 +264,25 @@ const alertGroupOptions = computed(() => {
         </div>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">推送到指定群</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">风险告警发到单独指定的群，而不是出事的那个群</p>
+      <div class="qa-switch-grid qa-switch-grid--after">
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">推送到指定群</p>
+            <p class="qa-switch-tile__desc">风险告警发到单独指定的群，而不是出事的那个群</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('riskAlertGroup')" @update:model-value="setOverride('riskAlertGroup', $event ?? false)" />
             </FaTooltip>
             <FaSwitch :model-value="Boolean(valueFor('riskAlertGroup'))" :disabled="isInherited('riskAlertGroup')" @update:model-value="update('riskAlertGroup', $event ?? false)" />
           </div>
         </div>
-        <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium">私信推送管理员</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">向所选管理员发送私聊告警</p>
+        <div class="qa-switch-tile">
+          <div class="qa-switch-tile__text">
+            <p class="qa-switch-tile__title">私信推送管理员</p>
+            <p class="qa-switch-tile__desc">向所选管理员发送私聊告警</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="qa-switch-tile__controls">
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
               <FaSwitch :model-value="!isInherited('riskAlertAdmin')" @update:model-value="setOverride('riskAlertAdmin', $event ?? false)" />
             </FaTooltip>
@@ -313,7 +313,7 @@ const alertGroupOptions = computed(() => {
           :disabled="isInherited('riskAlertGroupChannelId')"
           @keydown.enter.prevent="addExtraAlertGroup"
         />
-        <p class="text-xs text-muted-foreground">告警不会发回出事群。官方 QQ 没有完整群列表时，可粘贴群 openid 后回车添加。</p>
+        <p class="text-xs text-muted-foreground">告警不会发回出事群。官方群没有名称时，可在连接卡片里发识别消息并写备注，也可粘贴群 openid 后回车添加。</p>
       </div>
 
       <div v-if="valueFor('riskAlertAdmin') && userFetcher" class="mt-4 space-y-2">
@@ -356,7 +356,7 @@ const alertGroupOptions = computed(() => {
             <FaSwitch :model-value="Boolean(valueFor('riskMuteEnabled'))" :disabled="isInherited('riskMuteEnabled')" @update:model-value="update('riskMuteEnabled', $event ?? false)" />
           </div>
         </div>
-        <div v-if="valueFor('riskMuteEnabled')" class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div v-if="valueFor('riskMuteEnabled')" class="qa-mute-grid">
           <div class="space-y-2">
             <div class="flex items-center justify-between gap-2">
               <label class="text-xs font-medium">低档置信度（%）</label>
@@ -407,7 +407,7 @@ const alertGroupOptions = computed(() => {
           <p class="mt-0.5 text-xs text-muted-foreground">入群验证兜底与风险监测共用的模型配置，模型随提供方联动。</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div class="qa-form-grid">
         <div class="space-y-2">
           <div class="flex items-center justify-between gap-3">
             <label class="text-sm font-medium">AI 服务提供方</label>
@@ -438,7 +438,7 @@ const alertGroupOptions = computed(() => {
             @update:model-value="update('modelCode', String($event ?? ''))"
           />
         </div>
-        <div class="space-y-2 lg:col-span-2">
+        <div class="qa-form-span space-y-2">
           <div class="flex items-center justify-between gap-3">
             <label class="text-sm font-medium">AI 兜底结果</label>
             <FaTooltip v-if="allowInheritance" text="开启后自定义该字段，关闭则继承默认">
@@ -462,10 +462,10 @@ const alertGroupOptions = computed(() => {
         <FaIcon name="i-lucide:user-check" class="text-primary" />
         <div>
           <h3 class="text-sm font-semibold">入群审核规则</h3>
-          <p class="mt-0.5 text-xs text-muted-foreground">每行一个匹配答案。官方 QQ 只处理入群申请事件（GROUP_JOIN_REQUEST），机器人必须是该群管理员并订阅群成员事件；已入群通知（GROUP_MEMBER_ADD）无法再审批。</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">每行一个匹配答案。官方问答会带「问题：答案」，只写答案也能命中。处理过程写入系统日志（模块「QQ 群自动化」，分类 [入群验证]）。官方 QQ 只处理入群申请事件（GROUP_JOIN_REQUEST），机器人必须是该群管理员并订阅群成员事件；已入群通知（GROUP_MEMBER_ADD）无法再审批。</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div class="qa-form-grid">
         <div class="space-y-2">
           <div class="flex items-center justify-between gap-3">
             <label class="text-sm font-medium">通过答案</label>

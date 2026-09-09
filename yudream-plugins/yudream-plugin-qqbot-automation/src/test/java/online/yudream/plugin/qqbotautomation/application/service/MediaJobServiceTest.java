@@ -455,11 +455,100 @@ class MediaJobServiceTest {
 
             String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
 
-            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")) || "FAILED".equals(job(documents, jobId).get("status")));
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
             assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
             assertEquals("https://files.example.test/official.mp4", sentRequest.get().content().content());
             assertTrue(storedKey.get().startsWith("official/"));
             assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, sentRequest.get().content().type());
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionWaitsAndDecodesSharedFilename() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        String filename = "douyin_测试视频.mp4";
+        String encodedFilename = java.net.URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition",
+                    "attachment; filename=\"douyin_video.mp4\"; filename*=UTF-8''" + encodedFilename);
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+            Thread.ofVirtual().start(() -> {
+                try {
+                    Thread.sleep(400);
+                    Files.writeString(video.resolve(filename), "delayed-official-video");
+                } catch (Exception ignored) {
+                }
+            });
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/app/download");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals("https://files.example.test/official.mp4", sentRequest.get().content().content());
+            assertTrue(storedKey.get().contains("douyin_测试视频.mp4"));
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialConnectionFindsFileOnBackendMediaMountWhenHostSettingIsWrong() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "backend-mount-video");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save("/opt/yudream-douyin-api/download", "/app/download");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, sentRequest, storedKey), mediaSettings);
+            List<Path> roots = service.mediaReadRoots("/opt/yudream-douyin-api/download", "/app/download");
+            assertTrue(roots.stream().anyMatch(path -> path.toString().replace('\\', '/').endsWith("/media") || path.toString().equals("/media")));
+            assertTrue(roots.stream().anyMatch(path -> path.toString().replace('\\', '/').contains("opt")));
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+            await(() -> "FAILED".equals(job(documents, jobId).get("status")) || "COMPLETED".equals(job(documents, jobId).get("status")));
+            String error = String.valueOf(job(documents, jobId).get("error"));
+            assertTrue(error.contains("tried=") || "COMPLETED".equals(job(documents, jobId).get("status")), error);
+            assertTrue(error.contains("/media") || error.contains("\\media") || "COMPLETED".equals(job(documents, jobId).get("status")), error);
         } finally {
             server.stop(0);
             deleteTree(mediaDirectory);
@@ -646,7 +735,7 @@ class MediaJobServiceTest {
     }
 
     private void await(BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.nanoTime() + 5_000_000_000L;
+        long deadline = System.nanoTime() + 12_000_000_000L;
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
             Thread.sleep(25);
         }

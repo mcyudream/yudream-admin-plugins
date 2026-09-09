@@ -40,6 +40,7 @@ public class RiskMonitorService {
             [{"index":消息序号,"confidence":0-100的置信度,"category":"风险类别","reason":"一句话判定理由"}]
             没有风险消息时输出 []。拿不准的消息不要上报；只有明确可疑时才给出 60 以上的置信度。""";
     private static final Logger LOGGER = Logger.getLogger(RiskMonitorService.class.getName());
+    private static final PluginLogger LOG = PluginLogger.of(RiskMonitorService.class);
 
     private final AutomationPolicyService policies;
     private final PluginDocumentStore documents;
@@ -89,6 +90,8 @@ public class RiskMonitorService {
             }
         }
         if (batch != null) {
+            LOG.info(PluginLogger.RISK, "累计满 " + batch.size() + " 条，开始送检: connection="
+                    + event.connectionId() + ", group=" + event.channelId());
             inspect(event.connectionId(), event.channelId(), policy, batch,
                     buffers.get(key).platform, buffers.get(key).selfId);
         }
@@ -110,7 +113,7 @@ public class RiskMonitorService {
                                 "RISK_MONITOR", UUID.randomUUID().toString(), List.of(), List.of()), false))
                 .whenComplete((result, error) -> {
                     if (error != null || result == null) {
-                        LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk inspection failed: connection=" + connectionId + ", channel=" + channelId, error);
+                        LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk inspection failed: connection=" + connectionId + ", channel=" + channelId, error);
                         return;
                     }
                     List<RiskFinding> findings = parseFindings(result.content(), batch);
@@ -131,13 +134,13 @@ public class RiskMonitorService {
                     moderation.mute(connectionId, channelId, finding.message().userId(), muteSeconds)
                             .whenComplete((ignored, error) -> {
                                 if (error != null) {
-                                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk mute failed: connection=" + connectionId
+                                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk mute failed: connection=" + connectionId
                                             + ", channel=" + channelId + ", user=" + finding.message().userId(), error);
                                 }
                             });
                     disposition = "已禁言 " + durationText(muteSeconds);
                 } catch (RuntimeException e) {
-                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk mute rejected: connection=" + connectionId
+                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk mute rejected: connection=" + connectionId
                             + ", channel=" + channelId + ", user=" + finding.message().userId(), e);
                     disposition = "禁言失败：" + e.getMessage();
                 }
@@ -159,13 +162,13 @@ public class RiskMonitorService {
         if (policy.riskAlertGroup()) {
             String alertChannelId = policy.riskAlertGroupChannelId() == null ? "" : policy.riskAlertGroupChannelId().trim();
             if (alertChannelId.isBlank()) {
-                LOGGER.warning("[YuDreamAdmin] [QQ 群自动化] risk group alert skipped: alert group not configured, source=" + channelId);
+                LOGGER.warning("[QQ 群自动化] [风险监测] risk group alert skipped: alert group not configured, source=" + channelId);
             } else {
                 try {
                     framework.messaging().send(new PluginMessageRequest(connectionId, platform, selfId, alertChannelId,
                             new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, Map.of())));
                 } catch (RuntimeException e) {
-                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk group alert failed: channel=" + alertChannelId, e);
+                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk group alert failed: channel=" + alertChannelId, e);
                 }
             }
         }
@@ -176,7 +179,7 @@ public class RiskMonitorService {
                             new PluginMessageContent(PluginMessageContent.Type.TEXT,
                                     "【群 " + channelId + "】" + text, null, Map.of()));
                 } catch (RuntimeException e) {
-                    LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk admin alert failed: userId=" + adminUserId, e);
+                    LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk admin alert failed: userId=" + adminUserId, e);
                 }
             }
         }
@@ -207,7 +210,7 @@ public class RiskMonitorService {
                         text(node.path("category").asText(), "未分类"), text(node.path("reason").asText(), "未给出理由")));
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk inspection response parse failed", e);
+            LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk inspection response parse failed", e);
         }
         return findings;
     }
@@ -236,7 +239,7 @@ public class RiskMonitorService {
             }
             documents.save(LOG_COLLECTION, String.valueOf(document.get("id")), document);
         } catch (RuntimeException e) {
-            LOGGER.log(Level.WARNING, "[YuDreamAdmin] [QQ 群自动化] risk audit save failed", e);
+            LOGGER.log(Level.WARNING, "[QQ 群自动化] [风险监测] risk audit save failed", e);
         }
     }
 

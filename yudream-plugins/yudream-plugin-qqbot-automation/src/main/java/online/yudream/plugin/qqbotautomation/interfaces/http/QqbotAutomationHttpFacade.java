@@ -5,9 +5,12 @@ import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicy;
 import online.yudream.plugin.qqbotautomation.application.dto.AutomationPolicyOverride;
+import online.yudream.plugin.qqbotautomation.application.dto.GroupAliasRequest;
+import online.yudream.plugin.qqbotautomation.application.dto.GroupIdentifyRequest;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaJobTestRequest;
 import online.yudream.plugin.qqbotautomation.application.dto.MediaStorageSettingsRequest;
 import online.yudream.plugin.qqbotautomation.application.service.AutomationPolicyService;
+import online.yudream.plugin.qqbotautomation.application.service.GroupAliasService;
 import online.yudream.plugin.qqbotautomation.application.service.MediaJobService;
 import online.yudream.plugin.qqbotautomation.application.service.MediaStorageSettings;
 import online.yudream.plugin.qqbotautomation.interfaces.support.JsonSupport;
@@ -19,8 +22,12 @@ import java.util.Map;
 public class QqbotAutomationHttpFacade {
     private final AutomationPolicyService policies; private final MediaJobService mediaJobs; private final FrameworkServices framework;
     private final MediaStorageSettings mediaSettings;
+    private final GroupAliasService groupAliases;
     public QqbotAutomationHttpFacade(AutomationPolicyService policies, MediaJobService mediaJobs, FrameworkServices framework,
-                                     MediaStorageSettings mediaSettings) { this.policies = policies; this.mediaJobs = mediaJobs; this.framework = framework; this.mediaSettings = mediaSettings; }
+                                     MediaStorageSettings mediaSettings, GroupAliasService groupAliases) {
+        this.policies = policies; this.mediaJobs = mediaJobs; this.framework = framework; this.mediaSettings = mediaSettings;
+        this.groupAliases = groupAliases;
+    }
     public PluginHttpResponse policies() { return PluginHttpResponse.ok(policies.list()); }
     public PluginHttpResponse policy(PluginHttpRequest request) { return PluginHttpResponse.ok(policies.get(query(request, "connectionId"), query(request, "channelId"))); }
     public PluginHttpResponse save(PluginHttpRequest request) {
@@ -70,7 +77,21 @@ public class QqbotAutomationHttpFacade {
         return PluginHttpResponse.ok(Map.of("id", mediaJobs.startTest(test), "trigger", "MANUAL_TEST"));
     }
     public PluginHttpResponse connections() { return PluginHttpResponse.ok(framework.messaging().connections()); }
-    public PluginHttpResponse groups(PluginHttpRequest request) { return PluginHttpResponse.ok(framework.messaging().groups(query(request, "connectionId"))); }
+    public PluginHttpResponse groups(PluginHttpRequest request) {
+        String connectionId = query(request, "connectionId");
+        requireKnownConnection(connectionId);
+        return PluginHttpResponse.ok(groupAliases.list(connectionId));
+    }
+    public PluginHttpResponse saveGroupAlias(PluginHttpRequest request) {
+        GroupAliasRequest body = JsonSupport.read(request.body(), GroupAliasRequest.class);
+        requireKnownConnection(body.connectionId());
+        return PluginHttpResponse.ok(groupAliases.save(body.connectionId(), body.channelId(), body.alias()));
+    }
+    public PluginHttpResponse identifyGroup(PluginHttpRequest request) {
+        GroupIdentifyRequest body = JsonSupport.read(request.body(), GroupIdentifyRequest.class);
+        requireKnownConnection(body.connectionId());
+        return PluginHttpResponse.ok(groupAliases.identify(body.connectionId(), body.channelId()));
+    }
     public PluginHttpResponse aiOptions() { return PluginHttpResponse.ok(framework.ai().providers()); }
     /** 风险告警管理员的带标签用户选择器；SPI 无总数统计，多取一条探测下一页。 */
     public PluginHttpResponse users(PluginHttpRequest request) {

@@ -23,7 +23,7 @@ class QqbotAutomationHttpFacadeTest {
                 new Class<?>[]{PluginAiService.class}, (proxy, method, args) -> "providers".equals(method.getName()) ? List.of(provider) : null);
         FrameworkServices framework = (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{FrameworkServices.class}, (proxy, method, args) -> "ai".equals(method.getName()) ? ai : null);
-        QqbotAutomationHttpFacade facade = new QqbotAutomationHttpFacade(null, null, framework, null);
+        QqbotAutomationHttpFacade facade = new QqbotAutomationHttpFacade(null, null, framework, null, null);
 
         PluginHttpResponse response = facade.aiOptions();
 

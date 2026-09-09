@@ -3,6 +3,22 @@ export interface Option {
   name: string
   platform?: string | null
   protocol?: string | null
+  alias?: string
+  sourceName?: string
+}
+
+export function shortGroupId(id: string) {
+  if (!id) return ''
+  return id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id
+}
+
+export function formatGroupLabel(item: { id: string, name?: string, alias?: string, sourceName?: string }) {
+  const alias = item.alias?.trim()
+  const source = item.sourceName?.trim() || (item.name && item.name !== item.id ? item.name.trim() : '')
+  const shortId = shortGroupId(item.id)
+  if (alias) return source && source !== alias ? `${alias}（${source}）` : `${alias}（${shortId}）`
+  if (source) return `${source}（${shortId}）`
+  return shortId || item.id
 }
 
 export interface AiModelOption {

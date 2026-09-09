@@ -9,6 +9,7 @@ import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter;
 import online.yudream.plugin.qqbotautomation.application.service.AutomationPolicyService;
+import online.yudream.plugin.qqbotautomation.application.service.GroupAliasService;
 import online.yudream.plugin.qqbotautomation.application.service.GroupModerationService;
 import online.yudream.plugin.qqbotautomation.application.service.JoinVerificationService;
 import online.yudream.plugin.qqbotautomation.application.service.MediaJobService;
@@ -19,7 +20,7 @@ import online.yudream.plugin.qqbotautomation.interfaces.http.QqbotAutomationHttp
 
 import java.util.Set;
 
-@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.2.1", description = "群申请验证、媒体链接处理与群聊风险监测")
+@PluginSpec(code = QqbotAutomationPlugin.CODE, name = "QQ 群自动化", version = "1.2.6", description = "群申请验证、媒体链接处理与群聊风险监测")
 @PluginPermissions({@PluginPermission(code = QqbotAutomationPlugin.MANAGE_PERMISSION, name = "管理 QQ 群自动化", module = "平台插件", description = "维护群策略、媒体任务与自动审核")})
 @PluginFrontend(moduleName = "qqbotAutomation", menuTitle = "QQ 群自动化", menuIcon = "i-ri:chat-settings-line", menuSort = 66, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/qqbot-automation/admin/policies", name = "platform-plugin-qqbot-automation-policies", title = "群自动化策略", icon = "i-ri:settings-3-line", component = "qqbot-automation/Policies", permission = QqbotAutomationPlugin.MANAGE_PERMISSION, sort = 10),
@@ -28,7 +29,9 @@ import java.util.Set;
 public class QqbotAutomationPlugin implements YuDreamPlugin {
     public static final String CODE = "qqbot-automation";
     public static final String MANAGE_PERMISSION = "plugin:qqbot-automation:manage";
-    @Override public void onEnable(PluginContext context) {
+
+    @Override
+    public void onEnable(PluginContext context) {
         AutomationPolicyService policies = new AutomationPolicyService(context.documents());
         policies.migrateLegacyPolicies();
         MediaStorageSettings mediaSettings = new MediaStorageSettings(context.secrets());
@@ -37,7 +40,8 @@ public class QqbotAutomationPlugin implements YuDreamPlugin {
         JoinVerificationService verification = new JoinVerificationService(policies, context.framework(), moderation);
         MediaJobService mediaJobs = new MediaJobService(policies, context.documents(), context.framework(), mediaSettings);
         RiskMonitorService riskMonitor = new RiskMonitorService(policies, context.documents(), context.framework(), moderation);
-        context.registerHttpController(new QqbotAutomationController(new QqbotAutomationHttpFacade(policies, mediaJobs, context.framework(), mediaSettings)));
+        GroupAliasService groupAliases = new GroupAliasService(context.documents(), context.framework());
+        context.registerHttpController(new QqbotAutomationController(new QqbotAutomationHttpFacade(policies, mediaJobs, context.framework(), mediaSettings, groupAliases)));
         context.interactions().onNative(new PluginInteractionFilter(Set.of("group_request"), "milky", null, null), verification::handle);
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), mediaJobs::handle);
         context.interactions().onMessage(new PluginInteractionFilter(Set.of("message_receive"), "milky", null, null), riskMonitor::handle);

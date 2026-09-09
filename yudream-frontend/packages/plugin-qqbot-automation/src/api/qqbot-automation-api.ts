@@ -50,7 +50,13 @@ export function createQqbotAutomationApi(sdk: YuDreamPluginSdk) {
     saveGroupOverride: (override: AutomationPolicyOverride) => sdk.http.request<AutomationPolicyOverride>('/admin/group-overrides', { method: 'PUT', data: override }),
     deleteGroupOverride: (connectionId: string, channelId: string) => sdk.http.request<{ deleted: boolean }>(`/admin/group-overrides/${encodeURIComponent(channelId)}?connectionId=${encodeURIComponent(connectionId)}`, { method: 'DELETE' }),
     connections: () => messaging.connections(),
-    groups: (connectionId: string) => connectionId ? messaging.groups(connectionId) : Promise.resolve([]),
+    groups: (connectionId: string) => connectionId
+      ? sdk.http.get<Option[]>(`/admin/options/groups?connectionId=${encodeURIComponent(connectionId)}`)
+      : Promise.resolve([]),
+    saveGroupAlias: (request: { connectionId: string, channelId: string, alias: string }) =>
+      sdk.http.request<Option>('/admin/group-aliases', { method: 'PUT', data: request }),
+    identifyGroup: (request: { connectionId: string, channelId: string }) =>
+      sdk.http.request<{ sent: boolean, channelId: string }>('/admin/group-aliases/identify', { method: 'POST', data: request }),
     aiOptions: () => ai.providers(),
     mediaJob: (id: string) => sdk.http.get<MediaJob | null>(`/admin/media-jobs/${encodeURIComponent(id)}`),
     mediaJobs: (page: number, size: number) => sdk.http.get<PageResult<MediaJob>>(`/admin/media-jobs?page=${page}&size=${size}`),

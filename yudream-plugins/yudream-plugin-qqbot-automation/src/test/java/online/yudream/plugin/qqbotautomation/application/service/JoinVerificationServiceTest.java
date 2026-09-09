@@ -74,6 +74,35 @@ class JoinVerificationServiceTest {
         assertEquals("APPROVE", invocation.audit().get("decision"));
     }
 
+    @Test
+    void approvesOfficialQaAnswerWhenCommentIncludesQuestion() {
+        Invocation invocation = invokeOfficial("物品聚合器的作用：垃圾桶", "jr-qa", Map.of(
+                "group_id", "g-open",
+                "user_id", "member-open",
+                "join_request_id", "jr-qa",
+                "comment", "物品聚合器的作用：垃圾桶"), null);
+
+        assertEquals("set_group_add_request", invocation.method());
+        assertEquals("approve", invocation.payload().get("op"));
+        assertEquals("APPROVE", invocation.audit().get("decision"));
+    }
+
+    @Test
+    void skipsOfficialRobotAddEventWithoutSendingApproval() {
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        policies.saveDefaults(new AutomationPolicy("connection-official", "", true, false, "", true,
+                List.of("allow"), List.of("deny"), false, true, "", ""));
+        AtomicReference<String> method = new AtomicReference<>();
+        FrameworkServices framework = framework("connection-official", true, method, new AtomicReference<>(), null, documents);
+        new JoinVerificationService(policies, framework, new GroupModerationService(framework))
+                .handle(new PluginEvent("", "group_request", "milky", "bot-open", "g-open",
+                        "", null, null, Map.of("requestId", "g-open"), "group_request",
+                        Map.of("native_type", "GROUP_ADD_ROBOT", "group_id", "g-open", "user_id", "bot-open", "request_id", "g-open"),
+                        "connection-official", "self-a", "g-open"));
+        assertTrue(method.get() == null, "机器人入群事件不应走审批接口");
+    }
+
     private Invocation invoke(String answer, String requestId) {
         return invokeEvent("connection-a", "group-a", "user-a", answer, requestId,
                 Map.of("notification_seq", Long.parseLong(requestId), "group_id", "group-a", "initiator_id", "user-a", "comment", answer),
@@ -89,9 +118,27 @@ class JoinVerificationServiceTest {
         InMemoryDocuments documents = new InMemoryDocuments();
         AutomationPolicyService policies = new AutomationPolicyService(documents);
         policies.saveDefaults(new AutomationPolicy(connectionId, "", true, false, "", true,
-                List.of("allow"), List.of("deny"), aiReply != null, true, "", ""));
+                List.of("allow", "垃圾桶"), List.of("deny"), aiReply != null, true, "", ""));
         AtomicReference<String> method = new AtomicReference<>();
         AtomicReference<Map<String, Object>> payload = new AtomicReference<>();
+        FrameworkServices framework = framework(connectionId, official, method, payload, aiReply, documents);
+
+        Map<String, Object> referrer = new HashMap<>();
+        if (requestId != null) {
+            referrer.put("requestId", requestId);
+        }
+        new JoinVerificationService(policies, framework, new GroupModerationService(framework))
+                .handle(new PluginEvent("", "group_request", "milky", userId, channelId,
+                        content, null, null, referrer, official ? "GROUP_JOIN_REQUEST" : "group_join_request",
+                        nativeData, connectionId, "self-a", requestId));
+
+        assertTrue(method.get() != null, "应发出入群审批请求");
+        return new Invocation(method.get(), payload.get(), documents.findById("join-verification-audit", connectionId + ":" + requestId).orElseThrow());
+    }
+
+    private FrameworkServices framework(String connectionId, boolean official, AtomicReference<String> method,
+                                        AtomicReference<Map<String, Object>> payload, String aiReply,
+                                        InMemoryDocuments documents) {
         PluginMessagingRawService raw = (PluginMessagingRawService) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{PluginMessagingRawService.class}, (proxy, invoked, args) -> {
                     method.set(String.valueOf(args[1]));
@@ -118,7 +165,7 @@ class JoinVerificationServiceTest {
                     }
                     return null;
                 });
-        FrameworkServices framework = (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(),
+        return (FrameworkServices) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{FrameworkServices.class}, (proxy, invoked, args) -> {
                     if ("messagingRaw".equals(invoked.getName())) {
                         return raw;
@@ -134,18 +181,6 @@ class JoinVerificationServiceTest {
                     }
                     return null;
                 });
-
-        Map<String, Object> referrer = new HashMap<>();
-        if (requestId != null) {
-            referrer.put("requestId", requestId);
-        }
-        new JoinVerificationService(policies, framework, new GroupModerationService(framework))
-                .handle(new PluginEvent("", "group_request", "milky", userId, channelId,
-                        content, null, null, referrer, official ? "GROUP_JOIN_REQUEST" : "group_join_request",
-                        nativeData, connectionId, "self-a", requestId));
-
-        assertTrue(method.get() != null, "应发出入群审批请求");
-        return new Invocation(method.get(), payload.get(), documents.findById("join-verification-audit", connectionId + ":" + requestId).orElseThrow());
     }
 
     private Class<?> classForName(String name) {

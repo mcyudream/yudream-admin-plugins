@@ -3,4 +3,4 @@
 # listed here. Edit this file in the release commit; one artifactId per line,
 # no duplicates, every entry must be a root-reactor module. Local and branch
 # builds ignore this file and always build the full reactor.
-yudream-plugin-minecraft-activity-proof
+yudream-plugin-qqbot-automation

@@ -27,6 +27,7 @@ import {
   completeOverride,
   emptyOverride,
   emptyPolicy,
+  formatGroupLabel,
   policyFromOverride,
   type AutomationPolicy,
   type AutomationPolicyOverride,
@@ -59,10 +60,14 @@ const total = ref(0)
 const editorOpen = ref(false)
 const editorChannelId = ref('')
 const extraGroupId = ref('')
+const identifyChannelId = ref('')
 const editorDraft = ref<AutomationPolicyOverride>(emptyOverride())
-const mediaSettingsDraft = ref({ hostDirectory: '', containerDirectory: '/media' })
+const mediaSettingsDraft = ref({ hostDirectory: '/media', containerDirectory: '/app/download' })
 const savingMediaSettings = ref(false)
 const userLabelCache = ref<Record<string, string>>({})
+const aliasDraft = ref('')
+const savingAlias = ref(false)
+const identifyingGroupId = ref('')
 
 function protocolLabel(item: Option) {
   if (item.protocol === 'official') {
@@ -81,11 +86,11 @@ function protocolVariant(item: Option | undefined) {
 const currentConnection = computed(() => connections.value.find(item => item.id === connectionId.value))
 const connectionOptions = computed(() => connections.value.map(item => ({ label: `${item.name}（${protocolLabel(item)}）`, value: item.id })))
 const groupOptions = computed(() => {
-  const known = groups.value.map(item => ({ label: item.name || item.id, value: item.id }))
+  const known = groups.value.map(item => ({ label: formatGroupLabel(item), value: item.id }))
   const knownIds = new Set(known.map(item => item.value))
   const extras = [editorChannelId.value, ...overrides.value.map(item => item.channelId)]
     .filter(id => id && !knownIds.has(id))
-    .map(id => ({ label: id, value: id }))
+    .map(id => ({ label: formatGroupLabel({ id }), value: id }))
   return [...known, ...extras]
 })
 const editorTitle = computed(() => editorChannelId.value ? `群级覆盖：${groupName(editorChannelId.value)}` : '新增群级覆盖')
@@ -100,7 +105,54 @@ const columns: TableColumn<AutomationPolicyOverride>[] = [
 ]
 
 function groupName(channelId: string) {
-  return groups.value.find(item => item.id === channelId)?.name || channelId
+  const group = groups.value.find(item => item.id === channelId)
+  return group ? formatGroupLabel(group) : formatGroupLabel({ id: channelId })
+}
+
+function upsertGroup(row: Option) {
+  const next = { ...row, id: row.id, name: row.name || row.alias || row.sourceName || row.id }
+  const index = groups.value.findIndex(item => item.id === next.id)
+  if (index >= 0) {
+    groups.value[index] = { ...groups.value[index], ...next }
+  }
+  else {
+    groups.value = [...groups.value, next]
+  }
+}
+
+async function saveAlias() {
+  const channelId = identifyChannelId.value.trim()
+  if (!connectionId.value || !channelId) {
+    toast.error('请先选择要备注的群')
+    return
+  }
+  savingAlias.value = true
+  try {
+    const saved = await api.saveGroupAlias({ connectionId: connectionId.value, channelId, alias: aliasDraft.value.trim() })
+    upsertGroup(saved)
+    toast.success(saved.alias ? '群备注已保存' : '群备注已清除')
+  }
+  catch (cause) {
+    showError(cause, '保存群备注失败')
+  }
+  finally {
+    savingAlias.value = false
+  }
+}
+
+async function identifyGroup(channelId: string) {
+  if (!connectionId.value || !channelId) return
+  identifyingGroupId.value = channelId
+  try {
+    await api.identifyGroup({ connectionId: connectionId.value, channelId })
+    toast.success('已向该群发送识别消息，打开对应 QQ 群即可确认')
+  }
+  catch (cause) {
+    showError(cause, '发送识别消息失败')
+  }
+  finally {
+    identifyingGroupId.value = ''
+  }
 }
 
 function countOverrides(override: AutomationPolicyOverride) {
@@ -208,6 +260,9 @@ function addExtraGroup() {
   if (!id) return
   editorChannelId.value = id
   extraGroupId.value = ''
+  if (!groups.value.some(item => item.id === id)) {
+    upsertGroup({ id, name: id })
+  }
 }
 
 async function openEdit(row: AutomationPolicyOverride) {
@@ -281,7 +336,7 @@ async function saveMediaSettings() {
       hostDirectory: mediaSettingsDraft.value.hostDirectory.trim() || null,
       containerDirectory: mediaSettingsDraft.value.containerDirectory.trim(),
     })
-    mediaSettingsDraft.value = { hostDirectory: saved.hostDirectory ?? '', containerDirectory: saved.containerDirectory || '/media' }
+    mediaSettingsDraft.value = { hostDirectory: saved.hostDirectory ?? '', containerDirectory: saved.containerDirectory || '/app/download' }
     toast.success('媒体存储设置已保存')
   }
   catch (cause) {
@@ -297,9 +352,17 @@ watch(connectionId, () => {
   groups.value = []
   overrides.value = []
   total.value = 0
+  identifyChannelId.value = ''
+  aliasDraft.value = ''
+  extraGroupId.value = ''
   defaultPolicy.value = emptyPolicy(connectionId.value)
   defaultDraft.value = completeOverride(defaultPolicy.value)
   if (connectionId.value) void loadCurrentConnection()
+})
+
+watch(identifyChannelId, (channelId) => {
+  const group = groups.value.find(item => item.id === channelId)
+  aliasDraft.value = group?.alias || ''
 })
 
 watch([page, size], () => {
@@ -311,7 +374,7 @@ onMounted(async () => {
     const [connectionOptions, providers, settings] = await Promise.all([api.connections(), api.aiOptions(), api.mediaSettings()])
     connections.value = connectionOptions
     aiProviders.value = providers
-    mediaSettingsDraft.value = { hostDirectory: settings.hostDirectory ?? '', containerDirectory: settings.containerDirectory || '/media' }
+    mediaSettingsDraft.value = { hostDirectory: settings.hostDirectory ?? '', containerDirectory: settings.containerDirectory || '/app/download' }
   }
   catch (cause) {
     showError(cause, '加载 QQ 连接失败')
@@ -349,9 +412,33 @@ onMounted(async () => {
                 @update:model-value="changeConnection"
               />
             </div>
+            <div v-if="connectionId && currentConnection?.protocol === 'official'" class="qa-group-identify">
+              <p class="qa-label">官方群识别</p>
+              <p class="qa-desc">官方接口通常不给群名。点「发识别消息」后去 QQ 里看哪个群收到了，再给它写备注。</p>
+              <div class="qa-fields">
+                <div class="qa-field">
+                  <label class="qa-label">群 openid</label>
+                  <FaSelect
+                    class="w-full"
+                    placeholder="选择要识别或备注的群"
+                    :model-value="identifyChannelId"
+                    :options="groupOptions"
+                    @update:model-value="identifyChannelId = String($event ?? '')"
+                  />
+                </div>
+                <div class="qa-field">
+                  <label class="qa-label">后台备注</label>
+                  <FaInput v-model="aliasDraft" class="w-full" placeholder="如 运营群 / 告警群" maxlength="40" />
+                </div>
+              </div>
+              <div class="qa-actions">
+                <FaButton size="sm" variant="outline" :disabled="!identifyChannelId" :loading="identifyingGroupId === identifyChannelId" @click="identifyGroup(identifyChannelId)">发识别消息</FaButton>
+                <FaButton size="sm" :disabled="!identifyChannelId" :loading="savingAlias" @click="saveAlias">保存备注</FaButton>
+              </div>
+            </div>
             <div v-if="currentConnection" class="qa-hint">
               <FaTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</FaTag>
-              <span v-if="currentConnection.protocol === 'official'">官方连接：媒体签发公网直链发送；入群审批走官方申请事件（机器人须为群管理员），告警发到单独指定群。</span>
+              <span v-if="currentConnection.protocol === 'official'">官方连接：媒体签发公网直链发送；入群审批走官方申请事件（机器人须为群管理员），告警发到单独指定群。官方群选择器默认只有 openid，可用上方「识别」或「备注」区分。</span>
               <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
             </div>
           </div>
@@ -361,21 +448,22 @@ onMounted(async () => {
           <div class="qa-card-head">
             <div>
               <h2 class="qa-title">媒体存储</h2>
-              <p class="qa-desc">Milky 共享目录，加密保存在插件密钥库；官方连接也依赖此目录签发公网直链。</p>
+              <p class="qa-desc">这里填的是 YuDream 后端容器能看到的路径，不是宿主机路径。官方连接签发公网直链时，后端进程必须能读到这份目录。</p>
             </div>
             <FaButton variant="outline" size="sm" :loading="savingMediaSettings" @click="saveMediaSettings">保存</FaButton>
           </div>
           <div class="qa-card-body">
             <div class="qa-fields">
               <div class="qa-field">
-                <label class="qa-label">宿主机媒体目录</label>
-                <FaInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="如 D:/media 或 /data/media" clearable />
+                <label class="qa-label">后端可读目录</label>
+                <FaInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="/media" clearable />
               </div>
               <div class="qa-field">
-                <label class="qa-label">容器内媒体目录</label>
-                <FaInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/media" />
+                <label class="qa-label">解析服务容器目录</label>
+                <FaInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/app/download" />
               </div>
             </div>
+            <p class="qa-hint">当前生产 compose 把宿主机 /opt/yudream-douyin-api/download 挂进后端 /media，解析服务自己挂到 /app/download。所以这里填 /media 和 /app/download，不要填宿主机 /opt/... 路径。</p>
           </div>
         </section>
       </div>
@@ -508,7 +596,7 @@ onMounted(async () => {
           <label class="text-sm font-medium">群聊</label>
           <FaSelect v-model="editorChannelId" class="w-full" placeholder="选择需要单独配置的群聊" :options="groupOptions" />
           <FaInput v-model="extraGroupId" class="w-full" placeholder="官方群 openid，回车添加" @keydown.enter.prevent="addExtraGroup" />
-          <p class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息；已保存的群会保留，也可粘贴群 openid。</p>
+          <p class="text-xs text-muted-foreground">官方 QQ 没有历史群列表，选项来自本进程收到过的群消息。无法区分时先发识别消息，再给对应群写备注。</p>
         </section>
         <section v-else class="flex items-center gap-3 rounded-xl border bg-muted/30 px-4 py-3">
           <FaIcon name="i-lucide:messages-square" class="text-primary" />
