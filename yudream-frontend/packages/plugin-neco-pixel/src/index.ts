@@ -1,6 +1,7 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
 import { disposeSounds, installSounds } from './sounds'
 import './theme.css'
+import 'virtual:uno.css'
 
 /**
  * NECO 像素风主题：无路由与管理菜单。theme.css 由宿主 theme-runtime 按
