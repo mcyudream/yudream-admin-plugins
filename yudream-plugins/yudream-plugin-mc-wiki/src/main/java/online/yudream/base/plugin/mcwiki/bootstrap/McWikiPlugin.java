@@ -30,7 +30,7 @@ import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 
-@PluginSpec(code = McWikiPlugin.CODE, name = "MC 百科", version = "2.0.0", description = "Minecraft 版本资源、物品、生物与配方百科")
+@PluginSpec(code = McWikiPlugin.CODE, name = "MC 百科", version = "2.0.1", description = "Minecraft 版本资源、物品、生物与配方百科")
 @PluginPermissions({
         @PluginPermission(code = McWikiPlugin.VIEW_PERMISSION, name = "查看 MC 百科", module = "平台插件", description = "查看公开 Minecraft 资源"),
         @PluginPermission(code = McWikiPlugin.MANAGE_PERMISSION, name = "管理 MC 百科", module = "平台插件", description = "管理版本、导入任务和发布资源")

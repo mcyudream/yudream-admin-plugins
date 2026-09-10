@@ -45,7 +45,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class MaterialPlugin implements YuDreamPlugin {
     public static final String CODE = "material";
-    public static final String VERSION = "1.7.0";
+    public static final String VERSION = "1.7.1";
     public static final String VIEW_PERMISSION = "plugin:material:view";
     public static final String MANAGE_PERMISSION = "plugin:material:manage";
 

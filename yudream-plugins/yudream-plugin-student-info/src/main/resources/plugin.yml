@@ -3,4 +3,4 @@ displayName: 学生档案
 description: 维护学生档案，并向已授权插件提供学生信息服务。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.studentinfo.bootstrap.StudentInfoPlugin
-version: 1.1.1
+version: 1.1.2

@@ -25,7 +25,7 @@ import java.util.Map;
 @PluginSpec(
         code = PonyPlugin.CODE,
         name = "pony",
-        version = "1.0.1",
+        version = "1.0.2",
         description = "QQ 群小马归位逻辑游戏：每行每列每种颜色各 1 匹小马且互不相邻，群内协作推理放马，棋盘图片实时展示。"
 )
 @PluginPermissions({

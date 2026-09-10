@@ -3,4 +3,4 @@ displayName: 素材中心
 description: 统一管理文件、图片、视频和文档素材，支持分类、版本、预览、分享和权限控制。
 icon: i-ri:folder-2-line
 main: online.yudream.base.plugin.material.bootstrap.MaterialPlugin
-version: 1.7.0
+version: 1.7.1

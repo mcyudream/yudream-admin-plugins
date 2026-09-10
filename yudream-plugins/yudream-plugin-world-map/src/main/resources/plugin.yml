@@ -3,6 +3,6 @@ displayName: 世界地图
 description: 将 Minecraft 世界存档发布为可浏览的三维地图。
 icon: i-ri:map-2-line
 main: online.yudream.plugin.worldmap.bootstrap.WorldMapPlugin
-version: 1.1.1
+version: 1.1.2
 softdepend:
   - minecraft-server

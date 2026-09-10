@@ -3,4 +3,4 @@ displayName: Minecraft 百科
 description: 管理 Minecraft 版本数据、物品资料、配方和公开百科页面。
 icon: i-ri:book-open-line
 main: online.yudream.base.plugin.mcwiki.bootstrap.McWikiPlugin
-version: 2.0.0
+version: 2.0.1

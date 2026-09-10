@@ -29,7 +29,7 @@ import java.util.Map;
 @PluginSpec(
         code = WordlePlugin.CODE,
         name = "wordle",
-        version = "1.2.2",
+        version = "1.2.3",
         description = "QQ 群 Wordle 猜词游戏：群内共享对局，支持英文单词与四字成语两种模式（成语带拼音声母/韵母/声调提示）、困难模式、战绩统计与排行榜。"
 )
 @PluginPermissions({

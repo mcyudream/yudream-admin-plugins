@@ -3,6 +3,6 @@ displayName: 支付宝支付
 description: 接入支付宝收款创建充值订单并为用户钱包入账，提供订单查询与后台管理。
 icon: i-ri:alipay-line
 main: online.yudream.base.plugin.alipay.bootstrap.AlipayPlugin
-version: 1.1.1
+version: 1.1.2
 depend:
   - yudream-wallet
