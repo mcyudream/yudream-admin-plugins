@@ -29,7 +29,8 @@
           "key": "heroBackground",
           "label": "背景图",
           "type": "image",
-          "description": "留空则使用主题默认方块纹理背景"
+          "description": "满幅花园/建筑图，默认使用主题自带的像素建筑背景",
+          "default": "/api/platform/plugins/neco-pixel/assets/background/beidalou.webp"
         }
       ]
     },
@@ -56,13 +57,13 @@
           ],
           "default": [
             {
-              "title": "方块与热爱",
-              "description": "每一块方块都承载着创造的可能。这里聚集着热爱建造、红石与冒险的同好，用像素搭建属于自己的世界。",
+              "title": "NMO 群组服务器系列",
+              "description": "原版生存、模组生存、建筑、小游戏、RPG、空岛生存……多种玩法供你选择。",
               "image": ""
             },
             {
-              "title": "开放与共创",
-              "description": "站点内容完全由系统驱动：导航、页面与 Wiki 随后台配置实时更新，主题只负责把世界渲染成方块的样子。",
+              "title": "方块与热爱",
+              "description": "每一块方块都承载着创造的可能。这里聚集着热爱建造、红石与冒险的同好，用像素搭建属于自己的世界。",
               "image": ""
             }
           ]

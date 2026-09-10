@@ -325,6 +325,9 @@
 
 /* 头部：3px 硬边 + 深底浅字修正（footer 复用 nav-text 变量，需回落深色文字） */
 .site-chrome .site-layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   border-bottom: 3px solid #000000;
   backdrop-filter: none;
 }
@@ -845,6 +848,9 @@ html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, 
 .neco-nav-slider[hidden] {
   display: none;
 }
+
+/* 首页大厅覆盖导航写在 home-preset.json 的 homeCss（未分层 + 经 chrome 提取提升优先级）。
+   主题 style.css 在 @layer yudream-plugin 内，压不过宿主未分层的 .site-layout-header。 */
 
 /* ========== 强调色色板浮动组件（与音效开关并排，移植上游 ThemePalette） ========== */
 .neco-palette-toggle {

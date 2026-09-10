@@ -64,7 +64,7 @@ schema 分六节，全部有默认值，留空即回落站点设置或主题内�
 ## 自带首页方案（home-preset.json）
 
 - 主题启用（SITE scope 激活）时，宿主自动读取 `home-preset.json` 导入为方案 `plugin:neco-pixel` 并立即应用——公开站首页整套切换为像素风演示内容，无需手工进 CMS 调整。
-- **完整主页复刻**：方案经 `settings.homeHtml` + `homeCss` 复刻上游 Lobby——方块纹理 hero 大标题面板（`neco-hero-panel`，标题/使命文案/LOGO/背景由 `{{theme.config.hero*}}` 驱动、留空回落 `{{site.*}}`）→ 关于我们（`data-yb-for="item in theme.config.introItems"` 左右交替入场）→ 服务器区块（`data-yb-if="blocks.server-list"` 实时状态优先，否则回落 `theme.config.staticServers` 静态卡片）→ 最新动态卡片流（`data-yb-for="item in cms.pages.latest"`、条数由 `theme.config.newsLimit` 驱动）→ 登录态感知 CTA（`auth.isLoggedIn` 比较）。`homeCss` 只做布局并全部以 `.site-builder-home` 命名空间自闭合，配色完全来自 theme.css 变量。
+- **完整主页复刻**：方案经 `settings.homeHtml` + `homeCss` 复刻上游 Lobby——满幅像素建筑 Hero（默认 `background/beidalou.webp`，标题/使命文案/LOGO 叠在左侧半透明幕上，由 `{{theme.config.hero*}}` 驱动）→ 关于我们（`data-yb-for="item in theme.config.introItems"` 左右交替入场，无配图时居中虚线标题）→ 服务器区块（`data-yb-if="blocks.server-list"` 实时状态优先，否则回落 `theme.config.staticServers`）→ 最新动态卡片流（`data-yb-for="item in cms.pages.latest"`）。大厅页导航改为覆盖在 Hero 上的居中像素框：覆盖规则写在 `homeCss` 里（`.site-chrome:has(.neco-lobby)`），由宿主 extractChromeCss 提升优先级以压过未分层的页头样式；大厅内容规则仍以 `.site-builder-home` 命名空间自闭合。
 - **内容/导航注入约定**：主页与页面集一律使用 `data-yb-*` 模板指令与 `{{路径}}` 注入系统数据；**不声明** `navigationJson`，导航始终由系统渲染（活动项滑块由运行时适配）。
 - **非 homeHtml 回退**：`sections`（FEATURE/CTA）保留，供未开启 homeHtml 渲染的环境回退。
 - **自动快照**：应用方案前，宿主先把当前首页定制存为「切换前快照」方案（内容与最近快照一致则跳过，快照最多保留 10 份）；在 主题中心 → 首页方案 里可一键切回任何方案，或把当前定制另存为自己的方案。
@@ -93,6 +93,7 @@ schema 分六节，全部有默认值，留空即回落站点设置或主题内�
 - `public/ui/neco-dialog.png`：48×48 9-slice 空心对话框边框（`gen_textures.py` 程序化自绘）。
 - `public/blockbg/deepslate.png` / `blue-ice.png`：32×32 深板岩/蓝冰平铺纹理（程序化自绘），供 hero 面板与卡片底纹。
 - `public/preview.png`：主题设置页展示的预览图（程序生成的像素 mock）。
-- `public/home-preset.json`：内置首页方案 + 页面集（见上两节），随 dist 打包。
+- `public/background/beidalou.webp`：大厅满幅建筑背景（上游 MIT 资产）。
+- `public/background/list-background.jpg`：服务器页满幅背景（上游 MIT 资产）。
 - `public/theme-config.json`：主题配置 schema（见「主题配置项」），随 dist 打包并经 `configSchema` 声明。
 - 主题 CSS 经 vite lib 构建合并为 `style.css`；`@PluginFrontend(styles)` 保持为空，避免样式未经 scope 管控被常驻注入。
