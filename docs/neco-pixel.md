@@ -5,7 +5,8 @@
 ## 形态
 
 - **纯主题插件**：不注册 HTTP 端点、权限、菜单与路由，入口类只做声明。
-- `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homePreset="home-preset.json")`：主题样式与首页方案打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`，样式由宿主 theme-runtime 在公开路由注入、进入后台时通过 `link.disabled` 停用。
+- `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homePreset="home-preset.json", configSchema="theme-config.json")`：主题样式、首页方案与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`，样式由宿主 theme-runtime 在公开路由注入、进入后台时通过 `link.disabled` 停用。
+- **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel` 大页面，左侧分节导航 + 右侧表单）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），公开站模板以 `{{theme.config.*}}` / `data-yb-if="theme.config.xxx"` / `data-yb-for="item in theme.config.xxx"` 消费，保存后公开站即时生效。
 - `@PluginFrontend(moduleName="neco-pixel")`（无 routes/styles）：仅携带运行时 remoteEntry；宿主在主题激活期间加载并调用 `install()`（音效 + 强调色色板 + 导航滑块），取消激活后 `dispose()` 完整回收。
 - 同 scope 主题互斥由宿主保证：启用本插件会自动顶替其他 SITE 主题插件，禁用/卸载后回落宿主内置主题；顶替/停用由宿主在「主题中心」一键操作。
 
@@ -37,10 +38,33 @@
 
 像素化通用处理：全局方角（`border-radius: 0`）、MC 立体边按钮（inset bevel + 按下反转）、硬位移卡片阴影、像素字体栈、选区/焦点/内部滚动条样式。
 
+## 主题配置项（theme-config.json）
+
+schema 分六节，全部有默认值，留空即回落站点设置或主题内置文案：
+
+| 分节 | 字段 | 说明 |
+|---|---|---|
+| 首屏 Hero | `heroTitle` / `heroSubtitle` / `heroLogo` / `heroBackground` | 主标题留空显示站点名称；LOGO 留空用站点 LOGO；背景留空用主题默认纹理 |
+| 关于我们 | `aboutTitle` / `introItems[]`（标题/描述/配图） | 介绍项 list，首页与 neco-about 页按 index 奇偶左右交替渲染 |
+| 服务器 | `showServers`（开关） / `staticServers[]`（名称/地址/描述/图标） | minecraft-server 插件的 `server-list` 块可用时优先渲染实时状态，静态 list 仅作无插件降级 |
+| 新闻 | `newsTitle` / `newsLimit`（默认 4，上限 12） | 驱动首页最新动态区块 |
+| 友情链接 | `friendLinks[]`（名称/URL/图标） | neco-servers 页渲染 |
+| 部门 | `departments[]`（名称/简介） | neco-servers 页渲染 |
+
+## 主题块依赖（可选，联合其他插件动态扩展）
+
+模板经 `blocks.{code}` 消费其他插件贡献的数据；插件未安装/未启用时块为空，模板一律带 `data-yb-if` 降级分支，**均为软依赖、缺失不阻塞主题**：
+
+| 块 | 提供插件（最低版本） | 数据 | 消费位置 |
+|---|---|---|---|
+| `server-list` | minecraft-server 1.5.0 | `servers[]`：名称/图标/描述/地址/在线/状态文案/MOTD/人数/延迟（取自状态快照缓存，不实时 ping） | 首页服务器区块、neco-servers 页 |
+| `activity-square` | minecraft-activity-proof 2.4.0 | `activities[]`：标题/`statusKey`(upcoming/ongoing/ended)/状态文案/`meta`(起止时间合成文案)/摘要；仅面向全体部门且已发布/已结束的活动 | neco-activity 页 |
+| `timeline` | timeline 1.3.0 | `events[]`：标题/时间/摘要/链接（统一导向 /timeline） | 任意主题模板可自行引用 |
+
 ## 自带首页方案（home-preset.json）
 
 - 主题启用（SITE scope 激活）时，宿主自动读取 `home-preset.json` 导入为方案 `plugin:neco-pixel` 并立即应用——公开站首页整套切换为像素风演示内容，无需手工进 CMS 调整。
-- **完整主页复刻**：方案经 `settings.homeHtml` + `homeCss` 复刻上游 Lobby——方块纹理 hero 大标题面板（`neco-hero-panel`，站点名/简介/Logo 由 `{{site.*}}` 注入）→ 关于我们左右入场面板 → 最新动态卡片流（`data-yb-for="item in cms.pages.latest" data-yb-limit="4"` 注入系统内容，空态经 `cms.pages.latest.count == 0` 兜底）→ 登录态感知 CTA（`auth.isLoggedIn` 比较）。`homeCss` 只做布局并全部以 `.site-builder-home` 命名空间自闭合，配色完全来自 theme.css 变量。
+- **完整主页复刻**：方案经 `settings.homeHtml` + `homeCss` 复刻上游 Lobby——方块纹理 hero 大标题面板（`neco-hero-panel`，标题/使命文案/LOGO/背景由 `{{theme.config.hero*}}` 驱动、留空回落 `{{site.*}}`）→ 关于我们（`data-yb-for="item in theme.config.introItems"` 左右交替入场）→ 服务器区块（`data-yb-if="blocks.server-list"` 实时状态优先，否则回落 `theme.config.staticServers` 静态卡片）→ 最新动态卡片流（`data-yb-for="item in cms.pages.latest"`、条数由 `theme.config.newsLimit` 驱动）→ 登录态感知 CTA（`auth.isLoggedIn` 比较）。`homeCss` 只做布局并全部以 `.site-builder-home` 命名空间自闭合，配色完全来自 theme.css 变量。
 - **内容/导航注入约定**：主页与页面集一律使用 `data-yb-*` 模板指令与 `{{路径}}` 注入系统数据；**不声明** `navigationJson`，导航始终由系统渲染（活动项滑块由运行时适配）。
 - **非 homeHtml 回退**：`sections`（FEATURE/CTA）保留，供未开启 homeHtml 渲染的环境回退。
 - **自动快照**：应用方案前，宿主先把当前首页定制存为「切换前快照」方案（内容与最近快照一致则跳过，快照最多保留 10 份）；在 主题中心 → 首页方案 里可一键切回任何方案，或把当前定制另存为自己的方案。
@@ -49,7 +73,11 @@
 
 ## 自带页面集（pages[]）
 
-- `neco-about`（LANDING 模板）：复刻上游 AboutView——大标题 fade-in-down 入场 + 左右交替图文面板（`neco-anim-left/right` + `neco-panel`），「最新内容」列表由 `data-yb-for` 注入系统页面，`{{site.name}}`/`{{system.copyright.company}}` 注入站点信息；页面 CSS 只写布局，由宿主自动 scope 到 `.site-article`。
+- `neco-servers`（LANDING）：维度·服务器页——服务器完整列表（`blocks.server-list` 实时优先、静态配置降级）+ 部门（`theme.config.departments`）+ 友情链接（`theme.config.friendLinks`）。
+- `neco-news`（LANDING）：新闻页——`cms.pages.latest` 卡片流（limit 12）+ 空态兜底。
+- `neco-activity`（LANDING）：活动页——`data-yb-if="blocks.activity-square"` 渲染活动卡片（状态徽章按 `statusKey` 着色，时间地点合成 `{{item.meta}}`）；无插件时降级为 CMS 页面列表。
+- `neco-docs`（DOC 模板）：文档导向页，markdown 正文链接 /wiki、/timeline、/neco-news、/neco-activity。
+- `neco-about`（LANDING 模板）：复刻上游 AboutView——大标题 fade-in-down 入场 + 左右交替图文面板（`data-yb-for="item in theme.config.introItems"`，`neco-anim-left/right` + `neco-panel`），「最新内容」列表由 `data-yb-for` 注入系统页面，`{{site.name}}`/`{{system.copyright.company}}` 注入站点信息；页面 CSS 只写布局，由宿主自动 scope 到 `.site-article`。
 - **生命周期**：页面随主题启用导入到本主题自己的页面集（`themeCode=neco-pixel`、`sourcePluginCode=neco-pixel`）为已发布；slug 唯一性按 `(themeCode, slug)`——不同主题可复用同 slug，本主题内 slug 被管理员内容占用时跳过不覆盖；主题停用/顶替/卸载时页面不下线，归属本主题并随激活指针离开对外不可见，再次启用原样恢复。管理员自建的同名页面永不被主题覆盖。
 
 ## 运行时
@@ -66,4 +94,5 @@
 - `public/blockbg/deepslate.png` / `blue-ice.png`：32×32 深板岩/蓝冰平铺纹理（程序化自绘），供 hero 面板与卡片底纹。
 - `public/preview.png`：主题设置页展示的预览图（程序生成的像素 mock）。
 - `public/home-preset.json`：内置首页方案 + 页面集（见上两节），随 dist 打包。
+- `public/theme-config.json`：主题配置 schema（见「主题配置项」），随 dist 打包并经 `configSchema` 声明。
 - 主题 CSS 经 vite lib 构建合并为 `style.css`；`@PluginFrontend(styles)` 保持为空，避免样式未经 scope 管控被常驻注入。

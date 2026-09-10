@@ -8,7 +8,8 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
 
 /**
  * NECO 像素风主题插件：不注册任何业务端点，仅通过 {@link PluginTheme} 声明
- * 公开站主题（CSS 变量 + 像素组件样式 + 自带首页方案 home-preset.json），
+ * 公开站主题（CSS 变量 + 像素组件样式 + 自带首页方案 home-preset.json
+ * 与 WordPress 自定义器形态的主题配置 schema theme-config.json），
  * 并以 {@link PluginFrontend} 携带音效运行时 remoteEntry；主题激活时由宿主
  * theme-runtime 加载执行，首页方案由宿主在启用时导入并应用（自动快照当前定制）。
  */
@@ -19,10 +20,11 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
         scopes = {PluginThemeScope.SITE},
         styles = {"style.css"},
         preview = "preview.png",
-        homePreset = "home-preset.json")
+        homePreset = "home-preset.json",
+        configSchema = "theme-config.json")
 @PluginFrontend(moduleName = "neco-pixel")
 public final class NecoPixelThemePlugin implements YuDreamPlugin {
 
     public static final String CODE = "neco-pixel";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.1.0";
 }

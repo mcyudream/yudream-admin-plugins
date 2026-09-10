@@ -1,0 +1,161 @@
+{
+  "sections": [
+    {
+      "code": "hero",
+      "title": "首屏 Hero",
+      "description": "大厅最上方的首屏区域：主标题、使命文案、LOGO 与背景图，留空项自动回落站点信息",
+      "fields": [
+        {
+          "key": "heroTitle",
+          "label": "主标题",
+          "type": "text",
+          "placeholder": "留空则显示站点名称",
+          "default": "方块世界，由此启程"
+        },
+        {
+          "key": "heroSubtitle",
+          "label": "使命文案",
+          "type": "textarea",
+          "placeholder": "留空则显示站点简介",
+          "default": "每一块方块都承载着创造的可能。这里聚集着热爱建造、红石与冒险的同好，用像素搭建属于自己的世界。"
+        },
+        {
+          "key": "heroLogo",
+          "label": "LOGO 图",
+          "type": "image",
+          "description": "留空则使用站点 LOGO；可填主题资产路径 /api/platform/plugins/neco-pixel/assets/..."
+        },
+        {
+          "key": "heroBackground",
+          "label": "背景图",
+          "type": "image",
+          "description": "留空则使用主题默认方块纹理背景"
+        }
+      ]
+    },
+    {
+      "code": "about",
+      "title": "关于我们",
+      "description": "首页「关于我们」区块，介绍项按奇偶左右交替排版",
+      "fields": [
+        {
+          "key": "aboutTitle",
+          "label": "区块标题",
+          "type": "text",
+          "default": "关于我们"
+        },
+        {
+          "key": "introItems",
+          "label": "介绍项",
+          "type": "list",
+          "description": "每条介绍一张卡片，配图可留空",
+          "itemFields": [
+            { "key": "title", "label": "标题", "type": "text" },
+            { "key": "description", "label": "描述", "type": "textarea" },
+            { "key": "image", "label": "配图", "type": "image" }
+          ],
+          "default": [
+            {
+              "title": "方块与热爱",
+              "description": "每一块方块都承载着创造的可能。这里聚集着热爱建造、红石与冒险的同好，用像素搭建属于自己的世界。",
+              "image": ""
+            },
+            {
+              "title": "开放与共创",
+              "description": "站点内容完全由系统驱动：导航、页面与 Wiki 随后台配置实时更新，主题只负责把世界渲染成方块的样子。",
+              "image": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "servers",
+      "title": "服务器",
+      "description": "首页与维度页的服务器区块；安装并启用 minecraft-server 插件后自动替换为实时状态列表",
+      "fields": [
+        {
+          "key": "showServers",
+          "label": "显示服务器区块",
+          "type": "switch",
+          "default": true
+        },
+        {
+          "key": "staticServers",
+          "label": "静态服务器",
+          "type": "list",
+          "description": "未安装 minecraft-server 插件时展示的静态列表",
+          "itemFields": [
+            { "key": "name", "label": "名称", "type": "text" },
+            { "key": "address", "label": "地址", "type": "text", "placeholder": "如 play.example.com" },
+            { "key": "description", "label": "描述", "type": "text" },
+            { "key": "icon", "label": "图标", "type": "image" }
+          ],
+          "default": [
+            {
+              "name": "生存主服",
+              "address": "play.example.com",
+              "description": "纯净生存 · 领地保护 · 经济系统",
+              "icon": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "news",
+      "title": "新闻动态",
+      "description": "首页新闻区块，内容取自当前主题已发布页面",
+      "fields": [
+        {
+          "key": "newsTitle",
+          "label": "区块标题",
+          "type": "text",
+          "default": "最新动态"
+        },
+        {
+          "key": "newsLimit",
+          "label": "展示数量",
+          "type": "number",
+          "default": 4,
+          "description": "首页展示的新闻条数，最大 12"
+        }
+      ]
+    },
+    {
+      "code": "links",
+      "title": "友情链接",
+      "description": "维度页底部展示的友情链接",
+      "fields": [
+        {
+          "key": "friendLinks",
+          "label": "友情链接",
+          "type": "list",
+          "itemFields": [
+            { "key": "name", "label": "名称", "type": "text" },
+            { "key": "url", "label": "链接", "type": "text", "placeholder": "https://..." },
+            { "key": "icon", "label": "图标", "type": "image" }
+          ],
+          "default": []
+        }
+      ]
+    },
+    {
+      "code": "departments",
+      "title": "部门",
+      "description": "维度页展示的部门/分组列表",
+      "fields": [
+        {
+          "key": "departments",
+          "label": "部门",
+          "type": "list",
+          "itemFields": [
+            { "key": "name", "label": "名称", "type": "text" },
+            { "key": "description", "label": "简介", "type": "textarea" }
+          ],
+          "default": []
+        }
+      ]
+    }
+  ]
+}

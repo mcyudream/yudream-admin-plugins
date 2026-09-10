@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-neco-pixel</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>YuDream Plugin - NECO Pixel Theme</name>
     <description>NECO 像素风公开站主题：Minecraft 风格配色、像素字体与 8-bit 交互音效，接管 /site 及插件公开页。</description>
 
