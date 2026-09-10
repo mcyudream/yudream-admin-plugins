@@ -1,0 +1,408 @@
+/*
+ * NECO 像素风主题（参考南京大学 Minecraft 协会站 neco 的主题体系）
+ *
+ * 作用域约定（SPI PluginTheme SITE scope）：
+ * - 公开站骨架：.site-chrome / .site-page，覆写 --yb-site-* 变量；
+ * - wiki 与独立公开页：.wiki-public / .wiki-home / .wiki-search-page /
+ *   .public-form-page 与插件公开页（.tl-* / .ev-page / .world-map-viewer /
+ *   .qb-screen / .qb-shared），覆写 Arco --color-* 变量；
+ * - 深浅两套配色通过 html.dark 双写；不污染 :root 全局变量，禁用主题
+ *   link 后宿主样式即刻恢复原样。
+ */
+
+/* 像素标题字体（仅拉丁/数字，CJK 由 unicode-range 自动回落系统字体） */
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/press-start-2p.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ========== 浅色方案：MC 经典材质底 ========== */
+.site-chrome,
+.site-page {
+  --yb-site-bg: #eceae2;
+  --yb-site-text: #2b2b2b;
+  --yb-site-heading: #171615;
+  --yb-site-muted: #5d5a54;
+  --yb-site-caption: #8a857a;
+  /* 头部导航保持深底浅字（neco 约定：深色遮罩容器固定浅字） */
+  --yb-site-nav-text: #e0ded8;
+  --yb-site-text-2: #3a382f;
+  --yb-site-text-3: #8a857a; /* 宿主引用但未定义，这里补齐 */
+  --yb-site-border: #b9b4a8;
+  --yb-site-border-2: #a8a294;
+  --yb-site-header-bg: rgba(23, 22, 21, 0.94);
+  --yb-site-surface: #f7f5ee;
+  --yb-site-hover: #e4e1d5;
+  --yb-site-primary: #4e7a2e;
+  --yb-site-primary-text: #ffffff;
+  --yb-site-primary-btn-bg: #3c8527;
+  --yb-site-primary-btn-text: #ffffff;
+  --yb-site-hero-bg: linear-gradient(135deg, #4e7a2e, #171615);
+  --yb-site-hero-text: #f7f5ee;
+  --yb-site-danger: #c45656;
+
+  --neco-accent: #4e7a2e;
+  --neco-accent-bright: #67c23a;
+  --neco-bevel-light: rgba(255, 255, 255, 0.4);
+  --neco-bevel-dark: rgba(0, 0, 0, 0.4);
+  --neco-hard-shadow: rgba(23, 22, 21, 0.28);
+  --neco-dither: rgba(0, 0, 0, 0.1);
+}
+
+/* ========== 深色方案：neco 默认 MC 深色 ========== */
+.site-chrome.dark,
+.site-page.dark,
+.dark .site-chrome,
+.dark .site-page {
+  --yb-site-bg: #0f0e0d;
+  --yb-site-text: #ffffff;
+  --yb-site-heading: #ffffff;
+  --yb-site-muted: rgba(255, 255, 255, 0.8);
+  --yb-site-caption: rgba(255, 255, 255, 0.45);
+  --yb-site-nav-text: #e0ded8;
+  --yb-site-text-2: #e0ded8;
+  --yb-site-text-3: rgba(255, 255, 255, 0.55);
+  --yb-site-border: #222222;
+  --yb-site-border-2: #373737;
+  --yb-site-header-bg: rgba(15, 14, 13, 0.94);
+  --yb-site-surface: #313131;
+  --yb-site-hover: #3a3a3a;
+  --yb-site-primary: #67c23a;
+  --yb-site-primary-text: #171615;
+  --yb-site-primary-btn-bg: #3c8527;
+  --yb-site-primary-btn-text: #ffffff;
+  --yb-site-hero-bg: linear-gradient(135deg, #3c8527, #0f0e0d);
+  --yb-site-hero-text: #ffffff;
+  --yb-site-danger: #f56c6c;
+
+  --neco-accent: #67c23a;
+  --neco-accent-bright: #7ee04c;
+  --neco-bevel-light: rgba(255, 255, 255, 0.22);
+  --neco-bevel-dark: rgba(0, 0, 0, 0.55);
+  --neco-hard-shadow: rgba(0, 0, 0, 0.6);
+  --neco-dither: rgba(0, 0, 0, 0.22);
+}
+
+/* ========== wiki / 独立公开页 / 插件公开页：Arco 变量换肤 ========== */
+.wiki-public,
+.wiki-home,
+.wiki-search-page,
+.public-form-page,
+.ev-page,
+.world-map-viewer,
+.qb-screen,
+.qb-shared {
+  --color-bg-1: #f7f5ee;
+  --color-bg-2: #eceae2;
+  --color-bg-3: #e4e1d5;
+  --color-text-1: #2b2b2b;
+  --color-text-2: #3a382f;
+  --color-text-3: #5d5a54;
+  --color-border-2: #b9b4a8;
+  --color-fill-1: #e4e1d5;
+  --color-fill-2: #dcd8ca;
+  --primary-6: 78 122 46;
+}
+
+.dark .wiki-public,
+.dark .wiki-home,
+.dark .wiki-search-page,
+.dark .public-form-page,
+.dark .ev-page,
+.dark .world-map-viewer,
+.dark .qb-screen,
+.dark .qb-shared,
+.wiki-public.dark,
+.wiki-home.dark,
+.wiki-search-page.dark {
+  --color-bg-1: #313131;
+  --color-bg-2: #1d1c1a;
+  --color-bg-3: #171615;
+  --color-text-1: #ffffff;
+  --color-text-2: #e0ded8;
+  --color-text-3: rgba(255, 255, 255, 0.8);
+  --color-border-2: #222222;
+  --color-fill-1: #3a3a3a;
+  --color-fill-2: #2a2926;
+  --primary-6: 103 194 58;
+}
+
+/* ========== 像素化通用处理 ========== */
+
+/* 方角：卡片、按钮、输入框、下拉、头像外框一律去圆角 */
+.site-chrome :is(a, button, input, select, textarea, summary, .site-nav-dropdown),
+.site-page :is(.site-section, a, button, input, select, textarea),
+.site-layout-header__mobile :is(a, button),
+.wiki-public :is(a, button, input, select, textarea),
+.wiki-home :is(a, button, input),
+.wiki-search-page :is(a, button, input),
+.public-form-page :is(.public-form-panel, a, button, input, select, textarea),
+.tl-page :is(.tl-card, .tl-btn, .tl-chip, .tl-detail, .tl-gallery-item),
+.ev-page :is(a, button, input, select, textarea),
+.world-map-viewer :is(button, select, input),
+.qb-screen :is(a, button, input),
+.qb-shared :is(a, button) {
+  border-radius: 0 !important;
+}
+
+/* 选区与焦点 */
+.site-page ::selection,
+.site-chrome ::selection,
+.wiki-public ::selection,
+.wiki-home ::selection,
+.wiki-search-page ::selection,
+.public-form-page ::selection,
+.tl-page ::selection {
+  background: var(--neco-accent);
+  color: #ffffff;
+}
+
+.site-page :focus-visible,
+.site-chrome :focus-visible,
+.wiki-public :focus-visible,
+.wiki-home :focus-visible,
+.wiki-search-page :focus-visible,
+.public-form-page :focus-visible,
+.tl-page :focus-visible {
+  outline: 2px solid var(--neco-accent);
+  outline-offset: 1px;
+  border-radius: 0;
+}
+
+/* 像素标题：拉丁/数字走 Press Start 2P，块状投影 */
+.site-hero h1,
+.site-section h2,
+.site-article__hero h1,
+.site-article__doc-header h1,
+.site-layout-footer strong,
+.tl-hero-title,
+.tl-detail-hero-text h1,
+.wiki-public-article h1,
+.wiki-public-article h2,
+.wiki-public-markdown h1,
+.wiki-public-markdown h2,
+.wiki-home__brand,
+.wiki-public-brand {
+  font-family: 'Press Start 2P', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  letter-spacing: 1px;
+}
+
+.site-hero h1,
+.site-article__hero h1,
+.tl-hero-title,
+.tl-detail-hero-text h1 {
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* 头部：3px 硬边 + 深底浅字修正（footer 复用 nav-text 变量，需回落深色文字） */
+.site-chrome .site-layout-header {
+  border-bottom: 3px solid #000000;
+  backdrop-filter: none;
+}
+
+.site-chrome .site-layout-header__brand {
+  color: #f7f5ee;
+  font-family: 'Press Start 2P', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.site-chrome .site-layout-header__menu-toggle-line {
+  background: #f7f5ee;
+}
+
+.site-chrome .site-layout-footer {
+  border-top: 3px solid #000000;
+}
+
+.site-chrome .site-layout-footer a {
+  color: var(--yb-site-text-2);
+}
+
+.site-chrome .site-layout-footer a:hover {
+  color: var(--neco-accent);
+}
+
+/* 导航项：悬停即时换色（像素风不要渐变过渡） */
+.site-chrome .site-nav-item > a,
+.site-chrome .site-nav-dropdown a,
+.site-mobile-nav__link,
+.site-mobile-auth a {
+  transition: none;
+}
+
+.site-chrome .site-nav-item > a:hover,
+.site-chrome .site-nav-dropdown a:hover {
+  background: var(--neco-accent);
+  color: #ffffff;
+}
+
+/* MC 立体边按钮：登录/注册/hero 与区块动作、大事记按钮 */
+.site-chrome .site-layout-header__auth a.primary,
+.site-mobile-auth a.primary,
+.site-page .site-section a,
+.tl-btn,
+.public-form-page button[type='submit'] {
+  border: 2px solid #000000 !important;
+  box-shadow:
+    inset 2px 2px 0 var(--neco-bevel-light),
+    inset -2px -2px 0 var(--neco-bevel-dark);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  transition: none;
+}
+
+.site-chrome .site-layout-header__auth a.primary:hover,
+.site-mobile-auth a.primary:hover,
+.site-page .site-section a:hover,
+.tl-btn:hover {
+  filter: brightness(1.12);
+}
+
+.site-chrome .site-layout-header__auth a.primary:active,
+.site-mobile-auth a.primary:active,
+.site-page .site-section a:active,
+.tl-btn:active {
+  box-shadow:
+    inset -2px -2px 0 var(--neco-bevel-light),
+    inset 2px 2px 0 var(--neco-bevel-dark);
+}
+
+.site-chrome .site-layout-header__auth a.ghost,
+.site-mobile-auth a.ghost {
+  border: 2px solid var(--yb-site-border-2) !important;
+  box-shadow:
+    inset 2px 2px 0 var(--neco-bevel-light),
+    inset -2px -2px 0 var(--neco-bevel-dark);
+  transition: none;
+}
+
+/* hero：抖动棋盘格压纹，模拟低分辨率材质 */
+.site-hero,
+.site-article__hero,
+.tl-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.site-hero::before,
+.site-article__hero::before,
+.tl-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: repeating-conic-gradient(var(--neco-dither) 0% 25%, transparent 0% 50%);
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.site-hero > .site-shell,
+.site-article__hero > .site-shell,
+.tl-hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* 卡片：硬边 + 像素位移阴影 */
+.site-page .site-section,
+.tl-card,
+.wiki-home__space,
+.wiki-search-result,
+.public-form-panel,
+.ev-page .arco-card,
+.qb-screen-setup-panel {
+  border: 2px solid var(--yb-site-border, #b9b4a8);
+  box-shadow: 6px 6px 0 var(--neco-hard-shadow);
+}
+
+.dark .site-page .site-section,
+.dark .tl-card,
+.dark .wiki-home__space,
+.dark .wiki-search-result,
+.dark .public-form-panel,
+.dark .qb-screen-setup-panel {
+  border-color: #000000;
+}
+
+/* 大事记：时间轴圆点改方块、装饰光斑隐藏（像素风不用模糊光晕） */
+.tl-dot {
+  border-radius: 0 !important;
+}
+
+.tl-aurora,
+.tl-aurora-a,
+.tl-aurora-b,
+.tl-aurora-c {
+  display: none !important;
+}
+
+/* wiki：侧栏与文章区硬边分隔 */
+.wiki-public-sidebar,
+.wiki-public-header,
+.wiki-home__header,
+.wiki-search-page__header {
+  border-color: var(--yb-site-border, #b9b4a8) !important;
+}
+
+/* 内部滚动条像素化（主窗口滚动条不越权接管） */
+.site-page ::-webkit-scrollbar,
+.wiki-public ::-webkit-scrollbar,
+.tl-page ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.site-page ::-webkit-scrollbar-thumb,
+.wiki-public ::-webkit-scrollbar-thumb,
+.tl-page ::-webkit-scrollbar-thumb {
+  background: var(--yb-site-border-2, #a8a294);
+  border: 2px solid var(--yb-site-bg, #eceae2);
+  border-radius: 0;
+}
+
+.site-page ::-webkit-scrollbar-track,
+.wiki-public ::-webkit-scrollbar-track,
+.tl-page ::-webkit-scrollbar-track {
+  background: var(--yb-site-bg, #eceae2);
+}
+
+/* ========== 音效开关（remoteEntry 注入，仅主题激活时显示） ========== */
+.neco-sound-toggle {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 900;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #000000;
+  border-radius: 0;
+  background: #313131;
+  color: #67c23a;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.22),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.55),
+    4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.neco-sound-toggle:hover {
+  filter: brightness(1.15);
+}
+
+.neco-sound-toggle.neco-sound-off {
+  color: #8b8b8b;
+}
+
+.neco-sound-toggle[hidden] {
+  display: none;
+}
