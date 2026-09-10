@@ -1,5 +1,13 @@
 /*
- * NECO 像素风主题（参考南京大学 Minecraft 协会站 neco 的主题体系）
+ * NECO 像素风主题（复刻南京大学 Minecraft 协会站 neco 的主题体系）
+ *
+ * 许可说明：
+ * - 设计令牌、6 色强调色体系、入场动画与导航滑块移植自上游
+ *   https://github.com/RandomLemon/neco （MIT License）；
+ * - CJK 像素字体 Cubic 11（public/fonts/cubic-11.woff2）为 SIL OFL 许可，
+ *   见 public/fonts/OFL-cubic11.txt；
+ * - Mojang 贴图/音效不复制：纹理为 python 程序化自绘（gen_textures.py），
+ *   音效为 WebAudio 实时合成（sounds.ts）。
  *
  * 作用域约定（SPI PluginTheme SITE scope）：
  * - 公开站骨架：.site-chrome / .site-page，覆写 --yb-site-* 变量；
@@ -16,7 +24,7 @@
  * 后逐步移除；新增插件公开页请勿再要求主题侧追加专属选择器。
  */
 
-/* 像素标题字体（仅拉丁/数字，CJK 由 unicode-range 自动回落系统字体） */
+/* 像素标题字体（仅拉丁/数字，CJK 由 unicode-range 自动回落 Cubic 11） */
 @font-face {
   font-family: 'Press Start 2P';
   font-style: normal;
@@ -24,6 +32,15 @@
   font-display: swap;
   src: url('fonts/press-start-2p.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* CJK 像素字体 Cubic 11（SIL OFL，见 public/fonts/OFL-cubic11.txt），覆盖全部码位 */
+@font-face {
+  font-family: 'Cubic 11';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/cubic-11.woff2') format('woff2');
 }
 
 /* ========== 浅色方案：MC 经典材质底 ========== */
@@ -51,12 +68,63 @@
   --yb-site-hero-text: #f7f5ee;
   --yb-site-danger: #c45656;
 
+  /* 上游 neco 设计令牌移植（浅色方案，对应上游 [data-theme='light']） */
   --neco-accent: #4e7a2e;
-  --neco-accent-bright: #67c23a;
+  --neco-accent-light: #5d9438;
+  --neco-accent-dark: #3d6426;
+  --neco-accent-bright: #4e8a33;
+  --neco-accent-pale: #46782c;
+  --neco-accent-contrast: #ffffff;
+  --neco-accent-soft: rgba(90, 122, 58, 0.15);
+  --neco-accent-tint: rgba(90, 122, 58, 0.12);
+  --neco-accent-bevel: rgba(255, 255, 255, 0.35);
+  --neco-bg-page: #eceae2;
+  --neco-bg: #e3e0d6;
+  --neco-bg-card: #f7f5ee;
+  --neco-bg-surface: #f4f1e8;
+  --neco-bg-surface-2: #efece2;
+  --neco-bg-elevated: #fdfdf8;
+  --neco-bg-sunken: #d9d6cb;
+  --neco-bg-sunken-2: #d2cfc4;
+  --neco-bg-input: #ffffff;
+  --neco-bg-panel: #e8e6dd;
+  --neco-bg-overlay: rgba(0, 0, 0, 0.4);
+  --neco-bg-overlay-strong: rgba(0, 0, 0, 0.6);
+  --neco-bg-overlay-soft: rgba(0, 0, 0, 0.15);
+  --neco-bg-hover: rgba(0, 0, 0, 0.08);
+  --neco-bg-hover-strong: rgba(0, 0, 0, 0.12);
+  --neco-text: #2b2b2b;
+  --neco-text-soft: rgba(43, 43, 43, 0.88);
+  --neco-text-dim: rgba(43, 43, 43, 0.8);
+  --neco-text-muted: rgba(43, 43, 43, 0.72);
+  --neco-text-faint: rgba(43, 43, 43, 0.6);
+  --neco-text-subtle: rgba(43, 43, 43, 0.5);
+  --neco-text-disabled: rgba(43, 43, 43, 0.45);
+  --neco-text-inverse: #ffffff;
+  --neco-text-placeholder: #8a857a;
+  --neco-border: #b9b4a8;
+  --neco-border-dark: #a39e92;
+  --neco-border-light: #cfcabf;
+  --neco-border-soft: rgba(0, 0, 0, 0.12);
+  --neco-border-strong: #8a857a;
+  --neco-border-divider: #a8a296;
   --neco-bevel-light: rgba(255, 255, 255, 0.4);
   --neco-bevel-dark: rgba(0, 0, 0, 0.4);
+  --neco-bevel-light-strong: #f5f2ea;
+  --neco-bevel-dark-strong: #a8a396;
   --neco-hard-shadow: rgba(23, 22, 21, 0.28);
+  --neco-shadow: rgba(0, 0, 0, 0.3);
+  --neco-shadow-soft: rgba(0, 0, 0, 0.18);
+  --neco-shadow-card: rgba(0, 0, 0, 0.12);
   --neco-dither: rgba(0, 0, 0, 0.1);
+  --neco-scrollbar-thumb: #9a958a;
+  --neco-scrollbar-track: #d8d5cc;
+  --neco-focus-ring: #2b2b2b;
+  --neco-success: #3f7d1f;
+  --neco-warning: #b07f2a;
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
 }
 
 /* ========== 深色方案：neco 默认 MC 深色 ========== */
@@ -77,7 +145,7 @@
   --yb-site-header-bg: rgba(15, 14, 13, 0.94);
   --yb-site-surface: #313131;
   --yb-site-hover: #3a3a3a;
-  --yb-site-primary: #67c23a;
+  --yb-site-primary: #6cc349;
   --yb-site-primary-text: #171615;
   --yb-site-primary-btn-bg: #3c8527;
   --yb-site-primary-btn-text: #ffffff;
@@ -85,12 +153,63 @@
   --yb-site-hero-text: #ffffff;
   --yb-site-danger: #f56c6c;
 
-  --neco-accent: #67c23a;
-  --neco-accent-bright: #7ee04c;
+  /* 上游 neco 设计令牌移植（深色方案，对应上游 :root 默认） */
+  --neco-accent: #3c8527;
+  --neco-accent-light: #6cc349;
+  --neco-accent-dark: #2a641c;
+  --neco-accent-bright: #a0e081;
+  --neco-accent-pale: #c6f6b6;
+  --neco-accent-contrast: #101010;
+  --neco-accent-soft: rgba(60, 133, 39, 0.34);
+  --neco-accent-tint: rgba(108, 195, 73, 0.15);
+  --neco-accent-bevel: rgba(255, 255, 255, 0.45);
+  --neco-bg-page: #0f0e0d;
+  --neco-bg: #171615;
+  --neco-bg-card: #313131;
+  --neco-bg-surface: #2e2e2e;
+  --neco-bg-surface-2: #303030;
+  --neco-bg-elevated: #4a4a4a;
+  --neco-bg-sunken: #111111;
+  --neco-bg-sunken-2: #161616;
+  --neco-bg-input: #616161;
+  --neco-bg-panel: #404040;
+  --neco-bg-overlay: rgba(0, 0, 0, 0.5);
+  --neco-bg-overlay-strong: rgba(0, 0, 0, 0.7);
+  --neco-bg-overlay-soft: rgba(0, 0, 0, 0.3);
+  --neco-bg-hover: rgba(255, 255, 255, 0.1);
+  --neco-bg-hover-strong: rgba(255, 255, 255, 0.2);
+  --neco-text: #ffffff;
+  --neco-text-soft: rgba(255, 255, 255, 0.88);
+  --neco-text-dim: rgba(255, 255, 255, 0.8);
+  --neco-text-muted: rgba(255, 255, 255, 0.72);
+  --neco-text-faint: rgba(255, 255, 255, 0.6);
+  --neco-text-subtle: rgba(255, 255, 255, 0.5);
+  --neco-text-disabled: rgba(255, 255, 255, 0.45);
+  --neco-text-inverse: #101010;
+  --neco-text-placeholder: #808080;
+  --neco-border: #222222;
+  --neco-border-dark: #111111;
+  --neco-border-light: #555555;
+  --neco-border-soft: rgba(255, 255, 255, 0.14);
+  --neco-border-strong: #aaaaaa;
+  --neco-border-divider: #747271;
   --neco-bevel-light: rgba(255, 255, 255, 0.22);
   --neco-bevel-dark: rgba(0, 0, 0, 0.55);
+  --neco-bevel-light-strong: #6b6b6b;
+  --neco-bevel-dark-strong: #3a3a3a;
   --neco-hard-shadow: rgba(0, 0, 0, 0.6);
+  --neco-shadow: rgba(0, 0, 0, 0.5);
+  --neco-shadow-soft: rgba(0, 0, 0, 0.35);
+  --neco-shadow-card: rgba(0, 0, 0, 0.25);
   --neco-dither: rgba(0, 0, 0, 0.22);
+  --neco-scrollbar-thumb: #777777;
+  --neco-scrollbar-track: #222222;
+  --neco-focus-ring: #ffffff;
+  --neco-success: #67c23a;
+  --neco-warning: #f0c36a;
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
 }
 
 /* ========== wiki / 独立公开页 / 插件公开页：Arco 变量换肤 ========== */
@@ -193,7 +312,7 @@
 .wiki-public-markdown h2,
 .wiki-home__brand,
 .wiki-public-brand {
-  font-family: 'Press Start 2P', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: 'Press Start 2P', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
   letter-spacing: 1px;
 }
 
@@ -212,7 +331,7 @@
 
 .site-chrome .site-layout-header__brand {
   color: #f7f5ee;
-  font-family: 'Press Start 2P', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: 'Press Start 2P', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
   font-size: 13px;
   letter-spacing: 1px;
 }
@@ -411,4 +530,426 @@
 
 .neco-sound-toggle[hidden] {
   display: none;
+}
+
+/* ========== 像素正文字体与渲染（移植上游 .mcfont / font-smooth 约定） ========== */
+.site-chrome,
+.site-page,
+.wiki-public,
+.wiki-home,
+.wiki-search-page,
+.public-form-page,
+.tl-page,
+.ev-page,
+.world-map-viewer,
+.qb-screen,
+.qb-shared {
+  font-family: 'Cubic 11', 'Press Start 2P', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  letter-spacing: 1px;
+  font-smooth: never;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: none;
+}
+
+/* ========== 强调色切换过渡：仅切换瞬间由 runtime 加 .theme-switching ========== */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease,
+    border-color 0.35s ease,
+    outline-color 0.35s ease,
+    box-shadow 0.35s ease,
+    text-shadow 0.35s ease !important;
+}
+
+/* ========== 入场动画（移植上游 fade-in 系列关键帧） ========== */
+@keyframes neco-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes neco-fade-in-down {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes neco-fade-in-left {
+  from { opacity: 0; transform: translateX(-2rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes neco-fade-in-right {
+  from { opacity: 0; transform: translateX(2rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.neco-anim {
+  animation: neco-fade-in 0.6s ease-out both;
+}
+
+.neco-anim-down {
+  animation: neco-fade-in-down 0.6s ease-out both;
+}
+
+.neco-anim-left {
+  animation: neco-fade-in-left 0.8s ease-out both;
+}
+
+.neco-anim-right {
+  animation: neco-fade-in-right 0.8s ease-out both;
+}
+
+/* 系统渲染的首页区块交错入场 */
+.site-page .site-sections .site-section {
+  animation: neco-fade-in-down 0.5s ease-out both;
+}
+
+.site-page .site-sections .site-section:nth-child(2) { animation-delay: 0.12s; }
+.site-page .site-sections .site-section:nth-child(3) { animation-delay: 0.24s; }
+.site-page .site-sections .site-section:nth-child(4) { animation-delay: 0.36s; }
+.site-page .site-sections .site-section:nth-child(n + 5) { animation-delay: 0.48s; }
+
+/* ========== 9-slice 对话框面板与方块纹理（程序化自绘资产，非 Mojang 贴图） ========== */
+.neco-panel {
+  box-sizing: border-box;
+  border: 16px solid;
+  border-image: url('ui/neco-dialog.png') 16 fill / 16px;
+  color: #e0ded8;
+}
+
+.neco-panel .neco-panel-title {
+  margin: 0;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* hero 面板：深板岩平铺 + 深色渐变遮罩（浅色方案换蓝冰 + 白色遮罩） */
+.neco-hero-panel {
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, var(--neco-bg-overlay-strong), var(--neco-bg-overlay)),
+    url('blockbg/deepslate.png');
+  background-size: auto, 32px 32px;
+  image-rendering: pixelated;
+  border: 16px solid;
+  border-image: url('ui/neco-dialog.png') 16 / 16px;
+  box-shadow:
+    inset -4px -4px 0 0 var(--neco-shadow),
+    inset 4px 4px 0 0 var(--neco-bg-hover),
+    0 0.75rem 2rem var(--neco-shadow-soft);
+}
+
+.site-chrome:not(.dark) .neco-hero-panel,
+.site-page:not(.dark) .neco-hero-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.12)),
+    url('blockbg/blue-ice.png');
+  background-size: auto, 32px 32px;
+  color: #171615;
+}
+
+.neco-block-bg {
+  background-image: url('blockbg/deepslate.png');
+  background-size: 32px 32px;
+  image-rendering: pixelated;
+}
+
+.site-chrome:not(.dark) .neco-block-bg,
+.site-page:not(.dark) .neco-block-bg {
+  background-image: url('blockbg/blue-ice.png');
+}
+
+/* ========== 6 色强调色体系（移植上游 [data-accent]，翠绿为默认色） ========== */
+html[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #b02e26;
+  --neco-accent-light: #e05a4e;
+  --neco-accent-dark: #7d1f19;
+  --neco-accent-bright: #f09a90;
+  --neco-accent-pale: #f7c9c4;
+  --neco-accent-contrast: #ffffff;
+  --neco-accent-soft: rgba(176, 46, 38, 0.34);
+  --neco-accent-tint: rgba(224, 90, 78, 0.15);
+  --yb-site-primary: #e05a4e;
+  --yb-site-primary-btn-bg: #b02e26;
+  --yb-site-hero-bg: linear-gradient(135deg, #b02e26, #0f0e0d);
+  --primary-6: 224 90 78;
+}
+
+html:not(.dark)[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #8f3028;
+  --neco-accent-light: #b04a3e;
+  --neco-accent-dark: #6e221c;
+  --neco-accent-bright: #9c3a30;
+  --neco-accent-pale: #7c2c24;
+  --neco-accent-soft: rgba(143, 48, 40, 0.15);
+  --neco-accent-tint: rgba(176, 74, 62, 0.12);
+  --yb-site-primary: #8f3028;
+  --yb-site-hero-bg: linear-gradient(135deg, #8f3028, #171615);
+  --primary-6: 143 48 40;
+}
+
+html[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #3c44aa;
+  --neco-accent-light: #5a64d8;
+  --neco-accent-dark: #2a2f7d;
+  --neco-accent-bright: #9aa3f0;
+  --neco-accent-pale: #c4c9f7;
+  --neco-accent-contrast: #ffffff;
+  --neco-accent-soft: rgba(60, 68, 170, 0.34);
+  --neco-accent-tint: rgba(90, 100, 216, 0.15);
+  --yb-site-primary: #5a64d8;
+  --yb-site-primary-btn-bg: #3c44aa;
+  --yb-site-hero-bg: linear-gradient(135deg, #3c44aa, #0f0e0d);
+  --primary-6: 90 100 216;
+}
+
+html:not(.dark)[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #3a4290;
+  --neco-accent-light: #4a54b8;
+  --neco-accent-dark: #2b3170;
+  --neco-accent-bright: #434c9e;
+  --neco-accent-pale: #353c7e;
+  --neco-accent-soft: rgba(58, 66, 144, 0.15);
+  --neco-accent-tint: rgba(74, 84, 184, 0.12);
+  --yb-site-primary: #3a4290;
+  --yb-site-hero-bg: linear-gradient(135deg, #3a4290, #171615);
+  --primary-6: 58 66 144;
+}
+
+html[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #c8a03a;
+  --neco-accent-light: #e8c35a;
+  --neco-accent-dark: #94742a;
+  --neco-accent-bright: #f0d99a;
+  --neco-accent-pale: #f7eac4;
+  --neco-accent-contrast: #101010;
+  --neco-accent-soft: rgba(200, 160, 58, 0.34);
+  --neco-accent-tint: rgba(232, 195, 90, 0.15);
+  --yb-site-primary: #e8c35a;
+  --yb-site-primary-btn-bg: #c8a03a;
+  --yb-site-hero-bg: linear-gradient(135deg, #c8a03a, #0f0e0d);
+  --primary-6: 232 195 90;
+}
+
+html:not(.dark)[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #9a7a2c;
+  --neco-accent-light: #b8953a;
+  --neco-accent-dark: #775d1f;
+  --neco-accent-bright: #a88632;
+  --neco-accent-pale: #8a6e2a;
+  --neco-accent-soft: rgba(154, 122, 44, 0.15);
+  --neco-accent-tint: rgba(184, 149, 58, 0.12);
+  --yb-site-primary: #9a7a2c;
+  --yb-site-hero-bg: linear-gradient(135deg, #9a7a2c, #171615);
+  --primary-6: 154 122 44;
+}
+
+html[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #8932b8;
+  --neco-accent-light: #a95ad8;
+  --neco-accent-dark: #63248a;
+  --neco-accent-bright: #c99af0;
+  --neco-accent-pale: #e0c4f7;
+  --neco-accent-contrast: #ffffff;
+  --neco-accent-soft: rgba(137, 50, 184, 0.34);
+  --neco-accent-tint: rgba(169, 90, 216, 0.15);
+  --yb-site-primary: #a95ad8;
+  --yb-site-primary-btn-bg: #8932b8;
+  --yb-site-hero-bg: linear-gradient(135deg, #8932b8, #0f0e0d);
+  --primary-6: 169 90 216;
+}
+
+html:not(.dark)[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #72289e;
+  --neco-accent-light: #8f3ab8;
+  --neco-accent-dark: #551e75;
+  --neco-accent-bright: #7d30a8;
+  --neco-accent-pale: #66288a;
+  --neco-accent-soft: rgba(114, 40, 158, 0.15);
+  --neco-accent-tint: rgba(143, 58, 184, 0.12);
+  --yb-site-primary: #72289e;
+  --yb-site-hero-bg: linear-gradient(135deg, #72289e, #171615);
+  --primary-6: 114 40 158;
+}
+
+html[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #169c9c;
+  --neco-accent-light: #38bdbd;
+  --neco-accent-dark: #0f6e6e;
+  --neco-accent-bright: #8fd9d9;
+  --neco-accent-pale: #c2ecec;
+  --neco-accent-contrast: #101010;
+  --neco-accent-soft: rgba(22, 156, 156, 0.3);
+  --neco-accent-tint: rgba(56, 189, 189, 0.15);
+  --yb-site-primary: #38bdbd;
+  --yb-site-primary-btn-bg: #169c9c;
+  --yb-site-hero-bg: linear-gradient(135deg, #169c9c, #0f0e0d);
+  --primary-6: 56 189 189;
+}
+
+html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+  --neco-accent: #1d7d7d;
+  --neco-accent-light: #259a9a;
+  --neco-accent-dark: #145e5e;
+  --neco-accent-bright: #218a8a;
+  --neco-accent-pale: #1b7070;
+  --neco-accent-soft: rgba(29, 125, 125, 0.15);
+  --neco-accent-tint: rgba(37, 154, 154, 0.12);
+  --yb-site-primary: #1d7d7d;
+  --yb-site-hero-bg: linear-gradient(135deg, #1d7d7d, #171615);
+  --primary-6: 29 125 125;
+}
+
+/* ========== 导航活动项像素滑块（移植上游 .slider，由 runtime 测量定位） ========== */
+.site-chrome .site-layout-header__nav {
+  position: relative;
+}
+
+.neco-nav-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 4px;
+  pointer-events: none;
+  transition: transform 0.3s ease, width 0.3s ease;
+}
+
+.neco-nav-slider__box {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: var(--neco-nav-slider);
+  border-top: 4px solid var(--neco-nav-slider-light);
+  border-bottom: 4px solid var(--neco-nav-slider-dark);
+  box-shadow: 2px 2px 0 var(--neco-shadow);
+}
+
+.site-chrome .site-nav-item > a {
+  position: relative;
+  z-index: 1;
+}
+
+.site-chrome .site-nav-item.neco-nav-active > a {
+  color: #ffffff;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.neco-nav-slider[hidden] {
+  display: none;
+}
+
+/* ========== 强调色色板浮动组件（与音效开关并排，移植上游 ThemePalette） ========== */
+.neco-palette-toggle {
+  position: fixed;
+  left: 16px;
+  bottom: 68px;
+  z-index: 900;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 2px solid #000000;
+  border-radius: 0;
+  background: #313131;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.22),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.55),
+    4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.neco-palette-toggle i {
+  display: block;
+  width: 9px;
+  height: 9px;
+}
+
+.neco-palette-toggle:hover {
+  filter: brightness(1.15);
+}
+
+.neco-palette-toggle[hidden] {
+  display: none;
+}
+
+.neco-palette-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 122px;
+  z-index: 900;
+  padding: 4px;
+}
+
+.neco-palette-panel__label {
+  display: block;
+  margin: 0 0 8px;
+  color: #e0ded8;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.neco-palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.neco-palette-swatch {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--swatch);
+  border: 2px solid #000000;
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.28),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.neco-palette-swatch:hover {
+  filter: brightness(1.12);
+}
+
+.neco-palette-swatch.active {
+  outline: 3px solid var(--neco-accent-light, #6cc349);
+  outline-offset: 2px;
+}
+
+.neco-palette-panel[hidden] {
+  display: none;
+}
+
+/* ========== 尊重系统减弱动效设置 ========== */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
+
+  .neco-anim,
+  .neco-anim-down,
+  .neco-anim-left,
+  .neco-anim-right,
+  .site-page .site-sections .site-section {
+    animation: none !important;
+  }
+
+  .neco-nav-slider {
+    transition: none !important;
+  }
 }
