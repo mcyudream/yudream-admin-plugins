@@ -29,8 +29,8 @@
           "key": "heroBackground",
           "label": "背景图",
           "type": "image",
-          "description": "满幅花园/建筑图，默认使用主题自带的像素建筑背景",
-          "default": "/api/platform/plugins/neco-pixel/assets/background/beidalou.webp"
+          "description": "满幅等距像素花园图，默认使用主题自带的首屏背景",
+          "default": "/api/platform/plugins/neco-pixel/assets/background/hero-garden.webp"
         }
       ]
     },
@@ -51,20 +51,32 @@
           "type": "list",
           "description": "每条介绍一张卡片，配图可留空",
           "itemFields": [
-            { "key": "title", "label": "标题", "type": "text" },
-            { "key": "description", "label": "描述", "type": "textarea" },
-            { "key": "image", "label": "配图", "type": "image" }
+            {
+              "key": "title",
+              "label": "标题",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "label": "描述",
+              "type": "textarea"
+            },
+            {
+              "key": "image",
+              "label": "配图",
+              "type": "image"
+            }
           ],
           "default": [
             {
               "title": "NMO 群组服务器系列",
               "description": "原版生存、模组生存、建筑、小游戏、RPG、空岛生存……多种玩法供你选择。",
-              "image": ""
+              "image": "/api/platform/plugins/neco-pixel/assets/intro/intro-servers.webp"
             },
             {
               "title": "方块与热爱",
               "description": "每一块方块都承载着创造的可能。这里聚集着热爱建造、红石与冒险的同好，用像素搭建属于自己的世界。",
-              "image": ""
+              "image": "/api/platform/plugins/neco-pixel/assets/intro/intro-create.webp"
             }
           ]
         }
@@ -73,7 +85,7 @@
     {
       "code": "servers",
       "title": "服务器",
-      "description": "首页与维度页的服务器区块；安装并启用 minecraft-server 插件后自动替换为实时状态列表",
+      "description": "首页与服务器页的服务器区块；安装并启用 minecraft-server 插件后自动替换为实时状态列表",
       "fields": [
         {
           "key": "showServers",
@@ -87,10 +99,27 @@
           "type": "list",
           "description": "未安装 minecraft-server 插件时展示的静态列表",
           "itemFields": [
-            { "key": "name", "label": "名称", "type": "text" },
-            { "key": "address", "label": "地址", "type": "text", "placeholder": "如 play.example.com" },
-            { "key": "description", "label": "描述", "type": "text" },
-            { "key": "icon", "label": "图标", "type": "image" }
+            {
+              "key": "name",
+              "label": "名称",
+              "type": "text"
+            },
+            {
+              "key": "address",
+              "label": "地址",
+              "type": "text",
+              "placeholder": "如 play.example.com"
+            },
+            {
+              "key": "description",
+              "label": "描述",
+              "type": "text"
+            },
+            {
+              "key": "icon",
+              "label": "图标",
+              "type": "image"
+            }
           ],
           "default": [
             {
@@ -100,6 +129,12 @@
               "icon": ""
             }
           ]
+        },
+        {
+          "key": "serversHint",
+          "label": "服务器页提示语",
+          "type": "text",
+          "default": "点击地址即可复制，进游戏粘贴直接加入。"
         }
       ]
     },
@@ -126,16 +161,29 @@
     {
       "code": "links",
       "title": "友情链接",
-      "description": "维度页底部展示的友情链接",
+      "description": "关于我们页展示的友情链接",
       "fields": [
         {
           "key": "friendLinks",
           "label": "友情链接",
           "type": "list",
           "itemFields": [
-            { "key": "name", "label": "名称", "type": "text" },
-            { "key": "url", "label": "链接", "type": "text", "placeholder": "https://..." },
-            { "key": "icon", "label": "图标", "type": "image" }
+            {
+              "key": "name",
+              "label": "名称",
+              "type": "text"
+            },
+            {
+              "key": "url",
+              "label": "链接",
+              "type": "text",
+              "placeholder": "https://..."
+            },
+            {
+              "key": "icon",
+              "label": "图标",
+              "type": "image"
+            }
           ],
           "default": []
         }
@@ -144,15 +192,23 @@
     {
       "code": "departments",
       "title": "部门",
-      "description": "维度页展示的部门/分组列表",
+      "description": "关于我们页展示的部门/分组列表",
       "fields": [
         {
           "key": "departments",
           "label": "部门",
           "type": "list",
           "itemFields": [
-            { "key": "name", "label": "名称", "type": "text" },
-            { "key": "description", "label": "简介", "type": "textarea" }
+            {
+              "key": "name",
+              "label": "名称",
+              "type": "text"
+            },
+            {
+              "key": "description",
+              "label": "简介",
+              "type": "textarea"
+            }
           ],
           "default": []
         }

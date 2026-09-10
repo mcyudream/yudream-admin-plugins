@@ -6,16 +6,16 @@
  *   https://github.com/RandomLemon/neco （MIT License）；
  * - CJK 像素字体 Cubic 11（public/fonts/cubic-11.woff2）为 SIL OFL 许可，
  *   见 public/fonts/OFL-cubic11.txt；
- * - Mojang 贴图/音效不复制：纹理为 python 程序化自绘（gen_textures.py），
- *   音效为 WebAudio 实时合成（sounds.ts）。
+ * - 按钮贴图、ping 图标、list/activity 背景与 button.click.ogg 复制自
+ *   上游 https://github.com/RandomLemon/neco （MIT License）。
  *
  * 作用域约定（SPI PluginTheme SITE scope）：
  * - 公开站骨架：.site-chrome / .site-page，覆写 --yb-site-* 变量；
  * - wiki 与独立公开页：.wiki-public / .wiki-home / .wiki-search-page /
  *   .public-form-page 与插件公开页（.tl-* / .ev-page / .world-map-viewer /
  *   .qb-screen / .qb-shared），覆写 Arco --color-* 变量；
- * - 深浅两套配色通过 html.dark 双写；不污染 :root 全局变量，禁用主题
- *   link 后宿主样式即刻恢复原样。
+ * - 深色为默认；浅色由 html[data-theme='light'] 覆盖。不污染 :root
+ *   全局变量，禁用主题 link 后宿主样式即刻恢复原样。
  *
  * 适配契约：插件公开页换肤的正途是「插件适配主题」——插件自带 --xx-*
  * 桥接变量（如大事记 --tl-*）并回退消费 --yb-site-*，主题只定义变量与
@@ -43,9 +43,129 @@
   src: url('fonts/cubic-11.woff2') format('woff2');
 }
 
-/* ========== 浅色方案：MC 经典材质底 ========== */
+@font-face {
+  font-family: 'Ark Latin';
+  src: url('fonts/ark-pixel-latin.woff2') format('woff2');
+  unicode-range: U+0020-00FF;
+}
+
+@font-face {
+  font-family: 'Minecraft-Tenv2';
+  src: url('fonts/Minecraft-Tenv2.woff2') format('woff2');
+  unicode-range: U+0020-007E;
+}
+
+.mcfont {
+  font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+.mctitle {
+  font-family: 'Minecraft-Tenv2', 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+/* 默认走 NMO 深色方案；浅色由 html[data-theme='light'] 覆盖 */
+html:has(.neco-chrome),
+html:has(.site-chrome.is-theme-chrome) {
+  background: #0f0e0d;
+  color: #ffffff;
+}
+
+html[data-theme='light']:has(.neco-chrome),
+html[data-theme='light']:has(.site-chrome.is-theme-chrome) {
+  background: #f7f5ee;
+  color: #111111;
+}
+
 .site-chrome,
-.site-page {
+.site-page,
+.neco-chrome {
+  --yb-site-bg: #0f0e0d;
+  --yb-site-text: #ffffff;
+  --yb-site-heading: #ffffff;
+  --yb-site-muted: rgba(255, 255, 255, 0.8);
+  --yb-site-caption: rgba(255, 255, 255, 0.45);
+  --yb-site-nav-text: #e0ded8;
+  --yb-site-text-2: #e0ded8;
+  --yb-site-text-3: rgba(255, 255, 255, 0.55);
+  --yb-site-border: #222222;
+  --yb-site-border-2: #373737;
+  --yb-site-header-bg: transparent;
+  --yb-site-surface: #313131;
+  --yb-site-hover: #3a3a3a;
+  --yb-site-primary: #6cc349;
+  --yb-site-primary-text: #171615;
+  --yb-site-primary-btn-bg: #3c8527;
+  --yb-site-primary-btn-text: #ffffff;
+  --yb-site-hero-bg: linear-gradient(135deg, #3c8527, #0f0e0d);
+  --yb-site-hero-text: #ffffff;
+  --yb-site-danger: #f56c6c;
+  --yb-site-header-position: relative;
+  --yb-site-header-border: none;
+  --yb-site-header-background: transparent;
+  --yb-site-header-backdrop: none;
+
+  --neco-accent: #3c8527;
+  --neco-accent-light: #6cc349;
+  --neco-accent-dark: #2a641c;
+  --neco-accent-bright: #a0e081;
+  --neco-accent-pale: #c6f6b6;
+  --neco-accent-contrast: #101010;
+  --neco-accent-soft: rgba(60, 133, 39, 0.34);
+  --neco-accent-tint: rgba(108, 195, 73, 0.15);
+  --neco-accent-bevel: rgba(255, 255, 255, 0.45);
+  --neco-bg-page: #0f0e0d;
+  --neco-bg: #171615;
+  --neco-bg-card: #313131;
+  --neco-bg-surface: #2e2e2e;
+  --neco-bg-surface-2: #303030;
+  --neco-bg-elevated: #4a4a4a;
+  --neco-bg-sunken: #111111;
+  --neco-bg-sunken-2: #161616;
+  --neco-bg-input: #616161;
+  --neco-bg-panel: #404040;
+  --neco-bg-overlay: rgba(0, 0, 0, 0.5);
+  --neco-bg-overlay-strong: rgba(0, 0, 0, 0.7);
+  --neco-bg-overlay-soft: rgba(0, 0, 0, 0.3);
+  --neco-bg-hover: rgba(255, 255, 255, 0.1);
+  --neco-bg-hover-strong: rgba(255, 255, 255, 0.2);
+  --neco-text: #ffffff;
+  --neco-text-soft: rgba(255, 255, 255, 0.88);
+  --neco-text-dim: rgba(255, 255, 255, 0.8);
+  --neco-text-muted: rgba(255, 255, 255, 0.72);
+  --neco-text-faint: rgba(255, 255, 255, 0.6);
+  --neco-text-subtle: rgba(255, 255, 255, 0.5);
+  --neco-text-disabled: rgba(255, 255, 255, 0.45);
+  --neco-text-inverse: #101010;
+  --neco-text-placeholder: #808080;
+  --neco-text-gray: #aaaaaa;
+  --neco-border: #222222;
+  --neco-border-dark: #111111;
+  --neco-border-light: #555555;
+  --neco-border-soft: rgba(255, 255, 255, 0.14);
+  --neco-border-strong: #aaaaaa;
+  --neco-border-divider: #747271;
+  --neco-bevel-light: rgba(255, 255, 255, 0.22);
+  --neco-bevel-dark: rgba(0, 0, 0, 0.55);
+  --neco-bevel-light-strong: #6b6b6b;
+  --neco-bevel-dark-strong: #3a3a3a;
+  --neco-hard-shadow: rgba(0, 0, 0, 0.6);
+  --neco-shadow: rgba(0, 0, 0, 0.5);
+  --neco-shadow-soft: rgba(0, 0, 0, 0.35);
+  --neco-shadow-card: rgba(0, 0, 0, 0.25);
+  --neco-dither: rgba(0, 0, 0, 0.22);
+  --neco-scrollbar-thumb: #777777;
+  --neco-scrollbar-track: #222222;
+  --neco-focus-ring: #ffffff;
+  --neco-success: #67c23a;
+  --neco-warning: #f0c36a;
+  --neco-nav-slider: #7e0c6b;
+  --neco-nav-slider-light: #9b428c;
+  --neco-nav-slider-dark: #46073b;
+}
+
+html[data-theme='light'] .site-chrome,
+html[data-theme='light'] .site-page,
+html[data-theme='light'] .neco-chrome {
   --yb-site-bg: #eceae2;
   --yb-site-text: #2b2b2b;
   --yb-site-heading: #171615;
@@ -122,91 +242,6 @@
   --neco-focus-ring: #2b2b2b;
   --neco-success: #3f7d1f;
   --neco-warning: #b07f2a;
-  --neco-nav-slider: var(--neco-accent);
-  --neco-nav-slider-light: var(--neco-accent-light);
-  --neco-nav-slider-dark: var(--neco-accent-dark);
-}
-
-/* ========== 深色方案：neco 默认 MC 深色 ========== */
-.site-chrome.dark,
-.site-page.dark,
-.dark .site-chrome,
-.dark .site-page {
-  --yb-site-bg: #0f0e0d;
-  --yb-site-text: #ffffff;
-  --yb-site-heading: #ffffff;
-  --yb-site-muted: rgba(255, 255, 255, 0.8);
-  --yb-site-caption: rgba(255, 255, 255, 0.45);
-  --yb-site-nav-text: #e0ded8;
-  --yb-site-text-2: #e0ded8;
-  --yb-site-text-3: rgba(255, 255, 255, 0.55);
-  --yb-site-border: #222222;
-  --yb-site-border-2: #373737;
-  --yb-site-header-bg: rgba(15, 14, 13, 0.94);
-  --yb-site-surface: #313131;
-  --yb-site-hover: #3a3a3a;
-  --yb-site-primary: #6cc349;
-  --yb-site-primary-text: #171615;
-  --yb-site-primary-btn-bg: #3c8527;
-  --yb-site-primary-btn-text: #ffffff;
-  --yb-site-hero-bg: linear-gradient(135deg, #3c8527, #0f0e0d);
-  --yb-site-hero-text: #ffffff;
-  --yb-site-danger: #f56c6c;
-
-  /* 上游 neco 设计令牌移植（深色方案，对应上游 :root 默认） */
-  --neco-accent: #3c8527;
-  --neco-accent-light: #6cc349;
-  --neco-accent-dark: #2a641c;
-  --neco-accent-bright: #a0e081;
-  --neco-accent-pale: #c6f6b6;
-  --neco-accent-contrast: #101010;
-  --neco-accent-soft: rgba(60, 133, 39, 0.34);
-  --neco-accent-tint: rgba(108, 195, 73, 0.15);
-  --neco-accent-bevel: rgba(255, 255, 255, 0.45);
-  --neco-bg-page: #0f0e0d;
-  --neco-bg: #171615;
-  --neco-bg-card: #313131;
-  --neco-bg-surface: #2e2e2e;
-  --neco-bg-surface-2: #303030;
-  --neco-bg-elevated: #4a4a4a;
-  --neco-bg-sunken: #111111;
-  --neco-bg-sunken-2: #161616;
-  --neco-bg-input: #616161;
-  --neco-bg-panel: #404040;
-  --neco-bg-overlay: rgba(0, 0, 0, 0.5);
-  --neco-bg-overlay-strong: rgba(0, 0, 0, 0.7);
-  --neco-bg-overlay-soft: rgba(0, 0, 0, 0.3);
-  --neco-bg-hover: rgba(255, 255, 255, 0.1);
-  --neco-bg-hover-strong: rgba(255, 255, 255, 0.2);
-  --neco-text: #ffffff;
-  --neco-text-soft: rgba(255, 255, 255, 0.88);
-  --neco-text-dim: rgba(255, 255, 255, 0.8);
-  --neco-text-muted: rgba(255, 255, 255, 0.72);
-  --neco-text-faint: rgba(255, 255, 255, 0.6);
-  --neco-text-subtle: rgba(255, 255, 255, 0.5);
-  --neco-text-disabled: rgba(255, 255, 255, 0.45);
-  --neco-text-inverse: #101010;
-  --neco-text-placeholder: #808080;
-  --neco-border: #222222;
-  --neco-border-dark: #111111;
-  --neco-border-light: #555555;
-  --neco-border-soft: rgba(255, 255, 255, 0.14);
-  --neco-border-strong: #aaaaaa;
-  --neco-border-divider: #747271;
-  --neco-bevel-light: rgba(255, 255, 255, 0.22);
-  --neco-bevel-dark: rgba(0, 0, 0, 0.55);
-  --neco-bevel-light-strong: #6b6b6b;
-  --neco-bevel-dark-strong: #3a3a3a;
-  --neco-hard-shadow: rgba(0, 0, 0, 0.6);
-  --neco-shadow: rgba(0, 0, 0, 0.5);
-  --neco-shadow-soft: rgba(0, 0, 0, 0.35);
-  --neco-shadow-card: rgba(0, 0, 0, 0.25);
-  --neco-dither: rgba(0, 0, 0, 0.22);
-  --neco-scrollbar-thumb: #777777;
-  --neco-scrollbar-track: #222222;
-  --neco-focus-ring: #ffffff;
-  --neco-success: #67c23a;
-  --neco-warning: #f0c36a;
   --neco-nav-slider: var(--neco-accent);
   --neco-nav-slider-light: var(--neco-accent-light);
   --neco-nav-slider-dark: var(--neco-accent-dark);
@@ -808,50 +843,6 @@ html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, 
   --primary-6: 29 125 125;
 }
 
-/* ========== 导航活动项像素滑块（移植上游 .slider，由 runtime 测量定位） ========== */
-.site-chrome .site-layout-header__nav {
-  position: relative;
-}
-
-.neco-nav-slider {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  box-sizing: border-box;
-  height: 100%;
-  padding: 4px;
-  pointer-events: none;
-  transition: transform 0.3s ease, width 0.3s ease;
-}
-
-.neco-nav-slider__box {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  background: var(--neco-nav-slider);
-  border-top: 4px solid var(--neco-nav-slider-light);
-  border-bottom: 4px solid var(--neco-nav-slider-dark);
-  box-shadow: 2px 2px 0 var(--neco-shadow);
-}
-
-.site-chrome .site-nav-item > a {
-  position: relative;
-  z-index: 1;
-}
-
-.site-chrome .site-nav-item.neco-nav-active > a {
-  color: #ffffff;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
-}
-
-.neco-nav-slider[hidden] {
-  display: none;
-}
-
-/* 首页大厅覆盖导航写在 home-preset.json 的 homeCss（未分层 + 经 chrome 提取提升优先级）。
-   主题 style.css 在 @layer yudream-plugin 内，压不过宿主未分层的 .site-layout-header。 */
-
 /* ========== 强调色色板浮动组件（与音效开关并排，移植上游 ThemePalette） ========== */
 .neco-palette-toggle {
   position: fixed;
@@ -906,6 +897,40 @@ html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, 
   letter-spacing: 1px;
 }
 
+.neco-palette-schemes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.neco-palette-option {
+  height: 28px;
+  padding: 0 8px;
+  color: #e0ded8;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  background: #1c1b1a;
+  border: 2px solid #000000;
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.16),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.neco-palette-option:hover {
+  filter: brightness(1.12);
+}
+
+.neco-palette-option.active {
+  color: #101010;
+  background: var(--neco-accent-light, #6cc349);
+  outline: 3px solid var(--neco-accent-light, #6cc349);
+  outline-offset: 2px;
+}
+
 .neco-palette-swatches {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -953,9 +978,5 @@ html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, 
   .neco-anim-right,
   .site-page .site-sections .site-section {
     animation: none !important;
-  }
-
-  .neco-nav-slider {
-    transition: none !important;
   }
 }

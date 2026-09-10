@@ -2,34 +2,62 @@
 
 完整复刻 [RandomLemon/neco](https://github.com/RandomLemon/neco)（南京大学 Minecraft 协会站，MIT License）的主题体系，以主题插件形式接管公开站外观、交互音效、强调色体系与整套像素风页面。
 
+2.0.0 起主题版式页全面改为 **Vue 原生页面**（`homeComponent` + `chromeComponent` + 公开路由），不再使用 CMS 首页方案与 data-yb 模板引擎；CMS 回归内容系统（新闻详情等 `/site/:slug` 仍由 CMS 渲染、由主题 style.css 美化）。
+
 ## 形态
 
-- **纯主题插件**：不注册 HTTP 端点、权限、菜单与路由，入口类只做声明。
-- `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homePreset="home-preset.json", configSchema="theme-config.json")`：主题样式、首页方案与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`，样式由宿主 theme-runtime 在公开路由注入、进入后台时通过 `link.disabled` 停用。
-- **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel` 大页面，左侧分节导航 + 右侧表单）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），公开站模板以 `{{theme.config.*}}` / `data-yb-if="theme.config.xxx"` / `data-yb-for="item in theme.config.xxx"` 消费，保存后公开站即时生效。
-- `@PluginFrontend(moduleName="neco-pixel")`（无 routes/styles）：仅携带运行时 remoteEntry；宿主在主题激活期间加载并调用 `install()`（音效 + 强调色色板 + 导航滑块），取消激活后 `dispose()` 完整回收。
-- 同 scope 主题互斥由宿主保证：启用本插件会自动顶替其他 SITE 主题插件，禁用/卸载后回落宿主内置主题；顶替/停用由宿主在「主题中心」一键操作。
+- **纯主题插件**：不注册 HTTP 端点、权限与后台菜单，入口类只做声明。
+- `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homeComponent="theme/Home", chromeComponent="theme/Chrome", configSchema="theme-config.json")`：主题样式、首页/chrome 组件名与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`。
+- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（站点导航 + 插件 `siteNav` 路由合并），主题自己画 NMO 覆盖式导航条（深色 overlay、2px `#aaaaaa` 边、紫色滑块）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
+- **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 四个 `@PluginRoute(publicAccess=true, siteNav=true)` 公开路由（/servers、/activities、/news、/about），随宿主导航合并进站点导航，切换为 SPA 无感跳转。
+- **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel`）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），Vue 页面经 `sdk.site.context()` 返回的 `themeConfig` 消费，保存后公开站即时生效。
+- **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
+- 同 scope 主题互斥由宿主保证：启用本插件自动顶替其他 SITE 主题插件，禁用/卸载后回落宿主内置主题；顶替/停用由宿主在「主题中心」一键操作。
+
+## 页面结构（2.0.0）
+
+| 路径 | 组件 | 数据来源 |
+|---|---|---|
+| 全站 chrome | `theme/Chrome.vue`（chromeComponent） | 宿主注入 `navigation`/`footer*`/`siteName`/`isLogin`；NMO overlay 导航 + 页脚免责声明 |
+| `/site`（首页） | `theme/Home.vue`（homeComponent） | hero/关于/服务器预览/最新动态，`sdk.site.context({blocks:['server-list'], limit:4, cmsLatest:12})` |
+| `/servers` | `theme/Servers.vue` | `server-list` 块实时状态优先，未装 minecraft-server 回落 `themeConfig.staticServers`；NMO 维度列表：`list-background.jpg` + ping 条动画 + 64px 图标 |
+| `/activities` | `theme/Activities.vue` | `activity-square` 块；NMO 活动页：`header-bg.jpg` + `bg.jpg` 平铺、绿/红 3D 卡片；未装插件回落 CMS 最新文章或空态 |
+| `/news` | `theme/News.vue` | `cmsLatest` 文章卡片流，详情跳 `/site/:slug`（CMS 渲染） |
+| `/about` | `theme/About.vue` | `introItems` 奇偶交替图文、`departments` 部门网格、`friendLinks` 友链 |
+| `/timeline`（大事记） | **timeline 插件自己的页面**，主题不接管 | 主题只对 `.tl-page` 写像素兼容样式；未装 timeline 时导航项由宿主自动消失 |
+
+所有页面 SFC 使用统一 prop 形态 `defineProps<{ sdk: YuDreamPluginSdk, route?: ... }>()`，站内跳转用共享 vue-router 的 `RouterLink`（vite 经 `yuDreamPluginSharedAliases()` 别名到宿主实例，不打包第二份 vue-router）；每页 `useThemeSeo` 设置标题/canonical。
+
+## chrome 接管（替代 homeCss / 变量 hack）
+
+旧版（1.x）用 homeCss RAW 注入 + `.site-chrome:has(.neco-lobby)` overlay hack 压过页头样式；2.0 前期曾用 chrome CSS 变量契约改宿主 SiteChrome。两者都无法保证首页/内页导航一致（宿主 SiteChrome 是浅色 sticky 栏，NMO 是深色绝对覆盖导航）。
+
+现在官方通道是 `chromeComponent`：主题远程 Vue 组件完全接管页头页脚。未声明 chrome 的主题仍可用 chrome 变量契约作为回落，完整清单见主仓 `docs/plugin-system/specification.md` 9.1。
+
+默认配色是 NMO 深色（`--neco-bg-page: #0f0e0d`）。浅色仅在色板选「浅色」后挂 `html[data-theme='light']`。
 
 ## 复刻内容对照（上游 neco → 本插件）
 
 | 上游 | 本插件 | 说明 |
 |---|---|---|
-| 完整设计令牌（bg/card/elevated/sunken、文本 alpha 阶梯、bevel/shadow、focus-ring 等） | `theme.css` 的 `--neco-*` 变量族 | 深色为默认，`html.dark`/容器 `:not(.dark)` 双写浅色；同时映射宿主 `--yb-site-*` 与 Arco `--primary-6` |
-| `[data-accent]` 6 色强调色（绿/红石/青金石/黄金/紫水晶/海晶，各含 light/dark/bright/pale 派生） | `theme.css` accent 变量块 + `src/accent.ts` | 翠绿为默认（不挂属性）；浮动像素色板切换，持久化 `localStorage["neco-pixel:accent"]`；切换瞬间 `html.theme-switching` 0.35s 过渡 |
+| 完整设计令牌（bg/card/elevated/sunken、文本 alpha 阶梯、bevel/shadow、focus-ring 等） | `theme.css` 的 `--neco-*` 变量族 | 深色为默认，`html[data-theme='light']` 覆盖浅色；同时映射宿主 `--yb-site-*` 与 Arco `--primary-6` |
+| `[data-accent]` 6 色强调色（绿/红石/青金石/黄金/紫水晶/海晶，各含 light/dark/bright/pale 派生） | `theme.css` accent 变量块 + `src/accent.ts` | 翠绿为默认（不挂属性）；浮动像素色板含深色/浅色方案按钮，持久化 `localStorage["neco-pixel:accent"]` / `neco-pixel:scheme` |
 | ThemePalette.vue | `.neco-palette-toggle` / `.neco-palette-panel` | 固定在左下音效开关上方，仅主题激活时可见 |
-| fade-in / fade-in-down/left/right 入场动画 | `@keyframes neco-fade-in-*` + `.neco-anim*` 工具类 | `.site-section` 首页区块自动交错入场；尊重 `prefers-reduced-motion` |
-| NavBar 活动项像素滑块 | `src/nav-slider.ts` + `.neco-nav-slider` | 宿主导航无 active 类，运行时按当前路径与导航项 href 最长前缀匹配定位，监听路由/缩放/导航结构变化 |
+| fade-in / fade-in-down/left/right 入场动画 | `@keyframes neco-fade-in-*` + `.neco-anim*` 工具类 | 尊重 `prefers-reduced-motion` |
+| NavBar 活动项像素滑块 | `theme/Chrome.vue` 的 `.slider` | 按当前路径最长前缀匹配活动项，滑块 `translateX`；不再补丁 host SiteChrome |
 | `border-image` 对话框面板（Mojang 贴图） | `.neco-panel` / `.neco-hero-panel` / `.neco-block-bg` | 贴图不复制：9-slice 边框与深板岩/蓝冰平铺纹理由 `gen_textures.py`（PIL）程序化自绘 |
-| Minecraft-Tenv2 / Cubic 11 字体栈 | Press Start 2P（拉丁标题）+ Cubic 11（CJK 正文/标题，SIL OFL） | Minecraft-Tenv2 许可不明不使用；`font-smooth: never` + 1px 字距 |
-| Lobby / About 页面 | `home-preset.json` 的 `settings.homeHtml`/`homeCss` + `pages[]` | 见下两节 |
+| Minecraft-Tenv2 / Ark Latin / Cubic 11 字体栈 | `.mctitle` / `.mcfont` | 上游字体随包（MIT 仓）+ Cubic 11（SIL OFL） |
+| Lobby / List / Activity / About / News | `src/theme/*.vue` | 原生 Vue 复刻；List 对标 `/list`，Activity 对标 `/activity` |
+| `button.click.ogg` | `public/button.click.ogg` + `src/sounds.ts` | 原版 MC 点击音，音量 0.3；不再用 WebAudio 合成器 |
 
-许可：上游代码与设计令牌按 MIT 移植（见 theme.css 头部声明）；Cubic 11 字体按 SIL OFL 随包分发（`public/fonts/OFL-cubic11.txt`）；纹理与音效均为自绘/合成，不含 Mojang 资产。
+许可：上游代码、设计令牌、UI 贴图、背景图、点击音与截图资产按 MIT 移植（`public/ASSETS.md` 逐文件标注来源）；Cubic 11 / Press Start 2P 字体按 SIL OFL 随包分发。
 
 ## 主题覆盖范围
 
 | 界面 | 机制 |
 |---|---|
-| 公开站骨架（/site、CMS 页） | 覆写 `.site-chrome`/`.site-page` 的 `--yb-site-*` 变量（MC 浅色/深色两套，经 `html.dark` 双写），头部深底浅字、3px 硬边、hero 棋盘格压纹 |
+| 公开站骨架（/site、CMS 页） | `theme/Chrome.vue` 接管页头页脚；`.site-chrome`/`.site-page`/`html:has(.neco-chrome)` 覆写 `--yb-site-*` 与 html 底色 |
+| 主题五个版式页 | 组件 scoped 样式 + theme.css 页面规则 |
 | wiki 知识库（/wiki/**） | `.wiki-public`/`.wiki-home`/`.wiki-search-page` 覆写 Arco `--color-*` 与 `--primary-6` |
 | 大事记（/timeline） | `--tl-*` 桥接变量自动跟随 `--yb-site-*`；卡片方角硬阴影、时间轴圆点改方块、隐藏模糊光斑 |
 | 表单公开页（/forms/:code） | `.public-form-page` Arco 变量 + 面板方角立体边 |
@@ -40,60 +68,55 @@
 
 ## 主题配置项（theme-config.json）
 
-schema 分六节，全部有默认值，留空即回落站点设置或主题内置文案：
+schema 分六节，全部有默认值，留空即回落站点设置或主题内置文案。Vue 页面经 `sdk.site.context()` 的 `themeConfig` 读取（`configText/configList/configNumber/configSwitch` helper）：
 
 | 分节 | 字段 | 说明 |
 |---|---|---|
-| 首屏 Hero | `heroTitle` / `heroSubtitle` / `heroLogo` / `heroBackground` | 主标题留空显示站点名称；LOGO 留空用站点 LOGO；背景留空用主题默认纹理 |
-| 关于我们 | `aboutTitle` / `introItems[]`（标题/描述/配图） | 介绍项 list，首页与 neco-about 页按 index 奇偶左右交替渲染 |
-| 服务器 | `showServers`（开关） / `staticServers[]`（名称/地址/描述/图标） | minecraft-server 插件的 `server-list` 块可用时优先渲染实时状态，静态 list 仅作无插件降级 |
-| 新闻 | `newsTitle` / `newsLimit`（默认 4，上限 12） | 驱动首页最新动态区块 |
-| 友情链接 | `friendLinks[]`（名称/URL/图标） | neco-servers 页渲染 |
-| 部门 | `departments[]`（名称/简介） | neco-servers 页渲染 |
+| 首屏 Hero | `heroTitle` / `heroSubtitle` / `heroLogo` / `heroBackground` | 主标题留空显示站点名称；LOGO 留空用站点 LOGO；背景默认 `background/hero-garden.webp` |
+| 关于我们 | `aboutTitle` / `introItems[]`（标题/描述/配图） | 介绍项 list，首页与 /about 页按 index 奇偶左右交替渲染；默认配图 `intro/intro-servers.webp`、`intro/intro-create.webp` |
+| 服务器 | `showServers`（开关） / `staticServers[]`（名称/地址/描述/图标） / `serversHint` | minecraft-server 插件的 `server-list` 块可用时优先渲染实时状态，静态 list 仅作无插件降级；`serversHint` 为 /servers 页提示语 |
+| 新闻 | `newsTitle` / `newsLimit`（默认 4，上限 12） | 驱动首页最新动态区块与 /news 页 |
+| 友情链接 | `friendLinks[]`（名称/URL/图标） | /about 页渲染 |
+| 部门 | `departments[]`（名称/简介） | /about 页渲染 |
 
-## 主题块依赖（可选，联合其他插件动态扩展）
+## 主题块依赖（可选，软依赖降级）
 
-模板经 `blocks.{code}` 消费其他插件贡献的数据；插件未安装/未启用时块为空，模板一律带 `data-yb-if` 降级分支，**均为软依赖、缺失不阻塞主题**：
+Vue 页面经 `sdk.site.context({blocks: [...]})` 消费其他插件贡献的数据（`GET /api/public/theme/context`，匿名）；插件未安装/未启用时块缺省，页面一律带静态回落分支，**均为软依赖、缺失不阻塞主题**：
 
 | 块 | 提供插件（最低版本） | 数据 | 消费位置 |
 |---|---|---|---|
-| `server-list` | minecraft-server 1.5.0 | `servers[]`：名称/图标/描述/地址/在线/状态文案/MOTD/人数/延迟（取自状态快照缓存，不实时 ping） | 首页服务器区块、neco-servers 页 |
-| `activity-square` | minecraft-activity-proof 2.4.0 | `activities[]`：标题/`statusKey`(upcoming/ongoing/ended)/状态文案/`meta`(起止时间合成文案)/摘要；仅面向全体部门且已发布/已结束的活动 | neco-activity 页 |
-| `timeline` | timeline 1.3.0 | `events[]`：标题/时间/摘要/链接（统一导向 /timeline） | 任意主题模板可自行引用 |
-
-## 自带首页方案（home-preset.json）
-
-- 主题启用（SITE scope 激活）时，宿主自动读取 `home-preset.json` 导入为方案 `plugin:neco-pixel` 并立即应用——公开站首页整套切换为像素风演示内容，无需手工进 CMS 调整。
-- **完整主页复刻**：方案经 `settings.homeHtml` + `homeCss` 复刻上游 Lobby——满幅像素建筑 Hero（默认 `background/beidalou.webp`，标题/使命文案/LOGO 叠在左侧半透明幕上，由 `{{theme.config.hero*}}` 驱动）→ 关于我们（`data-yb-for="item in theme.config.introItems"` 左右交替入场，无配图时居中虚线标题）→ 服务器区块（`data-yb-if="blocks.server-list"` 实时状态优先，否则回落 `theme.config.staticServers`）→ 最新动态卡片流（`data-yb-for="item in cms.pages.latest"`）。大厅页导航改为覆盖在 Hero 上的居中像素框：覆盖规则写在 `homeCss` 里（`.site-chrome:has(.neco-lobby)`），由宿主 extractChromeCss 提升优先级以压过未分层的页头样式；大厅内容规则仍以 `.site-builder-home` 命名空间自闭合。
-- **内容/导航注入约定**：主页与页面集一律使用 `data-yb-*` 模板指令与 `{{路径}}` 注入系统数据；**不声明** `navigationJson`，导航始终由系统渲染（活动项滑块由运行时适配）。
-- **非 homeHtml 回退**：`sections`（FEATURE/CTA）保留，供未开启 homeHtml 渲染的环境回退。
-- **自动快照**：应用方案前，宿主先把当前首页定制存为「切换前快照」方案（内容与最近快照一致则跳过，快照最多保留 10 份）；在 主题中心 → 首页方案 里可一键切回任何方案，或把当前定制另存为自己的方案。
-- **首页设计独立（主题即整套模板）**：每个主题的首页设计（`homeHtml`/`homeCss`/标题/区块）以 `themeCode` 归属各自主题、整套持有、绝不混杂——导入即 upsert 方案 `plugin:neco-pixel`（纯量覆盖，不与其他主题内容合并）；本主题无布局时宿主克隆默认主题当前首页作为起点，此后完全独立。停用/顶替/卸载本主题只拨激活指针，首页内容完整保留在 `neco-pixel` 主题名下、对外不再可见，再次启用即原样恢复；主题 CSS、音效、色板与滑块仍由宿主在取消激活时完整回收。
-- 维护：方案 JSON 放在前端包 `public/` 下随 dist 打包；区块 `id` 需稳定，升级主题时同 code 方案会被 upsert 覆盖。
-
-## 自带页面集（pages[]）
-
-- `neco-servers`（LANDING）：维度·服务器页——服务器完整列表（`blocks.server-list` 实时优先、静态配置降级）+ 部门（`theme.config.departments`）+ 友情链接（`theme.config.friendLinks`）。
-- `neco-news`（LANDING）：新闻页——`cms.pages.latest` 卡片流（limit 12）+ 空态兜底。
-- `neco-activity`（LANDING）：活动页——`data-yb-if="blocks.activity-square"` 渲染活动卡片（状态徽章按 `statusKey` 着色，时间地点合成 `{{item.meta}}`）；无插件时降级为 CMS 页面列表。
-- `neco-docs`（DOC 模板）：文档导向页，markdown 正文链接 /wiki、/timeline、/neco-news、/neco-activity。
-- `neco-about`（LANDING 模板）：复刻上游 AboutView——大标题 fade-in-down 入场 + 左右交替图文面板（`data-yb-for="item in theme.config.introItems"`，`neco-anim-left/right` + `neco-panel`），「最新内容」列表由 `data-yb-for` 注入系统页面，`{{site.name}}`/`{{system.copyright.company}}` 注入站点信息；页面 CSS 只写布局，由宿主自动 scope 到 `.site-article`。
-- **生命周期**：页面随主题启用导入到本主题自己的页面集（`themeCode=neco-pixel`、`sourcePluginCode=neco-pixel`）为已发布；slug 唯一性按 `(themeCode, slug)`——不同主题可复用同 slug，本主题内 slug 被管理员内容占用时跳过不覆盖；主题停用/顶替/卸载时页面不下线，归属本主题并随激活指针离开对外不可见，再次启用原样恢复。管理员自建的同名页面永不被主题覆盖。
+| `server-list` | minecraft-server 1.5.0 | `servers[]`：名称/图标/描述/地址/在线/状态文案/MOTD/人数/延迟（取自状态快照缓存，不实时 ping） | 首页服务器区块、/servers 页 |
+| `activity-square` | minecraft-activity-proof 2.4.0 | `activities[]`：标题/`statusKey`(upcoming/ongoing/ended)/状态文案/`meta`/摘要 | /activities 页 |
+| `timeline` | timeline 1.3.0 | `events[]`：标题/时间/摘要/链接（统一导向 /timeline） | 任意主题页面可自行引用 |
 
 ## 运行时
 
-- **音效**：WebAudio 实时合成 8-bit 芯片音（方波/三角波扫频），无音频资产；悬停短促高音、点击双音。仅在主题 link 存在且未 `disabled`（即公开路由）且事件发生在公开页容器内时播放；切回后台自动静默。左下角像素开关（`.neco-sound-toggle`）可随时静音，选择持久化在 `localStorage["neco-pixel:sound"]`；AudioContext 在首次 pointerdown 时解锁，不违反自动播放策略。
-- **强调色色板**（`src/accent.ts`）：左下音效开关上方的 2×2 彩色方块按钮，展开 6 色色板面板；选择写 `localStorage["neco-pixel:accent"]` 并挂/卸 `<html data-accent>`（翠绿为默认色，卸属性），切换瞬间挂 `theme-switching` 过渡类；显隐跟随主题 link 的 `disabled`。
-- **导航滑块**（`src/nav-slider.ts`）：向 `.site-chrome .site-layout-header__nav` 注入绝对定位滑块，按 `location.pathname` 与导航项 href 最长前缀匹配活动项并测量定位；监听 popstate、history.pushState/replaceState 补丁、窗口缩放与导航 DOM 变更；`dispose` 时还原 history 并移除滑块。
+- **音效**：播放上游 `button.click.ogg`（Minecraft 原版按钮点击，音量 0.3）。仅在主题 link 存在且未 `disabled` / `media !== 'not all'`（即公开路由）且事件发生在公开页容器内时播放；切回后台自动静默。左下角像素开关（`.neco-sound-toggle`）可随时静音，选择持久化在 `localStorage["neco-pixel:sound"]`。
+- **强调色色板**（`src/accent.ts`）：左下音效开关上方的 2×2 彩色方块按钮，展开深色/浅色方案 + 6 色色板；选择写 `localStorage["neco-pixel:accent"]` / `neco-pixel:scheme`，挂/卸 `<html data-accent>` 与 `data-theme`；显隐跟随主题 link 的 `disabled`/`media`。
+- **导航滑块**：由 `theme/Chrome.vue` 自己按 `route.path` 最长前缀匹配活动项并 `translateX` 滑块，不再补丁宿主 SiteChrome。
 
 ## 资产
 
-- `public/fonts/press-start-2p.woff2`：Press Start 2P（SIL OFL 1.1，Google Fonts 拉丁子集，12KB）。
+- `public/fonts/press-start-2p.woff2`：Press Start 2P（SIL OFL 1.1，Google Fonts 拉丁子集）。
 - `public/fonts/cubic-11.woff2`：Cubic 11 v1.500（SIL OFL，`public/fonts/OFL-cubic11.txt`），CJK 像素正文/标题字体。
-- `public/ui/neco-dialog.png`：48×48 9-slice 空心对话框边框（`gen_textures.py` 程序化自绘）。
+- `public/fonts/Minecraft-Tenv2.woff2` / `ark-pixel-latin.woff2`：上游公开站字体（MIT 仓随包）。
+- `public/ui/**`：上游 MC 风格按钮、开关、对话框、玩家头与 ping 条（MIT）。
+- `public/button.click.ogg`：上游打包的原版 MC 点击音（MIT，6785 bytes）。
+- `public/loading.gif`：上游加载动画（MIT）。
 - `public/blockbg/deepslate.png` / `blue-ice.png`：32×32 深板岩/蓝冰平铺纹理（程序化自绘），供 hero 面板与卡片底纹。
 - `public/preview.png`：主题设置页展示的预览图（程序生成的像素 mock）。
-- `public/background/beidalou.webp`：大厅满幅建筑背景（上游 MIT 资产）。
-- `public/background/list-background.jpg`：服务器页满幅背景（上游 MIT 资产）。
+- `public/background/hero-garden.webp`：首页满幅 Hero 背景。
+- `public/background/beidalou.webp`：备用大厅建筑背景。
+- `public/background/list-background.jpg`：服务器列表满幅背景（对标 NMO `/list`）。
+- `public/background/header-bg.jpg` / `bg.jpg`：活动页顶栏平铺 + 正文平铺（对标 NMO `/activity`）。
+- `public/background/links-background.jpg`：友链背景。
+- `public/intro/intro-servers.webp` / `intro-create.webp`：关于我们介绍项默认配图。
 - `public/theme-config.json`：主题配置 schema（见「主题配置项」），随 dist 打包并经 `configSchema` 声明。
-- 主题 CSS 经 vite lib 构建合并为 `style.css`；`@PluginFrontend(styles)` 保持为空，避免样式未经 scope 管控被常驻注入。
+- 主题 CSS 经 vite lib 构建合并为 `style.css`；`@PluginTheme(styles={"style.css"})` 声明后由宿主 theme-runtime 按 SITE scope 注入。
+
+## 升级说明（1.x → 2.0.0）
+
+- `home-preset.json` 已删除，`@PluginTheme` 不再声明 `homePreset`；首页由 `theme/Home` Vue 组件接管，页头页脚由 `theme/Chrome` 接管。
+- 1.x 导入的 CMS 页面（neco-servers/neco-news/neco-activity/neco-docs/neco-about）与 `plugin:neco-pixel` 首页方案作为历史数据保留在 `neco-pixel` 主题名下，不再被主题管理，可在主题中心手工清理；公开导航改为插件路由（/servers、/activities、/news、/about），旧 `neco-*` slug 页不再出现在导航。
+- 主题配置（Setting `pluginTheme.config.neco-pixel`）完整保留，2.0.0 新增字段（`serversHint`、introItems 默认配图）按 schema 默认值自动补全。
+- SDK 说明：页面使用的 `sdk.site.*` 客户端属 SDK 1.7.0（本仓发布前插件经 `src/sdk-site.d.ts` 本地类型桥接消费，运行时宿主已注入实现）。

@@ -1,6 +1,10 @@
 name: neco-pixel
 displayName: NECO 像素风主题
-description: Minecraft 风格像素主题：接管公开站配色、像素字体与 8-bit 交互音效，同作用域主题自动顶替互斥。
+description: Minecraft 风格像素主题：Vue 原生 chrome/首页接管公开站，服务器列表与活动页复刻 NMO，像素字体与 MC 点击音效
 icon: i-ri:gamepad-line
 main: online.yudream.base.plugin.necopixel.bootstrap.NecoPixelThemePlugin
-version: 1.1.1
+version: 2.0.0
+softdepend:
+  - minecraft-server
+  - minecraft-activity-proof
+  - timeline
