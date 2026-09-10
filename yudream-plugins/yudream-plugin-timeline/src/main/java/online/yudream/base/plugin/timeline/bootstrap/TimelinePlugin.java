@@ -5,6 +5,7 @@ import online.yudream.base.plugin.timeline.application.TimelineEventService;
 import online.yudream.base.plugin.timeline.infrastructure.JsonSupport;
 import online.yudream.base.plugin.timeline.infrastructure.TimelineEventRepository;
 import online.yudream.base.plugin.timeline.interfaces.TimelineAdminController;
+import online.yudream.base.plugin.timeline.interfaces.TimelineThemeBlockProvider;
 import online.yudream.base.plugin.timeline.interfaces.TimelinePublicController;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -12,6 +13,7 @@ import online.yudream.base.plugin.spi.annotation.PluginPermissions;
 import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
+import online.yudream.base.plugin.spi.theme.PluginThemeBlockProvider;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 
 @PluginSpec(code = TimelinePlugin.CODE, name = "大事记", version = TimelinePlugin.VERSION,
@@ -28,7 +30,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class TimelinePlugin implements YuDreamPlugin {
     public static final String CODE = "timeline";
-    public static final String VERSION = "1.2.0";
+    public static final String VERSION = "1.3.0";
     public static final String MANAGE_PERMISSION = "plugin:timeline:manage";
 
     @Override
@@ -38,5 +40,6 @@ public final class TimelinePlugin implements YuDreamPlugin {
         TimelineEventService eventService = new TimelineEventService(events);
         context.registerHttpController(new TimelinePublicController(eventService));
         context.registerHttpController(new TimelineAdminController(eventService, json));
+        context.registerExtension(PluginThemeBlockProvider.class, new TimelineThemeBlockProvider(eventService));
     }
 }

@@ -12,6 +12,7 @@ import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServe
 import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServerUserController;
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
 import online.yudream.base.plugin.minecraft.interfaces.support.BriefText;
+import online.yudream.base.plugin.minecraft.interfaces.theme.ServerListThemeBlockProvider;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
@@ -20,6 +21,7 @@ import online.yudream.base.plugin.spi.annotation.PluginPermissions;
 import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
+import online.yudream.base.plugin.spi.theme.PluginThemeBlockProvider;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
@@ -41,7 +43,7 @@ import java.util.Set;
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
         name = "minecraft-server",
-        version = "1.4.1",
+        version = "1.5.0",
         description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
 )
 @PluginPermissions({
@@ -146,6 +148,7 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         statusScheduler.start();
         context.onDispose(statusScheduler);
         context.exposeService(PluginMinecraftService.class, appService);
+        context.registerExtension(PluginThemeBlockProvider.class, new ServerListThemeBlockProvider(appService));
         MinecraftServerHttpFacade http = new MinecraftServerHttpFacade(appService);
         context.registerHttpController(new MinecraftServerUserController(http));
         context.registerHttpController(new MinecraftServerAdminController(http));

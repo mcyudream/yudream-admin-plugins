@@ -7,6 +7,7 @@ import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDepen
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
 import online.yudream.base.plugin.activityproof.interfaces.http.ActivityProofHttpFacade;
+import online.yudream.base.plugin.activityproof.interfaces.theme.ActivitySquareThemeBlockProvider;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginDashboardCard;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
@@ -16,12 +17,13 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.spi.theme.PluginThemeBlockProvider;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.3.0",
+        version = "2.4.0",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -175,6 +177,7 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
         ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService, quizService);
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
+        context.registerExtension(PluginThemeBlockProvider.class, new ActivitySquareThemeBlockProvider(appService));
     }
 
     /** QQ 群活动报名：/报名 {活动ID}；官方连接的活动通知按钮点击后即以该指令发出。 */

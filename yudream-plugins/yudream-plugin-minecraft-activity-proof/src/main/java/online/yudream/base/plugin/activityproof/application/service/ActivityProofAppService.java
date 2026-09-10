@@ -887,6 +887,21 @@ public class ActivityProofAppService {
 
     // ---------------------------------------------------------------- user: square & participation
 
+    /**
+     * 活动广场公开子集（主题块用，匿名可见）：仅面向全体部门且已发布/已结束的活动，
+     * 按活动开始时间倒序；部门限定的活动不向匿名公开站暴露。
+     */
+    public List<Activity> publicSquareActivities(int limit) {
+        int capped = limit <= 0 ? 6 : Math.min(limit, 24);
+        return allActivities().stream()
+                .filter(activity -> activity.status() == ActivityStatus.PUBLISHED || activity.status() == ActivityStatus.CLOSED)
+                .filter(activity -> activity.deptMode() == ActivityDeptMode.ALL)
+                .sorted(Comparator.comparingLong(Activity::activityStart).reversed()
+                        .thenComparing(Comparator.comparingLong(Activity::publishedAt).reversed()))
+                .limit(capped)
+                .toList();
+    }
+
     public ActivityProofPageDTO<UserActivityDTO> userActivities(String userId, int page, int size) {
         String safeUserId = requireText(userId, "请先登录");
         Set<String> myDeptIds = myDeptIds(safeUserId);

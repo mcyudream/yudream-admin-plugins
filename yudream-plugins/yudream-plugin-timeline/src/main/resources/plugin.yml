@@ -3,4 +3,4 @@ displayName: 团队大事记
 description: 记录并展示团队历史事件、里程碑和荣誉。
 icon: i-ri:history-line
 main: online.yudream.base.plugin.timeline.bootstrap.TimelinePlugin
-version: 1.2.0
+version: 1.3.0
