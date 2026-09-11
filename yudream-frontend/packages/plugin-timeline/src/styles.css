@@ -647,7 +647,32 @@
   background: color-mix(in srgb, var(--tl-primary) 10%, transparent);
 }
 
-/* 详情浮层（Teleport 到 body，需自行挂载 --tl-*，否则 Markdown 正文对比度丢失） */
+/* 详情浮层（Teleport 到 body，不能继承 .tl-page / .neco-chrome 的 --yb-site-*）。
+   html:has(.neco-chrome) 表示公开站走 NMO 深色；浅色主题与默认站继续浅底。 */
+html:has(.neco-chrome) .tl-overlay,
+html:has(.site-chrome.is-theme-chrome) .tl-overlay {
+  --tl-primary: var(--neco-accent-light, #6cc349);
+  --tl-text: #f7f5ee;
+  --tl-heading: #ffffff;
+  --tl-muted: rgba(247, 245, 238, 0.78);
+  --tl-caption: rgba(247, 245, 238, 0.55);
+  --tl-surface: #313131;
+  --tl-border: #555555;
+  --tl-bg: #171615;
+}
+
+html[data-theme='light']:has(.neco-chrome) .tl-overlay,
+html[data-theme='light']:has(.site-chrome.is-theme-chrome) .tl-overlay {
+  --tl-primary: var(--neco-accent, #4e7a2e);
+  --tl-text: #2b2b2b;
+  --tl-heading: #171615;
+  --tl-muted: #5d5a54;
+  --tl-caption: #8a857a;
+  --tl-surface: #f7f5ee;
+  --tl-border: #b9b4a8;
+  --tl-bg: #eceae2;
+}
+
 .tl-overlay {
   --tl-primary: var(--yb-site-primary, #5b6cff);
   --tl-text: var(--yb-site-text, var(--color-text-1, #1d2129));
