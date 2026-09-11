@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, ComposeRule, ImportResult, Page, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, ScreenDrawResult, SessionSummary, SessionView, SharedComposeView, TagView } from '../types'
+import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, ComposeRule, DrawApiOptions, DrawApiQuery, DrawApiResult, ImportResult, Page, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, ScreenDrawResult, SessionSummary, SessionView, SharedComposeView, TagView } from '../types'
 
 type AiCatalog = {
   providers: () => Promise<AiProviderOption[]>
@@ -60,6 +60,16 @@ export function createQuestionBankApi(sdk: YuDreamPluginSdk) {
     attemptPaper: (paperId: string) =>
       sdk.http.post<SessionView>(`/me/papers/${id(paperId)}/attempt`),
     quizLeaderboard: () => records<QuizRankEntry>(sdk.http.get('/me/quiz/leaderboard')),
+    // ---------- 抽题 API（/draw，USE 权限；浏览器会话与 API Key 均可） ----------
+    draw: (params: DrawApiQuery) => sdk.http.get<DrawApiResult>(`/draw${query({
+      categoryId: params.categoryId,
+      tags: params.tags,
+      type: params.type,
+      difficulty: params.difficulty,
+      seed: params.seed,
+      count: params.count,
+    })}`),
+    drawOptions: () => sdk.http.get<DrawApiOptions>('/draw/options'),
     // ---------- 管理端（/admin/**，跨用户） ----------
     adminQuestions: (keyword = '', categoryId = '', tag = '', type = '', difficulty?: number, status = '', page = 1, size = 20) =>
       sdk.http.get<Page<QuestionView>>(`/admin/questions${query({ keyword, categoryId, tag, type, difficulty, status, page, size })}`),

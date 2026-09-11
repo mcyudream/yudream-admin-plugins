@@ -46,6 +46,7 @@ public class MediaJobService {
     private static final long FALLBACK_FORWARD_UIN = 10001L;
     private static final Duration MEDIA_TIMEOUT = Duration.ofMinutes(10);
     private static final Duration OFFICIAL_FILE_TTL = Duration.ofHours(6);
+    static final int OFFICIAL_COMMENT_LIMIT = 10;
     private static final Pattern BILIBILI_BV_ID = Pattern.compile("BV[0-9A-Za-z]{10}");
     private static final Pattern MEDIA_LINK = Pattern.compile("https?://(?:v\\.douyin\\.com|www\\.douyin\\.com|www\\.bilibili\\.com|b23\\.tv)/\\S+", Pattern.CASE_INSENSITIVE);
     private static final Logger LOGGER = Logger.getLogger(MediaJobService.class.getName());
@@ -171,11 +172,14 @@ public class MediaJobService {
         resolveMediaWithRetry(request, 3).whenComplete((media, error) -> {
                     if (error != null || media == null || (media.deliveryUri().isBlank() && media.imageUrls().isEmpty())) {
                         if (isDouyinImageDownload(request, error)) {
-                            sendDouyinImagePostWithRetry(request, target, 3).whenComplete((ignored, imageError) -> {
+                            sendDouyinImagePostWithRetry(request, target, 3).whenComplete((delivery, imageError) -> {
                                 if (imageError != null) {
                                     LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] media image post failed: id=" + id, imageError);
                                     save(id, connectionId, channelId, sourceUrl, trigger, "FAILED", null, sanitize(imageError));
                                     return;
+                                }
+                                if (delivery != null && delivery.commentError() != null) {
+                                    saveCommentError(id, sanitize(delivery.commentError()));
                                 }
                                 save(id, connectionId, channelId, sourceUrl, trigger, "COMPLETED", request.endpoint().toString(), null);
                             });
@@ -201,9 +205,11 @@ public class MediaJobService {
     private CompletionStage<DeliveryResult> deliver(MediaRequest request, DeliveryTarget target, ResolvedMedia media) {
         if (request.official()) {
             if (!media.imageUrls().isEmpty()) {
-                return sendOfficialImages(target, media.imageUrls()).thenApply(ignored -> DeliveryResult.success());
+                return sendOfficialImages(target, media.imageUrls())
+                        .thenCompose(ignored -> sendOfficialComments(request, target, media));
             }
-            return sendResult(target, media.deliveryUri()).thenApply(ignored -> DeliveryResult.success());
+            return sendResult(target, media.deliveryUri())
+                    .thenCompose(ignored -> sendOfficialComments(request, target, media));
         }
         if (!request.dockerDownload() || !isDouyinSource(request.sourceUrl())) {
             return sendResult(target, media.deliveryUri()).thenApply(ignored -> DeliveryResult.success());
@@ -227,6 +233,104 @@ public class MediaJobService {
                             List.of(new PluginMessageContent.Attachment(imageUrl, "image.jpg", "image/jpeg")), target.referrer()))));
         }
         return chain;
+    }
+
+    /**
+     * 官方协议没有合并转发。视频/图文发出后，另发一条 markdown 评论摘要（最多 10 条）。
+     * 评论拉取失败不影响已发出的媒体。
+     */
+    private CompletionStage<DeliveryResult> sendOfficialComments(MediaRequest request, DeliveryTarget target, ResolvedMedia media) {
+        if (!isDouyinSource(request.sourceUrl())) {
+            return CompletableFuture.completedFuture(DeliveryResult.success());
+        }
+        return fetchDouyinCommentsForMedia(request, commentAwemeId(media), target)
+                .handle((comments, error) -> {
+                    if (error != null) {
+                        LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] official douyin comments fetch failed", error);
+                        return new CommentFetch(List.of(), error);
+                    }
+                    return new CommentFetch(comments == null ? List.of() : comments, null);
+                })
+                .thenCompose(result -> sendOfficialCommentMarkdown(target, result.messages())
+                        .thenApply(ignored -> new DeliveryResult(result.error()))
+                        .exceptionally(error -> {
+                            LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] official douyin comments send failed", error);
+                            return new DeliveryResult(result.error() != null ? result.error() : error);
+                        }));
+    }
+
+    private CompletionStage<?> sendOfficialCommentMarkdown(DeliveryTarget target, List<Map<String, Object>> comments) {
+        String markdown = officialCommentsMarkdown(comments);
+        if (!nonBlank(markdown)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return framework.messaging().send(new PluginMessageRequest(
+                target.connectionId(), target.platform(), target.selfId(), target.channelId(),
+                new PluginMessageContent(PluginMessageContent.Type.MARKDOWN, markdown, null, target.referrer())));
+    }
+
+    static String officialCommentsMarkdown(List<Map<String, Object>> comments) {
+        if (comments == null || comments.isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        int taken = 0;
+        for (Map<String, Object> comment : comments) {
+            if (taken >= OFFICIAL_COMMENT_LIMIT) {
+                break;
+            }
+            String nickname = String.valueOf(comment.getOrDefault("sender_name", "抖音用户")).trim();
+            if (nickname.isBlank()) {
+                nickname = "抖音用户";
+            }
+            String text = commentText(comment);
+            if (!nonBlank(text)) {
+                continue;
+            }
+            taken++;
+            lines.add(taken + ". **" + escapeOfficialMarkdown(nickname) + "**：" + escapeOfficialMarkdown(text));
+        }
+        if (lines.isEmpty()) {
+            return "";
+        }
+        return "### 评论区（前 " + lines.size() + " 条）\n" + String.join("\n", lines);
+    }
+
+    private static String commentText(Map<String, Object> comment) {
+        Object segments = comment.get("segments");
+        if (!(segments instanceof List<?> list)) {
+            return "";
+        }
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> segment)) {
+                continue;
+            }
+            if (!"text".equals(String.valueOf(segment.get("type")))) {
+                continue;
+            }
+            Object data = segment.get("data");
+            if (data instanceof Map<?, ?> payload) {
+                Object text = payload.get("text");
+                if (text != null && !String.valueOf(text).isBlank()) {
+                    return String.valueOf(text).trim();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String escapeOfficialMarkdown(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.replace("\\", "\\\\")
+                .replace("*", "\\*")
+                .replace("_", "\\_")
+                .replace("`", "\\`")
+                .replace("[", "\\[")
+                .replace("]", "\\]")
+                .replace("\r", " ")
+                .replace("\n", " ");
     }
 
     private java.util.concurrent.CompletionStage<?> sendResult(DeliveryTarget target, String downloadUrl) {
@@ -254,7 +358,7 @@ public class MediaJobService {
         ));
     }
 
-    private CompletionStage<?> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
+    private CompletionStage<DeliveryResult> sendDouyinImagePost(MediaRequest request, DeliveryTarget target) {
         URI endpoint = douyinMetadataEndpoint(request, false);
         HttpRequest metadataRequest = HttpRequest.newBuilder(endpoint).timeout(MEDIA_TIMEOUT).GET().build();
         return client.sendAsync(metadataRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
@@ -262,6 +366,11 @@ public class MediaJobService {
                 .thenCompose(data -> {
                     List<String> images = douyinImageUrls(data);
                     if (images.isEmpty()) return CompletableFuture.failedFuture(new IllegalStateException("Douyin image post did not return images"));
+                    if (request.official()) {
+                        return sendOfficialImages(target, images)
+                                .thenCompose(ignored -> sendOfficialComments(request, target,
+                                        new ResolvedMedia("", "", images, data.path("aweme_id").asText())));
+                    }
                     String nickname = nonBlank(data.path("author").path("nickname").asText())
                             ? data.path("author").path("nickname").asText() : "Douyin media";
                     long userId = forwardUserId(target.forwardFallbackUserId());
@@ -272,19 +381,18 @@ public class MediaJobService {
                                 if (error != null) LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin audio localization failed", error);
                                 return audioUri;
                             })
-                            .thenCompose(audioUri -> {
-                                return fetchDouyinCommentsForMedia(request, data.path("aweme_id").asText(), target)
-                                        .exceptionally(error -> {
-                                            LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin comments fetch failed", error);
-                                            return List.of();
-                                        })
-                                        .thenCompose(comments -> {
-                                            messages.addAll(comments);
-                                            return sendForward(target, messages, "Douyin media and comments",
-                                                    "Media and comments", "Douyin media and comments")
-                                                    .thenCompose(ignored -> sendDouyinRecord(target, audioUri));
-                                        });
-                            });
+                            .thenCompose(audioUri -> fetchDouyinCommentsForMedia(request, data.path("aweme_id").asText(), target)
+                                    .exceptionally(error -> {
+                                        LOGGER.log(Level.WARNING, "[QQ 群自动化] [媒体解析] douyin comments fetch failed", error);
+                                        return List.of();
+                                    })
+                                    .thenCompose(comments -> {
+                                        messages.addAll(comments);
+                                        return sendForward(target, messages, "Douyin media and comments",
+                                                "Media and comments", "Douyin media and comments")
+                                                .thenCompose(ignored -> sendDouyinRecord(target, audioUri))
+                                                .thenApply(ignored -> DeliveryResult.success());
+                                    }));
                 });
     }
 
@@ -407,6 +515,22 @@ public class MediaJobService {
                 .thenApply(response -> forwardCommentMessages(response, target.forwardFallbackUserId()));
     }
 
+    private String commentAwemeId(ResolvedMedia media) {
+        String extracted = douyinAwemeId(media.commentSource());
+        if (nonBlank(extracted)) {
+            return extracted;
+        }
+        extracted = douyinAwemeId(media.deliveryUri());
+        if (nonBlank(extracted)) {
+            return extracted;
+        }
+        String hint = media.commentSource();
+        if (nonBlank(hint) && !hint.contains("://") && !hint.contains("/")) {
+            return hint;
+        }
+        return null;
+    }
+
     private String douyinAwemeId(String deliveryUri) {
         Matcher matcher = Pattern.compile("douyin_(\\d+)(?:\\D|$)").matcher(deliveryUri == null ? "" : deliveryUri);
         return matcher.find() ? matcher.group(1) : null;
@@ -508,7 +632,7 @@ public class MediaJobService {
         return request.dockerDownload() && isDouyinSource(request.sourceUrl()) && root instanceof DouyinImageDownloadException;
     }
 
-    private boolean nonBlank(String value) {
+    private static boolean nonBlank(String value) {
         return value != null && !value.isBlank();
     }
 
@@ -597,7 +721,7 @@ public class MediaJobService {
             String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
             files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, contentType(filename));
             String source = officialDeliverySource(bytes, filename, objectKey);
-            return new ResolvedMedia(source, source, List.of());
+            return new ResolvedMedia(source, source, List.of(), milkyUri);
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -734,7 +858,7 @@ public class MediaJobService {
             String objectKey = "official/" + UUID.randomUUID() + "/" + filename;
             files().put(objectKey, new ByteArrayInputStream(bytes), bytes.length, "video/mp4");
             String source = officialDeliverySource(bytes, filename, objectKey);
-            return new ResolvedMedia(source, source, List.of());
+            return new ResolvedMedia(source, source, List.of(), milky.deliveryUri());
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -844,7 +968,7 @@ public class MediaJobService {
         return withRetry(() -> resolveMedia(request), attempts);
     }
 
-    private CompletionStage<?> sendDouyinImagePostWithRetry(MediaRequest request, DeliveryTarget target, int attempts) {
+    private CompletionStage<DeliveryResult> sendDouyinImagePostWithRetry(MediaRequest request, DeliveryTarget target, int attempts) {
         return withRetry(() -> sendDouyinImagePost(request, target), attempts);
     }
 
@@ -1093,7 +1217,11 @@ public class MediaJobService {
     }
 
     private record MediaRequest(URI endpoint, boolean dockerDownload, String sourceUrl, boolean official) { }
-    private record ResolvedMedia(String downloadUrl, String deliveryUri, List<String> imageUrls) { }
+    private record ResolvedMedia(String downloadUrl, String deliveryUri, List<String> imageUrls, String commentSource) {
+        private ResolvedMedia(String downloadUrl, String deliveryUri, List<String> imageUrls) {
+            this(downloadUrl, deliveryUri, imageUrls, deliveryUri);
+        }
+    }
     private record CommentFetch(List<Map<String, Object>> messages, Throwable error) { }
     private record DeliveryResult(Throwable commentError) {
         private static DeliveryResult success() { return new DeliveryResult(null); }

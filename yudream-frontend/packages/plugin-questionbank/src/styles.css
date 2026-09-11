@@ -200,6 +200,39 @@
   font-weight: 500;
 }
 
+.qb-api-example {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--muted, #f1f5f9);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+  max-height: 420px;
+  overflow: auto;
+  width: 100%;
+}
+
+.qb-draw-api {
+  display: grid;
+  gap: 16px;
+}
+
+.qb-draw-api-io {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .qb-draw-api-io {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .qb-blank-editor {
   display: grid;
   gap: 8px;

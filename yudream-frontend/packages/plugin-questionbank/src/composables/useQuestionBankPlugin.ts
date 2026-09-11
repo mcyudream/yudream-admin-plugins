@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, SessionSummary, SessionView, TagView } from '../types'
+import type { AiProviderOption, AnswerPayload, CategoryView, ComposeOptions, ComposeRecordView, DrawApiOptions, PaperPayload, PaperPrintView, PaperView, PluginSettings, PracticeFilter, PracticeMeta, QuestionPayload, QuestionView, QuizRankEntry, SessionSummary, SessionView, TagView } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createQuestionBankApi, saveBlob } from '../api/questionbank-api'
@@ -80,6 +80,18 @@ export function useQuestionBankPlugin(sdk: YuDreamPluginSdk) {
   const composeRecordDetailLoading = ref(false)
   /** 是否具备题库管理权限：管理端组卷记录（/admin/**）据此开放「我的/全部」切换与创建者列；个人练习数据不经此开关。 */
   const questionbankManager = computed(() => (sdk.account?.permissions ?? []).includes('plugin:questionbank:manage'))
+  const drawOptions = reactive<DrawApiOptions>({ categories: [], tags: [] })
+
+  async function loadDrawOptions() {
+    try {
+      const options = await api.drawOptions()
+      drawOptions.categories = options.categories ?? []
+      drawOptions.tags = options.tags ?? []
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
 
   function clampPage(pager: { page: number, size: number, total: number }, count: number) {
     if (count <= 0 && pager.page > 1) {
@@ -842,6 +854,9 @@ export function useQuestionBankPlugin(sdk: YuDreamPluginSdk) {
     composeRecordDetail,
     composeRecordDetailLoading,
     questionbankManager,
+    drawOptions,
+    copyText,
+    loadDrawOptions,
     loadMeta,
     refreshPoolCount,
     startPractice,

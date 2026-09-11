@@ -130,7 +130,8 @@ public final class QuestionBankAdminController {
                         markdown.getBytes(StandardCharsets.UTF_8));
             }
             String jsonText = questionService.exportJson(query);
-            return HttpSupport.download("题库导出.json", "application/json; charset=utf-8",
+            // 宿主前端 blob 下载把 application/json 响应当错误信封处理，这里用 octet-stream 绕过
+            return HttpSupport.download("题库导出.json", "application/octet-stream",
                     jsonText.getBytes(StandardCharsets.UTF_8));
         });
     }

@@ -70,6 +70,26 @@ export interface TagView {
   count: number
 }
 
+export interface DrawApiQuery {
+  categoryId?: string
+  tags?: string
+  type?: string
+  difficulty?: number
+  seed?: string
+  count?: number
+}
+
+export interface DrawApiResult {
+  questions: QuestionView[]
+  seed: string
+  total: number | string
+}
+
+export interface DrawApiOptions {
+  categories: { id: string, name: string, questionCount?: number | string }[]
+  tags: TagView[]
+}
+
 export interface PracticeMeta {
   total: number
   categories: { id: string, name: string, count: number }[]

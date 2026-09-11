@@ -1,12 +1,15 @@
 package online.yudream.base.plugin.questionbank.application;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.TreeSet;
+import java.util.concurrent.ThreadLocalRandom;
 import online.yudream.base.plugin.questionbank.domain.Question;
 import online.yudream.base.plugin.questionbank.domain.QuestionType;
 import online.yudream.base.plugin.questionbank.infrastructure.Ids;
@@ -26,6 +29,7 @@ public final class QuestionService {
     private static final int MAX_OPTIONS = 26;
     private static final int MAX_BLANKS = 20;
     private static final int MAX_IMPORT = 500;
+    private static final int MAX_DRAW_COUNT = 50;
 
     private final QuestionRepository questions;
     private final CategoryService categoryService;
@@ -82,6 +86,31 @@ public final class QuestionService {
 
     public Question require(String id) {
         return questions.findById(id).orElseThrow(() -> new NotFoundException("题目不存在"));
+    }
+
+    public record DrawResult(List<Question> questions, long seed, int total) {
+    }
+
+    /**
+     * 随机抽题（仅启用题），供 API（含 API Key）调用。空条件不参与过滤；
+     * seed 为空时随机生成并回传，相同 seed + 相同条件结果可复现。
+     */
+    public DrawResult randomDraw(String categoryId, List<String> tags, List<String> types,
+                                 Integer difficulty, Long seed, int count) {
+        if (count < 1 || count > MAX_DRAW_COUNT) {
+            throw new IllegalArgumentException("抽题数量必须在 1~" + MAX_DRAW_COUNT + " 之间");
+        }
+        List<Question> pool = new ArrayList<>(QuestionPool.filter(
+                questions.listAll().stream().filter(Question::enabled).toList(),
+                categoryId, tags, types,
+                difficulty == null ? List.of() : List.of(difficulty)));
+        if (pool.isEmpty()) {
+            throw new IllegalArgumentException("没有符合条件的启用题目，请调整筛选条件");
+        }
+        long actualSeed = seed == null ? ThreadLocalRandom.current().nextLong() : seed;
+        Collections.shuffle(pool, new Random(actualSeed));
+        return new DrawResult(List.copyOf(pool.subList(0, Math.min(count, pool.size()))),
+                actualSeed, pool.size());
     }
 
     public Question create(QuestionPayload payload, String operatorId, String operatorName) {

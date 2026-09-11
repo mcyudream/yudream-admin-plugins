@@ -19,6 +19,7 @@ import QuizRankPage from './pages/QuizRankPage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
 import SessionPage from './pages/SessionPage.vue'
 import SharedComposePage from './pages/SharedComposePage.vue'
+import DrawApiPage from './pages/DrawApiPage.vue'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk, route?: { meta?: { plugin?: { component?: string } } } }>()
 const model = useQuestionBankPlugin(props.sdk)
@@ -56,6 +57,8 @@ const page = computed(() => {
       return QuizRankPage
     case 'SharedCompose':
       return SharedComposePage
+    case 'DrawApi':
+      return DrawApiPage
     default:
       return PracticePage
   }

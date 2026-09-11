@@ -3,15 +3,11 @@
 # listed here. Edit this file in the release commit; one artifactId per line,
 # no duplicates, every entry must be a root-reactor module. Local and branch
 # builds ignore this file and always build the full reactor.
-yudream-plugin-material
+yudream-plugin-neco-pixel
 yudream-plugin-mc-wiki
-yudream-plugin-mcguess
+yudream-plugin-minecraft-activity-proof
 yudream-plugin-minecraft-server
-yudream-plugin-pony
-yudream-plugin-project-progress
-yudream-plugin-wordle
-yudream-plugin-world-map
-yudream-plugin-alipay
-yudream-plugin-yudream-skin
-yudream-plugin-student-info
-yudream-plugin-wallet
+yudream-plugin-timeline
+yudream-plugin-ai-chatbot
+yudream-plugin-qqbot-automation
+yudream-plugin-questionbank

@@ -21,6 +21,7 @@ export const AdminCompose = QuestionBankPlugin
 export const BuzzScreen = QuestionBankPlugin
 export const SharedCompose = QuestionBankPlugin
 export const QuizRank = QuestionBankPlugin
+export const DrawApi = QuestionBankPlugin
 
 export const routes = {
   Practice,
@@ -53,6 +54,8 @@ export const routes = {
   'questionbank/BuzzScreen': BuzzScreen,
   'questionbank/SharedCompose': SharedCompose,
   'questionbank/QuizRank': QuizRank,
+  DrawApi,
+  'questionbank/DrawApi': DrawApi,
 }
 
 export default defineYuDreamPlugin({

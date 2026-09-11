@@ -35,7 +35,9 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginPermission(code = QuestionBankPlugin.COMPOSE_PERMISSION, name = "组卷", module = "题库",
                 description = "随机/手动组卷、导出 Word 与抢答大屏放映，不能维护题目与题库设置"),
         @PluginPermission(code = QuestionBankPlugin.MANAGE_PERMISSION, name = "管理题库", module = "题库",
-                description = "题目/分类/标签维护、导入导出与跨用户练习记录")
+                description = "题目/分类/标签维护、导入导出与跨用户练习记录"),
+        @PluginPermission(code = QuestionBankPlugin.USE_PERMISSION, name = "随机抽题", module = "题库",
+                description = "通过抽题 API 随机获取题目（含答案与解析）；前端「抽题 API」试用页与 API Key（X-API-Key）均需本权限")
 })
 @PluginFrontend(moduleName = "questionbank", menuTitle = "题库", menuIcon = "i-ri:questionnaire-line", menuSort = 73, styles = {"style.css"}, routes = {
         @PluginRoute(path = "/platform/plugins/questionbank", name = "platform-plugin-questionbank-practice", title = "题库练习",
@@ -48,6 +50,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                 icon = "i-ri:file-paper-2-line", component = "questionbank/Papers", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 15),
         @PluginRoute(path = "/platform/plugins/questionbank/quiz-rank", name = "platform-plugin-questionbank-quiz-rank", title = "抢答排行",
                 icon = "i-ri:trophy-line", component = "questionbank/QuizRank", permission = QuestionBankPlugin.VIEW_PERMISSION, sort = 16),
+        @PluginRoute(path = "/platform/plugins/questionbank/draw", name = "platform-plugin-questionbank-draw", title = "抽题 API",
+                icon = "i-ri:code-s-slash-line", component = "questionbank/DrawApi", permission = QuestionBankPlugin.USE_PERMISSION, sort = 17),
         @PluginRoute(path = "/platform/plugins/questionbank/admin", name = "platform-plugin-questionbank-admin", title = "题目管理",
                 icon = "i-ri:archive-stack-line", component = "questionbank/Admin", permission = QuestionBankPlugin.MANAGE_PERMISSION, sort = 90),
         @PluginRoute(path = "/platform/plugins/questionbank/admin/questions/edit", name = "platform-plugin-questionbank-admin-question-edit", title = "编辑题目",
@@ -75,10 +79,11 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class QuestionBankPlugin implements YuDreamPlugin {
     public static final String CODE = "questionbank";
-    public static final String VERSION = "1.2.1";
+    public static final String VERSION = "1.3.0";
     public static final String VIEW_PERMISSION = "plugin:questionbank:view";
     public static final String COMPOSE_PERMISSION = "plugin:questionbank:compose";
     public static final String MANAGE_PERMISSION = "plugin:questionbank:manage";
+    public static final String USE_PERMISSION = "plugin:questionbank:use";
     /** 自由刷题入口路由路径，菜单显隐随 practiceEnabled 开关联动。 */
     private static final String PRACTICE_ROUTE_PATH = "/platform/plugins/questionbank";
 
@@ -116,6 +121,8 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
         context.registerHttpController(new QuestionBankMeController(practiceService, paperService, quizScoreService, json));
         context.registerHttpController(new QuestionBankAdminController(questionService, categoryService,
                 recordService, paperService, settingsService, aiImportService, aiImportJobService, json));
+        context.registerHttpController(new online.yudream.base.plugin.questionbank.interfaces.QuestionBankDrawController(
+                questionService, categoryService));
 
         online.yudream.base.plugin.questionbank.application.ComposeService composeService =
                 new online.yudream.base.plugin.questionbank.application.ComposeService(questions, context.framework());

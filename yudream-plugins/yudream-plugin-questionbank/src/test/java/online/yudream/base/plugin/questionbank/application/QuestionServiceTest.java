@@ -147,4 +147,58 @@ class QuestionServiceTest {
             throw new AssertionError(e);
         }
     }
+
+    @Test
+    void randomDrawSameSeedIsReproducible() {
+        for (int i = 0; i < 10; i++) {
+            questionService.create(new QuestionPayload("SINGLE", null, null, List.of("t"),
+                    "题干" + i, List.of("甲", "乙"), "A", List.of(), List.of(), null, null, null, null), "1", null);
+        }
+        QuestionService.DrawResult first = questionService.randomDraw(null, List.of(), List.of(), null, 42L, 5);
+        QuestionService.DrawResult second = questionService.randomDraw(null, List.of(), List.of(), null, 42L, 5);
+        assertEquals(42L, first.seed());
+        assertEquals(10, first.total());
+        assertEquals(5, first.questions().size());
+        assertEquals(first.questions().stream().map(Question::id).toList(),
+                second.questions().stream().map(Question::id).toList());
+    }
+
+    @Test
+    void randomDrawGeneratesSeedWhenAbsent() {
+        questionService.create(singlePayload(), "1", null);
+        QuestionService.DrawResult result = questionService.randomDraw(null, List.of(), List.of(), null, null, 1);
+        assertEquals(1, result.questions().size());
+        // 回传的 seed 可再次复现同一道题
+        QuestionService.DrawResult replay = questionService.randomDraw(null, List.of(), List.of(), null, result.seed(), 1);
+        assertEquals(result.questions().get(0).id(), replay.questions().get(0).id());
+    }
+
+    @Test
+    void randomDrawOnlyEnabledAndFiltersByConditions() {
+        String categoryId = categoryService.create("编程", 0).id();
+        questionService.create(new QuestionPayload("SINGLE", categoryId, null, List.of("java"),
+                "启用题", List.of("甲", "乙"), "A", List.of(), List.of(), null, null, 2, null), "1", null);
+        questionService.create(new QuestionPayload("SINGLE", categoryId, null, List.of("java"),
+                "停用题", List.of("甲", "乙"), "A", List.of(), List.of(), null, null, 2, "DISABLED"), "1", null);
+        questionService.create(new QuestionPayload("TRUE_FALSE", null, null, List.of("sql"),
+                "其他题", List.of(), "对", List.of(), List.of(), null, null, 5, null), "1", null);
+
+        QuestionService.DrawResult result = questionService.randomDraw(
+                categoryId, List.of("java"), List.of("single"), 2, 7L, 10);
+        assertEquals(1, result.total());
+        assertEquals("启用题", result.questions().get(0).content());
+        // count 超过池大小时返回整个池
+        assertEquals(1, result.questions().size());
+    }
+
+    @Test
+    void randomDrawRejectsBadCountAndEmptyPool() {
+        questionService.create(singlePayload(), "1", null);
+        assertThrows(IllegalArgumentException.class,
+                () -> questionService.randomDraw(null, List.of(), List.of(), null, null, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> questionService.randomDraw(null, List.of(), List.of(), null, null, 51));
+        assertThrows(IllegalArgumentException.class,
+                () -> questionService.randomDraw(null, List.of("不存在的标签"), List.of(), null, null, 1));
+    }
 }

@@ -585,6 +585,78 @@ class MediaJobServiceTest {
     }
 
     @Test
+    void officialConnectionSendsTopTenCommentsAsMarkdown() throws Exception {
+        AtomicInteger sentMessages = new AtomicInteger();
+        List<PluginMessageRequest> requests = new CopyOnWriteArrayList<>();
+        InMemoryDocuments documents = new InMemoryDocuments();
+        AutomationPolicyService policies = new AutomationPolicyService(documents);
+        AtomicReference<String> storedKey = new AtomicReference<>();
+        Path mediaDirectory = Files.createTempDirectory("qqbot-milky-media-");
+        Path video = mediaDirectory.resolve("douyin_video");
+        Files.createDirectories(video);
+        Files.writeString(video.resolve("douyin_7663032596767428986.mp4"), "official-video");
+        StringBuilder comments = new StringBuilder("{\"data\":{\"comments\":[");
+        comments.append("{\"text\":\"\",\"user\":{\"nickname\":\"表情用户\"},\"sticker\":{\"static_url\":{\"url_list\":[\"https://cdn.example.test/sticker.png\"]}}},");
+        for (int index = 1; index <= 12; index++) {
+            if (index > 1) {
+                comments.append(',');
+            }
+            comments.append("{\"text\":\"评论").append(index).append("\",\"user\":{\"nickname\":\"用户").append(index).append("\"}}");
+        }
+        comments.append("]}}");
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/api/download", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "video/mp4");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"douyin_7663032596767428986.mp4\"");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.close();
+        });
+        server.createContext("/api/douyin/web/fetch_video_comments", exchange -> writeJson(exchange, 200, comments.toString()));
+        try {
+            server.start();
+            MediaStorageSettings mediaSettings = new MediaStorageSettings(new InMemorySecrets());
+            mediaSettings.save(mediaDirectory.toString(), "/media");
+            policies.saveDefaults(new AutomationPolicy("connection-official", "", true, true,
+                    "http://localhost:" + server.getAddress().getPort(), false, List.of(), List.of(), false, true, "", ""));
+            MediaJobService service = service(policies, documents,
+                    officialFramework(sentMessages, null, storedKey,
+                            "/api/public/preview/file/token/video.mp4", "", requests), mediaSettings);
+
+            String jobId = service.startTest(new MediaJobTestRequest("connection-official", "group-a", "https://v.douyin.com/example"));
+
+            await(() -> sentMessages.get() >= 2 && "COMPLETED".equals(job(documents, jobId).get("status")));
+            assertEquals("COMPLETED", job(documents, jobId).get("status"), String.valueOf(job(documents, jobId).get("error")));
+            assertEquals(2, requests.size());
+            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.VIDEO, requests.get(0).content().type());
+            assertEquals(online.yudream.base.plugin.spi.system.messaging.PluginMessageContent.Type.MARKDOWN, requests.get(1).content().type());
+            String markdown = requests.get(1).content().content();
+            assertTrue(markdown.startsWith("### 评论区（前 10 条）"), markdown);
+            assertTrue(markdown.contains("**用户1**：评论1"), markdown);
+            assertTrue(markdown.contains("**用户10**：评论10"), markdown);
+            assertFalse(markdown.contains("评论11"), markdown);
+            assertFalse(markdown.contains("表情用户"), markdown);
+        } finally {
+            server.stop(0);
+            deleteTree(mediaDirectory);
+        }
+    }
+
+    @Test
+    void officialCommentsMarkdownTakesFirstTenTextComments() {
+        List<Map<String, Object>> comments = new ArrayList<>();
+        comments.add(Map.of("sender_name", "表情用户", "segments", List.of(Map.of("type", "image", "data", Map.of("uri", "https://cdn.example.test/a.png")))));
+        for (int index = 1; index <= 12; index++) {
+            comments.add(Map.of("sender_name", "用户" + index,
+                    "segments", List.of(Map.of("type", "text", "data", Map.of("text", "评论" + index)))));
+        }
+        String markdown = MediaJobService.officialCommentsMarkdown(comments);
+        assertTrue(markdown.startsWith("### 评论区（前 10 条）"));
+        assertTrue(markdown.contains("**用户10**：评论10"));
+        assertFalse(markdown.contains("评论11"));
+        assertFalse(markdown.contains("表情用户"));
+    }
+
+    @Test
     void officialConnectionWaitsAndDecodesSharedFilename() throws Exception {
         AtomicInteger sentMessages = new AtomicInteger();
         AtomicReference<PluginMessageRequest> sentRequest = new AtomicReference<>();
@@ -803,6 +875,12 @@ class MediaJobServiceTest {
 
     private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
                                                 AtomicReference<String> storedKey, String signedUrl, String callbackBaseUrl) {
+        return officialFramework(sentMessages, sentRequest, storedKey, signedUrl, callbackBaseUrl, null);
+    }
+
+    private FrameworkServices officialFramework(AtomicInteger sentMessages, AtomicReference<PluginMessageRequest> sentRequest,
+                                                AtomicReference<String> storedKey, String signedUrl, String callbackBaseUrl,
+                                                List<PluginMessageRequest> requests) {
         PluginMessagingService messaging = (PluginMessagingService) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{PluginMessagingService.class}, (proxy, method, args) -> {
                     if ("connections".equals(method.getName())) {
@@ -810,8 +888,13 @@ class MediaJobServiceTest {
                     }
                     if (method.getName().startsWith("send")) {
                         sentMessages.incrementAndGet();
-                        if (sentRequest != null && args != null && args.length > 0 && args[0] instanceof PluginMessageRequest request) {
-                            sentRequest.set(request);
+                        if (args != null && args.length > 0 && args[0] instanceof PluginMessageRequest request) {
+                            if (sentRequest != null) {
+                                sentRequest.set(request);
+                            }
+                            if (requests != null) {
+                                requests.add(request);
+                            }
                         }
                         return CompletableFuture.completedFuture(new PluginMessageResult(List.of("message-a"), false, false));
                     }
