@@ -31,8 +31,8 @@ function close(value: boolean) {
 </script>
 
 <template>
-  <FaDrawer :model-value="modelValue" :title="title" side="right" :show-confirm-button="false" :footer="false" content-class="w-[min(560px,calc(100vw-24px))]" @update:model-value="close">
-    <div v-if="recipe" class="flex flex-col gap-4">
+  <FaDrawer :model-value="modelValue" :title="title" side="right" :show-confirm-button="false" :footer="false" content-class="mc-wiki-drawer w-[min(560px,calc(100vw-24px))]" @update:model-value="close">
+    <div v-if="recipe" class="mc-wiki-drawer__body">
       <div class="flex items-center gap-3">
         <WikiIcon :src="iconUrl(recipe.resultId)" :label="title" :size="48" />
         <div class="flex min-w-0 flex-col gap-1">

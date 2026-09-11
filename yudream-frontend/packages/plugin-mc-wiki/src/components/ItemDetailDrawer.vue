@@ -71,8 +71,8 @@ function downloadName(): string {
 </script>
 
 <template>
-  <FaDrawer :model-value="modelValue" :title="itemName || '物品详情'" side="right" :show-confirm-button="false" :footer="false" content-class="w-[min(560px,calc(100vw-24px))]" @update:model-value="value => emit('update:modelValue', value)">
-    <div v-loading="loading" class="flex flex-col gap-4">
+  <FaDrawer :model-value="modelValue" :title="itemName || '物品详情'" side="right" :show-confirm-button="false" :footer="false" content-class="mc-wiki-drawer w-[min(560px,calc(100vw-24px))]" @update:model-value="value => emit('update:modelValue', value)">
+    <div v-loading="loading" class="mc-wiki-drawer__body">
       <p v-if="failed" class="m-0 text-sm text-destructive">物品详情加载失败，可能尚未发布百科版本。</p>
       <template v-if="detail">
         <div class="flex items-center gap-3">
