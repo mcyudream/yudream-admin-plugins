@@ -63,7 +63,7 @@
 | 大事记（/timeline） | `--tl-*` 桥接变量自动跟随 `--yb-site-*`；卡片方角硬阴影、时间轴圆点改方块、隐藏模糊光斑 |
 | 表单公开页（/forms/:code） | `.public-form-page` Arco 变量 + 面板方角立体边 |
 | 学历核验 / 世界地图 / 题库公开页 | `.ev-page`/`.world-map-viewer`/`.qb-screen`/`.qb-shared` 并入 Arco 变量换肤组 |
-| 登录 / 注册 | `/login`、`/register` 标 `public` 后套 SITE 主题；`.login-page` 深色像素面板、深板岩底与立体按钮 |
+| 登录 / 注册 | `/login`、`/register` 标 `public` 后套 SITE 主题；`.login-page` 像素字体、MC 村庄 ken-burns 背景、输入组去掉外圈 ring 改立体 bevel |
 | 未来新增的 siteNav 插件公开页 | 包在 `.plugin-site-page`/`.site-chrome` 内即自动继承；自带 `--xx-*` 桥接变量回退到 `--yb-site-*` 的插件（如 timeline）无需任何改动 |
 
 像素化通用处理：全局方角（`border-radius: 0`）、MC 立体边按钮（inset bevel + 按下反转）、硬位移卡片阴影、像素字体栈、选区/焦点/内部滚动条样式。

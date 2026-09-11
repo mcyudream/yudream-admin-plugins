@@ -3,7 +3,7 @@ displayName: NECO 像素风主题
 description: Minecraft 风格像素主题：Vue 原生 chrome/首页接管公开站，服务器列表与活动页复刻 NMO，像素字体与 MC 点击音效
 icon: i-ri:gamepad-line
 main: online.yudream.base.plugin.necopixel.bootstrap.NecoPixelThemePlugin
-version: 2.0.3
+version: 2.0.4
 softdepend:
   - minecraft-server
   - minecraft-activity-proof

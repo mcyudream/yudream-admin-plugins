@@ -334,7 +334,7 @@ html[data-theme='light'] .login-page {
 .wiki-search-page :focus-visible,
 .public-form-page :focus-visible,
 .tl-page :focus-visible,
-.login-page :focus-visible {
+.login-page :focus-visible:not(input):not(textarea):not([data-slot='input-group']):not([data-slot='input-group-control']) {
   outline: 2px solid var(--neco-accent);
   outline-offset: 1px;
   border-radius: 0;
@@ -1017,27 +1017,65 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
   .neco-anim-down,
   .neco-anim-left,
   .neco-anim-right,
-  .site-page .site-sections .site-section {
+  .site-page .site-sections .site-section,
+  .login-page::before {
     animation: none !important;
   }
 }
 
 /* ========== 登录 / 注册页（公开路由，SITE 主题生效） ========== */
+@keyframes neco-login-pan {
+  0% { background-position: 18% 28%; }
+  50% { background-position: 82% 72%; }
+  100% { background-position: 18% 28%; }
+}
+
 .login-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(15, 14, 13, 0.72), rgba(15, 14, 13, 0.88)),
-    url('blockbg/deepslate.png');
-  background-size: auto, 32px 32px;
-  image-rendering: pixelated;
+  background: #0f0e0d;
   color: var(--neco-text, #ffffff);
+  font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+}
+
+.login-page::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: auto;
+  background:
+    linear-gradient(180deg, rgba(15, 14, 13, 0.38), rgba(15, 14, 13, 0.78)),
+    url('background/bg.jpg') 18% 28% / cover no-repeat;
+  animation: neco-login-pan 42s ease-in-out infinite;
+}
+
+.login-page > * {
+  z-index: 1;
 }
 
 html[data-theme='light'] .login-page {
+  background: #eceae2;
+}
+
+html[data-theme='light'] .login-page::before {
   background:
-    linear-gradient(180deg, rgba(247, 245, 238, 0.78), rgba(236, 234, 226, 0.92)),
-    url('blockbg/blue-ice.png');
-  background-size: auto, 32px 32px;
+    linear-gradient(180deg, rgba(247, 245, 238, 0.48), rgba(236, 234, 226, 0.78)),
+    url('background/bg.jpg') 18% 28% / cover no-repeat;
+}
+
+.login-page :is(input, textarea, select, button, label, h1, h2, h3, h4, p, span, a, [role='tab']) {
+  font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+}
+
+.login-page h3,
+.login-page .login-form h3 {
+  font-family: 'Minecraft-Tenv2', 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+  color: var(--neco-text, #ffffff);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
 }
 
 .login-page .bg-banner {
@@ -1053,33 +1091,79 @@ html[data-theme='light'] .login-page {
 }
 
 .login-page .login-banner {
+  image-rendering: auto;
   background:
-    linear-gradient(135deg, var(--neco-bg-overlay-strong, rgba(0, 0, 0, 0.7)), var(--neco-bg-overlay, rgba(0, 0, 0, 0.5))),
-    url('blockbg/deepslate.png') !important;
-  background-size: auto, 32px 32px !important;
-  image-rendering: pixelated;
+    linear-gradient(135deg, var(--neco-bg-overlay-strong, rgba(0, 0, 0, 0.55)), var(--neco-bg-overlay, rgba(0, 0, 0, 0.28))),
+    url('background/bg.jpg') center / cover no-repeat !important;
 }
 
 .login-page .login-banner::before {
   display: none;
 }
 
-.login-page .login-form {
-  font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-}
-
-.login-page .login-form h3 {
-  color: var(--neco-text, #ffffff);
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
-}
-
 .login-page .login-form p,
-.login-page .login-form span {
+.login-page .login-form span,
+.login-page .login-form label {
   color: var(--neco-text-dim, rgba(255, 255, 255, 0.8));
 }
 
 .login-page :is(input, textarea, select, button) {
   border-radius: 0 !important;
+}
+
+.login-page input::placeholder,
+.login-page textarea::placeholder {
+  font-family: inherit !important;
+  color: var(--neco-text-disabled, rgba(255, 255, 255, 0.45)) !important;
+}
+
+.login-page [data-slot='input-group'] {
+  border-radius: 0 !important;
+  border: 2px solid #000 !important;
+  background: var(--neco-bg-input, #616161) !important;
+  box-shadow:
+    inset 2px 2px 0 var(--neco-bevel-dark, rgba(0, 0, 0, 0.55)),
+    inset -2px -2px 0 var(--neco-bevel-light, rgba(255, 255, 255, 0.18)) !important;
+  outline: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+  --un-ring-shadow: 0 0 #0000 !important;
+  --un-ring-offset-shadow: 0 0 #0000 !important;
+  --un-ring-width: 0px !important;
+}
+
+.login-page [data-slot='input-group']:has([data-slot='input-group-control']:focus-visible),
+.login-page [data-slot='input-group']:focus-within {
+  border-color: var(--neco-accent, #3c8527) !important;
+  outline: none !important;
+  box-shadow:
+    inset 2px 2px 0 var(--neco-bevel-dark, rgba(0, 0, 0, 0.55)),
+    inset -2px -2px 0 var(--neco-bevel-light, rgba(255, 255, 255, 0.18)) !important;
+}
+
+.login-page [data-slot='input-group'] :is(input, textarea),
+.login-page [data-slot='input-group'] :is(input, textarea):focus,
+.login-page [data-slot='input-group'] :is(input, textarea):focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+.login-page [data-slot='input-group'] :focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.login-page input:is(:autofill, :-webkit-autofill),
+.login-page input:is(:autofill, :-webkit-autofill):hover,
+.login-page input:is(:autofill, :-webkit-autofill):focus {
+  caret-color: #ffffff;
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 0 0 1000px var(--neco-bg-input, #616161) inset !important;
 }
 
 .login-page button[type='submit'] {

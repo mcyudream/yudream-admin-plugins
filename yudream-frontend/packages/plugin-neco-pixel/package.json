@@ -1,7 +1,7 @@
 {
   "name": "@yudream/plugin-neco-pixel",
   "private": true,
-  "version": "2.0.3",
+  "version": "2.0.4",
   "type": "module",
   "scripts": { "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0", "build": "vite build" },
   "dependencies": { "@yudream/components": "catalog:", "@yudream/plugin-sdk": "catalog:", "vue": "catalog:", "vue-router": "catalog:" },
