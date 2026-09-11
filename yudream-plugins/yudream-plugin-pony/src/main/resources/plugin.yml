@@ -3,4 +3,4 @@ displayName: 小马归位
 description: 在 QQ 群中进行协作推理棋盘游戏，并记录对局与玩家战绩。
 icon: i-ri:gamepad-line
 main: online.yudream.base.plugin.pony.bootstrap.PonyPlugin
-version: 1.0.2
+version: 1.0.3

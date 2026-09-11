@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @PluginSpec(
         code = ProjectProgressPlugin.CODE,
         name = "project-progress",
-        version = "1.0.0",
+        version = "1.2.2",
         description = "项目管理、进度监控、任务分配、打卡与验收插件，可选联动 Minecraft 在线时长。"
 )
 @PluginPermissions({
@@ -283,7 +283,29 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
                 command.event().selfId(), command.event().channelId(), content));
     }
 
-    private Map<String, Object> referrer(PluginCommandContext command) { return command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()); }
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private Map<String, Object> referrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
+    }
 
     private String message(RuntimeException exception) { return exception.getMessage() == null ? "操作失败" : exception.getMessage(); }
 

@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,7 @@ import java.util.concurrent.CompletionStage;
 @PluginSpec(
         code = YuDreamSkinPlugin.CODE,
         name = "yudream-skin",
-        version = "1.0.0",
+        version = "1.3.2",
         description = "基于 YuDream 插件运行时实现的 Minecraft 皮肤站，支持角色、材质、衣柜、CustomSkinAPI 与 Blessing Skin 数据迁移。"
 )
 @PluginPermissions({
@@ -252,15 +253,38 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
         }
         try (InputStream input = file.inputStream()) {
             String imageUri = "base64://" + Base64.getEncoder().encodeToString(input.readAllBytes());
-            contents.add(new PluginMessageContent(PluginMessageContent.Type.IMAGE, imageUri, null, Map.of()));
+            contents.add(new PluginMessageContent(PluginMessageContent.Type.IMAGE, imageUri, null, replyReferrer(command)));
         } catch (IOException exception) {
             contents.add(textContent(label + "材质读取失败", command));
         }
     }
 
     private PluginMessageContent textContent(String text, PluginCommandContext command) {
-        return new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null,
-                command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId()));
+        return new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command));
+    }
+
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private static Map<String, Object> replyReferrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private void sendSequentially(PluginCommandContext command, PluginContext context,

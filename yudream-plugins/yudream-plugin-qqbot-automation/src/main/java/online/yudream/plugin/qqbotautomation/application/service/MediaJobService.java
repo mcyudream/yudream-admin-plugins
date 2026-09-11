@@ -642,8 +642,28 @@ public class MediaJobService {
         return System.getProperty(name, fallback);
     }
 
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
     private Map<String, Object> replyTo(PluginEvent event) {
-        return event.messageId() == null || event.messageId().isBlank() ? Map.of() : Map.of("message_id", event.messageId());
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (event.nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = event.messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private DeliveryTarget deliveryTarget(String connectionId, String channelId) {

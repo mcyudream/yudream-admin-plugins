@@ -51,6 +51,7 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,7 +60,7 @@ import java.util.function.Supplier;
 @PluginSpec(
         code = McguessPlugin.CODE,
         name = "mcguess",
-        version = "3.0.2",
+        version = "3.0.3",
         description = "QQ 群 MC 猜谜：猜物（配方树推理）、猜生物（条件填格子）、猜合成（反向填配方）、"
                 + "迷雾（图标渐显）、快答（合成计数抢答）、宾果（5x5 连线）、找茬（配方找错格）、比大小（出现次数连胜）"
                 + "与物品图鉴收集；群回合制共享进度、结束后可立即再开新局，支持智能匹配、提示、战绩排行与图片棋盘。"
@@ -534,12 +535,10 @@ public class McguessPlugin implements YuDreamPlugin {
 
     private void reply(PluginCommandContext command, PluginContext context, String text,
                        List<PluginMessageContent.Button> buttons) {
-        String messageId = command.event().messageId();
-        Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command), buttons)));
     }
 
     /** 比大小作答按钮：点击直接以 /高、/低 发出（官方 QQ 连接原生交互，其余协议自动降级）。 */
@@ -669,13 +668,35 @@ public class McguessPlugin implements YuDreamPlugin {
                 reply(command, context, fallbackText, buttons);
                 return;
             }
-            String messageId = event.messageId();
-            Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, replyReferrer(command), buttons)));
         });
+    }
+
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private static Map<String, Object> replyReferrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private String safeMessage(RuntimeException e) {

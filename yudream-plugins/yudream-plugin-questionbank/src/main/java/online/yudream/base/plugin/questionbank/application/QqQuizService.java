@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.questionbank.application;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -327,9 +328,7 @@ public final class QqQuizService implements AutoCloseable {
 
     private void reply(PluginCommandContext command, PluginContext context, String text,
                        List<PluginMessageContent.Button> buttons) {
-        Map<String, Object> referrer = command.event().messageId() == null
-                ? Map.of() : Map.of("message_id", command.event().messageId());
-        send(command.event(), context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons));
+        send(command.event(), context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command.event()), buttons));
     }
 
     /** 出题后附「抢答榜」快捷按钮；查看榜单时附「再来一题」（官方 QQ 原生交互，其余协议自动降级）。 */
@@ -339,7 +338,31 @@ public final class QqQuizService implements AutoCloseable {
             PluginMessageContent.Button.command("questionbank-draw", "再来一题", "/抽题"));
 
     private void send(PluginEvent event, PluginContext context, String text) {
-        send(event, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, Map.of()));
+        send(event, context, new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(event)));
+    }
+
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private static Map<String, Object> replyReferrer(PluginEvent event) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (event.nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = event.messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private void send(PluginEvent event, PluginContext context, PluginMessageContent content) {

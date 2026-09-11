@@ -43,7 +43,7 @@ import java.util.Set;
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
         name = "minecraft-server",
-        version = "1.5.0",
+        version = "1.5.1",
         description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
 )
 @PluginPermissions({
@@ -345,8 +345,28 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
     private static final List<PluginMessageContent.Button> REFRESH_BUTTONS = List.of(
             PluginMessageContent.Button.command("minecraft-server-refresh", "刷新", "/服务器"));
 
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
     private Map<String, Object> replyReferrer(PluginCommandContext command) {
-        return command.event().messageId() == null ? Map.of() : Map.of("message_id", command.event().messageId());
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private void send(PluginCommandContext command, PluginContext context, PluginMessageContent content) {

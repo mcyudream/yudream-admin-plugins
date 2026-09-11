@@ -23,13 +23,14 @@ import online.yudream.base.plugin.wordle.interfaces.controller.WordleUserControl
 import online.yudream.base.plugin.wordle.interfaces.http.WordleHttpFacade;
 
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @PluginSpec(
         code = WordlePlugin.CODE,
         name = "wordle",
-        version = "1.2.3",
+        version = "1.2.4",
         description = "QQ 群 Wordle 猜词游戏：群内共享对局，支持英文单词与四字成语两种模式（成语带拼音声母/韵母/声调提示）、困难模式、战绩统计与排行榜。"
 )
 @PluginPermissions({
@@ -213,12 +214,10 @@ public class WordlePlugin implements YuDreamPlugin {
 
     private void reply(PluginCommandContext command, PluginContext context, String text,
                        List<PluginMessageContent.Button> buttons) {
-        String messageId = command.event().messageId();
-        Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command), buttons)));
     }
 
     /** 结束对局后的快捷指令按钮：直接再开一局单词或成语。 */
@@ -246,13 +245,35 @@ public class WordlePlugin implements YuDreamPlugin {
                 reply(command, context, text, buttons);
                 return;
             }
-            String messageId = event.messageId();
-            Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, replyReferrer(command), buttons)));
         });
+    }
+
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private static Map<String, Object> replyReferrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     private String safeMessage(RuntimeException e) {

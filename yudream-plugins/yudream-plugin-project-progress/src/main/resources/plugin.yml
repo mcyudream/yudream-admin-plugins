@@ -3,6 +3,6 @@ displayName: 项目协作
 description: 管理项目、成员和任务，支持分配、打卡、统计与验收。
 icon: i-ri:task-line
 main: online.yudream.base.plugin.projectprogress.bootstrap.ProjectProgressPlugin
-version: 1.2.1
+version: 1.2.2
 softdepend:
   - minecraft-server

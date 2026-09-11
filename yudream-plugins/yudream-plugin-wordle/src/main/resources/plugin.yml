@@ -3,4 +3,4 @@ displayName: 猜词游戏
 description: 在 QQ 群中进行 Wordle 猜词、战绩统计和排行榜管理。
 icon: i-ri:question-line
 main: online.yudream.base.plugin.wordle.bootstrap.WordlePlugin
-version: 1.2.3
+version: 1.2.4

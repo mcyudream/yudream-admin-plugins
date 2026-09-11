@@ -19,13 +19,14 @@ import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @PluginSpec(
         code = PonyPlugin.CODE,
         name = "pony",
-        version = "1.0.2",
+        version = "1.0.3",
         description = "QQ 群小马归位逻辑游戏：每行每列每种颜色各 1 匹小马且互不相邻，群内协作推理放马，棋盘图片实时展示。"
 )
 @PluginPermissions({
@@ -203,12 +204,10 @@ public class PonyPlugin implements YuDreamPlugin {
                 reply(command, context, board == null ? text : board + "\n" + text, buttons);
                 return;
             }
-            String messageId = event.messageId();
-            Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
             context.framework().messaging().send(new PluginMessageRequest(
                     event.connectionId(), event.platform(), event.selfId(), event.channelId(),
                     new PluginMessageContent(PluginMessageContent.Type.IMAGE,
-                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, referrer, buttons)));
+                            "base64://" + Base64.getEncoder().encodeToString(image.content()), null, replyReferrer(command), buttons)));
         });
     }
 
@@ -218,12 +217,34 @@ public class PonyPlugin implements YuDreamPlugin {
 
     private void reply(PluginCommandContext command, PluginContext context, String text,
                        List<PluginMessageContent.Button> buttons) {
-        String messageId = command.event().messageId();
-        Map<String, Object> referrer = messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
         context.framework().messaging().send(new PluginMessageRequest(
                 command.event().connectionId(), command.event().platform(), command.event().selfId(),
                 command.event().channelId(),
-                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, referrer, buttons)));
+                new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, replyReferrer(command), buttons)));
+    }
+
+    /** 官方被动回复必须原样回传会话上下文：message_scene 决定回复端点（C2C 事件的 channelId 是用户 openid），msg_id/event_id/interaction_id 是被动回复凭证。 */
+    private static Map<String, Object> replyReferrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> payload) {
+            copyReplyField(referrer, payload, "message_scene");
+            copyReplyField(referrer, payload, "msg_id");
+            copyReplyField(referrer, payload, "message_id");
+            copyReplyField(referrer, payload, "event_id");
+            copyReplyField(referrer, payload, "interaction_id");
+        }
+        String messageId = command.event().messageId();
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 
     /** 结束对局后的「再来一局」快捷指令按钮（官方 QQ 原生交互，其余协议自动降级）。 */

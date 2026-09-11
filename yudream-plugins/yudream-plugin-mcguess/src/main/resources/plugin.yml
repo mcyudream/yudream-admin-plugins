@@ -3,6 +3,6 @@ displayName: Minecraft 猜谜
 description: 在 QQ 群中开展 Minecraft 物品、生物和配方猜谜游戏。
 icon: i-ri:question-answer-line
 main: online.yudream.base.plugin.mcguess.bootstrap.McguessPlugin
-version: 3.0.2
+version: 3.0.3
 depend:
   - mc-wiki
