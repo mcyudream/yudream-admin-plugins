@@ -202,6 +202,12 @@ public class ActivityProofHttpFacade {
         return downloadResponse(appService.downloadStampedPdf(pathSegment(request.path(), 2)), "application/pdf");
     }
 
+    // ---------------------------------------------------------------- public: square detail
+
+    public PluginHttpResponse publicActivity(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.publicSquareActivity(pathSegment(request.path(), 2)));
+    }
+
     // ---------------------------------------------------------------- user: square & participation
 
     public PluginHttpResponse myActivities(PluginHttpRequest request) {

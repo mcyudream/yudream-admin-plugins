@@ -5,6 +5,7 @@ import online.yudream.base.plugin.activityproof.application.service.ActivityQuiz
 import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityProofDocumentRepository;
 import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDependencyServices;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
+import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofPublicController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
 import online.yudream.base.plugin.activityproof.interfaces.http.ActivityProofHttpFacade;
 import online.yudream.base.plugin.activityproof.interfaces.theme.ActivitySquareThemeBlockProvider;
@@ -23,7 +24,7 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.4.0",
+        version = "2.4.1",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -175,6 +176,7 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
                 quizService
         );
         ActivityProofHttpFacade http = new ActivityProofHttpFacade(appService, quizService);
+        context.registerHttpController(new ActivityProofPublicController(http));
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
         context.registerExtension(PluginThemeBlockProvider.class, new ActivitySquareThemeBlockProvider(appService));

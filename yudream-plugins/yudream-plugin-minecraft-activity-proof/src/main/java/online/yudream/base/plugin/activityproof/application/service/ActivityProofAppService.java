@@ -29,6 +29,7 @@ import online.yudream.base.plugin.activityproof.application.dto.ActivityTemplate
 import online.yudream.base.plugin.activityproof.application.dto.ActivityUserOptionDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityVerifyResultDTO;
 import online.yudream.base.plugin.activityproof.application.dto.MyParticipationDTO;
+import online.yudream.base.plugin.activityproof.application.dto.PublicActivityDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ServerParticipantSyncResultDTO;
 import online.yudream.base.plugin.activityproof.application.dto.UserActivityDTO;
 import online.yudream.base.plugin.activityproof.application.dto.UserRequirementDTO;
@@ -902,6 +903,20 @@ public class ActivityProofAppService {
                 .toList();
     }
 
+    /**
+     * 公开站活动详情：仅全体部门且已发布/已结束的活动，部门限定与草稿一律按不存在处理。
+     */
+    public PublicActivityDTO publicSquareActivity(String id) {
+        Activity activity = requireActivity(id);
+        if (activity.status() == ActivityStatus.DRAFT || activity.deptMode() != ActivityDeptMode.ALL) {
+            throw new IllegalArgumentException("活动不存在或未发布");
+        }
+        if (activity.status() != ActivityStatus.PUBLISHED && activity.status() != ActivityStatus.CLOSED) {
+            throw new IllegalArgumentException("活动不存在或未发布");
+        }
+        return toPublicDTO(activity, true);
+    }
+
     public ActivityProofPageDTO<UserActivityDTO> userActivities(String userId, int page, int size) {
         String safeUserId = requireText(userId, "请先登录");
         Set<String> myDeptIds = myDeptIds(safeUserId);
@@ -1716,6 +1731,44 @@ public class ActivityProofAppService {
                 participation == null ? "" : participation.verifyStatus().name(),
                 participation == null ? "" : participation.verifyNote()
         );
+    }
+
+    public PublicActivityDTO toPublicDTO(Activity activity, boolean withDescription) {
+        long now = System.currentTimeMillis();
+        boolean ended = activity.status() == ActivityStatus.CLOSED || activity.activityEnded(now);
+        boolean started = activity.activityStart() > 0 && now >= activity.activityStart();
+        String statusKey = ended ? "ended" : started ? "ongoing" : "upcoming";
+        String statusText = ended ? "已结束" : started ? "进行中"
+                : activity.signupOpen(now) ? "报名中" : "即将开始";
+        return new PublicActivityDTO(
+                activity.id(),
+                activity.title(),
+                activity.summary(),
+                withDescription ? activity.description() : "",
+                activity.coverUrl(),
+                "/activities/" + activity.id(),
+                activity.signupStart(),
+                activity.signupEnd(),
+                activity.activityStart(),
+                activity.activityEnd(),
+                activity.status().name(),
+                statusKey,
+                statusText,
+                publicMeta(activity)
+        );
+    }
+
+    private static String publicMeta(Activity activity) {
+        if (activity.activityStart() <= 0) {
+            return "";
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        String start = formatter.format(Instant.ofEpochMilli(activity.activityStart()).atZone(ZoneId.systemDefault()));
+        if (activity.activityEnd() <= activity.activityStart()) {
+            return start + " 起";
+        }
+        String end = formatter.format(Instant.ofEpochMilli(activity.activityEnd()).atZone(ZoneId.systemDefault()));
+        return start + " 至 " + end;
     }
 
     private String joinDisabledReason(Activity activity, boolean eligible, boolean joined) {
