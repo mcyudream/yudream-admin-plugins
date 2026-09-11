@@ -8,7 +8,7 @@
 
 - **纯主题插件**：不注册 HTTP 端点、权限与后台菜单，入口类只做声明。
 - `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homeComponent="theme/Home", chromeComponent="theme/Chrome", configSchema="theme-config.json")`：主题样式、首页/chrome 组件名与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`。
-- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（站点导航 + 插件 `siteNav` 路由合并），主题自己画 NMO 覆盖式导航条（深色 overlay、2px `#aaaaaa` 边、紫色滑块）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
+- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并），主题自己画 NMO 覆盖式导航条（深色 overlay、2px `#aaaaaa` 边、紫色滑块）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
 - **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 四个 `@PluginRoute(publicAccess=true, siteNav=true)` 公开路由（/servers、/activities、/news、/about），随宿主导航合并进站点导航，切换为 SPA 无感跳转。
 - **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel`）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），Vue 页面经 `sdk.site.context()` 返回的 `themeConfig` 消费，保存后公开站即时生效。
 - **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
