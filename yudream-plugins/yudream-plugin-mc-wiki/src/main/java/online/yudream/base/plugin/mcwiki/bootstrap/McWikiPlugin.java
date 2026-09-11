@@ -39,7 +39,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
         @PluginRoute(path = "/platform/plugins/mc-wiki/catalog/crafting-recipes", name = "mc-wiki-catalog-crafting-recipes", title = "合成配方", icon = "i-ri:hammer-line", component = "mc-wiki/CraftingRecipes", permission = McWikiPlugin.VIEW_PERMISSION, sort = 10),
         @PluginRoute(path = "/platform/plugins/mc-wiki/catalog/items", name = "mc-wiki-catalog-items", title = "物品图鉴", icon = "i-ri:archive-line", component = "mc-wiki/Items", permission = McWikiPlugin.VIEW_PERMISSION, sort = 15),
         @PluginRoute(path = "/platform/plugins/mc-wiki/admin/versions", name = "mc-wiki-versions", title = "百科版本", icon = "i-ri:git-branch-line", component = "mc-wiki/Versions", permission = McWikiPlugin.MANAGE_PERMISSION, sort = 20),
-        @PluginRoute(path = "/platform/plugins/mc-wiki/admin/jobs", name = "mc-wiki-jobs", title = "导入任务", icon = "i-ri:terminal-box-line", component = "mc-wiki/Jobs", permission = McWikiPlugin.MANAGE_PERMISSION, sort = 30)
+        @PluginRoute(path = "/platform/plugins/mc-wiki/admin/jobs", name = "mc-wiki-jobs", title = "导入任务", icon = "i-ri:terminal-box-line", component = "mc-wiki/Jobs", permission = McWikiPlugin.MANAGE_PERMISSION, sort = 30),
+        @PluginRoute(path = "/encyclopedia", name = "mc-wiki-encyclopedia", title = "百科", icon = "i-ri:book-open-line", component = "mc-wiki/PublicEncyclopedia", hideInMenu = true, publicAccess = true, siteNav = true)
 })
 public final class McWikiPlugin implements YuDreamPlugin {
     public static final String CODE = "mc-wiki";
