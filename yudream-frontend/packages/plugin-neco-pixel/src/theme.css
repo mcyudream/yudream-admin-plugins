@@ -1038,7 +1038,7 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
   background: #0f0e0d;
   color: var(--neco-text, #ffffff);
   font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
-  --background: 0.145 0.008 80;
+  --background: 0.42 0.01 80;
   --foreground: 0.97 0.01 95;
   --card: 0.28 0.008 80;
   --card-foreground: 0.97 0.01 95;
@@ -1072,7 +1072,6 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
 }
 
 .login-page > * {
-  position: relative;
   z-index: 1;
 }
 
@@ -1182,7 +1181,9 @@ html[data-theme='light'] .login-page::before {
 .login-page input:is(:autofill, :-webkit-autofill):focus {
   caret-color: #ffffff;
   -webkit-text-fill-color: #ffffff !important;
-  box-shadow: 0 0 0 1000px var(--neco-bg-input, #616161) inset !important;
+  box-shadow: 0 0 0 1000px #616161 inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #616161 inset !important;
+  background-color: #616161 !important;
 }
 
 .login-page button[type='submit'] {
@@ -1233,9 +1234,7 @@ html[data-theme='light'] .login-page::before {
 }
 
 .login-page > .flex-center {
-  background: var(--neco-bg-card, #313131) !important;
-  border: 2px solid #000 !important;
-  color: #ffffff !important;
+  display: none !important;
 }
 
 .login-page .login-form button[class*='border']:not([type='submit']) {
