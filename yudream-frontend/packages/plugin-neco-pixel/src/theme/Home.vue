@@ -10,7 +10,12 @@ const props = defineProps<{ sdk: YuDreamPluginSdk, route?: { meta?: { plugin?: {
 const { context } = useThemeContext(props.sdk, { blocks: ['server-list'], limit: 4, cmsLatest: 12 })
 
 const config = computed(() => context.value?.themeConfig ?? {})
-const heroBackground = computed(() => themeAsset(props.sdk, configText(config.value, 'heroBackground')) || pluginAsset(props.sdk, 'background/beidalou.webp'))
+const heroBackground = computed(() => {
+  if (typeof config.value.heroBackground === 'string') {
+    return themeAsset(props.sdk, config.value.heroBackground)
+  }
+  return pluginAsset(props.sdk, 'background/beidalou.webp')
+})
 const heroLogo = computed(() => themeAsset(props.sdk, configText(config.value, 'heroLogo')))
 const heroTitle = computed(() => configText(config.value, 'heroTitle', '方块世界，由此启程'))
 const heroSubtitle = computed(() => configText(config.value, 'heroSubtitle'))

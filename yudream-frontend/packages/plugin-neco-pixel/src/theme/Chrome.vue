@@ -32,26 +32,56 @@ const props = defineProps<{
 
 const route = useRoute()
 const router = useRouter()
-const navFolded = ref(false)
+// 移动端默认收起：不能等 onMounted，否则首帧会先展开再折
+const navFolded = ref(typeof window !== 'undefined' && window.innerWidth < 641)
 const accountOpen = ref(false)
 const navRef = ref<HTMLElement | null>(null)
 const slider = ref({ left: 0, width: 0, visible: false })
 let resizeObserver: ResizeObserver | null = null
+
+const openMenu = ref('')
 
 function navPath(url?: string) {
   const pathname = (url || '').trim().split(/[?#]/, 1)[0] || '/'
   return pathname.replace(/\/+$/, '') || '/'
 }
 
-const items = computed(() => (props.navigation || []).filter((item) => {
-  if (!item.url || !item.label) {
-    return false
-  }
+function isHiddenNav(item: NavItem) {
   const path = navPath(item.url)
-  if (HIDDEN_NAV.has(path) || HIDDEN_LABELS.has(item.label.trim())) {
-    return false
+  if (!item.label) {
+    return true
   }
-  return !(path.startsWith('/activities/') && path !== '/activities')
+  if (HIDDEN_NAV.has(path) || HIDDEN_LABELS.has(item.label.trim())) {
+    return true
+  }
+  return path.startsWith('/activities/') && path !== '/activities'
+}
+
+function visibleChildren(item: NavItem) {
+  return (item.children || []).filter(child => child.label && !isHiddenNav(child))
+}
+
+function itemKey(item: NavItem, index: number) {
+  return item.id || item.url || `nav-${index}`
+}
+
+function pathMatches(url: string | undefined, current: string) {
+  const pathname = navPath(url)
+  if (!pathname || pathname === '/') {
+    return current === '/' || current === '/site'
+  }
+  return current === pathname
+    || current.startsWith(`${pathname}/`)
+    || (pathname === '/site' && (current === '/site' || current === '/'))
+}
+
+const items = computed(() => (props.navigation || []).flatMap((item) => {
+  const children = visibleChildren(item)
+  if (isHiddenNav(item)) {
+    // 隐藏项连同其二级菜单一起隐藏，禁止把子级平铺成一级
+    return []
+  }
+  return [{ ...item, children }]
 }))
 
 const activeIndex = computed(() => {
@@ -59,17 +89,52 @@ const activeIndex = computed(() => {
   let best = -1
   let bestLength = -1
   items.value.forEach((item, index) => {
-    const pathname = navPath(item.url)
-    const matched = pathname === '/'
-      ? current === '/' || current === '/site'
-      : current === pathname || current.startsWith(`${pathname}/`) || (pathname === '/site' && (current === '/site' || current === '/'))
-    if (matched && pathname.length > bestLength) {
-      best = index
-      bestLength = pathname.length
-    }
+    const candidates = [item, ...visibleChildren(item)]
+    candidates.forEach((candidate) => {
+      if (!pathMatches(candidate.url, current)) {
+        return
+      }
+      const length = navPath(candidate.url).length
+      if (length > bestLength) {
+        best = index
+        bestLength = length
+      }
+    })
   })
   return best
 })
+
+function isChildActive(child: NavItem) {
+  return pathMatches(child.url, route.path)
+}
+
+function isMobileNav() {
+  return typeof window !== 'undefined' && window.innerWidth < 641
+}
+
+function toggleMenu(key: string) {
+  playClick()
+  openMenu.value = openMenu.value === key ? '' : key
+}
+
+function onNavItemClick(item: NavItem, index: number) {
+  const children = visibleChildren(item)
+  const key = itemKey(item, index)
+  if (!children.length) {
+    go(item.url)
+    return
+  }
+  if (isMobileNav() || !item.url) {
+    toggleMenu(key)
+    return
+  }
+  go(item.url)
+}
+
+function closeMenus() {
+  openMenu.value = ''
+  accountOpen.value = false
+}
 
 const sliderStyle = computed(() => ({
   left: `${slider.value.left}px`,
@@ -81,13 +146,14 @@ const sliderStyle = computed(() => ({
 function measureSlider() {
   const nav = navRef.value
   const index = activeIndex.value
-  const el = nav?.querySelectorAll<HTMLElement>('.nav-item')[index]
-  if (!nav || !el || index < 0) {
+  const group = nav?.querySelectorAll<HTMLElement>('.nav-group')[index]
+  const el = group?.querySelector<HTMLElement>(':scope > .nav-item')
+  if (!nav || !group || !el || index < 0) {
     slider.value = { left: 0, width: 0, visible: false }
     return
   }
   slider.value = {
-    left: el.offsetLeft,
+    left: group.offsetLeft,
     width: el.offsetWidth,
     visible: true,
   }
@@ -108,7 +174,7 @@ function onResize() {
 
 function go(url: string) {
   playClick()
-  accountOpen.value = false
+  closeMenus()
   if (/^(?:https?:|mailto:|tel:|#)/i.test(url)) {
     window.location.assign(url)
     return
@@ -118,8 +184,14 @@ function go(url: string) {
 
 function onDocumentClick(event: MouseEvent) {
   const target = event.target as Node | null
-  if (accountOpen.value && target && !document.querySelector('.nav-account')?.contains(target)) {
+  if (!target) {
+    return
+  }
+  if (accountOpen.value && !document.querySelector('.nav-account')?.contains(target)) {
     accountOpen.value = false
+  }
+  if (openMenu.value && !(target instanceof Element && target.closest('.nav-group'))) {
+    openMenu.value = ''
   }
 }
 
@@ -127,7 +199,7 @@ watch(() => route.path, () => {
   if (window.innerWidth < 641) {
     navFolded.value = true
   }
-  accountOpen.value = false
+  closeMenus()
   void nextTick(measureSlider)
 })
 
@@ -207,14 +279,37 @@ onUnmounted(() => {
         </div>
       </div>
       <nav id="site-nav" ref="navRef" class="nav-bar" :class="{ 'is-folded': navFolded }">
-        <a
+        <div
           v-for="(item, index) in items"
-          :key="item.id || item.url"
-          class="nav-item mcfont"
-          :href="item.url"
-          :aria-current="activeIndex === index ? 'page' : undefined"
-          @click.prevent="go(item.url)"
-        >{{ item.label }}</a>
+          :key="itemKey(item, index)"
+          class="nav-group"
+          :class="{ 'has-children': visibleChildren(item).length, 'is-open': openMenu === itemKey(item, index) }"
+          @mouseenter="visibleChildren(item).length && !isMobileNav() && (openMenu = itemKey(item, index))"
+          @mouseleave="!isMobileNav() && openMenu === itemKey(item, index) && (openMenu = '')"
+        >
+          <a
+            class="nav-item mcfont"
+            :href="item.url || visibleChildren(item)[0]?.url || '#'"
+            :aria-current="activeIndex === index ? 'page' : undefined"
+            :aria-haspopup="visibleChildren(item).length ? 'menu' : undefined"
+            :aria-expanded="visibleChildren(item).length ? openMenu === itemKey(item, index) : undefined"
+            @click.prevent="onNavItemClick(item, index)"
+          >
+            {{ item.label }}
+            <span v-if="visibleChildren(item).length" class="nav-caret" aria-hidden="true">▾</span>
+          </a>
+          <div v-if="visibleChildren(item).length" class="nav-submenu" role="menu">
+            <a
+              v-for="child in visibleChildren(item)"
+              :key="child.id || child.url"
+              class="nav-subitem mcfont"
+              :href="child.url"
+              :class="{ 'is-active': isChildActive(child) }"
+              role="menuitem"
+              @click.prevent="go(child.url)"
+            >{{ child.label }}</a>
+          </div>
+        </div>
         <div v-if="items.length" class="slider" :style="sliderStyle">
           <div class="slider-box" />
         </div>
@@ -283,22 +378,45 @@ onUnmounted(() => {
 }
 
 .nav-bar {
-  height: calc(1rem + 28px);
+  min-height: calc(1rem + 28px);
   display: flex;
   background-color: var(--neco-bg-overlay, rgba(0, 0, 0, 0.5));
   border: 2px solid var(--neco-border-strong, #aaaaaa);
   position: relative;
   box-shadow: 4px 4px var(--neco-shadow, rgba(0, 0, 0, 0.5));
-  transition: height 0.3s ease-in-out, opacity 0.3s ease-in-out, border-width 0.3s ease;
+  transition: min-height 0.3s ease-in-out, opacity 0.3s ease-in-out, border-width 0.3s ease;
   opacity: 1;
-  overflow: hidden;
+  overflow: visible;
   color: #f7f5ee;
 }
 
 .nav-bar.is-folded {
+  min-height: 0;
   height: 0;
   opacity: 0;
   border-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nav-group {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 1;
+}
+
+.nav-group.has-children:hover,
+.nav-group.is-open {
+  z-index: 4;
+}
+
+.nav-group.has-children::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 0.5rem;
 }
 
 .nav-item {
@@ -310,12 +428,57 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.3rem;
   padding: 10px 14px;
   cursor: pointer;
   z-index: 1;
   transition: color 0.3s ease;
   font-size: 1rem;
   white-space: nowrap;
+}
+
+.nav-caret {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  transform: translateY(1px);
+  transition: transform 0.15s ease;
+}
+
+.nav-group.has-children:hover .nav-caret,
+.nav-group.is-open .nav-caret {
+  transform: translateY(1px) rotate(180deg);
+}
+
+.nav-submenu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  min-width: max(100%, 8.5rem);
+  display: none;
+  flex-direction: column;
+  background-color: var(--neco-bg-card, #313131);
+  border: 2px solid var(--neco-border-strong, #aaaaaa);
+  box-shadow: 4px 4px var(--neco-shadow, rgba(0, 0, 0, 0.5));
+  z-index: 1030;
+}
+
+.nav-group.has-children:hover .nav-submenu,
+.nav-group.is-open .nav-submenu {
+  display: flex;
+}
+
+.nav-subitem {
+  padding: 0.55rem 0.9rem;
+  color: #f7f5ee;
+  text-decoration: none;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.nav-subitem:hover,
+.nav-subitem.is-active {
+  background: var(--neco-nav-slider, var(--neco-accent, #3c8527));
+  box-shadow: inset 0 3px var(--neco-nav-slider-light, var(--neco-accent-light, #6cc349)), inset 0 -3px var(--neco-nav-slider-dark, var(--neco-accent-dark, #2a641c));
 }
 
 .nav-item:focus-visible {
@@ -525,6 +688,42 @@ onUnmounted(() => {
   .nav-item {
     padding: 10px 5px;
     font-size: 0.9rem;
+  }
+
+  .nav-submenu {
+    position: static;
+    top: auto;
+    left: auto;
+    min-width: 100%;
+    display: none;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+
+  .nav-group.has-children:hover .nav-submenu {
+    display: none;
+  }
+
+  .nav-group.is-open .nav-submenu {
+    display: flex;
+  }
+
+  .nav-bar {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .nav-bar.is-folded {
+    overflow: hidden;
+  }
+
+  .nav-group {
+    flex: 1 1 100%;
+  }
+
+  .nav-subitem {
+    padding-left: 1.4rem;
   }
 
   .nav-account-name {

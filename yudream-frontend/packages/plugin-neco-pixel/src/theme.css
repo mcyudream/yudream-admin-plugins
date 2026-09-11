@@ -561,12 +561,82 @@ html[data-theme='light'] .login-page {
   display: none !important;
 }
 
-/* wiki：侧栏与文章区硬边分隔 */
+/* 悬浮导航是 absolute 覆盖层：非首页内容页让出顶部空间（变量穿透 cascade，
+   宿主页面 padding-top: var(--neco-page-top) 消费；首页满幅 hero 例外归零） */
+.neco-chrome {
+  --neco-page-top: 4.9rem;
+}
+
+.neco-chrome:has(> .neco-chrome__body > .neco-home) {
+  --neco-page-top: 0rem;
+}
+
+@media (max-width: 640px) {
+  .neco-chrome {
+    --neco-page-top: 4.4rem;
+  }
+}
+
+/* wiki：正文进站点 chrome 后用 9-slice 面板 + 深板岩纹理，不再走独立浅色顶栏。
+   宿主页面默认只出中性浅色卡片；像素纹理与方角由本主题（激活时才加载）提供。 */
+.wiki-public,
+.wiki-home,
+.wiki-search-page {
+  --color-bg-1: var(--yb-site-bg, #0f0e0d);
+  --color-bg-2: var(--yb-site-surface, #313131);
+  --color-text-1: var(--yb-site-text, #ffffff);
+  --color-text-2: var(--yb-site-text-2, #e0ded8);
+  --color-text-3: var(--yb-site-muted, rgba(255, 255, 255, 0.8));
+  --color-border-2: var(--yb-site-border, #222222);
+  --color-fill-1: var(--yb-site-hover, #3a3a3a);
+}
+
+.wiki-public-main,
 .wiki-public-sidebar,
-.wiki-public-header,
-.wiki-home__header,
-.wiki-search-page__header {
-  border-color: var(--yb-site-border, #b9b4a8) !important;
+.wiki-home__space,
+.wiki-search-result,
+.site-embed__frame,
+.wiki-public-related,
+.wiki-public-summary,
+.wiki-public-meta__type,
+.wiki-public-meta__tag {
+  border-radius: 0;
+}
+
+.wiki-public-main,
+.wiki-public-sidebar {
+  border: 16px solid;
+  border-image: url('ui/neco-dialog.png') 16 fill / 16px;
+  box-shadow: none;
+}
+
+.wiki-public-main {
+  background:
+    linear-gradient(180deg, rgba(15, 14, 13, 0.55), rgba(15, 14, 13, 0.72)),
+    url('blockbg/deepslate.png');
+  background-size: auto, 32px 32px;
+  image-rendering: pixelated;
+}
+
+.wiki-public-sidebar {
+  background:
+    linear-gradient(180deg, rgba(23, 22, 21, 0.72), rgba(23, 22, 21, 0.86)),
+    url('blockbg/deepslate.png');
+  background-size: auto, 32px 32px;
+  image-rendering: pixelated;
+}
+
+.wiki-home__space,
+.wiki-search-result,
+.site-embed__frame {
+  border: 16px solid;
+  border-image: url('ui/neco-dialog.png') 16 fill / 16px;
+  box-shadow: none;
+}
+
+.wiki-public-markdown .md-editor-preview,
+.wiki-public-markdown .md-editor-previewOnly {
+  background: transparent !important;
 }
 
 /* 内部滚动条像素化（主窗口滚动条不越权接管） */
