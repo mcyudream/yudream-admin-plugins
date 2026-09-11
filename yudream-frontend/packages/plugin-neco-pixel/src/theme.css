@@ -1038,6 +1038,24 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
   background: #0f0e0d;
   color: var(--neco-text, #ffffff);
   font-family: 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+  --background: 0.145 0.008 80;
+  --foreground: 0.97 0.01 95;
+  --card: 0.28 0.008 80;
+  --card-foreground: 0.97 0.01 95;
+  --popover: 0.22 0.01 80;
+  --popover-foreground: 0.97 0.01 95;
+  --primary: 0.72 0.17 142;
+  --primary-foreground: 0.18 0.04 140;
+  --secondary: 0.28 0.01 80;
+  --secondary-foreground: 0.92 0.01 95;
+  --muted: 0.26 0.01 80;
+  --muted-foreground: 0.78 0.02 95;
+  --accent: 0.32 0.05 142;
+  --accent-foreground: 0.97 0.01 95;
+  --destructive: 0.65 0.18 25;
+  --border: 0.32 0.01 80;
+  --input: 0.42 0.01 80;
+  --ring: 0.72 0.17 142;
 }
 
 .login-page::before {
@@ -1054,6 +1072,7 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
 }
 
 .login-page > * {
+  position: relative;
   z-index: 1;
 }
 
@@ -1175,4 +1194,52 @@ html[data-theme='light'] .login-page::before {
 
 .login-page .copyright {
   color: var(--neco-text-disabled, rgba(255, 255, 255, 0.45));
+}
+
+.login-page [data-slot='tabs-trigger'] {
+  color: var(--neco-text-dim, rgba(255, 255, 255, 0.8)) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.login-page [data-slot='tabs-trigger'][data-state='active'] {
+  color: #ffffff !important;
+  background: var(--neco-bg-sunken, #111111) !important;
+  border-color: #000 !important;
+}
+
+.login-page [data-slot='input-group'] :is(input, textarea) {
+  color: #ffffff !important;
+  caret-color: #ffffff;
+}
+
+.login-page [data-slot='input-group'] :is(svg, button) {
+  color: #ffffff !important;
+}
+
+.login-page .login-form button[class*='underline-offset'] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--neco-accent-light, #6cc349) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-page .qq-login-entry button {
+  background: var(--neco-bg-elevated, #4a4a4a) !important;
+  border: 2px solid #000 !important;
+  color: #ffffff !important;
+}
+
+.login-page > .flex-center {
+  background: var(--neco-bg-card, #313131) !important;
+  border: 2px solid #000 !important;
+  color: #ffffff !important;
+}
+
+.login-page .login-form button[class*='border']:not([type='submit']) {
+  background: var(--neco-bg-elevated, #4a4a4a) !important;
+  border: 2px solid #000 !important;
+  color: #ffffff !important;
 }

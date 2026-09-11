@@ -11,10 +11,10 @@ interface PublicActivity {
   description: string
   coverUrl: string
   url: string
-  signupStart: number
-  signupEnd: number
-  activityStart: number
-  activityEnd: number
+  signupStart: number | string
+  signupEnd: number | string
+  activityStart: number | string
+  activityEnd: number | string
   status: string
   statusKey: string
   statusText: string
@@ -67,22 +67,41 @@ const joinHref = computed(() => {
   return `/platform/plugins/yudream-student-info/activity-square/detail?id=${encodeURIComponent(id)}`
 })
 
-function formatEpoch(value: number) {
-  if (!value || value <= 0) {
+function toEpoch(value: number | string | null | undefined) {
+  if (value == null || value === '') {
+    return 0
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : 0
+  }
+  const numeric = Number(value)
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric
+  }
+  const parsed = Date.parse(String(value).replace(' ', 'T'))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function formatEpoch(value: number | string | null | undefined) {
+  const millis = toEpoch(value)
+  if (!millis) {
     return ''
   }
-  const date = new Date(value)
+  const date = new Date(millis)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-function formatRange(start: number, end: number) {
+function formatRange(start: number | string | null | undefined, end: number | string | null | undefined) {
   const from = formatEpoch(start)
   if (!from) {
     return ''
   }
   const to = formatEpoch(end)
-  return to && end > start ? `${from} 至 ${to}` : `${from} 起`
+  return to && toEpoch(end) > toEpoch(start) ? `${from} 至 ${to}` : `${from} 起`
 }
 
 async function load() {
@@ -156,7 +175,7 @@ function goJoin() {
             {{ activity.statusText }}
           </div>
         </div>
-        <p v-if="activity.meta" class="activity-date">{{ activity.meta }}</p>
+        <p v-if="activity.meta && !formatRange(activity.activityStart, activity.activityEnd)" class="activity-date">{{ activity.meta }}</p>
         <p v-if="activity.summary" class="activity-brief">{{ activity.summary }}</p>
         <dl class="activity-meta">
           <div v-if="formatRange(activity.activityStart, activity.activityEnd)">
