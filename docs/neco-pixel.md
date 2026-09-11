@@ -8,10 +8,10 @@
 
 - **纯主题插件**：不注册 HTTP 端点、权限与后台菜单，入口类只做声明。
 - `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homeComponent="theme/Home", chromeComponent="theme/Chrome", configSchema="theme-config.json")`：主题样式、首页/chrome 组件名与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`。
-- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并），主题自己画 NMO 覆盖式导航条（深色 overlay、2px `#aaaaaa` 边、紫色滑块）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
-- **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 四个 `@PluginRoute(publicAccess=true, siteNav=true)` 公开路由（/servers、/activities、/news、/about），随宿主导航合并进站点导航，切换为 SPA 无感跳转。
+- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并，主题再隐藏 `/news` `/about`），主题自己画 NMO 覆盖式导航条（按实际文字宽度测量滑块、深色 overlay、登录/头像在右上）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
+- **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 两个 `@PluginRoute(publicAccess=true, siteNav=true)` 公开路由（/servers、/activities）；新闻与关于我们留在首页区块，百科由 mc-wiki 的 `/encyclopedia` 进导航。
 - **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel`）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），Vue 页面经 `sdk.site.context()` 返回的 `themeConfig` 消费，保存后公开站即时生效。
-- **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
+- **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline, mc-wiki]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
 - 同 scope 主题互斥由宿主保证：启用本插件自动顶替其他 SITE 主题插件，禁用/卸载后回落宿主内置主题；顶替/停用由宿主在「主题中心」一键操作。
 
 ## 页面结构（2.0.0）
@@ -22,8 +22,7 @@
 | `/site`（首页） | `theme/Home.vue`（homeComponent） | hero/关于/服务器预览/最新动态，`sdk.site.context({blocks:['server-list'], limit:4, cmsLatest:12})` |
 | `/servers` | `theme/Servers.vue` | `server-list` 块实时状态优先，未装 minecraft-server 回落 `themeConfig.staticServers`；NMO 维度列表：`list-background.jpg` + ping 条动画 + 64px 图标 |
 | `/activities` | `theme/Activities.vue` | `activity-square` 块；NMO 活动页：`header-bg.jpg` + `bg.jpg` 平铺、绿/红 3D 卡片；未装插件回落 CMS 最新文章或空态 |
-| `/news` | `theme/News.vue` | `cmsLatest` 文章卡片流，详情跳 `/site/:slug`（CMS 渲染） |
-| `/about` | `theme/About.vue` | `introItems` 奇偶交替图文、`departments` 部门网格、`friendLinks` 友链 |
+| `/encyclopedia`（百科） | **mc-wiki 插件自己的公开页** | 物品图鉴 + 合成配方；未装/未发布时导航项消失或页内空态 |
 | `/timeline`（大事记） | **timeline 插件自己的页面**，主题不接管 | 主题只对 `.tl-page` 写像素兼容样式；未装 timeline 时导航项由宿主自动消失 |
 
 所有页面 SFC 使用统一 prop 形态 `defineProps<{ sdk: YuDreamPluginSdk, route?: ... }>()`，站内跳转用共享 vue-router 的 `RouterLink`（vite 经 `yuDreamPluginSharedAliases()` 别名到宿主实例，不打包第二份 vue-router）；每页 `useThemeSeo` 设置标题/canonical。
@@ -44,7 +43,7 @@
 | `[data-accent]` 6 色强调色（绿/红石/青金石/黄金/紫水晶/海晶，各含 light/dark/bright/pale 派生） | `theme.css` accent 变量块 + `src/accent.ts` | 翠绿为默认（不挂属性）；浮动像素色板含深色/浅色方案按钮，持久化 `localStorage["neco-pixel:accent"]` / `neco-pixel:scheme` |
 | ThemePalette.vue | `.neco-palette-toggle` / `.neco-palette-panel` | 固定在左下音效开关上方，仅主题激活时可见 |
 | fade-in / fade-in-down/left/right 入场动画 | `@keyframes neco-fade-in-*` + `.neco-anim*` 工具类 | 尊重 `prefers-reduced-motion` |
-| NavBar 活动项像素滑块 | `theme/Chrome.vue` 的 `.slider` | 按当前路径最长前缀匹配活动项，滑块 `translateX`；不再补丁 host SiteChrome |
+| NavBar 活动项像素滑块 | `theme/Chrome.vue` 的 `.slider` | 按当前路径最长前缀匹配活动项，用 `offsetLeft`/`offsetWidth` 贴合文字宽度；强调色走 `--neco-nav-slider` |
 | `border-image` 对话框面板（Mojang 贴图） | `.neco-panel` / `.neco-hero-panel` / `.neco-block-bg` | 贴图不复制：9-slice 边框与深板岩/蓝冰平铺纹理由 `gen_textures.py`（PIL）程序化自绘 |
 | Minecraft-Tenv2 / Ark Latin / Cubic 11 字体栈 | `.mctitle` / `.mcfont` | 上游字体随包（MIT 仓）+ Cubic 11（SIL OFL） |
 | Lobby / List / Activity / About / News | `src/theme/*.vue` | 原生 Vue 复刻；List 对标 `/list`，Activity 对标 `/activity` |

@@ -11,7 +11,7 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
  * NECO 像素风主题插件：不注册任何业务端点。2.0 起主题页面全部为插件自带的
  * Vue 原生页面（{@link PluginTheme#chromeComponent()} 接管公开站页头页脚，
  * {@link PluginTheme#homeComponent()} 接管公开站首页，
- * {@link PluginRoute#siteNav()} 公开路由承载服务器/活动/新闻/关于我们），
+ * {@link PluginRoute#siteNav()} 公开路由承载服务器/活动平台），
  * 不再依赖 CMS 模板引擎与首页方案；主题配置 schema（theme-config.json）保留，
  * 供「主题中心 → 配置」可视化维护首屏文案、介绍项、静态服务器与友情链接。
  * 音效/强调色切换器等运行时经 {@link PluginFrontend} 的 remoteEntry
@@ -31,11 +31,7 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
         @PluginRoute(path = "/servers", name = "neco-pixel-servers", title = "服务器",
                 icon = "i-ri:server-line", component = "theme/Servers", hideInMenu = true, publicAccess = true, siteNav = true),
         @PluginRoute(path = "/activities", name = "neco-pixel-activities", title = "活动平台",
-                icon = "i-ri:flag-line", component = "theme/Activities", hideInMenu = true, publicAccess = true, siteNav = true),
-        @PluginRoute(path = "/news", name = "neco-pixel-news", title = "新闻",
-                icon = "i-ri:newspaper-line", component = "theme/News", hideInMenu = true, publicAccess = true, siteNav = true),
-        @PluginRoute(path = "/about", name = "neco-pixel-about", title = "关于我们",
-                icon = "i-ri:group-line", component = "theme/About", hideInMenu = true, publicAccess = true, siteNav = true)
+                icon = "i-ri:flag-line", component = "theme/Activities", hideInMenu = true, publicAccess = true, siteNav = true)
 })
 public final class NecoPixelThemePlugin implements YuDreamPlugin {
 

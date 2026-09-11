@@ -44,14 +44,14 @@ const news = computed(() => (context.value?.cmsPagesLatest ?? []).slice(0, newsL
           <RouterLink class="neco-home__cta neco-home__cta--primary" to="/servers">
             进入服务器
           </RouterLink>
-          <RouterLink class="neco-home__cta neco-home__cta--ghost" to="/about">
+          <a class="neco-home__cta neco-home__cta--ghost" href="#about">
             关于我们
-          </RouterLink>
+          </a>
         </div>
       </div>
     </section>
 
-    <section v-if="introItems.length" class="neco-home__about">
+    <section v-if="introItems.length" id="about" class="neco-home__about">
       <h2 class="neco-home__section-title neco-anim-down">
         {{ aboutTitle }}
       </h2>
@@ -119,9 +119,9 @@ const news = computed(() => (context.value?.cmsPagesLatest ?? []).slice(0, newsL
       <p v-else class="neco-home__empty">
         内容建设中，敬请期待。
       </p>
-      <div v-if="news.length" class="neco-home__more">
-        <RouterLink class="neco-home__more-link" to="/news">
-          更多新闻 →
+      <div v-if="news.length && news[0]?.url" class="neco-home__more">
+        <RouterLink class="neco-home__more-link" :to="news[0].url">
+          阅读最新 →
         </RouterLink>
       </div>
     </section>

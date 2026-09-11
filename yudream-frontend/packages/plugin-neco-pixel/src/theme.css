@@ -158,9 +158,9 @@ html[data-theme='light']:has(.site-chrome.is-theme-chrome) {
   --neco-focus-ring: #ffffff;
   --neco-success: #67c23a;
   --neco-warning: #f0c36a;
-  --neco-nav-slider: #7e0c6b;
-  --neco-nav-slider-light: #9b428c;
-  --neco-nav-slider-dark: #46073b;
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
 }
 
 html[data-theme='light'] .site-chrome,
@@ -703,7 +703,7 @@ html.theme-switching *::after {
 }
 
 /* ========== 6 色强调色体系（移植上游 [data-accent]，翠绿为默认色） ========== */
-html[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #b02e26;
   --neco-accent-light: #e05a4e;
   --neco-accent-dark: #7d1f19;
@@ -712,13 +712,16 @@ html[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, 
   --neco-accent-contrast: #ffffff;
   --neco-accent-soft: rgba(176, 46, 38, 0.34);
   --neco-accent-tint: rgba(224, 90, 78, 0.15);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #e05a4e;
   --yb-site-primary-btn-bg: #b02e26;
   --yb-site-hero-bg: linear-gradient(135deg, #b02e26, #0f0e0d);
   --primary-6: 224 90 78;
 }
 
-html:not(.dark)[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-theme='light'][data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #8f3028;
   --neco-accent-light: #b04a3e;
   --neco-accent-dark: #6e221c;
@@ -726,12 +729,15 @@ html:not(.dark)[data-accent='red'] :is(.site-chrome, .site-page, .wiki-public, .
   --neco-accent-pale: #7c2c24;
   --neco-accent-soft: rgba(143, 48, 40, 0.15);
   --neco-accent-tint: rgba(176, 74, 62, 0.12);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #8f3028;
   --yb-site-hero-bg: linear-gradient(135deg, #8f3028, #171615);
   --primary-6: 143 48 40;
 }
 
-html[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #3c44aa;
   --neco-accent-light: #5a64d8;
   --neco-accent-dark: #2a2f7d;
@@ -740,13 +746,16 @@ html[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home,
   --neco-accent-contrast: #ffffff;
   --neco-accent-soft: rgba(60, 68, 170, 0.34);
   --neco-accent-tint: rgba(90, 100, 216, 0.15);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #5a64d8;
   --yb-site-primary-btn-bg: #3c44aa;
   --yb-site-hero-bg: linear-gradient(135deg, #3c44aa, #0f0e0d);
   --primary-6: 90 100 216;
 }
 
-html:not(.dark)[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-theme='light'][data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #3a4290;
   --neco-accent-light: #4a54b8;
   --neco-accent-dark: #2b3170;
@@ -754,12 +763,15 @@ html:not(.dark)[data-accent='blue'] :is(.site-chrome, .site-page, .wiki-public, 
   --neco-accent-pale: #353c7e;
   --neco-accent-soft: rgba(58, 66, 144, 0.15);
   --neco-accent-tint: rgba(74, 84, 184, 0.12);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #3a4290;
   --yb-site-hero-bg: linear-gradient(135deg, #3a4290, #171615);
   --primary-6: 58 66 144;
 }
 
-html[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #c8a03a;
   --neco-accent-light: #e8c35a;
   --neco-accent-dark: #94742a;
@@ -768,13 +780,16 @@ html[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home,
   --neco-accent-contrast: #101010;
   --neco-accent-soft: rgba(200, 160, 58, 0.34);
   --neco-accent-tint: rgba(232, 195, 90, 0.15);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #e8c35a;
   --yb-site-primary-btn-bg: #c8a03a;
   --yb-site-hero-bg: linear-gradient(135deg, #c8a03a, #0f0e0d);
   --primary-6: 232 195 90;
 }
 
-html:not(.dark)[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-theme='light'][data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #9a7a2c;
   --neco-accent-light: #b8953a;
   --neco-accent-dark: #775d1f;
@@ -782,12 +797,15 @@ html:not(.dark)[data-accent='gold'] :is(.site-chrome, .site-page, .wiki-public, 
   --neco-accent-pale: #8a6e2a;
   --neco-accent-soft: rgba(154, 122, 44, 0.15);
   --neco-accent-tint: rgba(184, 149, 58, 0.12);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #9a7a2c;
   --yb-site-hero-bg: linear-gradient(135deg, #9a7a2c, #171615);
   --primary-6: 154 122 44;
 }
 
-html[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #8932b8;
   --neco-accent-light: #a95ad8;
   --neco-accent-dark: #63248a;
@@ -796,13 +814,16 @@ html[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public, .wiki-hom
   --neco-accent-contrast: #ffffff;
   --neco-accent-soft: rgba(137, 50, 184, 0.34);
   --neco-accent-tint: rgba(169, 90, 216, 0.15);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #a95ad8;
   --yb-site-primary-btn-bg: #8932b8;
   --yb-site-hero-bg: linear-gradient(135deg, #8932b8, #0f0e0d);
   --primary-6: 169 90 216;
 }
 
-html:not(.dark)[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-theme='light'][data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #72289e;
   --neco-accent-light: #8f3ab8;
   --neco-accent-dark: #551e75;
@@ -810,12 +831,15 @@ html:not(.dark)[data-accent='purple'] :is(.site-chrome, .site-page, .wiki-public
   --neco-accent-pale: #66288a;
   --neco-accent-soft: rgba(114, 40, 158, 0.15);
   --neco-accent-tint: rgba(143, 58, 184, 0.12);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #72289e;
   --yb-site-hero-bg: linear-gradient(135deg, #72289e, #171615);
   --primary-6: 114 40 158;
 }
 
-html[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #169c9c;
   --neco-accent-light: #38bdbd;
   --neco-accent-dark: #0f6e6e;
@@ -824,13 +848,16 @@ html[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home,
   --neco-accent-contrast: #101010;
   --neco-accent-soft: rgba(22, 156, 156, 0.3);
   --neco-accent-tint: rgba(56, 189, 189, 0.15);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #38bdbd;
   --yb-site-primary-btn-bg: #169c9c;
   --yb-site-hero-bg: linear-gradient(135deg, #169c9c, #0f0e0d);
   --primary-6: 56 189 189;
 }
 
-html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared) {
+html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #1d7d7d;
   --neco-accent-light: #259a9a;
   --neco-accent-dark: #145e5e;
@@ -838,6 +865,9 @@ html:not(.dark)[data-accent='cyan'] :is(.site-chrome, .site-page, .wiki-public, 
   --neco-accent-pale: #1b7070;
   --neco-accent-soft: rgba(29, 125, 125, 0.15);
   --neco-accent-tint: rgba(37, 154, 154, 0.12);
+  --neco-nav-slider: var(--neco-accent);
+  --neco-nav-slider-light: var(--neco-accent-light);
+  --neco-nav-slider-dark: var(--neco-accent-dark);
   --yb-site-primary: #1d7d7d;
   --yb-site-hero-bg: linear-gradient(135deg, #1d7d7d, #171615);
   --primary-6: 29 125 125;
