@@ -6,8 +6,20 @@ import { computed, ref, watch } from 'vue'
 import { itemDisplayName, recipeTypeLabel } from '../types'
 import WikiIcon from './WikiIcon.vue'
 
-const props = withDefaults(defineProps<{ modelValue: boolean, itemId: string | null, version?: string, renderGen?: string, api: McWikiApi }>(), { version: '', renderGen: '' })
+const props = withDefaults(defineProps<{
+  modelValue: boolean
+  itemId: string | null
+  version?: string
+  renderGen?: string
+  api: McWikiApi
+  publicTheme?: boolean
+}>(), { version: '', renderGen: '', publicTheme: false })
 const emit = defineEmits<{ 'update:modelValue': [boolean], 'view-recipe': [WikiRecipe] }>()
+
+const drawerClass = computed(() => [
+  props.publicTheme ? 'mc-wiki-public-drawer' : '',
+  'w-[min(560px,calc(100vw-24px))]',
+].filter(Boolean).join(' '))
 
 const loading = ref(false)
 const detail = ref<WikiItemDetail | null>(null)
@@ -71,8 +83,8 @@ function downloadName(): string {
 </script>
 
 <template>
-  <FaDrawer :model-value="modelValue" :title="itemName || '物品详情'" side="right" :show-confirm-button="false" :footer="false" content-class="mc-wiki-drawer w-[min(560px,calc(100vw-24px))]" @update:model-value="value => emit('update:modelValue', value)">
-    <div v-loading="loading" class="mc-wiki-drawer__body">
+  <FaDrawer :model-value="modelValue" :title="itemName || '物品详情'" side="right" :show-confirm-button="false" :footer="false" :content-class="drawerClass" @update:model-value="value => emit('update:modelValue', value)">
+    <div v-loading="loading" :class="publicTheme ? 'mc-wiki-public-drawer__body' : 'flex flex-col gap-4'">
       <p v-if="failed" class="m-0 text-sm text-destructive">物品详情加载失败，可能尚未发布百科版本。</p>
       <template v-if="detail">
         <div class="flex items-center gap-3">

@@ -133,7 +133,7 @@ watch(tab, (value) => {
       </div>
     </template>
 
-    <ItemDetailDrawer v-model="itemOpen" :item-id="selectedItem" :version="model.publicVersion" :render-gen="model.renderGen" :api="model.api" @view-recipe="openRecipe" />
-    <RecipeDetailDrawer v-model="recipeOpen" :recipe="selectedRecipe" :icon-url="model.iconUrl" />
+    <ItemDetailDrawer v-model="itemOpen" public-theme :item-id="selectedItem" :version="model.publicVersion" :render-gen="model.renderGen" :api="model.api" @view-recipe="openRecipe" />
+    <RecipeDetailDrawer v-model="recipeOpen" public-theme :recipe="selectedRecipe" :icon-url="model.iconUrl" />
   </div>
 </template>

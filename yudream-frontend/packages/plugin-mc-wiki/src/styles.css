@@ -394,8 +394,9 @@
 }
 
 /* 公开百科抽屉：FaDrawer 经 portal 挂到 body，不能依赖 .mc-wiki-public 祖先选择器。
+   只挂 publicTheme 的公开页；管理端抽屉不带此类，继续走宿主主题。
    宿主 bg-background 消费 oklch(var(--background))，变量必须是 OKLCH 三通道。 */
-.mc-wiki-drawer {
+.mc-wiki-public-drawer {
   --mc-wiki-ink: #f7f5ee;
   --mc-wiki-muted: rgba(247, 245, 238, 0.72);
   --mc-wiki-panel: #313131;
@@ -425,73 +426,73 @@
   box-shadow: 4px 4px rgba(0, 0, 0, 0.5);
 }
 
-.mc-wiki-drawer [data-slot='sheet-header'],
-.mc-wiki-drawer [data-slot='sheet-footer'] {
+.mc-wiki-public-drawer [data-slot='sheet-header'],
+.mc-wiki-public-drawer [data-slot='sheet-footer'] {
   background: #171615;
   color: #f7f5ee;
   border-color: #555555;
 }
 
-.mc-wiki-drawer [data-slot='sheet-close'] {
+.mc-wiki-public-drawer [data-slot='sheet-close'] {
   color: #f7f5ee;
 }
 
-.mc-wiki-drawer [data-slot='sheet-title'],
-.mc-wiki-drawer h4,
-.mc-wiki-drawer strong {
+.mc-wiki-public-drawer [data-slot='sheet-title'],
+.mc-wiki-public-drawer h4,
+.mc-wiki-public-drawer strong {
   color: #f7f5ee;
 }
 
-.mc-wiki-drawer [data-slot='sheet-description'],
-.mc-wiki-drawer .text-secondary-foreground\/60 {
+.mc-wiki-public-drawer [data-slot='sheet-description'],
+.mc-wiki-public-drawer .text-secondary-foreground\/60 {
   color: rgba(247, 245, 238, 0.72);
 }
 
-.mc-wiki-drawer button,
-.mc-wiki-drawer input,
-.mc-wiki-drawer select,
-.mc-wiki-drawer textarea,
-.mc-wiki-drawer a {
+.mc-wiki-public-drawer button,
+.mc-wiki-public-drawer input,
+.mc-wiki-public-drawer select,
+.mc-wiki-public-drawer textarea,
+.mc-wiki-public-drawer a {
   border-radius: 0 !important;
 }
 
-.mc-wiki-drawer__body {
+.mc-wiki-public-drawer__body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   color: #f7f5ee;
 }
 
-.mc-wiki-drawer .mc-wiki-icon {
+.mc-wiki-public-drawer .mc-wiki-icon {
   background: rgba(0, 0, 0, 0.35);
   border-radius: 0;
 }
 
-.mc-wiki-drawer .mc-wiki-icon-fallback {
+.mc-wiki-public-drawer .mc-wiki-icon-fallback {
   color: #f7f5ee;
 }
 
-.mc-wiki-drawer .mc-wiki-craft-table,
-.mc-wiki-drawer .mc-wiki-craft-cell,
-.mc-wiki-drawer .mc-wiki-craft-result,
-.mc-wiki-drawer .mc-wiki-recipe-link,
-.mc-wiki-drawer .mc-wiki-face-cell,
-.mc-wiki-drawer .mc-wiki-blockstate {
+.mc-wiki-public-drawer .mc-wiki-craft-table,
+.mc-wiki-public-drawer .mc-wiki-craft-cell,
+.mc-wiki-public-drawer .mc-wiki-craft-result,
+.mc-wiki-public-drawer .mc-wiki-recipe-link,
+.mc-wiki-public-drawer .mc-wiki-face-cell,
+.mc-wiki-public-drawer .mc-wiki-blockstate {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid #555555;
   border-radius: 0;
   color: #f7f5ee;
 }
 
-.mc-wiki-drawer .mc-wiki-craft-arrow {
+.mc-wiki-public-drawer .mc-wiki-craft-arrow {
   color: rgba(247, 245, 238, 0.72);
 }
 
-.mc-wiki-drawer .mc-wiki-download {
+.mc-wiki-public-drawer .mc-wiki-download {
   color: var(--neco-accent-light, #6cc349);
 }
 
-html[data-theme='light'] .mc-wiki-drawer {
+html[data-theme='light'] .mc-wiki-public-drawer {
   --background: 0.96 0.01 90;
   --foreground: 0.18 0.01 80;
   --card: 0.93 0.01 90;
@@ -509,37 +510,37 @@ html[data-theme='light'] .mc-wiki-drawer {
   border-color: #a8a296 !important;
 }
 
-html[data-theme='light'] .mc-wiki-drawer [data-slot='sheet-header'],
-html[data-theme='light'] .mc-wiki-drawer [data-slot='sheet-footer'] {
+html[data-theme='light'] .mc-wiki-public-drawer [data-slot='sheet-header'],
+html[data-theme='light'] .mc-wiki-public-drawer [data-slot='sheet-footer'] {
   background: #eceae2;
   color: #171615;
   border-color: #a8a296;
 }
 
-html[data-theme='light'] .mc-wiki-drawer [data-slot='sheet-title'],
-html[data-theme='light'] .mc-wiki-drawer h4,
-html[data-theme='light'] .mc-wiki-drawer strong {
+html[data-theme='light'] .mc-wiki-public-drawer [data-slot='sheet-title'],
+html[data-theme='light'] .mc-wiki-public-drawer h4,
+html[data-theme='light'] .mc-wiki-public-drawer strong {
   color: #171615;
 }
 
-html[data-theme='light'] .mc-wiki-drawer__body {
+html[data-theme='light'] .mc-wiki-public-drawer__body {
   color: #171615;
 }
 
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-icon,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-craft-table,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-craft-cell,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-craft-result,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-recipe-link,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-face-cell,
-html[data-theme='light'] .mc-wiki-drawer .mc-wiki-blockstate {
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-icon,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-craft-table,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-craft-cell,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-craft-result,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-recipe-link,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-face-cell,
+html[data-theme='light'] .mc-wiki-public-drawer .mc-wiki-blockstate {
   background: rgba(23, 22, 21, 0.08);
   border-color: #a8a296;
   color: #171615;
 }
 
-.mc-wiki-drawer .mc-wiki-size-bar button,
-.mc-wiki-drawer .mc-wiki-size-bar input {
+.mc-wiki-public-drawer .mc-wiki-size-bar button,
+.mc-wiki-public-drawer .mc-wiki-size-bar input {
   color: #f7f5ee;
   background: #313131;
   border: 1px solid #555555;

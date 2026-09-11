@@ -6,8 +6,18 @@ import { recipeTypeLabel } from '../types'
 import RecipeGrid from './RecipeGrid.vue'
 import WikiIcon from './WikiIcon.vue'
 
-const props = defineProps<{ modelValue: boolean, recipe: WikiRecipe | null, iconUrl: (itemId: string) => string }>()
+const props = withDefaults(defineProps<{
+  modelValue: boolean
+  recipe: WikiRecipe | null
+  iconUrl: (itemId: string) => string
+  publicTheme?: boolean
+}>(), { publicTheme: false })
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
+
+const drawerClass = computed(() => [
+  props.publicTheme ? 'mc-wiki-public-drawer' : '',
+  'w-[min(560px,calc(100vw-24px))]',
+].filter(Boolean).join(' '))
 
 const title = computed(() => props.recipe ? (props.recipe.resultNameZh || props.recipe.resultNameEn || props.recipe.resultId) : '配方详情')
 
@@ -31,8 +41,8 @@ function close(value: boolean) {
 </script>
 
 <template>
-  <FaDrawer :model-value="modelValue" :title="title" side="right" :show-confirm-button="false" :footer="false" content-class="mc-wiki-drawer w-[min(560px,calc(100vw-24px))]" @update:model-value="close">
-    <div v-if="recipe" class="mc-wiki-drawer__body">
+  <FaDrawer :model-value="modelValue" :title="title" side="right" :show-confirm-button="false" :footer="false" :content-class="drawerClass" @update:model-value="close">
+    <div v-if="recipe" :class="publicTheme ? 'mc-wiki-public-drawer__body' : 'flex flex-col gap-4'">
       <div class="flex items-center gap-3">
         <WikiIcon :src="iconUrl(recipe.resultId)" :label="title" :size="48" />
         <div class="flex min-w-0 flex-col gap-1">
