@@ -63,13 +63,14 @@
 | 大事记（/timeline） | `--tl-*` 桥接变量自动跟随 `--yb-site-*`；卡片方角硬阴影、时间轴圆点改方块、隐藏模糊光斑 |
 | 表单公开页（/forms/:code） | `.public-form-page` Arco 变量 + 面板方角立体边 |
 | 学历核验 / 世界地图 / 题库公开页 | `.ev-page`/`.world-map-viewer`/`.qb-screen`/`.qb-shared` 并入 Arco 变量换肤组 |
+| 登录 / 注册 | `/login`、`/register` 标 `public` 后套 SITE 主题；`.login-page` 深色像素面板、深板岩底与立体按钮 |
 | 未来新增的 siteNav 插件公开页 | 包在 `.plugin-site-page`/`.site-chrome` 内即自动继承；自带 `--xx-*` 桥接变量回退到 `--yb-site-*` 的插件（如 timeline）无需任何改动 |
 
 像素化通用处理：全局方角（`border-radius: 0`）、MC 立体边按钮（inset bevel + 按下反转）、硬位移卡片阴影、像素字体栈、选区/焦点/内部滚动条样式。
 
 ## 主题配置项（theme-config.json）
 
-schema 分六节，全部有默认值，留空即回落站点设置或主题内置文案。Vue 页面经 `sdk.site.context()` 的 `themeConfig` 读取（`configText/configList/configNumber/configSwitch` helper）：
+schema 分六节，全部有默认值，留空即回落站点设置或主题内置文案。图片字段走宿主上传器，不必手填 URL。Vue 页面经 `sdk.site.context()` 的 `themeConfig` 读取（`configText/configList/configNumber/configSwitch` helper）：
 
 | 分节 | 字段 | 说明 |
 |---|---|---|

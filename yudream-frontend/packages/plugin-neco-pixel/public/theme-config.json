@@ -23,7 +23,7 @@
           "key": "heroLogo",
           "label": "LOGO 图",
           "type": "image",
-          "description": "留空则使用站点 LOGO；可填主题资产路径 /api/platform/plugins/neco-pixel/assets/..."
+          "description": "留空则使用站点 LOGO；可上传图片或使用主题自带资产"
         },
         {
           "key": "heroBackground",
