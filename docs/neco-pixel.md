@@ -35,14 +35,14 @@
 
 现在官方通道是 `chromeComponent`：主题远程 Vue 组件完全接管页头页脚。未声明 chrome 的主题仍可用 chrome 变量契约作为回落，完整清单见主仓 `docs/plugin-system/specification.md` 9.1。
 
-默认配色是 NMO 深色（`--neco-bg-page: #0f0e0d`）。浅色仅在色板选「浅色」后挂 `html[data-theme='light']`。
+默认配色是 NMO 深色（`--neco-bg-page: #0f0e0d`）。公开站只保留深色方案，色板不再提供浅色切换。
 
 ## 复刻内容对照（上游 neco → 本插件）
 
 | 上游 | 本插件 | 说明 |
 |---|---|---|
-| 完整设计令牌（bg/card/elevated/sunken、文本 alpha 阶梯、bevel/shadow、focus-ring 等） | `theme.css` 的 `--neco-*` 变量族 | 深色为默认，`html[data-theme='light']` 覆盖浅色；同时映射宿主 `--yb-site-*` 与 Arco `--primary-6` |
-| `[data-accent]` 6 色强调色（绿/红石/青金石/黄金/紫水晶/海晶，各含 light/dark/bright/pale 派生） | `theme.css` accent 变量块 + `src/accent.ts` | 翠绿为默认（不挂属性）；浮动像素色板含深色/浅色方案按钮，持久化 `localStorage["neco-pixel:accent"]` / `neco-pixel:scheme` |
+| 完整设计令牌（bg/card/elevated/sunken、文本 alpha 阶梯、bevel/shadow、focus-ring 等） | `theme.css` 的 `--neco-*` 变量族 | 深色为唯一方案；同时映射宿主 `--yb-site-*` 与 Arco `--primary-6` |
+| `[data-accent]` 6 色强调色（绿/红石/青金石/黄金/紫水晶/海晶，各含 light/dark/bright/pale 派生） | `theme.css` accent 变量块 + `src/accent.ts` | 翠绿为默认（不挂属性）；浮动像素色板只切换 6 色强调色，持久化 `localStorage["neco-pixel:accent"]` |
 | ThemePalette.vue | `.neco-palette-toggle` / `.neco-palette-panel` | 固定在左下音效开关上方，仅主题激活时可见 |
 | fade-in / fade-in-down/left/right 入场动画 | `@keyframes neco-fade-in-*` + `.neco-anim*` 工具类 | 尊重 `prefers-reduced-motion` |
 | NavBar 活动项像素滑块 | `theme/Chrome.vue` 的 `.slider` | 按当前路径最长前缀匹配活动项，用 `offsetLeft`/`offsetWidth` 贴合文字宽度；强调色走 `--neco-nav-slider` |
@@ -94,7 +94,7 @@ Vue 页面经 `sdk.site.context({blocks: [...]})` 消费其他插件贡献的数
 ## 运行时
 
 - **音效**：播放上游 `button.click.ogg`（Minecraft 原版按钮点击，音量 0.3）。仅在主题 link 存在且未 `disabled` / `media !== 'not all'`（即公开路由）且事件发生在公开页容器内时播放；切回后台自动静默。左下角像素开关（`.neco-sound-toggle`）可随时静音，选择持久化在 `localStorage["neco-pixel:sound"]`。
-- **强调色色板**（`src/accent.ts`）：左下音效开关上方的 2×2 彩色方块按钮，展开深色/浅色方案 + 6 色色板；选择写 `localStorage["neco-pixel:accent"]` / `neco-pixel:scheme`，挂/卸 `<html data-accent>` 与 `data-theme`；显隐跟随主题 link 的 `disabled`/`media`。
+- **强调色色板**（`src/accent.ts`）：左下音效开关上方的 2×2 彩色方块按钮，展开 6 色色板；选择写 `localStorage["neco-pixel:accent"]`，挂/卸 `<html data-accent>`。安装时清掉历史 `neco-pixel:scheme` 与 `data-theme`，公开站只走深色。显隐跟随主题 link 的 `disabled`/`media`。
 - **导航滑块**：由 `theme/Chrome.vue` 自己按 `route.path` 最长前缀匹配活动项并 `translateX` 滑块，不再补丁宿主 SiteChrome。
 
 ## 资产

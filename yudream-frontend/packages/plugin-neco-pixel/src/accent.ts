@@ -4,7 +4,7 @@
  * 翠绿为默认色（不挂 data-accent 属性），其余五色在 <html> 上挂
  * data-accent，由 theme.css 的 scoped 变量块接管整套 --neco-* 阶梯与
  * 宿主 --yb-site-* 桥接变量。选择持久化 localStorage["neco-pixel:accent"]。
- * 浮动像素色板与音效开关并排，仅在主题激活时可见。
+ * 公开站只保留深色方案；浮动像素色板与音效开关并排，仅在主题激活时可见。
  */
 
 const PLUGIN_CODE = 'neco-pixel'
@@ -37,13 +37,13 @@ let headObserver: MutationObserver | null = null
 let outsideClickHandler: ((event: MouseEvent) => void) | null = null
 let installed = false
 
-function currentScheme(): 'dark' | 'light' {
+function lockDarkScheme() {
+  document.documentElement.removeAttribute('data-theme')
   try {
-    const saved = localStorage.getItem(THEME_KEY)
-    return saved === 'light' ? 'light' : 'dark'
+    localStorage.removeItem(THEME_KEY)
   }
   catch {
-    return 'dark'
+    // localStorage 不可用时仅清当次会话
   }
 }
 
@@ -82,23 +82,6 @@ function withSwitchingTransition(mutate: () => void) {
   }, SWITCHING_MS)
 }
 
-function applyScheme(value: 'dark' | 'light', animate = false) {
-  const mutate = () => {
-    if (value === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light')
-    }
-    else {
-      document.documentElement.removeAttribute('data-theme')
-    }
-  }
-  if (animate) {
-    withSwitchingTransition(mutate)
-  }
-  else {
-    mutate()
-  }
-}
-
 function applyAccent(accent: string, animate: boolean) {
   const mutate = () => {
     if (accent === DEFAULT_ACCENT) {
@@ -117,17 +100,6 @@ function applyAccent(accent: string, animate: boolean) {
   syncSwatchState()
 }
 
-function selectScheme(value: 'dark' | 'light') {
-  try {
-    localStorage.setItem(THEME_KEY, value)
-  }
-  catch {
-    // localStorage 不可用时仅切换当次会话
-  }
-  applyScheme(value, true)
-  syncSchemeState()
-}
-
 function selectAccent(accent: string) {
   try {
     localStorage.setItem(STORAGE_KEY, accent)
@@ -136,18 +108,6 @@ function selectAccent(accent: string) {
     // localStorage 不可用时仅切换当次会话
   }
   applyAccent(accent, true)
-}
-
-function syncSchemeState() {
-  if (!panel) {
-    return
-  }
-  const active = currentScheme()
-  panel.querySelectorAll<HTMLButtonElement>('.neco-palette-option').forEach((button) => {
-    const isActive = button.dataset.scheme === active
-    button.classList.toggle('active', isActive)
-    button.setAttribute('aria-pressed', String(isActive))
-  })
 }
 
 function syncSwatchState() {
@@ -191,7 +151,6 @@ function createToggleButton() {
   button.className = 'neco-palette-toggle'
   button.title = '强调色'
   button.setAttribute('aria-haspopup', 'true')
-  // 2×2 彩色方块图标，取自色板中的四个代表色
   const iconColors = ['#3c8527', '#b02e26', '#3c44aa', '#c8a03a']
   for (const color of iconColors) {
     const square = document.createElement('i')
@@ -211,28 +170,7 @@ function createPanel() {
   el.className = 'neco-palette-panel neco-panel'
   el.hidden = true
   el.setAttribute('role', 'group')
-  el.setAttribute('aria-label', '主题设置')
-
-  const schemeLabel = document.createElement('span')
-  schemeLabel.className = 'neco-palette-panel__label'
-  schemeLabel.textContent = '配色方案'
-  el.appendChild(schemeLabel)
-
-  const schemes = document.createElement('div')
-  schemes.className = 'neco-palette-schemes'
-  for (const item of [{ id: 'dark', label: '深色' }, { id: 'light', label: '浅色' }] as const) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'neco-palette-option'
-    button.dataset.scheme = item.id
-    button.textContent = item.label
-    button.addEventListener('click', (event) => {
-      event.stopPropagation()
-      selectScheme(item.id)
-    })
-    schemes.appendChild(button)
-  }
-  el.appendChild(schemes)
+  el.setAttribute('aria-label', '主题色')
 
   const label = document.createElement('span')
   label.className = 'neco-palette-panel__label'
@@ -267,11 +205,10 @@ export function installAccent() {
     return
   }
   installed = true
-  applyScheme(currentScheme(), false)
+  lockDarkScheme()
   applyAccent(currentAccent(), false)
   toggleButton = createToggleButton()
   panel = createPanel()
-  syncSchemeState()
   syncSwatchState()
   outsideClickHandler = (event: MouseEvent) => {
     if (panel && !panel.hidden && event.target !== toggleButton) {
@@ -279,7 +216,6 @@ export function installAccent() {
     }
   }
   document.addEventListener('click', outsideClickHandler, true)
-  // 主题 link 的 media/disabled 随路由切换，观察 head 属性变化同步色板显隐
   headObserver = new MutationObserver(syncVisibility)
   headObserver.observe(document.head, { attributes: true, subtree: true, attributeFilter: ['disabled', 'media'] })
   syncVisibility()

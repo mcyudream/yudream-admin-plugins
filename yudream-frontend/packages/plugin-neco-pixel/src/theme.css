@@ -14,8 +14,8 @@
  * - wiki 与独立公开页：.wiki-public / .wiki-home / .wiki-search-page /
  *   .public-form-page 与插件公开页（.tl-* / .ev-page / .world-map-viewer /
  *   .qb-screen / .qb-shared），覆写 Arco --color-* 变量；
- * - 深色为默认；浅色由 html[data-theme='light'] 覆盖。不污染 :root
- *   全局变量，禁用主题 link 后宿主样式即刻恢复原样。
+ * - 公开站只保留深色方案。不污染 :root 全局变量，禁用主题 link
+ *   后宿主样式即刻恢复原样。
  *
  * 适配契约：插件公开页换肤的正途是「插件适配主题」——插件自带 --xx-*
  * 桥接变量（如大事记 --tl-*）并回退消费 --yb-site-*，主题只定义变量与
@@ -63,7 +63,7 @@
   font-family: 'Minecraft-Tenv2', 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
 }
 
-/* 默认走 NMO 深色方案；浅色由 html[data-theme='light'] 覆盖 */
+/* 公开站只走 NMO 深色方案 */
 html:has(.neco-chrome),
 html:has(.site-chrome.is-theme-chrome),
 html:has(.login-page) {
@@ -675,7 +675,7 @@ html.theme-switching *::after {
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
 }
 
-/* hero 面板：深板岩平铺 + 深色渐变遮罩（浅色方案换蓝冰 + 白色遮罩） */
+/* hero 面板：深板岩平铺 + 深色渐变遮罩 */
 .neco-hero-panel {
   position: relative;
   overflow: hidden;
@@ -936,40 +936,6 @@ html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco
   color: #e0ded8;
   font-size: 12px;
   letter-spacing: 1px;
-}
-
-.neco-palette-schemes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 0 0 12px;
-}
-
-.neco-palette-option {
-  height: 28px;
-  padding: 0 8px;
-  color: #e0ded8;
-  font: inherit;
-  font-size: 12px;
-  letter-spacing: 1px;
-  background: #1c1b1a;
-  border: 2px solid #000000;
-  border-radius: 0;
-  cursor: pointer;
-  box-shadow:
-    inset 2px 2px 0 rgba(255, 255, 255, 0.16),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
-}
-
-.neco-palette-option:hover {
-  filter: brightness(1.12);
-}
-
-.neco-palette-option.active {
-  color: #101010;
-  background: var(--neco-accent-light, #6cc349);
-  outline: 3px solid var(--neco-accent-light, #6cc349);
-  outline-offset: 2px;
 }
 
 .neco-palette-swatches {
