@@ -8,7 +8,7 @@
 
 - **纯主题插件**：不注册 HTTP 端点、权限与后台菜单，入口类只做声明。
 - `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homeComponent="theme/Home", chromeComponent="theme/Chrome", configSchema="theme-config.json")`：主题样式、首页/chrome 组件名与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`。
-- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并，主题再隐藏 `/news` `/about`），主题自己画 NMO 覆盖式导航条（按实际文字宽度测量滑块、深色 overlay、登录/头像在右上）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
+- **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并，主题再隐藏 `/news` `/about`），主题自己画 NMO 覆盖式导航条（按实际文字宽度测量滑块、深色 overlay、登录/头像在右上）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。公开 Wiki（`/wiki`，导航文案「知识库」）与 mc-wiki 百科（`/encyclopedia`）都进导航，互不替代。
 - **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 公开路由 `/servers`、`/activities`（进导航）与 `/activities/:id`（`siteNav` 只为套主题 chrome，Chrome 按路径/标题隐藏「活动详情」）；新闻与关于我们留在首页区块，百科由 mc-wiki 的 `/encyclopedia` 进导航。
 - **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel`）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），Vue 页面经 `sdk.site.context()` 返回的 `themeConfig` 消费，保存后公开站即时生效。
 - **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline, mc-wiki]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
@@ -24,6 +24,7 @@
 | `/activities` | `theme/Activities.vue` | `activity-square` 块（含 `cover`/`id`/`url`）；有封面用活动封面，点击跳 `/activities/{id}`；未装插件回落 CMS 最新文章或空态 |
 | `/activities/:id` | `theme/ActivityDetail.vue` | 匿名 `GET /api/plugins/minecraft-activity-proof/public/activities/{id}`；不进导航；登录后「立即参与」进登录广场详情 |
 | `/encyclopedia`（百科） | **mc-wiki 插件自己的公开页** | 物品图鉴 + 合成配方；未装/未发布时导航项消失或页内空态 |
+| `/wiki`（知识库） | **宿主公开 Wiki** | 站点文档空间；有公开空间时宿主自动注入导航项，主题不再隐藏 |
 | `/timeline`（大事记） | **timeline 插件自己的页面**，主题不接管 | 主题只对 `.tl-page` 写像素兼容样式；未装 timeline 时导航项由宿主自动消失 |
 
 所有页面 SFC 使用统一 prop 形态 `defineProps<{ sdk: YuDreamPluginSdk, route?: ... }>()`，站内跳转用共享 vue-router 的 `RouterLink`（vite 经 `yuDreamPluginSharedAliases()` 别名到宿主实例，不打包第二份 vue-router）；每页 `useThemeSeo` 设置标题/canonical。
