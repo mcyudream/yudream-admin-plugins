@@ -3,6 +3,7 @@ import { disposeAccent, installAccent } from './accent'
 import { disposeSounds, installSounds } from './sounds'
 import About from './theme/About.vue'
 import Activities from './theme/Activities.vue'
+import ActivityDetail from './theme/ActivityDetail.vue'
 import Chrome from './theme/Chrome.vue'
 import Home from './theme/Home.vue'
 import News from './theme/News.vue'
@@ -23,6 +24,7 @@ export default defineYuDreamPlugin({
     'theme/Home': Home,
     'theme/Servers': Servers,
     'theme/Activities': Activities,
+    'theme/ActivityDetail': ActivityDetail,
     'theme/News': News,
     'theme/About': About,
   },

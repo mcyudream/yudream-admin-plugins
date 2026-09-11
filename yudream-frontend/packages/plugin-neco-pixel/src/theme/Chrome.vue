@@ -11,8 +11,8 @@ interface NavItem {
   children?: NavItem[]
 }
 
-const HIDDEN_NAV = new Set(['/news', '/about', '/wiki'])
-const HIDDEN_LABELS = new Set(['新闻', '关于我们', '知识库'])
+const HIDDEN_NAV = new Set(['/news', '/about', '/wiki', '/activities/:id'])
+const HIDDEN_LABELS = new Set(['新闻', '关于我们', '知识库', '活动详情'])
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -48,7 +48,10 @@ const items = computed(() => (props.navigation || []).filter((item) => {
     return false
   }
   const path = navPath(item.url)
-  return !HIDDEN_NAV.has(path) && !HIDDEN_LABELS.has(item.label.trim())
+  if (HIDDEN_NAV.has(path) || HIDDEN_LABELS.has(item.label.trim())) {
+    return false
+  }
+  return !(path.startsWith('/activities/') && path !== '/activities')
 }))
 
 const activeIndex = computed(() => {

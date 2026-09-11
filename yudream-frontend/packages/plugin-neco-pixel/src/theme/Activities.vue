@@ -49,8 +49,13 @@ function dateRange(item: Record<string, any>) {
   return start ? `${start} ~ ${end}` : end
 }
 
+function activityUrl(item: Record<string, any>) {
+  return item.url || (item.id ? `/activities/${item.id}` : '')
+}
+
 function cover(item: Record<string, any>) {
-  return themeAsset(props.sdk, item.cover || item.image) || pluginAsset(props.sdk, 'background/beidalou.webp')
+  const raw = item.cover || item.coverUrl || item.image
+  return raw ? themeAsset(props.sdk, raw) : pluginAsset(props.sdk, 'background/beidalou.webp')
 }
 
 function isInternal(url?: string) {
@@ -84,12 +89,12 @@ function setPage() {
     </div>
     <div v-else class="activity-list">
       <component
-        :is="isInternal(item.url) ? RouterLink : (item.url ? 'a' : 'div')"
+        :is="isInternal(activityUrl(item)) ? RouterLink : (activityUrl(item) ? 'a' : 'div')"
         v-for="(item, index) in paged"
-        :key="index"
+        :key="item.id || item.url || index"
         class="activity-item"
-        :to="isInternal(item.url) ? item.url : undefined"
-        :href="item.url && !isInternal(item.url) ? item.url : undefined"
+        :to="isInternal(activityUrl(item)) ? activityUrl(item) : undefined"
+        :href="activityUrl(item) && !isInternal(activityUrl(item)) ? activityUrl(item) : undefined"
         :style="{
           '--delay': `${index * 0.1}s`,
           backgroundColor: isActive(item) ? 'rgb(45, 72, 31)' : 'rgb(88, 46, 46)',

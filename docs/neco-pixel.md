@@ -9,7 +9,7 @@
 - **纯主题插件**：不注册 HTTP 端点、权限与后台菜单，入口类只做声明。
 - `@PluginTheme(code="neco-pixel", scopes={SITE}, styles={"style.css"}, preview="preview.png", homeComponent="theme/Home", chromeComponent="theme/Chrome", configSchema="theme-config.json")`：主题样式、首页/chrome 组件名与配置 schema 打进 JAR 的 `META-INF/yudream-plugin/frontend/neco-pixel/`。
 - **chrome 由主题自管**：`chromeComponent="theme/Chrome"` 接管公开站页头/页脚。导航数据由宿主注入（首页 `/site` + 站点导航 + 插件 `siteNav` 路由合并，主题再隐藏 `/news` `/about`），主题自己画 NMO 覆盖式导航条（按实际文字宽度测量滑块、深色 overlay、登录/头像在右上）。切页不再换 chrome，也不会回落到宿主浅色 SiteChrome。
-- **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 两个 `@PluginRoute(publicAccess=true, siteNav=true)` 公开路由（/servers、/activities）；新闻与关于我们留在首页区块，百科由 mc-wiki 的 `/encyclopedia` 进导航。
+- **版式页 = 插件前端包里的 Vue SFC**：`@PluginFrontend(moduleName="neco-pixel")` + 公开路由 `/servers`、`/activities`（进导航）与 `/activities/:id`（`siteNav` 只为套主题 chrome，Chrome 按路径/标题隐藏「活动详情」）；新闻与关于我们留在首页区块，百科由 mc-wiki 的 `/encyclopedia` 进导航。
 - **主题配置（WordPress 自定义器形态）**：`configSchema` 声明 `theme-config.json` 后，宿主在「平台 → 主题中心」主题卡上给出「配置」入口（`/platform/theme-center/config/neco-pixel`）；配置按主题持久化（Setting `pluginTheme.config.neco-pixel`），Vue 页面经 `sdk.site.context()` 返回的 `themeConfig` 消费，保存后公开站即时生效。
 - **软依赖声明**：`plugin.yml` 声明 `softdepend: [minecraft-server, minecraft-activity-proof, timeline, mc-wiki]`（仅表达增强关系与加载顺序，缺失不阻塞主题）；主题代码不 import 任何业务插件。
 - 同 scope 主题互斥由宿主保证：启用本插件自动顶替其他 SITE 主题插件，禁用/卸载后回落宿主内置主题；顶替/停用由宿主在「主题中心」一键操作。
@@ -21,7 +21,8 @@
 | 全站 chrome | `theme/Chrome.vue`（chromeComponent） | 宿主注入 `navigation`/`footer*`/`siteName`/`isLogin`；NMO overlay 导航 + 页脚免责声明 |
 | `/site`（首页） | `theme/Home.vue`（homeComponent） | hero/关于/服务器预览/最新动态，`sdk.site.context({blocks:['server-list'], limit:4, cmsLatest:12})` |
 | `/servers` | `theme/Servers.vue` | `server-list` 块实时状态优先，未装 minecraft-server 回落 `themeConfig.staticServers`；NMO 维度列表：`list-background.jpg` + ping 条动画 + 64px 图标 |
-| `/activities` | `theme/Activities.vue` | `activity-square` 块；NMO 活动页：`header-bg.jpg` + `bg.jpg` 平铺、绿/红 3D 卡片；未装插件回落 CMS 最新文章或空态 |
+| `/activities` | `theme/Activities.vue` | `activity-square` 块（含 `cover`/`id`/`url`）；有封面用活动封面，点击跳 `/activities/{id}`；未装插件回落 CMS 最新文章或空态 |
+| `/activities/:id` | `theme/ActivityDetail.vue` | 匿名 `GET /api/plugins/minecraft-activity-proof/public/activities/{id}`；不进导航；登录后「立即参与」进登录广场详情 |
 | `/encyclopedia`（百科） | **mc-wiki 插件自己的公开页** | 物品图鉴 + 合成配方；未装/未发布时导航项消失或页内空态 |
 | `/timeline`（大事记） | **timeline 插件自己的页面**，主题不接管 | 主题只对 `.tl-page` 写像素兼容样式；未装 timeline 时导航项由宿主自动消失 |
 
@@ -85,7 +86,7 @@ Vue 页面经 `sdk.site.context({blocks: [...]})` 消费其他插件贡献的数
 | 块 | 提供插件（最低版本） | 数据 | 消费位置 |
 |---|---|---|---|
 | `server-list` | minecraft-server 1.5.0 | `servers[]`：名称/图标/描述/地址/在线/状态文案/MOTD/人数/延迟（取自状态快照缓存，不实时 ping） | 首页服务器区块、/servers 页 |
-| `activity-square` | minecraft-activity-proof 2.4.0 | `activities[]`：标题/`statusKey`(upcoming/ongoing/ended)/状态文案/`meta`/摘要 | /activities 页 |
+| `activity-square` | minecraft-activity-proof 2.4.1 | `activities[]`：`id`/标题/`cover`/`url`/`statusKey`(upcoming/ongoing/ended)/状态文案/`meta`/摘要 | /activities 页；有封面用活动封面，点击进 `/activities/{id}` |
 | `timeline` | timeline 1.3.0 | `events[]`：标题/时间/摘要/链接（统一导向 /timeline） | 任意主题页面可自行引用 |
 
 ## 运行时

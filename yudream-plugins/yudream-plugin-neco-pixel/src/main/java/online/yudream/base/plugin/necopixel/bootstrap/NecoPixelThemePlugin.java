@@ -31,10 +31,12 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
         @PluginRoute(path = "/servers", name = "neco-pixel-servers", title = "服务器",
                 icon = "i-ri:server-line", component = "theme/Servers", hideInMenu = true, publicAccess = true, siteNav = true),
         @PluginRoute(path = "/activities", name = "neco-pixel-activities", title = "活动平台",
-                icon = "i-ri:flag-line", component = "theme/Activities", hideInMenu = true, publicAccess = true, siteNav = true)
+                icon = "i-ri:flag-line", component = "theme/Activities", hideInMenu = true, publicAccess = true, siteNav = true),
+        @PluginRoute(path = "/activities/:id", name = "neco-pixel-activity-detail", title = "活动详情",
+                icon = "i-ri:flag-line", component = "theme/ActivityDetail", hideInMenu = true, publicAccess = true, siteNav = true)
 })
 public final class NecoPixelThemePlugin implements YuDreamPlugin {
 
     public static final String CODE = "neco-pixel";
-    public static final String VERSION = "2.0.0";
+    public static final String VERSION = "2.0.1";
 }
