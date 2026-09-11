@@ -17,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@PluginSpec(code = QqBindingPlugin.CODE, name = "QQ群 QQ 绑定", version = "1.0.0", description = "通过群聊一次性绑定码绑定系统 QQ")
+@PluginSpec(code = QqBindingPlugin.CODE, name = "QQ群 QQ 绑定", version = "1.0.1", description = "通过群聊一次性绑定码绑定系统 QQ")
 @PluginPermission(code = QqBindingPlugin.MANAGE_PERMISSION, name = "管理 QQ 绑定", module = "平台插件", description = "生成 QQ 绑定码")
 public class QqBindingPlugin implements YuDreamPlugin {
     public static final String CODE = "qq-binding";
@@ -95,8 +95,31 @@ public class QqBindingPlugin implements YuDreamPlugin {
                 command.event().selfId(), command.event().channelId(), content));
     }
 
+    /**
+     * 官方被动回复必须原样回传事件会话上下文：message_scene 决定回复落到的端点
+     * （C2C 事件的 channelId 是用户 openid，缺 scene 会被宿主默认按群发送而 400），
+     * msg_id/event_id/interaction_id 是官方被动回复凭证。
+     */
     private Map<String, Object> replyReferrer(PluginCommandContext command) {
+        Map<String, Object> referrer = new LinkedHashMap<>();
+        if (command.event().nativeData() instanceof Map<?, ?> data) {
+            copyReplyField(referrer, data, "message_scene");
+            copyReplyField(referrer, data, "msg_id");
+            copyReplyField(referrer, data, "message_id");
+            copyReplyField(referrer, data, "event_id");
+            copyReplyField(referrer, data, "interaction_id");
+        }
         String messageId = command.event().messageId();
-        return messageId == null || messageId.isBlank() ? Map.of() : Map.of("message_id", messageId);
+        if (!referrer.containsKey("message_id") && messageId != null && !messageId.isBlank()) {
+            referrer.put("message_id", messageId);
+        }
+        return referrer;
+    }
+
+    private static void copyReplyField(Map<String, Object> target, Map<?, ?> source, String key) {
+        Object value = source.get(key);
+        if (value != null && !String.valueOf(value).isBlank()) {
+            target.putIfAbsent(key, String.valueOf(value));
+        }
     }
 }
