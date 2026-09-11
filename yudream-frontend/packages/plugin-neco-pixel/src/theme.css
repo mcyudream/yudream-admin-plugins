@@ -63,6 +63,52 @@
   font-family: 'Minecraft-Tenv2', 'Ark Latin', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif;
 }
 
+/*
+ * 公开站启动页：宿主 loading.html 仍是彩虹方块；本表仅在 SITE 主题
+ * media 打开时覆盖 [data-app-loading]，GIF/字体全部走插件资产，
+ * 后台路由 media=not all 时不会碰到管理端。
+ */
+[data-app-loading] {
+  background: #0f0e0d !important;
+  color: #6cc349 !important;
+  image-rendering: pixelated;
+}
+
+[data-app-loading] .loading-container {
+  background-color: #0f0e0d !important;
+  color: #6cc349 !important;
+}
+
+[data-app-loading] .loading-container .loading {
+  width: 96px !important;
+  height: 96px !important;
+  background: url('loading.gif') center / contain no-repeat !important;
+  image-rendering: pixelated;
+}
+
+[data-app-loading] .loading-container .loading .square,
+[data-app-loading] .loading-container .loading .square::before {
+  display: none !important;
+  content: none !important;
+  animation: none !important;
+}
+
+[data-app-loading] .loading-container .name {
+  margin-top: 16px !important;
+  font-family: 'Minecraft-Tenv2', 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+  font-size: 22px !important;
+  color: #f7f5ee !important;
+  text-shadow: 2px 2px 0 #000;
+}
+
+[data-app-loading] .loading-container .tips {
+  margin-top: 8px !important;
+  font-family: 'Cubic 11', 'Microsoft YaHei', 'PingFang SC', sans-serif !important;
+  font-size: 16px !important;
+  color: rgba(247, 245, 238, 0.65) !important;
+  opacity: 1 !important;
+}
+
 /* 公开站只走 NMO 深色方案 */
 html:has(.neco-chrome),
 html:has(.site-chrome.is-theme-chrome),
