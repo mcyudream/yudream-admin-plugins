@@ -1,0 +1,6 @@
+name: mc-news
+displayName: MC 新闻推送
+description: 轮询 Minecraft 官网新闻与反馈隧道版本文章，AI 整合后推送到机器人群聊、Webhook 与订阅用户。
+icon: i-ri:newspaper-line
+main: online.yudream.base.plugin.mcnews.bootstrap.McNewsPlugin
+version: 1.0.0

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>online.yudream.plugins</groupId>
+        <artifactId>yudream-admin-plugins</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>yudream-plugin-mc-news</artifactId>
+    <version>1.0.0</version>
+    <name>YuDream Plugin - Mc News</name>
+    <description>MC 新闻推送：轮询 Minecraft 官网新闻与反馈隧道版本文章，AI 整合后推送到机器人群聊、Webhook 与订阅用户。</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>online.yudream.base</groupId>
+            <artifactId>yudream-plugin-spi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+            </plugin>
+        </plugins>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- 前端远程模块产物（vite build 输出） -->
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-mc-news/dist</directory>
+                <targetPath>META-INF/yudream-plugin/frontend/mc-news</targetPath>
+            </resource>
+        </resources>
+    </build>
+</project>

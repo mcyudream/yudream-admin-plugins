@@ -11,3 +11,4 @@ yudream-plugin-timeline
 yudream-plugin-ai-chatbot
 yudream-plugin-qqbot-automation
 yudream-plugin-questionbank
+yudream-plugin-mc-news

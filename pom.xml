@@ -24,7 +24,7 @@
         <yudream.plugin.wallet.version>1.1.5</yudream.plugin.wallet.version>
         <yudream.plugin.minecraft-server.version>1.5.0</yudream.plugin.minecraft-server.version>
         <yudream.plugin.student-info.version>1.1.2</yudream.plugin.student-info.version>
-        <yudream.plugin.mc-wiki.version>2.0.1</yudream.plugin.mc-wiki.version>
+        <yudream.plugin.mc-wiki.version>2.0.3</yudream.plugin.mc-wiki.version>
         <yudream.plugin.questionbank.version>1.2.1</yudream.plugin.questionbank.version>
     </properties>
 
@@ -53,6 +53,7 @@
         <module>yudream-plugins/yudream-plugin-edu-verify</module>
         <module>yudream-plugins/yudream-plugin-mc-pet</module>
         <module>yudream-plugins/yudream-plugin-neco-pixel</module>
+        <module>yudream-plugins/yudream-plugin-mc-news</module>
         </modules>
 
     <dependencyManagement>
