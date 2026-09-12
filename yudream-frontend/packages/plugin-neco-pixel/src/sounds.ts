@@ -6,8 +6,8 @@
 const PLUGIN_CODE = 'neco-pixel'
 const STORAGE_KEY = 'neco-pixel:sound'
 
-const PUBLIC_CONTAINERS = '.site-page, .site-chrome, .site-layout-header__mobile, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .plugin-site-page, .neco-chrome'
-const INTERACTIVE_SELECTOR = 'a, button, summary, input, select, textarea, [role="button"], .site-nav-item, .tl-card, .wiki-public-nav a, .wiki-home__space, .nav-item'
+const PUBLIC_CONTAINERS = '.site-page, .site-chrome, .site-layout-header__mobile, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .plugin-site-page, .neco-chrome'
+const INTERACTIVE_SELECTOR = 'a, button, summary, input, select, textarea, [role="button"], .site-nav-item, .tl-card, .wiki-public-nav a, .wiki-home__space, .discover-card, .nav-item'
 
 let clickAudio: HTMLAudioElement | null = null
 let lastHoverTarget: EventTarget | null = null

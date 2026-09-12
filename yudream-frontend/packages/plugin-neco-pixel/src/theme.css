@@ -12,8 +12,8 @@
  * 作用域约定（SPI PluginTheme SITE scope）：
  * - 公开站骨架：.site-chrome / .site-page，覆写 --yb-site-* 变量；
  * - wiki 与独立公开页：.wiki-public / .wiki-home / .wiki-search-page /
- *   .public-form-page 与插件公开页（.tl-* / .ev-page / .world-map-viewer /
- *   .qb-screen / .qb-shared），覆写 Arco --color-* 变量；
+ *   .discover / .plugin / .public-form-page 与插件公开页（.tl-* / .ev-page /
+ *   .world-map-viewer / .qb-screen / .qb-shared），覆写 Arco --color-* 变量；
  * - 公开站只保留深色方案。不污染 :root 全局变量，禁用主题 link
  *   后宿主样式即刻恢复原样。
  *
@@ -297,15 +297,17 @@ html[data-theme='light'] .login-page {
   --neco-nav-slider-dark: var(--neco-accent-dark);
 }
 
-/* ========== wiki / 独立公开页 / 插件公开页：Arco 变量换肤 ========== */
-.wiki-public,
-.wiki-home,
-.wiki-search-page,
-.public-form-page,
-.ev-page,
-.world-map-viewer,
-.qb-screen,
-.qb-shared {
+	/* ========== wiki / 独立公开页 / 插件公开页：Arco 变量换肤 ========== */
+	.wiki-public,
+	.wiki-home,
+	.wiki-search-page,
+	.discover,
+	.plugin,
+	.public-form-page,
+	.ev-page,
+	.world-map-viewer,
+	.qb-screen,
+	.qb-shared {
   --color-bg-1: #f7f5ee;
   --color-bg-2: #eceae2;
   --color-bg-3: #e4e1d5;
@@ -321,6 +323,8 @@ html[data-theme='light'] .login-page {
 .dark .wiki-public,
 .dark .wiki-home,
 .dark .wiki-search-page,
+.dark .discover,
+.dark .plugin,
 .dark .public-form-page,
 .dark .ev-page,
 .dark .world-map-viewer,
@@ -328,7 +332,9 @@ html[data-theme='light'] .login-page {
 .dark .qb-shared,
 .wiki-public.dark,
 .wiki-home.dark,
-.wiki-search-page.dark {
+.wiki-search-page.dark,
+.discover.dark,
+.plugin.dark {
   --color-bg-1: #313131;
   --color-bg-2: #1d1c1a;
   --color-bg-3: #171615;
@@ -347,9 +353,11 @@ html[data-theme='light'] .login-page {
 .site-chrome :is(a, button, input, select, textarea, summary, .site-nav-dropdown),
 .site-page :is(.site-section, a, button, input, select, textarea),
 .site-layout-header__mobile :is(a, button),
-.wiki-public :is(a, button, input, select, textarea),
-.wiki-home :is(a, button, input),
-.wiki-search-page :is(a, button, input),
+	.wiki-public :is(a, button, input, select, textarea),
+	.wiki-home :is(a, button, input),
+	.wiki-search-page :is(a, button, input),
+	.discover :is(a, button, input, select, textarea),
+	.plugin :is(a, button, input, select, textarea),
 .public-form-page :is(.public-form-panel, a, button, input, select, textarea),
 .tl-page :is(.tl-card, .tl-btn, .tl-chip, .tl-detail, .tl-gallery-item),
 .ev-page :is(a, button, input, select, textarea),
@@ -363,9 +371,11 @@ html[data-theme='light'] .login-page {
 /* 选区与焦点 */
 .site-page ::selection,
 .site-chrome ::selection,
-.wiki-public ::selection,
-.wiki-home ::selection,
-.wiki-search-page ::selection,
+	.wiki-public ::selection,
+	.wiki-home ::selection,
+	.wiki-search-page ::selection,
+	.discover ::selection,
+	.plugin ::selection,
 .public-form-page ::selection,
 .tl-page ::selection,
 .login-page ::selection {
@@ -375,9 +385,11 @@ html[data-theme='light'] .login-page {
 
 .site-page :focus-visible,
 .site-chrome :focus-visible,
-.wiki-public :focus-visible,
-.wiki-home :focus-visible,
-.wiki-search-page :focus-visible,
+	.wiki-public :focus-visible,
+	.wiki-home :focus-visible,
+	.wiki-search-page :focus-visible,
+	.discover :focus-visible,
+	.plugin :focus-visible,
 .public-form-page :focus-visible,
 .tl-page :focus-visible,
 .login-page :focus-visible:not(input):not(textarea):not([data-slot='input-group']):not([data-slot='input-group-control']) {
@@ -530,22 +542,26 @@ html[data-theme='light'] .login-page {
 
 /* 卡片：硬边 + 像素位移阴影（.tl-card/.qb-* 等为兼容层选择器，见文件头适配契约） */
 .site-page .site-section,
-.tl-card,
-.wiki-home__space,
-.wiki-search-result,
-.public-form-panel,
-.ev-page .arco-card,
-.qb-screen-setup-panel {
-  border: 2px solid var(--yb-site-border, #b9b4a8);
-  box-shadow: 6px 6px 0 var(--neco-hard-shadow);
-}
+	.tl-card,
+	.wiki-home__space,
+	.wiki-search-result,
+	.public-form-panel,
+	.discover-card,
+	.plugin-version,
+	.ev-page .arco-card,
+	.qb-screen-setup-panel {
+	  border: 2px solid var(--yb-site-border, #b9b4a8);
+	  box-shadow: 6px 6px 0 var(--neco-hard-shadow);
+	}
 
-.dark .site-page .site-section,
-.dark .tl-card,
-.dark .wiki-home__space,
-.dark .wiki-search-result,
-.dark .public-form-panel,
-.dark .qb-screen-setup-panel {
+	.dark .site-page .site-section,
+	.dark .tl-card,
+	.dark .wiki-home__space,
+	.dark .wiki-search-result,
+	.dark .public-form-panel,
+	.dark .discover-card,
+	.dark .plugin-version,
+	.dark .qb-screen-setup-panel {
   border-color: #000000;
 }
 
@@ -579,17 +595,20 @@ html[data-theme='light'] .login-page {
 
 /* wiki：正文进站点 chrome 后用 9-slice 面板 + 深板岩纹理，不再走独立浅色顶栏。
    宿主页面默认只出中性浅色卡片；像素纹理与方角由本主题（激活时才加载）提供。 */
-.wiki-public,
-.wiki-home,
-.wiki-search-page {
-  --color-bg-1: var(--yb-site-bg, #0f0e0d);
-  --color-bg-2: var(--yb-site-surface, #313131);
-  --color-text-1: var(--yb-site-text, #ffffff);
-  --color-text-2: var(--yb-site-text-2, #e0ded8);
-  --color-text-3: var(--yb-site-muted, rgba(255, 255, 255, 0.8));
-  --color-border-2: var(--yb-site-border, #222222);
-  --color-fill-1: var(--yb-site-hover, #3a3a3a);
-}
+		.wiki-public,
+		.wiki-home,
+		.wiki-search-page,
+		.discover,
+		.plugin {
+		  --color-bg-1: var(--yb-site-bg, #0f0e0d);
+		  --color-bg-2: var(--yb-site-surface, #313131);
+		  --color-text-1: var(--yb-site-text, #ffffff);
+		  --color-text-2: var(--yb-site-text-2, #e0ded8);
+		  --color-text-3: var(--yb-site-muted, rgba(255, 255, 255, 0.8));
+		  --color-border-2: var(--yb-site-border, #222222);
+		  --color-fill-1: var(--yb-site-hover, #3a3a3a);
+		  color-scheme: dark;
+		}
 
 .wiki-public-main,
 .wiki-public-sidebar,
@@ -701,9 +720,11 @@ html[data-theme='light'] .login-page {
 .site-chrome,
 .site-page,
 .wiki-public,
-.wiki-home,
-.wiki-search-page,
-.public-form-page,
+	.wiki-home,
+	.wiki-search-page,
+	.discover,
+	.plugin,
+	.public-form-page,
 .tl-page,
 .ev-page,
 .world-map-viewer,
@@ -830,7 +851,7 @@ html.theme-switching *::after {
 }
 
 /* ========== 6 色强调色体系（移植上游 [data-accent]，翠绿为默认色） ========== */
-html[data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #b02e26;
   --neco-accent-light: #e05a4e;
   --neco-accent-dark: #7d1f19;
@@ -848,7 +869,7 @@ html[data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .login-page,
   --primary-6: 224 90 78;
 }
 
-html[data-theme='light'][data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-theme='light'][data-accent='red'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #8f3028;
   --neco-accent-light: #b04a3e;
   --neco-accent-dark: #6e221c;
@@ -864,7 +885,7 @@ html[data-theme='light'][data-accent='red'] :is(.site-chrome, .site-page, .neco-
   --primary-6: 143 48 40;
 }
 
-html[data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #3c44aa;
   --neco-accent-light: #5a64d8;
   --neco-accent-dark: #2a2f7d;
@@ -882,7 +903,7 @@ html[data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .login-page
   --primary-6: 90 100 216;
 }
 
-html[data-theme='light'][data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-theme='light'][data-accent='blue'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #3a4290;
   --neco-accent-light: #4a54b8;
   --neco-accent-dark: #2b3170;
@@ -898,7 +919,7 @@ html[data-theme='light'][data-accent='blue'] :is(.site-chrome, .site-page, .neco
   --primary-6: 58 66 144;
 }
 
-html[data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #c8a03a;
   --neco-accent-light: #e8c35a;
   --neco-accent-dark: #94742a;
@@ -916,7 +937,7 @@ html[data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .login-page
   --primary-6: 232 195 90;
 }
 
-html[data-theme='light'][data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-theme='light'][data-accent='gold'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #9a7a2c;
   --neco-accent-light: #b8953a;
   --neco-accent-dark: #775d1f;
@@ -932,7 +953,7 @@ html[data-theme='light'][data-accent='gold'] :is(.site-chrome, .site-page, .neco
   --primary-6: 154 122 44;
 }
 
-html[data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #8932b8;
   --neco-accent-light: #a95ad8;
   --neco-accent-dark: #63248a;
@@ -950,7 +971,7 @@ html[data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .login-pa
   --primary-6: 169 90 216;
 }
 
-html[data-theme='light'][data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-theme='light'][data-accent='purple'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #72289e;
   --neco-accent-light: #8f3ab8;
   --neco-accent-dark: #551e75;
@@ -966,7 +987,7 @@ html[data-theme='light'][data-accent='purple'] :is(.site-chrome, .site-page, .ne
   --primary-6: 114 40 158;
 }
 
-html[data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #169c9c;
   --neco-accent-light: #38bdbd;
   --neco-accent-dark: #0f6e6e;
@@ -984,7 +1005,7 @@ html[data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .login-page
   --primary-6: 56 189 189;
 }
 
-html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
+html[data-theme='light'][data-accent='cyan'] :is(.site-chrome, .site-page, .neco-chrome, .login-page, .wiki-public, .wiki-home, .wiki-search-page, .discover, .plugin, .public-form-page, .tl-page, .ev-page, .world-map-viewer, .qb-screen, .qb-shared, .mc-wiki-public) {
   --neco-accent: #1d7d7d;
   --neco-accent-light: #259a9a;
   --neco-accent-dark: #145e5e;
