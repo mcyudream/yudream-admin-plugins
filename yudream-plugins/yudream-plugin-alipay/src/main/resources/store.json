@@ -1,3 +1,10 @@
 {
+  "license": "MIT",
+  "category": "支付与钱包",
+  "tags": [
+    "alipay",
+    "payment",
+    "recharge"
+  ],
   "releaseNotes": "1.1.2：重建前端样式：产物随 SDK 1.6.0 降入 @layer yudream-plugin，修复插件工具类顶掉宿主样式导致弹窗全宽等问题。\n\n1.1.1：清除全局表单样式对共享组件的穿透，设置面板改用共享卡片组件，清理失效样式。"
 }

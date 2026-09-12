@@ -1,6 +1,6 @@
 # 高校学历认证插件（edu-verify）可行性评估与落地说明
 
-> 评估日期 2026-09-05。状态：**1.5.2 已落地（未列入发布清单）**。
+> 评估日期 2026-09-05。状态：**1.5.4 已落地（未列入发布清单；商店仍可能是 1.5.2）**。
 > 插件 code `edu-verify`；包名 `online.yudream.base.plugin.eduverify`；前端包 `@yudream/plugin-edu-verify`。
 > 本期实现：教育邮箱域名白名单自动核验、学信网 16 位官方报告页核验（经宿主通用网页抓取 SPI 读取完整 HTML，再用可配置 CSS 选择器解析）、人工审核。CARSI 仅模型预留，管理端展示「未开通」，不做 iframe / 反向代理。
 > 1.3.0：学信网转入人工、直接人工审核均须填写真实姓名与学校；管理员通过时可补全或纠正，并写入人员管理标签（`name`/`school`/`status`）留档。1.2.0：学信网渠道改为 16 位官方报告页（`bg.do?vcode=`）；去掉 12 位数字码与 zwfw/图形验证码。需宿主 SPI 2.21.0 与已开启的消息渲染能力。1.1.4：匿名注册也可上传人工审核材料（插件公开 JSON 上传，不走宿主需登录的 `/api/files/upload`）；仅图片/PDF，校验魔数、大小、扩展名与声明类型，并按 IP/邮箱限流。1.1.3：人工审核/学信网邮箱改为联系邮箱（用于绑定记录，不必是教育邮箱）；注册页核验查询防抖。1.1.2：白名单教育邮箱填写即视为已核验，不再发邮件验证码；注册成功后也不再二次发送宿主邮箱验证信。1.1.1：注册页「去核验」在 FaModal 内完成，独立 `/edu-verify` 仅作兜底。1.1.0：认证全部在注册前完成，普通用户没有个人页；PENDING 拒绝注册并提示「人工审核中，审核通过后即可注册」；学校与状态写入人员管理标签（SPI 2.20.0）。
@@ -108,21 +108,25 @@
          → 暂存 fileId（2h）；仅 JPEG/PNG/GIF/WebP/PDF，校验魔数
          POST /public/manual/submit {email, 材料 fileId...}
          → PENDING，等管理员审核
-注册时（宿主）：
-  站点设置 system.auth.registration.required-verifications 含 "edu-verify"
-  → IdentityVerificationProvider.check(VerificationSubject{email})
-  → 该邮箱任一渠道有未过期 PASSED，或邮箱域名在白名单 → passed()
-  → 有 PENDING 且无 PASSED → unverified("人工审核中，审核通过后即可注册")
-  → 否则 unverified("请先完成高校学历认证…")
-  → 通过身份核验的账号直接 emailVerified=true，跳过宿主验证邮件
+注册时（宿主，插件启用即强制）：
+  1. 注册页有核验方式时，全部 PASSED 才能点「注册」；PENDING / PENDING_MAIL / 未核验禁用按钮，提交时 toast 并打开核验弹层（宿主 register.vue）
+  2. POST /api/user/register → RegisterInterceptor.onBeforeRegister（edu-verify 1.5.3+）
+     → 空白邮箱 deny「请先填写注册邮箱」
+     → 任一渠道未过期 PASSED，或邮箱域名在白名单 → allow（并补写 EMAIL PASSED）
+     → PENDING_MAIL → deny「学信网报告邮件确认中…」
+     → PENDING → deny「人工审核中，审核通过后即可注册」
+     → 否则 deny「请先完成高校学历认证…」
+  3. IdentityVerificationProvider.check 仍参与可选核验：通过后 emailVerified=true，跳过宿主验证邮件。
+     站点设置 system.auth.registration.required-verifications 无后台 UI，空值时宿主不按提供器 fail-closed；强制拦截不依赖该配置。
 注册成功：
   AuthEventListener.onUserRegistered 确保白名单邮箱写入 EMAIL PASSED，把 userId 绑到该邮箱记录，并 replaceTags 写入人员管理标签
 公开页返回注册（兜底）：
   走 /login?form=register（不要 /register，宿主会丢掉 email 查询参数），可附带 email
 注册页主路径：
-  输入白名单教育邮箱 → 行按钮直接「已核验」，不打开弹层
-  人工审核中 → 「审核中」，可点开弹层查看进度
-  其它邮箱 → 「去核验」打开 FaModal；PASSED 关闭弹窗并回填邮箱
+  输入白名单教育邮箱 → 行按钮直接「已核验」，「注册」可点
+  学信网等待官方邮件 → 「邮件确认中」，「注册」禁用
+  人工审核中 → 「审核中」，「注册」禁用，可点开弹层查看进度
+  其它邮箱 → 「去核验」打开 FaModal；PASSED 关闭弹窗并回填邮箱，未通过时「注册」禁用
 ```
 
 `VerificationSubject` 只含 username/email/attributes，因此**预注册认证记录以 email（小写）为键**。`PluginPrincipal.userId` 是 Long，插件侧一律 `String.valueOf`。JSON 长整型保持 string。
@@ -130,7 +134,7 @@
 ### 5.2 渠道与状态机
 
 - 渠道：`EMAIL`（自动）、`CHSI`（zwfw 12 位码，可关、失败转人工）、`MANUAL`（人工，材料含学生证/录取/毕业证/学信码截图等）、`CARSI`（预留，`enabled=false`）。
-- 记录状态：`PASSED` / `PENDING` / `REJECTED` / `EXPIRED` / `REVOKED`。
+- 记录状态：`PASSED` / `PENDING` / `PENDING_MAIL` / `REJECTED` / `EXPIRED` / `REVOKED`。
 - 教育邮箱按白名单即时视为 `PASSED`（注册时落 EMAIL 记录）；学信网即时 `PASSED`；人工 `PENDING → 通过 PASSED / 驳回 REJECTED`；已通过可撤销。有效期默认 365 天（可配 0=不过期）。
 - 门禁方法码只有一个：`edu-verify`。任一渠道未过期 PASSED 即满足。
 - 学信网适配器独立于业务层：官方报告页 HTML 抓取走宿主通用能力，解析失败/渲染不可用走 DEGRADED，不把错误吞成通过。

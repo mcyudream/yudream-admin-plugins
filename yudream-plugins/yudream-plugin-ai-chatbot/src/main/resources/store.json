@@ -1,3 +1,11 @@
 {
+  "license": "MIT",
+  "category": "AI 与对话",
+  "tags": [
+    "qq",
+    "chatbot",
+    "ai",
+    "mention"
+  ],
   "releaseNotes": "用户 @ 机器人时，回复会由系统自动 @ 当前发言者（官方机器人用 markdown mention，普通连接用 CQ at）；随机插话不会 @。不再依赖模型自己拼 @ 格式。"
 }

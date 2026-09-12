@@ -19,7 +19,10 @@ import online.yudream.base.plugin.eduverify.infrastructure.MaterialFileStorage;
 import online.yudream.base.plugin.eduverify.infrastructure.UploadRateLimiter;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.ai.PluginAiService;
+import online.yudream.base.plugin.spi.system.auth.ExtensionVeto;
 import online.yudream.base.plugin.spi.system.auth.IdentityVerificationResult;
+import online.yudream.base.plugin.spi.system.auth.RegisterAttempt;
+import online.yudream.base.plugin.spi.system.auth.RegisterInterceptor;
 import online.yudream.base.plugin.spi.system.command.PluginCommandService;
 import online.yudream.base.plugin.spi.system.document.PluginWordTemplateService;
 import online.yudream.base.plugin.spi.system.mail.PluginInboundMailService;
@@ -61,17 +64,19 @@ class EduVerifyRegisterGateTest {
     private static final String EMAIL = "student@example.com";
 
     private MemoryVerificationRepository verifications;
+    private MemoryDomains domains;
     private MemorySettingsRepository settingsRepo;
     private EduVerifyAppService app;
 
     @BeforeEach
     void setUp() {
         verifications = new MemoryVerificationRepository();
+        domains = new MemoryDomains();
         settingsRepo = new MemorySettingsRepository(VerifySettings.defaults());
         app = new EduVerifyAppService(
                 verifications,
                 new MemoryEmailCodes(),
-                new MemoryDomains(),
+                domains,
                 new MemoryAudits(),
                 settingsRepo,
                 new MemoryChsiSessions(),
@@ -111,6 +116,65 @@ class EduVerifyRegisterGateTest {
         IdentityVerificationResult result = EduVerifyPlugin.gate(app, EMAIL);
         assertFalse(result.verified());
         assertEquals("人工审核中，审核通过后即可注册", result.message());
+    }
+
+    @Test
+    void interceptorDeniesUnverifiedEmail() {
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt(EMAIL));
+        assertFalse(veto.allowed());
+        assertEquals("请先完成高校学历认证（教育邮箱、学信网在线验证码或人工审核）", veto.reason());
+    }
+
+    @Test
+    void interceptorDeniesBlankEmail() {
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt(" "));
+        assertFalse(veto.allowed());
+        assertEquals("请先填写注册邮箱", veto.reason());
+    }
+
+    @Test
+    void interceptorDeniesMalformedEmailWithoutThrowing() {
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt("not-an-email"));
+        assertFalse(veto.allowed());
+        assertEquals("请先完成高校学历认证（教育邮箱、学信网在线验证码或人工审核）", veto.reason());
+    }
+
+    @Test
+    void interceptorAllowsPassedRecord() {
+        long now = System.currentTimeMillis();
+        verifications.save(new EduVerification(
+                "EMAIL:" + EMAIL, EMAIL, null, "EMAIL", "PASSED",
+                "", "某某大学", "", "", List.of(), null, now, 0, null, 0, now, now
+        ));
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt(EMAIL));
+        assertTrue(veto.allowed());
+    }
+
+    @Test
+    void interceptorAllowsWhitelistedDomain() {
+        domains.save(new EduDomain("example.edu.cn", "某某大学", "Example University", true, "MANUAL", 1L, 1L));
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt("student@mail.example.edu.cn"));
+        assertTrue(veto.allowed());
+    }
+
+    @Test
+    void interceptorDeniesPendingMail() {
+        long now = System.currentTimeMillis();
+        verifications.save(new EduVerification(
+                "CHSI:" + EMAIL, EMAIL, null, "CHSI", "PENDING_MAIL",
+                "张三", "某某大学", "", "ABCDEFGH12345678", List.of(), null, now, 0, null, now + 60_000, now, now
+        ));
+        ExtensionVeto veto = interceptor().onBeforeRegister(attempt(EMAIL));
+        assertFalse(veto.allowed());
+        assertEquals("学信网报告邮件确认中，请使用学信网页面将报告发送到指定邮箱后再注册", veto.reason());
+    }
+
+    private RegisterInterceptor interceptor() {
+        return new EduVerifyPlugin.EduVerifyRegisterInterceptor(app);
+    }
+
+    private static RegisterAttempt attempt(String email) {
+        return new RegisterAttempt("user", "昵称", email, Map.of());
     }
 
     @Test
@@ -234,23 +298,27 @@ class EduVerifyRegisterGateTest {
     }
 
     private static final class MemoryDomains implements EduDomainRepository {
+        private final Map<String, EduDomain> store = new LinkedHashMap<>();
+
         @Override
         public EduDomain save(EduDomain domain) {
+            store.put(domain.domain(), domain);
             return domain;
         }
 
         @Override
         public Optional<EduDomain> findByDomain(String domain) {
-            return Optional.empty();
+            return Optional.ofNullable(store.get(domain));
         }
 
         @Override
         public List<EduDomain> listAll() {
-            return List.of();
+            return new ArrayList<>(store.values());
         }
 
         @Override
         public void delete(String domain) {
+            store.remove(domain);
         }
     }
 

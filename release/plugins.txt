@@ -1,14 +1,30 @@
 # Explicit tag-release module list (Maven artifactIds under yudream-plugins/).
-# A protected v* tag pipeline packages, publishes and verifies only the modules
-# listed here. Edit this file in the release commit; one artifactId per line,
-# no duplicates, every entry must be a root-reactor module. Local and branch
-# builds ignore this file and always build the full reactor.
-yudream-plugin-neco-pixel
+# A protected v* tag pipeline packages and publishes only the modules listed here.
+# Edit this file in the release commit; one artifactId per line, no duplicates,
+# every entry must be a root-reactor module. Local and branch builds ignore this
+# file and always build the full reactor.
+yudream-plugin-ai-chatbot
+yudream-plugin-alipay
+yudream-plugin-authlib-injector
+yudream-plugin-codex-task-notify
+yudream-plugin-edu-verify
+yudream-plugin-material
+yudream-plugin-mc-news
+yudream-plugin-mc-pet
 yudream-plugin-mc-wiki
+yudream-plugin-mcguess
 yudream-plugin-minecraft-activity-proof
 yudream-plugin-minecraft-server
-yudream-plugin-timeline
-yudream-plugin-ai-chatbot
+yudream-plugin-neco-pixel
+yudream-plugin-pony
+yudream-plugin-project-progress
+yudream-plugin-qq-binding
 yudream-plugin-qqbot-automation
 yudream-plugin-questionbank
-yudream-plugin-mc-news
+yudream-plugin-student-info
+yudream-plugin-timeline
+yudream-plugin-wallet
+yudream-plugin-web-card
+yudream-plugin-wordle
+yudream-plugin-world-map
+yudream-plugin-yudream-skin

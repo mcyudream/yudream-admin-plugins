@@ -6,14 +6,14 @@
 
 ## CI 流程
 
-`.gitlab-ci.yml` 现在分成五段：
+`.gitlab-ci.yml` 现在分成四段：
 
 1. `validate`
    - 校验插件仓没有重新耦合回主体仓
-   - 校验核心 Maven 契约可从 Nexus `maven-public` 解析
+   - 校验核心 Maven 契约可从 Nexus `maven-public` 解析（只读 SPI/SDK，不再写插件制品）
    - 校验插件 POM 不会写死仓库地址、系统路径，也不会回依赖主体实现模块
    - 校验核心 npm 契约可从配置的 registry 独立安装
-   - 校验插件仓自己的 JAR 发布/回读流水线没有被改瘦
+   - 校验插件仓自己的市场发布流水线没有被改瘦
 2. `build-frontend`
    - 构建所有 `@yudream/plugin-*` 前端包
 3. `package-plugin`
@@ -21,11 +21,9 @@
    - 使用单独的干净 Maven 本地仓目录重新解析依赖，避免插件打包阶段误吃旧缓存
    - 校验最终插件 JAR 内确实带有 `META-INF/yudream-plugin/frontend/*/remoteEntry.js`
 4. `publish-plugin`
-   - 仅在 Git tag 流水线执行
-   - 把最终插件 JAR 和 catalog 上传到 Nexus `maven-releases`
-5. `verify-publish`
-   - 在发布完成后重新从 Nexus `maven-public` 回读
-   - 校验 `sha256sum.txt`、`plugins.manifest.tsv` 与每个插件 JAR 都与本次构建产物一致
+   - 仅在受保护 `v*` tag 流水线执行
+   - `publish:market` 把 `release/plugins.txt` 选择结果上传到自托管 YuDream 插件市场源
+   - **不再**把插件 JAR 或 Raw catalog 上传到 Nexus
 
 ## 前端工作区边界
 
@@ -43,65 +41,55 @@ packages:
 
 ## 发布产物
 
-`ci/publish-plugin-jars.sh` 会为每个插件模块只选择一个最终包：
+打包阶段为每个插件模块只选择一个最终包：
 
 - 如果模块产出 `*-shaded.jar`，优先发布这个包
 - 否则发布普通 `*.jar`
 
-同时额外上传两个索引文件：
-
-- `sha256sum.txt`
-- `plugins.manifest.tsv`
-
-`ci/verify-published-plugin-jars.sh` 会在 tag 流水线发布后再次下载这些文件，并逐个核对：
-- 索引文件内容没有漂移
-- 每个已发布 JAR 都可以重新读取
-- 重新读取到的 JAR 校验和与本次构建产物完全一致
-
-`ci/verify-plugin-jar-assets.sh` 现在还会额外校验：
+`ci/verify-plugin-jar-assets.sh` 还会额外校验：
 - 最终插件 JAR 中不包含 `online/yudream/base/plugin/spi/*` 类文件
 - 也就是插件产物不会把主体 SPI 实现契约重新打进自己的 JAR
 
+插件版本独立于 tag：受保护 `v*` tag 只是发布事件的标记/触发器；每个被选中插件使用自己的 `plugin.yml version`。
+
 ## 默认发布地址
 
-发布目标为 Nexus Maven Release Repository：
-
-```text
-https://nexus.yudream.online/repository/maven-releases/online/yudream/plugins/
-```
-
-每个插件使用 `online.yudream.plugins:<artifactId>:<插件自身 plugin.yml version>:jar` 坐标；插件版本独立于 tag，tag 仅标记/触发发布事件。发布清单使用
-`online.yudream.plugins:plugin-catalog:<tag version>:tsv`（tag 版本在每次发布事件中必须唯一），校验和使用同一制品的
-`sha256` classifier（类型为 `txt`）。
-
-例如某个插件包会落到：
-
-```text
-.../online/yudream/plugins/yudream-plugin-project-progress/1.0.0/yudream-plugin-project-progress-1.0.0.jar
-```
+插件制品发布到自托管市场源（`POST /api/platform/plugin-market-source/publications`），不再写入 Nexus `maven-releases` 或 `plugin-store-releases`。Nexus 仍只用于**读取**核心 SPI / SDK 契约。
 
 ## 需要的变量
 
-GitLab tag 流水线默认只依赖：
+GitLab 构建/校验默认只依赖只读 Nexus 地址（已写进 yaml）：
 
-- `CI_COMMIT_TAG`
-- `NEXUS_USERNAME`
-- `NEXUS_PASSWORD`
-- `NEXUS_MAVEN_RELEASES_URL`
 - `NEXUS_MAVEN_PUBLIC_URL`
+- `NEXUS_NPM_PUBLIC_URL`
 
-可选变量：
+`CI_COMMIT_TAG` 由流水线自己带。可选：`PLUGIN_PACKAGE_VERSION`。
 
-- `PLUGIN_PACKAGE_VERSION`
+## 自托管市场源变量
+
+`publish:market` 把同一份 `PLUGIN_RELEASE_ONLY=1` 选择结果上传到自托管市场源。认证走 `X-API-Key`，**禁止**使用 `NEXUS_USERNAME` / `NEXUS_PASSWORD`。未配置 `YUDREAM_MARKET_URL` 时该 job 不调度。
+
+在 GitLab 项目（或群组）CI/CD Variables 中配置：
+
+| 变量 | 必填 | GitLab 选项 | 用途 |
+| --- | --- | --- | --- |
+| `YUDREAM_MARKET_URL` | 是（启用市场发布时） | Protected | 宿主根地址，如 `https://yudream.example.com`，不要带 `/api/...` |
+| `YUDREAM_MARKET_API_KEY` | 是（启用市场发布时） | Protected + Masked | 具备 `platform:plugin-market-source:upload` 的 API Key；建议同时勾选 `publish` 以跳过审核 |
+| `YUDREAM_MARKET_RELEASE_NOTES` | 否 | 可选 Masked | 覆盖 JAR 内 `store.json` 的单行发布说明 |
+
+分类、标签与许可证等社区元数据写在各插件自己的 `store.json`，不要配仓库级 CI 变量。`store.json` 允许的字段包括 `license`、`category`、`tags`、`releaseNotes`、`compatibility`、`dependencies`、`icon`、`screenshots`、`source`。
+
+调度条件：受保护 `v*` tag，且 `YUDREAM_MARKET_URL` 非空。`resource_group: yudream-plugin-market` 串行。`{code}@{pluginVersion}` 不可覆盖，重复版本会 400。
 
 ## 本地 dry-run
 
-可以在不真正上传的情况下验证脚本选包和目标 URL：
+可以在不真正上传的情况下验证脚本选包和市场请求：
 
 ```powershell
 $env:CI_COMMIT_TAG='v0.0.0-dryrun'
+$env:PLUGIN_RELEASE_ONLY='1'
 $env:DRY_RUN='1'
-sh ci/publish-plugin-jars.sh
+sh ci/publish-to-market.sh
 ```
 
 ## 常用校验
@@ -111,12 +99,7 @@ sh ci/verify-plugin-repo-independence.sh
 sh ci/verify-plugin-maven-boundary.sh
 sh ci/verify-core-npm-contracts.sh
 sh ci/verify-plugin-jar-assets.sh
-```
-
-本地也可以先做一次发布后校验的 dry-run：
-
-```powershell
-$env:CI_COMMIT_TAG='v0.0.0-dryrun'
-$env:DRY_RUN='1'
-sh ci/verify-published-plugin-jars.sh
+sh ci/verify-plugin-publish-pipeline.sh
+sh ci/verify-plugin-store-catalog.sh
+sh ci/verify-plugin-release-selection.sh
 ```

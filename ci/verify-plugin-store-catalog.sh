@@ -145,11 +145,14 @@ check_metadata() {
 for json in \
   '{"license":"MIT"}' \
   '{"source":{"repository":"https://example.com/repo","commit":"0123456789abcdef0123456789abcdef01234567"}}' \
-  '{"releaseNotes":"Release notes"}'; do
+  '{"releaseNotes":"Release notes"}' \
+  '{"category":"Minecraft","tags":["wiki","recipe"]}' ; do
   check_metadata "$json" accepted
 done
 for json in \
   '{"publisher":{"id":"untrusted"}}' \
+  '{"category":"Unknown"}' \
+  '{"tags":["this-tag-is-way-too-long-for-market"]}' \
   '{"license":"MIT OR Apache-2.0"}' \
   '{"source":{"repository":"http://example.com/repo","commit":"0123456789abcdef0123456789abcdef01234567"}}' \
   '{"source":{"repository":"https://user@example.com/repo","commit":"0123456789abcdef0123456789abcdef01234567"}}' \

@@ -1,3 +1,10 @@
 {
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": [
+    "map",
+    "world",
+    "3d"
+  ],
   "releaseNotes": "1.1.2：重建前端样式：产物随 SDK 1.6.0 降入 @layer yudream-plugin，修复插件工具类顶掉宿主样式导致弹窗全宽等问题。\n\n1.1.1：修复中等宽度下图层面板与工具条重叠，罗盘与提示色改用主题语义变量。"
 }

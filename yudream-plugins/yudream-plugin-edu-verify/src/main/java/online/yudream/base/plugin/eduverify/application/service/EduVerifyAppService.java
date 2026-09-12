@@ -521,8 +521,12 @@ public class EduVerifyAppService {
         if (email == null || email.isBlank()) {
             return false;
         }
-        return verifications.findByEmail(normalizeEmail(email)).stream()
-                .anyMatch(item -> "PENDING".equals(item.status()));
+        try {
+            return verifications.findByEmail(normalizeEmail(email)).stream()
+                    .anyMatch(item -> "PENDING".equals(item.status()));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public boolean isPendingMail(String email) {

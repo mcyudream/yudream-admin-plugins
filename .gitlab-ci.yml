@@ -30,7 +30,6 @@ stages:
   - build-frontend
   - package-plugin
   - publish-plugin
-  - verify-publish
 
 validate:repo:
   stage: validate
@@ -227,65 +226,23 @@ package:plugins:
       - dist/plugins/*.jar
     expire_in: 1 week
 
-publish:plugin-jars:
-  stage: publish-plugin
-  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
-  dependencies:
-    - package:plugins
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq unzip
-  script:
-    - export PLUGIN_RELEASE_ONLY=1
-    - sh ci/publish-plugin-jars.sh
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
-
-publish:plugin-store:
+# 插件 JAR 发布到自托管 YuDream 市场源，不再上传 Nexus maven-releases / plugin-store。
+# 在项目/群组 CI variables 中配置受保护、掩码变量 YUDREAM_MARKET_URL 与 YUDREAM_MARKET_API_KEY
+# （API Key 勾选 platform:plugin-market-source:upload）；未配置则本 job 不调度。
+# 分类/标签写在各插件 store.json。市场发布走 X-API-Key，禁止使用 NEXUS_USERNAME / NEXUS_PASSWORD。
+publish:market:
   stage: publish-plugin
   image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
   timeout: 20 minutes
-  resource_group: nexus-plugin-store-release
+  resource_group: yudream-plugin-market
   needs:
     - job: package:plugins
       artifacts: true
-    - job: publish:plugin-jars
-      artifacts: false
   before_script:
     - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
     - apk add --no-cache curl unzip
   script:
     - export PLUGIN_RELEASE_ONLY=1
-    - sh ci/publish-plugin-store.sh
+    - sh ci/publish-to-market.sh
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
-
-verify:published-plugin-jars:
-  stage: verify-publish
-  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/maven:3.9-eclipse-temurin-21
-  dependencies:
-    - package:plugins
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq unzip
-  script:
-    - export PLUGIN_RELEASE_ONLY=1
-    - sh ci/verify-published-plugin-jars.sh
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
-
-verify:published-plugin-store:
-  stage: verify-publish
-  image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.12-alpine
-  timeout: 20 minutes
-  needs:
-    - job: package:plugins
-      artifacts: true
-    - job: publish:plugin-store
-      artifacts: false
-  before_script:
-    - sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories
-    - apk add --no-cache curl unzip
-  script:
-    - export PLUGIN_RELEASE_ONLY=1
-    - sh ci/verify-published-plugin-store.sh
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_COMMIT_TAG =~ /^v/ && $CI_COMMIT_REF_PROTECTED == "true" && $YUDREAM_MARKET_URL'

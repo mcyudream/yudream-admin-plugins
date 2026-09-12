@@ -67,7 +67,7 @@ import java.util.logging.Logger;
 public final class EduVerifyPlugin implements YuDreamPlugin {
 
     public static final String CODE = "edu-verify";
-    public static final String VERSION = "1.5.3";
+    public static final String VERSION = "1.5.4";
     public static final String MANAGE_PERMISSION = "plugin:edu-verify:manage";
     public static final String METHOD_CODE = "edu-verify";
 
@@ -152,11 +152,11 @@ public final class EduVerifyPlugin implements YuDreamPlugin {
         }
     }
 
-    private static final class EduVerifyRegisterInterceptor implements RegisterInterceptor {
+    static final class EduVerifyRegisterInterceptor implements RegisterInterceptor {
 
         private final EduVerifyAppService app;
 
-        private EduVerifyRegisterInterceptor(EduVerifyAppService app) {
+        EduVerifyRegisterInterceptor(EduVerifyAppService app) {
             this.app = app;
         }
 

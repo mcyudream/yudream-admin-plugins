@@ -2,10 +2,7 @@
 
 ## 目标与边界
 
-插件发布同时维护两类制品：
-
-- **Maven Release 制品**：可部署的插件 JAR 发布到 Maven releases；商店不复制 JAR。
-- **Nexus Raw 商店目录**：发布客户端可直接读取的 JSON 索引、版本 descriptor 和可选展示资源，用于发现插件、版本及其 Maven JAR 的校验信息。
+官方插件发布**不再**把 JAR 或 Raw catalog 写进 Nexus。可部署插件走自托管市场源（见 [plugin-release.md](./plugin-release.md)）。本文只描述历史 Nexus Raw 商店目录契约，以及 `store.json` 字段校验（打包期仍会读取）。
 
 Raw 商店默认根地址为：
 
@@ -78,10 +75,13 @@ Tag 发布是**显式选择性发布**：受保护的 `v*` tag 流水线只打�
 
 每个官方生成 descriptor 都会由生成器写入固定的 `plugin.publisher`：`{ "id": "yudream", "name": "YuDream", "url": "https://yudream.online", "verified": true }`。官方 `store.json` 不允许覆盖 publisher。第三方投稿的 `author` 仅在审核/发布流程确认后映射为 publisher，且作者不能自行提供 `verified`。历史 descriptor 不含该字段仍可读取。
 
-官方 `store.json` 可选声明 `license`（受支持 SPDX 标识）、`source`（无 userinfo/fragment 的 HTTPS `repository` 和 40 位小写十六进制 `commit`）及无控制字符、受长度限制的 `releaseNotes`，生成器将其写入 `plugin.license`、`plugin.source` 和 `plugin.releaseNotes`。`submission.json` 的 `license` 则始终是本地许可证文本路径；第三方使用可选 `licenseId` 提供展示用 SPDX 标识。每个新生成的 descriptor 都会写入 `plugin.compatibility` 与 `plugin.dependencies`。默认 compatibility 为 `host: ^1.0.0`、`spi: ^2.6.0`、`frontendSdk: ^1.0.1`；默认 dependencies 从最终 JAR 内的 `plugin.yml` 派生。模块可选地在 `src/main/resources/store.json` 声明商店资源，并显式覆盖兼容性范围或依赖范围。历史 descriptor 未包含这些字段时仍可被读取。支持的完整结构如下：
+官方 `store.json` 可选声明 `license`（受支持 SPDX 标识）、`category`（市场分类清单之一）、`tags`（最多 10 个、每项 ≤24 小写）、`source`（无 userinfo/fragment 的 HTTPS `repository` 和 40 位小写十六进制 `commit`）及无控制字符、受长度限制的 `releaseNotes`。自托管市场发布会把 `category`/`tags`/`license`/`releaseNotes` 随 JAR 上传；Nexus Raw 生成器仍写入 `plugin.license`、`plugin.source` 和 `plugin.releaseNotes`。`submission.json` 的 `license` 则始终是本地许可证文本路径；第三方使用可选 `licenseId` 提供展示用 SPDX 标识。每个新生成的 descriptor 都会写入 `plugin.compatibility` 与 `plugin.dependencies`。默认 compatibility 为 `host: ^1.0.0`、`spi: ^2.6.0`、`frontendSdk: ^1.0.1`；默认 dependencies 从最终 JAR 内的 `plugin.yml` 派生。模块可选地在 `src/main/resources/store.json` 声明商店资源，并显式覆盖兼容性范围或依赖范围。历史 descriptor 未包含这些字段时仍可被读取。支持的完整结构如下：
 
 ```json
 {
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": ["wiki", "recipe"],
   "icon": "assets/icon.svg",
   "screenshots": ["assets/overview.png"],
   "compatibility": {
@@ -134,6 +134,8 @@ Tag 发布流水线使用：
 | `NEXUS_USERNAME` | GitLab 受保护 CI 变量提供的 Nexus 用户名。 |
 | `NEXUS_PASSWORD` | GitLab 受保护 CI 变量提供的 Nexus 密码。 |
 | `DRY_RUN` | 非空时仅本地生成、验证和顺序演示。 |
+
+自托管市场源 `publish:market` 不使用上表 Nexus 写凭据。启用时另配 `YUDREAM_MARKET_URL`、`YUDREAM_MARKET_API_KEY`（Protected + Masked），详见 [plugin-release.md](./plugin-release.md)「自托管市场源变量」。
 
 凭据只允许由 GitLab 受保护 CI 变量提供。不得将密码、token、认证 header、带凭据 URL 或本机 `settings.xml` 提交到仓库、写入文档或输出到日志。Raw JSON 和展示资源应保持公开可读，不能携带认证信息。
 

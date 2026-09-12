@@ -201,9 +201,31 @@ except (OSError, json.JSONDecodeError) as error:
     raise SystemExit(f"invalid store.json {path}: {error}")
 if not isinstance(value, dict):
     fail("must be an object")
-unknown = set(value) - {"icon", "screenshots", "compatibility", "dependencies", "license", "source", "releaseNotes"}
+unknown = set(value) - {"icon", "screenshots", "compatibility", "dependencies", "license", "source", "releaseNotes", "category", "tags"}
 if unknown:
     fail("contains unsupported field(s): " + ", ".join(sorted(unknown)))
+MARKET_CATEGORIES = {
+    "AI 与对话", "支付与钱包", "Minecraft", "消息与社区", "数据与看板", "主题与皮肤", "效率工具", "其他",
+}
+if "category" in value:
+    if not isinstance(value["category"], str) or value["category"] not in MARKET_CATEGORIES:
+        fail("category must be one of: " + "、".join(sorted(MARKET_CATEGORIES)))
+if "tags" in value:
+    tags = value["tags"]
+    if not isinstance(tags, list) or not tags:
+        fail("tags must be a non-empty array of strings")
+    seen = set()
+    for tag in tags:
+        if not isinstance(tag, str) or not tag.strip():
+            fail("tags must be non-empty strings")
+        normalized = tag.strip().lower()
+        if len(normalized) > 24 or any(ord(char) < 32 or ord(char) == 127 for char in normalized):
+            fail("tag exceeds 24 characters or contains control characters")
+        if normalized in seen:
+            fail("duplicate tag: " + normalized)
+        seen.add(normalized)
+    if len(seen) > 10:
+        fail("tags must contain at most 10 items")
 if "license" in value:
     require_text(value["license"], "license")
     if value["license"] not in SPDX_LICENSES:
