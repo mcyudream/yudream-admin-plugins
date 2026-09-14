@@ -1,0 +1,10 @@
+{
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": [
+    "launcher",
+    "ymcl",
+    "mrpack"
+  ],
+  "releaseNotes": "0.6.0：协议 v2 分发通道——整合包分 MRPACK（导入 mrpack）与 VANILLA（原版/加载器）两种渠道；版本携带 gameVersion/loader/loaderVersion/revision 与 entries 对账清单、ignorePatterns 保护清单，发布时物化托管文件条目；新增 /v2/packs/** 的 head/manifest/files/mrpack 端点供启动器按 revision 增量对账更新，以及 VANILLA 版本发布端点。\n0.5.4：启动器导航改为可配置树——顶级是 Tab，次级是该 Tab 内菜单，再往下继续分级；每一级都可改名称、图标、绑定注册页与显隐。旧 merged/tabs/menuGroups 配置读取时自动迁移。\n0.5.3：启动器外观改为系统菜单式左树右详情：页面由各插件向适配器注册，本页只调整 Tab/菜单分组/隐藏；兼容旧 8 参 LauncherPage 构造，聚合时捕获 LinkageError 避免单页拖垮 chrome。\n0.5.2：修复「启动器外观」后台页被解析成连接页，导致只能看到连接 YMCL、看不到主题/导航配置。\n0.5.1：适配器不再 softdepend minecraft-server。服务器列表页由 minecraft-server 自身作为 LauncherProvider 贡献，适配器只聚合扩展点；依赖方向单向，热重载不再成环。\n0.5.0：YMCL 公开客户端的授权范围由各 LauncherProvider 在启用时通过适配器 API 自动合并，不再在适配器里写死其它插件的权限码；清单下发部门/角色切换与当前权限端点，启动器按站点 RBAC 动态切换。\n0.4.0：站点可配置启动器外观（Logo/背景）与导航（默认合并为一个可折叠菜单 Tab，也可额外注册独立 Tab）；页面内容仍由各插件的 LauncherProvider 扩展点下发，YMCL 只解释清单。\n0.3.2：manifest 页面增加 providerCode，YMCL 拉服务器/整合包列表不再把 mc.servers 猜成 provider「mc」导致 404。\n0.3.1：YMCL 公开客户端回调改为 ymcl://auth/callback，与站点 ymcl:// 拉起协议一致。\n0.3.0：YMCL 公开客户端登记 plugin:launcher-adapter:view|manage 与 plugin:minecraft-server:view|manage 授权范围，令牌按登录用户实际权限下发；manifest 贡献站点整合包目录页，供启动器玩家安装、管理员发布。\n0.2.0：新增网页端——连接 YMCL、整合包管理，以及首页卡片：点击 ymcl:// 拉起启动器并添加本域；拖动写入编码后的 ymcl:site: 邀请（.ymclsite）。需 YMCL 已登记 ymcl 协议。\n0.1.3：插件启用时向系统幂等登记公开 OAuth 客户端 ymcl（回调 sjmcl://auth/callback），manifest 公布该 clientId，启动器无需手填。\n0.1.2：manifest 增加 oauth.clientId。\n0.1.1：首次发布。"
+}

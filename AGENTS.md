@@ -38,7 +38,7 @@
 - 每个插件 JAR 必须包含 `src/main/resources/plugin.yml`，至少声明 `name`、`main`、`version`。
 - `name` 是全局唯一、稳定的插件 code，用于依赖、路由、服务发现和资源路径；`displayName` 仅用于展示，禁止用于依赖或查找。
 - 后端、前端包、资源目录、路由、权限、API 路径的 code 必须一致。
-- 核心必需提供方使用 `depend`；可选集成使用 `softdepend`。软依赖不可用时，插件主体必须仍可运行，受影响的路由、菜单、任务、操作和前端控件要显式降级或禁用。
+- 核心必需提供方使用 `depend`；可选集成使用 `softdepend`。软依赖不可用时，插件主体必须仍可运行，受影响的路由、菜单、任务、操作和前端控件要显式降级或禁用。`depend`/`softdepend` 图必须无环：平台适配器不得 softdepend 已经 softdepend 自己的业务插件（`launcher-adapter` 不得声明 `minecraft-server`；服务器列表页与 YMCL scope 由 `minecraft-server` 以 `LauncherProvider` 贡献，适配器只聚合）。
 - 可选依赖调用前检查可用性，并隔离可选类型引用，避免 provider 缺失引发 `NoClassDefFoundError`；不得跨 provider disable/reload 缓存 API 对象。
 - 插件业务 API 不进入宿主 SPI。Provider 可在自身 JAR 的稳定、最小 `*.api` 包中公开接口/DTO；Consumer 以 `provided` 依赖编译。
 - 禁止复制、shade、relocate 或重复打包 Provider API；禁止通过 `registerExtension`、`getExtension`、`framework().extension(s)`、插件私有 HTTP 代理或直接 Spring Bean 调用跨插件 API。
@@ -97,7 +97,7 @@ yudream-frontend/packages/plugin-{code}/
 ```
 
 - 使用 Vue Composition API 与 `<script setup lang="ts">`；禁止把完整插件塞入一个 `.vue`。
-- `src/index.ts` 必须导出宿主所需 remote contract；生产环境依赖 JAR 中的 ESM remote entry，workspace 加载仅作开发便利。
+- `src/index.ts` 必须导出宿主所需 remote contract；生产环境依赖 JAR 中的 ESM remote entry，workspace 加载仅作开发便利。每个 `@PluginRoute.component` 必须导出真正的页面组件，禁止多个路由别名指向同一个壳再按 path/meta 猜测当前页。
 - 普通插件 API 只能使用宿主注入的 `@yudream/plugin-sdk`；禁止新建私有 axios/fetch 客户端或硬编码宿主 origin。
 - 用户 API wrapper 仅调用 `/me/**`，管理员 wrapper 仅调用 `/admin/**`；两者不得共享可混合个人/管理数据的 store/composable cache。
 - 远程包不继承宿主 auto-import。`@yudream/components` 必须显式导入。

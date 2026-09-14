@@ -1,0 +1,46 @@
+OAuth 直登外置登录 — 集成测试 trace
+====================================
+
+环境：JDK 21 + SPI 2.27.0 + authlib-injector 1.1.5 + launcher-adapter 0.1.1 + yudream-skin 1.2.0
+
+测试入口：online.yudream.base.plugin.launcher.IntegrationTest#main
+测试方式：mock PluginContext + PluginDocumentStore，真实调用 AuthlibAppService.issueSession
+          + YggExchangeController.exchange / profiles
+
+运行命令（无需 Maven）：
+  cd yudream-plugins/yudream-plugin-launcher-adapter
+  javac -d build/test \
+        -cp "...SPI_JAR;...SKIN_JAR;.../authlib-classes;.../launcher-classes;.../jackson-databind.jar;.../jackson-core.jar;.../jackson-annotations.jar" \
+        src/main/java/online/yudream/base/plugin/launcher/... \
+        src/test/java/online/yudream/base/plugin/launcher/IntegrationTest.java
+  java  -cp "...same..." online.yudream.base.plugin.launcher.IntegrationTest
+
+期望输出（节选）：
+  [1] AuthlibAppService.issueSession =>
+      userId            = 42
+      username (ygg)    = Player1
+      profileId (uuid)  = 0b80da06ca134e35bc8b6fd8a2d9b49a
+      accessToken       = ff074ebdc4d54c55850d6fe525a071fe
+      clientToken       = test-client-token-uuid
+      availableProfiles = [PluginAuthProfile[id=..., name=Player1]]
+  [2] YggExchangeController.exchange => status=200 contentType=application/json
+      body JSON = {"userId":"42","username":"Player1","profileId":"...","accessToken":"...","clientToken":"ymcl-client-uuid","availableProfiles":[{"id":"...","name":"Player1"}],"selectedProfile":{"name":"Player1","id":"..."}}
+  [3] YggExchangeController.profiles => status=200
+      body JSON = {"userId":"42","profiles":[{"id":"...","name":"Player1"}]}
+  [4] 无 authlib-injector 时 exchange => status=503 body={message=authlib-injector 插件未启用，无法签发 ygg 会话}
+  ALL OK
+
+宿主端 e2e 验证（启动 yudream-admim + 启用 launcher-adapter + authlib-injector）：
+  1) POST /api/oauth/authorize?client_id=YMCL&redirect_uri=ymcl://auth/callback&response_type=code&scope=launcher
+       → 用户登录后回调 ymcl://auth/callback?code=...
+  2) POST /api/oauth/token (grant_type=authorization_code, code, client_id, client_secret, redirect_uri)
+       → {"access_token":"ydo_at_xxx","refresh_token":"ydo_rt_xxx","token_type":"Bearer","expires_in":...}
+  3) GET  /api/plugins/launcher-adapter/v1/auth/ygg/profiles
+       Authorization: Bearer ydo_at_xxx
+       → {"userId":"42","profiles":[{"id":"<uuid>","name":"<name>"}]}
+  4) POST /api/plugins/launcher-adapter/v1/auth/ygg
+       Authorization: Bearer ydo_at_xxx
+       Content-Type: application/json
+       {"clientToken":"<ymcl 持久化>","profileName":"<可选>"}
+       → 200 + ygg accessToken/clientToken/selectedProfile/availableProfiles
+  5) 用返回的 ygg accessToken/clientToken/selectedProfile 进 Minecraft 客户端即可。

@@ -1,5 +1,9 @@
 # YMCL × yudream-launcher 接口契约
 
+> **已作废（2026-09-14）**：本契约的 Profile/Revision/Entry 对账分发模型与 device-code 登录已被
+> [launcher-adapter-protocol-v2.md](launcher-adapter-protocol-v2.md) 吸收（分别为其 §5 与 §2.5），
+> 其余部分（独立 yudream-launcher 插件设想、两段式上传细节）不再适用。新实现一律以 v2 协议为准。
+
 本文件是 YMCL 启动器与 `yudream-launcher` 插件之间的**权威接口契约**，两侧（`YMCL` 仓库的 Rust/React 端、`yudream-admin-plugins` 的 Java/Vue 端）都以此为准并行实现，避免返工。
 
 - 插件 code：`yudream-launcher`

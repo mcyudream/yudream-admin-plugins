@@ -25,7 +25,7 @@ Add folders only when they carry a clear responsibility. Do not place a complete
 - Export the shape expected by the host from `src/index.ts` and follow the closest existing plugin.
 - Build an ESM remote entry named `remoteEntry.js`.
 - Treat workspace loading as development convenience only. Production loading is the remote ESM entry from the plugin JAR.
-- Keep major management surfaces as separate route entries and real page components.
+- Keep major management surfaces as separate route entries and real page components. Each `@PluginRoute.component` key in `src/index.ts` must export that page, not a shared shell that guesses the current route from path or `meta.plugin.component`.
 - Align route paths, titles, icons, sort order, and permissions with backend declarations.
 - Separate user routes/pages from admin routes/pages. Read `access-boundaries.md`; do not switch a user page into cross-user mode merely because the current account also has management permission.
 - Read `page-composition.md` before adding a route, tab, modal, drawer, or another major section to an existing page.

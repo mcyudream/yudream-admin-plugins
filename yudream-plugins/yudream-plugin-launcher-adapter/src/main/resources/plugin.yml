@@ -1,0 +1,8 @@
+name: launcher-adapter
+displayName: 启动器适配器
+description: 为 YMCL 启动器提供版本化 manifest、LauncherProvider 页面聚合、站点外观/导航配置与 mrpack 整合包分发通道。
+icon: i-ri:rocket-2-line
+main: online.yudream.base.plugin.launcher.bootstrap.LauncherAdapterPlugin
+version: 0.6.0
+softdepend:
+  - authlib-injector
