@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.authlib.bootstrap;
 
+import online.yudream.base.plugin.authlib.api.PluginAuthService;
 import online.yudream.base.plugin.authlib.application.service.AuthlibAppService;
 import online.yudream.base.plugin.authlib.infrastructure.repository.AuthlibRepository;
 import online.yudream.base.plugin.authlib.infrastructure.service.AuthlibCryptoService;
@@ -18,7 +19,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = AuthlibInjectorPlugin.CODE,
         name = "Authlib Injector",
-        version = "1.0.0",
+        version = "1.1.5",
         description = "基于系统用户和 yudream-skin 角色资料实现 authlib-injector/Yggdrasil 服务端协议。",
         dependencies = {"yudream-skin"}
 )
@@ -71,5 +72,7 @@ public class AuthlibInjectorPlugin implements YuDreamPlugin {
         AuthlibHttpFacade http = new AuthlibHttpFacade(appService, context.framework());
         context.registerHttpController(new AuthlibProtocolController(http));
         context.registerHttpController(new AuthlibAdminController(http));
+        // 供 launcher-adapter 等 trusted caller 调用：按站点 userId 签发 ygg session（免密码）。
+        context.exposeService(PluginAuthService.class, appService);
     }
 }

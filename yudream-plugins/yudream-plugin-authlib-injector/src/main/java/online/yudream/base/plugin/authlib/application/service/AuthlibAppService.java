@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.authlib.application.service;
 
+import online.yudream.base.plugin.authlib.api.PluginAuthProfile;
+import online.yudream.base.plugin.authlib.api.PluginAuthService;
 import online.yudream.base.plugin.authlib.domain.aggregate.AuthSession;
 import online.yudream.base.plugin.authlib.domain.aggregate.ServerJoin;
 import online.yudream.base.plugin.authlib.infrastructure.repository.AuthlibRepository;
@@ -28,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public class AuthlibAppService {
+public class AuthlibAppService implements PluginAuthService {
 
     private static final String SKIN_PLUGIN_CODE = "yudream-skin";
     private static final long SESSION_TTL = Duration.ofDays(7).toMillis();
@@ -125,6 +127,57 @@ public class AuthlibAppService {
     public void signout(SignoutRequest request) {
         PluginUserProfile user = authenticateSystemUser(request.username(), request.password());
         repository.findSessionsByUser(String.valueOf(user.id())).forEach(session -> repository.deleteSession(session.accessToken()));
+    }
+
+    @Override
+    public IssuedSession issueSession(String userId, String clientToken, String requestedProfileName) {
+        if (!hasText(userId)) {
+            throw new IllegalArgumentException("userId 不能为空");
+        }
+        List<PluginSkinProfile> profiles = profilesForUser(userId);
+        if (profiles.isEmpty()) {
+            throw new IllegalArgumentException("当前账号没有可用角色");
+        }
+        PluginSkinProfile selected = hasText(requestedProfileName)
+                ? findProfileByName(profiles, requestedProfileName).orElse(profiles.get(0))
+                : profiles.get(0);
+        String normalizedClientToken = hasText(clientToken) ? clientToken : UUID.randomUUID().toString();
+        AuthSession session = new AuthSession(
+                randomToken(),
+                normalizedClientToken,
+                userId,
+                selected.name(),
+                selected.uuid(),
+                now(),
+                now() + SESSION_TTL
+        );
+        AuthSession saved = repository.saveSession(session);
+        return new IssuedSession(
+                userId,
+                saved.username(),
+                saved.selectedProfileId(),
+                saved.accessToken(),
+                saved.clientToken(),
+                profiles.stream().map(p -> new PluginAuthProfile(p.uuid(), p.name())).toList()
+        );
+    }
+
+    @Override
+    public List<PluginAuthProfile> listProfiles(String userId) {
+        if (!hasText(userId)) {
+            return List.of();
+        }
+        return profilesForUser(userId).stream()
+                .map(p -> new PluginAuthProfile(p.uuid(), p.name()))
+                .toList();
+    }
+
+    private Optional<PluginSkinProfile> findProfileByName(List<PluginSkinProfile> profiles, String name) {
+        if (name == null) {
+            return Optional.empty();
+        }
+        String trimmed = name.trim();
+        return profiles.stream().filter(p -> trimmed.equalsIgnoreCase(p.name())).findFirst();
     }
 
     public void join(JoinRequest request) {
