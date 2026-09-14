@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, PlayerActivity, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
+import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, ModpackBinding, PlayerActivity, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMinecraftApi } from '../api/minecraft-api'
@@ -198,7 +198,10 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       ...endpoint,
       port: endpoint.port && Number(endpoint.port) > 0 ? endpoint.port : undefined,
     }))
-    serverForm.seasons = server.seasons.map(season => ({ ...season }))
+    serverForm.seasons = server.seasons.map(season => ({
+      ...season,
+      modpackBinding: season.modpackBinding ? { ...season.modpackBinding } : { type: 'NONE' },
+    }))
   }
 
   function addEndpoint() {
@@ -230,6 +233,11 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
           ...endpoint,
           sort: index * 10,
           port: endpointPortPayload(endpoint),
+        })),
+        seasons: serverForm.seasons.map((season, index) => ({
+          ...season,
+          sort: season.sort ?? index * 10,
+          binding: toBindingPayload(season.modpackBinding),
         })),
       })
       replaceServer(saved)
@@ -600,6 +608,35 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     return `${seconds}s`
   }
 
+  async function bindSeasonModpack(seasonId: string, binding: ModpackBinding) {
+    const serverId = selectedId.value || serverForm.id
+    if (!serverId || !seasonId) {
+      toast.warning('请先选择服务器和周目')
+      return
+    }
+    saving.value = true
+    try {
+      const saved = await api.bindSeasonModpack(serverId, seasonId, toBindingPayload(binding))
+      replaceServer(saved)
+      editServer(saved)
+      toast.success('周目整合包绑定已保存')
+    }
+    finally {
+      saving.value = false
+    }
+  }
+
+  function toBindingPayload(binding?: ModpackBinding | null) {
+    const type = String(binding?.type || 'NONE').toUpperCase()
+    if (type === 'VANILLA') {
+      return { type, gameVersion: binding?.gameVersion || '', loader: binding?.loader || '' }
+    }
+    if (type === 'MRPACK') {
+      return { type, packId: binding?.packId || '', versionId: binding?.versionId || undefined }
+    }
+    return { type: 'NONE' }
+  }
+
   function seasonPayload() {
     return {
       name: seasonForm.name.trim(),
@@ -701,6 +738,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     copyServerId,
     previewSeason,
     openSeason,
+    bindSeasonModpack,
     rollbackOperation,
     addRule,
     removeRule,

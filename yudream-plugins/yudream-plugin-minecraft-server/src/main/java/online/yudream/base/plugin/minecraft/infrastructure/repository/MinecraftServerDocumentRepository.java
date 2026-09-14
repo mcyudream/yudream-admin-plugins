@@ -15,6 +15,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
+import online.yudream.base.plugin.minecraft.domain.valobj.ModpackBinding;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
 import java.math.BigDecimal;
@@ -304,6 +305,26 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("endedAt", season.endedAt());
         document.put("current", season.current());
         document.put("sort", season.sort());
+        document.put("modpackBinding", bindingDocument(season.modpackBinding()));
+        return document;
+    }
+
+    private Map<String, Object> bindingDocument(ModpackBinding binding) {
+        ModpackBinding value = binding == null ? ModpackBinding.none() : binding;
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("type", value.type() == null ? ModpackBinding.Type.NONE.name() : value.type().name());
+        if (value.gameVersion() != null && !value.gameVersion().isBlank()) {
+            document.put("gameVersion", value.gameVersion());
+        }
+        if (value.loader() != null && !value.loader().isBlank()) {
+            document.put("loader", value.loader());
+        }
+        if (value.packId() != null && !value.packId().isBlank()) {
+            document.put("packId", value.packId());
+        }
+        if (value.versionId() != null && !value.versionId().isBlank()) {
+            document.put("versionId", value.versionId());
+        }
         return document;
     }
 
@@ -459,8 +480,24 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 nullableNumber(document, "startedAt"),
                 nullableNumber(document, "endedAt"),
                 bool(document, "current", false),
-                integer(document, "sort", 0)
+                integer(document, "sort", 0),
+                toModpackBinding(document.get("modpackBinding"))
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private ModpackBinding toModpackBinding(Object value) {
+        if (!(value instanceof Map<?, ?> raw)) return ModpackBinding.none();
+        Map<String, Object> document = (Map<String, Object>) raw;
+        String type = string(document, "type");
+        if (type == null || type.isBlank() || "NONE".equalsIgnoreCase(type)) {
+            return ModpackBinding.none();
+        }
+        return switch (type.toUpperCase(java.util.Locale.ROOT)) {
+            case "VANILLA" -> ModpackBinding.vanilla(string(document, "gameVersion"), string(document, "loader"));
+            case "MRPACK" -> ModpackBinding.mrpack(string(document, "packId"), string(document, "versionId"));
+            default -> ModpackBinding.none();
+        };
     }
 
     @SuppressWarnings("unchecked")

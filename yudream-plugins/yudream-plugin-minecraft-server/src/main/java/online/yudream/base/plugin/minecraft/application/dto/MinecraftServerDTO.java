@@ -36,7 +36,8 @@ public record MinecraftServerDTO(
             Long startedAt,
             Long endedAt,
             boolean current,
-            int sort
+            int sort,
+            ModpackBindingDTO modpackBinding
     ) {
     }
 }

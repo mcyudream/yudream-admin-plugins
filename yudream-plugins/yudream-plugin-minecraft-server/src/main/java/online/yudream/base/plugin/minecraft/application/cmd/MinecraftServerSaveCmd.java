@@ -31,7 +31,20 @@ public record MinecraftServerSaveCmd(
             Long startedAt,
             Long endedAt,
             Boolean current,
-            Integer sort
+            Integer sort,
+            ModpackBinding binding
+    ) {
+    }
+
+    /**
+     * modpack 绑定内部命令。null 表示 NONE；与 {@code domain.valobj.ModpackBinding} 1:1 映射。
+     */
+    public record ModpackBinding(
+            String type,
+            String gameVersion,
+            String loader,
+            String packId,
+            String versionId
     ) {
     }
 }

@@ -17,6 +17,15 @@ export interface MinecraftSeason {
   endedAt?: TimeValue
   current: boolean
   sort: number
+  modpackBinding?: ModpackBinding | null
+}
+
+export interface ModpackBinding {
+  type: 'NONE' | 'VANILLA' | 'MRPACK' | string
+  gameVersion?: string | null
+  loader?: string | null
+  packId?: string | null
+  versionId?: string | null
 }
 
 export interface MinecraftEndpointStatus {

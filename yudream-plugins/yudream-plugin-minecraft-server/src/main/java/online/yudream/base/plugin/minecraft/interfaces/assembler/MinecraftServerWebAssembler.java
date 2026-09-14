@@ -26,6 +26,7 @@ import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftPlayerActivi
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftServerRes;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftServerStatusRes;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftStatusSnapshotRes;
+import online.yudream.base.plugin.minecraft.interfaces.res.ModpackBindingRes;
 
 public class MinecraftServerWebAssembler {
 
@@ -132,7 +133,14 @@ public class MinecraftServerWebAssembler {
 
     private MinecraftServerSaveCmd.Season toCmd(MinecraftServerSaveRequest.Season request) {
         return new MinecraftServerSaveCmd.Season(request.id(), request.name(), request.description(), request.startedAt(),
-                request.endedAt(), request.current(), request.sort());
+                request.endedAt(), request.current(), request.sort(),
+                request.binding() == null ? null : new MinecraftServerSaveCmd.ModpackBinding(
+                        request.binding().type(),
+                        request.binding().gameVersion(),
+                        request.binding().loader(),
+                        request.binding().packId(),
+                        request.binding().versionId()
+                ));
     }
 
     private MinecraftSeasonOpenCmd.Rule toCmd(MinecraftSeasonOpenRequest.Rule request) {
@@ -146,7 +154,12 @@ public class MinecraftServerWebAssembler {
 
     private MinecraftServerRes.SeasonRes toRes(MinecraftServerDTO.SeasonDTO dto) {
         return new MinecraftServerRes.SeasonRes(dto.id(), dto.name(), dto.description(), dto.startedAt(), dto.endedAt(),
-                dto.current(), dto.sort());
+                dto.current(), dto.sort(), toRes(dto.modpackBinding()));
+    }
+
+    private ModpackBindingRes toRes(online.yudream.base.plugin.minecraft.application.dto.ModpackBindingDTO dto) {
+        if (dto == null) return ModpackBindingRes.none();
+        return new ModpackBindingRes(dto.type(), dto.gameVersion(), dto.loader(), dto.packId(), dto.versionId());
     }
 
     private MinecraftEndpointStatusRes toRes(MinecraftEndpointStatusDTO dto) {

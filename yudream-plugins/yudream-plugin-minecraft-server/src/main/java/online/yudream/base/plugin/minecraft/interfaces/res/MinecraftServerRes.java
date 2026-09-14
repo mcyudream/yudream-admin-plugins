@@ -38,7 +38,8 @@ public record MinecraftServerRes(
             Long startedAt,
             Long endedAt,
             boolean current,
-            int sort
+            int sort,
+            ModpackBindingRes modpackBinding
     ) {
     }
 }

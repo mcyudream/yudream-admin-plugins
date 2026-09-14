@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-minecraft-server</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.5</version>
 
     <build>
         <resources>
@@ -72,6 +72,16 @@
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-yudream-skin</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <!--
+                Launcher 适配插件：provided 依赖仅编译期可见。
+                运行时若 launcher-adapter 未安装（plugin.yml softdepend），
+                bootstrap 中的 registerExtension 会被 NoClassDefFoundError 捕获并降级，不影响 mc-server 自身功能。
+            -->
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-launcher-adapter</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>

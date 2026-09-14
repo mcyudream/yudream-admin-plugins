@@ -28,6 +28,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftInheritanceRu
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSeasonAdjustment;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerEndpoint;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
+import online.yudream.base.plugin.minecraft.domain.valobj.ModpackBinding;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
@@ -109,6 +110,27 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return assembler.toDTO(server, status);
     }
 
+    public MinecraftServerDTO bindSeasonModpack(String serverId, String seasonId, MinecraftServerSaveCmd.ModpackBinding binding) {
+        MinecraftServer server = requireServer(serverId);
+        String targetSeasonId = requireText(seasonId, "周目 ID 不能为空");
+        ModpackBinding nextBinding = toModpackBinding(binding);
+        boolean found = false;
+        List<MinecraftServerSeason> seasons = new ArrayList<>();
+        for (MinecraftServerSeason season : server.seasons()) {
+            if (season.id().equals(targetSeasonId)) {
+                seasons.add(season.withModpackBinding(nextBinding));
+                found = true;
+            } else {
+                seasons.add(season);
+            }
+        }
+        if (!found) {
+            throw new IllegalArgumentException("周目不存在：" + targetSeasonId);
+        }
+        MinecraftServer saved = repository.save(server.update(null, null, null, null, null, seasons));
+        return assembler.toDTO(saved, repository.findStatus(saved.id()).orElse(null));
+    }
+
     public MinecraftServerDTO saveServer(MinecraftServerSaveCmd cmd) {
         MinecraftServer existing = cmd.id() == null || cmd.id().isBlank()
                 ? null
@@ -116,7 +138,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         List<MinecraftServerEndpoint> endpoints = toEndpoints(cmd.endpoints());
         List<MinecraftServerSeason> seasons = toSeasons(cmd.seasons());
         if (seasons.isEmpty()) {
-            seasons = List.of(new MinecraftServerSeason(null, "第一周目", "初始周目", System.currentTimeMillis(), null, true, 0));
+            seasons = List.of(new MinecraftServerSeason(null, "第一周目", "初始周目", System.currentTimeMillis(), null, true, 0, ModpackBinding.none()));
         }
         MinecraftServer server = existing == null
                 ? MinecraftServer.create(cmd.name(), cmd.descriptionMarkdown(), cmd.enabled() == null || cmd.enabled(),
@@ -769,13 +791,13 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         List<MinecraftServerSeason> nextSeasons = new ArrayList<>();
         for (MinecraftServerSeason season : server.seasons()) {
             if (season.id().equals(operation.fromSeasonId())) {
-                nextSeasons.add(new MinecraftServerSeason(season.id(), season.name(), season.description(), season.startedAt(), startedAt, false, season.sort()));
+                nextSeasons.add(new MinecraftServerSeason(season.id(), season.name(), season.description(), season.startedAt(), startedAt, false, season.sort(), season.modpackBinding()));
             } else {
                 nextSeasons.add(season.withCurrent(false));
             }
         }
         int nextSort = nextSeasons.stream().mapToInt(MinecraftServerSeason::sort).max().orElse(0) + 10;
-        nextSeasons.add(new MinecraftServerSeason(operation.toSeasonId(), operation.toSeasonName(), cmd.description(), startedAt, null, true, nextSort));
+        nextSeasons.add(new MinecraftServerSeason(operation.toSeasonId(), operation.toSeasonName(), cmd.description(), startedAt, null, true, nextSort, ModpackBinding.none()));
         return server.update(null, null, null, null, null, nextSeasons);
     }
 
@@ -783,7 +805,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         List<MinecraftServerSeason> nextSeasons = server.seasons().stream()
                 .filter(season -> !season.id().equals(operation.toSeasonId()))
                 .map(season -> season.id().equals(operation.fromSeasonId())
-                        ? new MinecraftServerSeason(season.id(), season.name(), season.description(), season.startedAt(), null, true, season.sort())
+                        ? new MinecraftServerSeason(season.id(), season.name(), season.description(), season.startedAt(), null, true, season.sort(), season.modpackBinding())
                         : season.withCurrent(false))
                 .toList();
         return server.update(null, null, null, null, null, nextSeasons);
@@ -927,8 +949,36 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         }
         return seasons.stream()
                 .map(item -> new MinecraftServerSeason(item.id(), item.name(), item.description(), item.startedAt(), item.endedAt(),
-                        Boolean.TRUE.equals(item.current()), item.sort() == null ? 0 : item.sort()))
+                        Boolean.TRUE.equals(item.current()), item.sort() == null ? 0 : item.sort(),
+                        toModpackBinding(item.binding())))
                 .toList();
+    }
+
+    /**
+     * 把命令层 DTO 形式的绑定转成 Domain 值对象。null/缺省 type 视作 NONE；
+     * 字段与 type 不匹配时静默降级为 NONE（不让校验链路过早抛错，影响其它合法字段保存）。
+     */
+    private ModpackBinding toModpackBinding(MinecraftServerSaveCmd.ModpackBinding binding) {
+        if (binding == null) return ModpackBinding.none();
+        String type = binding.type();
+        if (type == null || type.isBlank() || "NONE".equalsIgnoreCase(type)) {
+            return ModpackBinding.none();
+        }
+        return switch (type.toUpperCase(java.util.Locale.ROOT)) {
+            case "VANILLA" -> {
+                if (binding.gameVersion() == null || binding.loader() == null) {
+                    yield ModpackBinding.none();
+                }
+                yield ModpackBinding.vanilla(binding.gameVersion().trim(), binding.loader().trim());
+            }
+            case "MRPACK" -> {
+                if (binding.packId() == null || binding.packId().isBlank()) {
+                    yield ModpackBinding.none();
+                }
+                yield ModpackBinding.mrpack(binding.packId().trim(), binding.versionId());
+            }
+            default -> ModpackBinding.none();
+        };
     }
 
     private MinecraftServer requireServer(String serverId) {

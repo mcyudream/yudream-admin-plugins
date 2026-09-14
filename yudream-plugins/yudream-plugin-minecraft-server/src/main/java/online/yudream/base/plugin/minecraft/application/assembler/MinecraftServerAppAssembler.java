@@ -9,6 +9,7 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerMapDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerStatusDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
+import online.yudream.base.plugin.minecraft.application.dto.ModpackBindingDTO;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
@@ -20,6 +21,7 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
+import online.yudream.base.plugin.minecraft.domain.valobj.ModpackBinding;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -79,7 +81,18 @@ public class MinecraftServerAppAssembler {
 
     public MinecraftServerDTO.SeasonDTO toDTO(MinecraftServerSeason season) {
         return new MinecraftServerDTO.SeasonDTO(season.id(), season.name(), season.description(), season.startedAt(),
-                season.endedAt(), season.current(), season.sort());
+                season.endedAt(), season.current(), season.sort(), toDTO(season.modpackBinding()));
+    }
+
+    public ModpackBindingDTO toDTO(ModpackBinding binding) {
+        if (binding == null) return ModpackBindingDTO.none();
+        return new ModpackBindingDTO(
+                binding.type() == null ? ModpackBindingDTO.TYPE_NONE : binding.type().name(),
+                binding.gameVersion(),
+                binding.loader(),
+                binding.packId(),
+                binding.versionId()
+        );
     }
 
     public MinecraftServerStatusDTO toDTO(MinecraftServerStatus status) {

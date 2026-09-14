@@ -31,6 +31,7 @@ export function createMinecraftApi(sdk: YuDreamPluginSdk) {
     economyStatus: () => sdk.http.get<{ walletEnabled: boolean }>('/economy/status'),
     previewSeason: (id: string, data: Record<string, unknown>) => sdk.http.post<SeasonOperation>(`/admin/servers/${serverPath(id)}/seasons/preview`, data),
     openSeason: (id: string, data: Record<string, unknown>) => sdk.http.post<SeasonOperation>(`/admin/servers/${serverPath(id)}/seasons/open`, data),
+    bindSeasonModpack: (id: string, seasonId: string, data: Record<string, unknown>) => sdk.http.post<MinecraftServer>(`/admin/servers/${serverPath(id)}/seasons/${encodeURIComponent(seasonId)}/modpack-binding`, data),
     operations: (id: string, page = 1, size = 10) => sdk.http.get<PageResult<SeasonOperation>>(`/admin/servers/${serverPath(id)}/operations${query({ page, size })}`),
     rollbackOperation: (operationId: string) => sdk.http.post<SeasonOperation>(`/admin/operations/${encodeURIComponent(operationId)}/rollback`),
     myRecords: (id: string, page = 1, size = 10) => sdk.http.get<PageResult<EconomyRecord>>(`/me/servers/${serverPath(id)}/records${query({ page, size })}`),

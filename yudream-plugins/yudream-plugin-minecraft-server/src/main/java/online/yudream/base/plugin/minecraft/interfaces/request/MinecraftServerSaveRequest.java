@@ -31,7 +31,25 @@ public record MinecraftServerSaveRequest(
             Long startedAt,
             Long endedAt,
             Boolean current,
-            Integer sort
+            Integer sort,
+            ModpackBinding binding
     ) {
+    }
+
+    /**
+     * modpack 绑定请求 DTO。三态字段不可同时填充。
+     * <p>
+     * 管理员填 NONE 时可缺省整体对象（视为 none），但 JSON 反序列化时绑 null 等价于不绑定。
+     */
+    public record ModpackBinding(
+            String type,
+            String gameVersion,
+            String loader,
+            String packId,
+            String versionId
+    ) {
+        public static final String TYPE_NONE = "NONE";
+        public static final String TYPE_VANILLA = "VANILLA";
+        public static final String TYPE_MRPACK = "MRPACK";
     }
 }

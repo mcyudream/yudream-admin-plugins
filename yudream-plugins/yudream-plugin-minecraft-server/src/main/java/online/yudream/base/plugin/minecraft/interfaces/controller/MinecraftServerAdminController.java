@@ -47,6 +47,9 @@ public class MinecraftServerAdminController {
     @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/seasons/open", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse openSeason(PluginHttpRequest request) { return http.openSeason(request); }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/seasons/{seasonId}/modpack-binding", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse bindSeasonModpack(PluginHttpRequest request) { return http.bindSeasonModpack(request); }
+
     @PluginHttpEndpoint(method = "GET", path = "/admin/servers/{serverId}/operations", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse operations(PluginHttpRequest request) { return http.operations(request); }
 

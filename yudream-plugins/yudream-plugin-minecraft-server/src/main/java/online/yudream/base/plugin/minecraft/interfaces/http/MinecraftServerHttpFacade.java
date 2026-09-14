@@ -5,6 +5,7 @@ import online.yudream.base.plugin.minecraft.interfaces.support.JsonSupport;
 import online.yudream.base.plugin.minecraft.interfaces.assembler.MinecraftServerWebAssembler;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSnapshotRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonBindingRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerSaveRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
@@ -116,6 +117,17 @@ public class MinecraftServerHttpFacade {
     public PluginHttpResponse previewOpenSeason(PluginHttpRequest request) {
         MinecraftSeasonOpenRequest body = JsonSupport.read(request.body(), MinecraftSeasonOpenRequest.class);
         return PluginHttpResponse.ok(assembler.toRes(appService.previewOpenSeason(pathSegment(request.path(), 2), assembler.toCmd(body), userId(request))));
+    }
+
+    public PluginHttpResponse bindSeasonModpack(PluginHttpRequest request) {
+        MinecraftSeasonBindingRequest body = JsonSupport.read(request.body(), MinecraftSeasonBindingRequest.class);
+        return PluginHttpResponse.ok(assembler.toRes(appService.bindSeasonModpack(
+                pathSegment(request.path(), 2),
+                pathSegment(request.path(), 4),
+                new online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd.ModpackBinding(
+                        body.type(), body.gameVersion(), body.loader(), body.packId(), body.versionId()
+                )
+        )));
     }
 
     public PluginHttpResponse openSeason(PluginHttpRequest request) {

@@ -158,7 +158,7 @@ class MinecraftServerAppServiceTest {
                 true,
                 0,
                 List.of(new MinecraftServerEndpoint(null, "主线", "play.example.com", 25565, null, true, true, 0)),
-                List.of(new MinecraftServerSeason(null, "第一周目", null, BASE, null, true, 0)),
+                List.of(new MinecraftServerSeason(null, "第一周目", null, BASE, null, true, 0, null)),
                 map,
                 BASE,
                 BASE
