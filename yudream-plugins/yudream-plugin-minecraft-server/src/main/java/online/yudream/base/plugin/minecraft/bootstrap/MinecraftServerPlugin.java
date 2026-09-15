@@ -13,10 +13,8 @@ import online.yudream.base.plugin.minecraft.interfaces.controller.MinecraftServe
 import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpFacade;
 import online.yudream.base.plugin.minecraft.interfaces.support.BriefText;
 import online.yudream.base.plugin.minecraft.interfaces.theme.ServerListThemeBlockProvider;
-import online.yudream.base.plugin.minecraft.infrastructure.launcher.MinecraftLauncherProvider;
+import online.yudream.base.plugin.minecraft.infrastructure.launcher.MinecraftYmclContributionProvider;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
-import online.yudream.base.plugin.launcher.api.LauncherProvider;
-import online.yudream.base.plugin.launcher.api.YmclPublicOAuth;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -152,7 +150,7 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         context.onDispose(statusScheduler);
         context.exposeService(PluginMinecraftService.class, appService);
         context.registerExtension(PluginThemeBlockProvider.class, new ServerListThemeBlockProvider(appService));
-        registerLauncherProvider(context, appService);
+        registerYmclContribution(context, appService);
         MinecraftServerHttpFacade http = new MinecraftServerHttpFacade(appService);
         context.registerHttpController(new MinecraftServerUserController(http));
         context.registerHttpController(new MinecraftServerAdminController(http));
@@ -380,20 +378,16 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
     }
 
     /**
-     * 注册 LauncherProvider 扩展点 -- 启动器侧 server-list 页面的数据来源。
-     * <p>
-     * launcher-adapter 是软依赖（plugin.yml softdepend）：宿主在它缺失时仍会实例化 mc-server，
-     * 但 launcher-adapter 的 API 类在该 classloader 下也未必可解析（取决于宿主 classloader 隔离策略）。
-     * 此处用 NoClassDefFoundError 兜底保证 mc-server 在 launcher-adapter 缺失/未加载时不抛错。
+     * 向 YMCL 适配器（ymcl-adapter）贡献服务器列表数据源；
+     * ymcl-adapter 缺失时按软依赖降级（同上，LinkageError 兜底）。
      */
-    private void registerLauncherProvider(PluginContext context, MinecraftServerAppService appService) {
+    private void registerYmclContribution(PluginContext context, MinecraftServerAppService appService) {
         try {
-            MinecraftLauncherProvider provider = new MinecraftLauncherProvider(appService);
-            context.registerExtension(LauncherProvider.class, provider);
-            YmclPublicOAuth.contribute(context, provider);
+            context.registerExtension(
+                    online.yudream.base.plugin.ymcl.api.YmclContributionProvider.class,
+                    new MinecraftYmclContributionProvider(appService));
         } catch (LinkageError ignored) {
-            // launcher-adapter 未安装或 API 类不可见，按软依赖降级即可
-            // LinkageError 涵盖 NoClassDefFoundError / IncompatibleClassChangeError 等一切加载期错误
+            // ymcl-adapter 未安装，降级即可
         }
     }
 }

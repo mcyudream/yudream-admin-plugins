@@ -10,20 +10,10 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>yudream-plugin-minecraft-server</artifactId>
-    <version>1.5.5</version>
+    <artifactId>yudream-plugin-ymcl-adapter</artifactId>
+    <version>0.1.0</version>
 
     <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-            </resource>
-            <resource>
-                <directory>../../yudream-frontend/packages/plugin-minecraft-server/dist</directory>
-                <targetPath>META-INF/yudream-plugin/frontend/minecraft-server</targetPath>
-                <filtering>false</filtering>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -65,41 +55,8 @@
             <artifactId>yudream-plugin-spi</artifactId>
         </dependency>
         <dependency>
-            <groupId>online.yudream.plugins</groupId>
-            <artifactId>yudream-plugin-ymcl-adapter</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>online.yudream.plugins</groupId>
-            <artifactId>yudream-plugin-wallet</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>online.yudream.plugins</groupId>
-            <artifactId>yudream-plugin-yudream-skin</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>.jackson.core</groupId>
+            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>net.lenni0451</groupId>
-            <artifactId>MCPing</artifactId>
-            <version>1.4.4</version>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.11.4</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>5.14.2</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

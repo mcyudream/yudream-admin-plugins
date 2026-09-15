@@ -7,4 +7,4 @@ version: 1.5.5
 softdepend:
   - yudream-wallet
   - yudream-skin
-  - launcher-adapter
+  - ymcl-adapter
