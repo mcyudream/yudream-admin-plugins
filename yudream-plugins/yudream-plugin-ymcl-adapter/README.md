@@ -5,9 +5,20 @@ YMCL 启动器域适配协议（**YAP — YMCL Adapter Protocol v1**）的 yda �
 
 - 协议契约（权威）：YMCL 仓 `docs/ymcl-adapter-protocol.md`
 - 启动器侧解释器：YMCL-Axolotl 仓（Rust `packages/app-lib/src/api/ymcl/`）
-- **命名约定**：应用标识/协议/新增文件统一 `ymcl`；OAuth 公开客户端 id 固定 `ymcl`
+- **命名约定**：应用标识/协议/新增文件统一 `ymcl`；OAuth 公开客户端 id 固定 `ymcl`；
+  启动器深链为 `ymcl://add-site?url={origin}`（一键唤起 / 拖拽加域）
 
-## 已实现端点（0.1.0）
+## 已实现端点（0.2.0）
+
+> 0.2.0 起域外观管理端（chrome/domain、chrome/home、chrome/navigation、
+> admin/packs、admin/bundles）输出宿主 wrapped 信封；协议端点
+> （capabilities/manifest/MIP）保持裸 JSON（wrapResult=false）。
+>
+> **导航树两级扩展**：manifest `navigation` 项新增可选 `children` 数组
+> （tab → 子菜单，最多两级）；导航配置支持 `kind=page`（引用页面注册表，
+> 可覆盖展示 title/icon）与 `kind=directory`（纯目录，manifest 输出为
+> `type=group`，无路由）。页面属性（route/权限）由页面注册表决定；
+> 停用项不下发。启动器侧需同步支持 `children` 渲染二级菜单与 group 节点。
 
 | 端点 | 鉴权 | 说明 |
 |------|------|------|
@@ -24,7 +35,10 @@ YMCL 启动器域适配协议（**YAP — YMCL Adapter Protocol v1**）的 yda �
 `yudream-plugin-ymcl-adapter`，plugin.yml `softdepend: ymcl-adapter`，缺失时
 捕获 LinkageError 降级）。参考实现：minecraft-server 插件的
 `MinecraftYmclContributionProvider`（`mc.servers` 页面 + `minecraft-server.servers`
-数据源，复用 `MinecraftLauncherProvider.toCard`）。
+数据源，复用 `MinecraftLauncherProvider.toCard`）、activity-proof 的
+`ActivityYmclContributionProvider`（活动卡片页 + server 动作报名/取消）与
+project-progress 的 `ProjectProgressYmclContributionProvider`（我的任务/可认领页 +
+server 动作认领/时长打卡 + `my-stats` 统计数据源）。
 
 字段名与启动器侧 Rust serde 结构**逐字一致（snake_case）**；YMCL 仓
 `packages/app-lib/src/api/ymcl/client.rs` 内嵌本 payload 样例做契约锁测试，
@@ -32,9 +46,14 @@ YMCL 启动器域适配协议（**YAP — YMCL Adapter Protocol v1**）的 yda �
 
 | `POST /api/plugins/ymcl-adapter/mip/api/packs/{packId}/ingest` | `plugin:ymcl-adapter:publish` | 初始包（base64 JSON 通道） |
 | `POST .../mip/api/packs/{packId}/ingest/delta` | `plugin:ymcl-adapter:publish` | 增量包（base+变更集合成标准 manifest；`bind` 一键绑定） |
-| `GET /api/plugins/ymcl-adapter/mip/api/packs/{packId}/versions` | view | 版本列表 |
+| `GET /api/plugins/ymcl-adapter/mip/api/packs/{packId}/versions` | view | 版本列表（MIP §4：releasedAt 倒序，`?channel=` 过滤，yanked 不出现） |
+| `POST .../mip/api/packs/{packId}/versions/{version}/yank` | publish | 撤销发布（MIP §4）：列表隐藏 + 标记 yanked，清单保留，已安装实例不受影响 |
 | `GET .../mip/api/packs/{packId}/manifest/{version}` | view | 不可变 manifest |
 | `GET /api/plugins/ymcl-adapter/mip/objects/{sha512}` | 匿名 | CAS 对象（immutable 缓存头） |
+| `PUT /api/plugins/ymcl-adapter/v1/admin/packs/{packId}` | publish | 编辑 pack 展示元数据（name/description/icon/defaultChannel） |
+| `DELETE /api/plugins/ymcl-adapter/v1/admin/packs/{packId}` | publish | 删除 pack 及全部版本，并解除引用该包的服务器绑定 |
+| `DELETE .../v1/admin/packs/{packId}/versions/{version}` | publish | 删除单个版本（仍有服务器 pin 时 409） |
+| `GET /api/plugins/ymcl-adapter/v1/admin/cas/{sha512}/preview` | view | 文件预览（text / mod 元数据 / image / binary） |
 | `GET /api/plugins/ymcl-adapter/v1/chrome/home` | view / PUT design | 首页布局托管（PluginDocumentStore 持久化） |
 | `GET /api/plugins/ymcl-adapter/v1/events` | view | SSE 事件流（环形重放 1000 条） |
 | `GET .../mip/api/servers` / `PUT .../servers/{id}/binding` | view / publish | 服务器绑定聚合（MIP 附录 B + updatePolicy 扩展） |

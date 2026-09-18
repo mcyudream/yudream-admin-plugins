@@ -27,4 +27,6 @@ yudream-plugin-wallet
 yudream-plugin-web-card
 yudream-plugin-wordle
 yudream-plugin-world-map
+yudream-plugin-ymcl-adapter
+yudream-plugin-ymcl-content
 yudream-plugin-yudream-skin

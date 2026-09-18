@@ -47,4 +47,14 @@ public interface YmclContributionProvider {
     default Object serverBindings() {
         return null;
     }
+
+    /**
+     * 随 jar 携带的页面 bundle（YAP §6.8，可选能力）。module/extension
+     * 渲染器的页面在此声明 zip 字节，由适配器按
+     * /v1/bundles/{bundleId}/{version}/package.zip 统一下发；打包与
+     * bundle 块构建用 {@link YmclModuleSupport}。
+     */
+    default List<YmclBundleContribution> bundles() {
+        return List.of();
+    }
 }

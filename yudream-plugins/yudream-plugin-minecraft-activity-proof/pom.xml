@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-minecraft-activity-proof</artifactId>
-    <version>2.4.1</version>
+    <version>2.5.0</version>
 
     <build>
         <resources>
@@ -49,6 +49,11 @@
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-questionbank</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-ymcl-adapter</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>

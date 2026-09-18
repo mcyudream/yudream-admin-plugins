@@ -33,7 +33,8 @@ public class YmclDataController {
         YmclDataContext context = new YmclDataContext(
                 intParam(request, "page", 1),
                 intParam(request, "pageSize", 20),
-                principal == null ? null : principal.userId());
+                principal == null ? null : principal.userId(),
+                flattenQuery(request));
 
         return aggregator.findProvider(providerCode, sourceCode)
                 .map(provider -> PluginHttpResponse.rawJson(200, provider.fetchData(sourceCode, context)))
@@ -51,5 +52,19 @@ public class YmclDataController {
         } catch (NumberFormatException ignored) {
             return fallback;
         }
+    }
+
+    /** 查询串扁平化（取各参数首值），供 YmclDataContext.query 透传给提供方。 */
+    static Map<String, String> flattenQuery(PluginHttpRequest request) {
+        Map<String, String> flat = new LinkedHashMap<>();
+        if (request.query() == null) {
+            return flat;
+        }
+        request.query().forEach((name, values) -> {
+            if (name != null && values != null && !values.isEmpty()) {
+                flat.put(name, values.get(0));
+            }
+        });
+        return flat;
     }
 }

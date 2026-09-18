@@ -5,11 +5,16 @@ import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
+import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
+import online.yudream.base.plugin.ymcl.api.YmclBundleContribution;
+import online.yudream.base.plugin.ymcl.application.service.YmclContributionAggregator;
 import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.ymcl.interfaces.support.PathSegments;
 
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,10 +36,13 @@ public class YmclBundlesController {
 
     private final PluginFileStore files;
     private final PluginDocumentStore documents;
+    private final YmclContributionAggregator aggregator;
 
-    public YmclBundlesController(PluginFileStore files, PluginDocumentStore documents) {
+    public YmclBundlesController(PluginFileStore files, PluginDocumentStore documents,
+            YmclContributionAggregator aggregator) {
         this.files = files;
         this.documents = documents;
+        this.aggregator = aggregator;
     }
 
     @PluginHttpEndpoint(method = "PUT", path = "/v1/bundles/{bundleId}/{version}",
@@ -87,27 +95,67 @@ public class YmclBundlesController {
         result.put("saved", true);
         result.put("sha256", sha256);
         result.put("size", bytes.length);
-        return PluginHttpResponse.rawJson(200, result);
+        return PluginHttpResponse.json(200, result);
+    }
+
+    /** 管理端 bundle 注册清单：全量翻页聚合（文档存储单页 200 上限）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/v1/admin/bundles",
+            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse listBundles(PluginHttpRequest request) {
+        List<Map<String, Object>> bundles = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> batch = documents.findAll(BUNDLE_COLLECTION, page, 200);
+            if (batch.isEmpty()) {
+                break;
+            }
+            bundles.addAll(batch);
+            page++;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("bundles", bundles);
+        return PluginHttpResponse.json(200, payload);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/v1/bundles/{bundleId}/{version}/package.zip")
     public PluginHttpResponse download(PluginHttpRequest request) {
         String bundleId = PathSegments.segment(request.path(), 2);
         String version = PathSegments.segment(request.path(), 3);
-        var stored = files.get(objectKey(bundleId, version));
+        var stored = tryGetStored(bundleId, version);
         if (stored == null) {
+            // 上传包未命中时回退到提供方随 jar 贡献的包（YAP §6.8）。
+            var contributed = aggregator.findBundle(bundleId, version);
+            if (contributed.isPresent()) {
+                return zipResponse(contributed.get().content());
+            }
             return YmclSessionController.errorResponse(404, "bundle_not_found",
                     bundleId + "@" + version + " not found");
         }
         try (var input = stored.inputStream()) {
-            return new PluginHttpResponse(200,
-                    Map.of("Cache-Control", "public, max-age=31536000, immutable"),
-                    "application/zip",
-                    input.readAllBytes(), false);
+            return zipResponse(input.readAllBytes());
         } catch (Exception error) {
             return YmclSessionController.errorResponse(500, "bundle_read_failed",
                     String.valueOf(error.getMessage()));
         }
+    }
+
+    /**
+     * ObjectStoragePluginFileStore 对缺失键抛 BizException（"文件不存在"）
+     * 而非返回空——统一按未命中处理，让提供方贡献包回退有机会执行。
+     */
+    private PluginStoredFile tryGetStored(String bundleId, String version) {
+        try {
+            return files.get(objectKey(bundleId, version));
+        } catch (Exception miss) {
+            return null;
+        }
+    }
+
+    private static PluginHttpResponse zipResponse(byte[] bytes) {
+        return new PluginHttpResponse(200,
+                Map.of("Cache-Control", "public, max-age=31536000, immutable"),
+                "application/zip",
+                bytes, false);
     }
 
     private static String objectKey(String bundleId, String version) {

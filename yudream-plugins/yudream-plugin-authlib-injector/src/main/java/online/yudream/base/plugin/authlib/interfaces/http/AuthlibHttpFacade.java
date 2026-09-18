@@ -11,7 +11,9 @@ import online.yudream.base.plugin.authlib.interfaces.request.TextureBindRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.TokenRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
+import online.yudream.base.plugin.authlib.api.PluginAuthService;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
+import online.yudream.base.plugin.spi.system.security.PluginPrincipal;
 
 import java.net.URI;
 import java.net.URLDecoder;
@@ -86,6 +88,49 @@ public class AuthlibHttpFacade {
 
     public PluginHttpResponse profiles(PluginHttpRequest request) {
         return runJson(request, () -> appService.profiles(JsonSupport.readStringList(request.body())));
+    }
+
+    /**
+     * 启动器免密会话兑换：调用方已持有站点登录会话（Sa-Token），宿主分发层已把
+     * Authorization 解析为 principal，此处按 userId 向 ygg 签发会话，免去密码重放。
+     * 可选查询参数 profile=角色名（多角色时挑选）；未登录 principal 返回 401。
+     */
+    public PluginHttpResponse exchange(PluginHttpRequest request) {
+        PluginPrincipal principal = request.principal();
+        if (principal == null || principal.userId() == null) {
+            return ali(request, PluginHttpResponse.rawJson(401, JsonSupport.write(Map.of(
+                    "error", "Unauthorized",
+                    "errorMessage", "需要站点登录会话"))));
+        }
+        if (isTrue(firstQuery(request, "list"))) {
+            // 纯列举模式：只返回可选角色，不签发会话（启动器切换角色 UI 用）。
+            List<Map<String, String>> profiles = appService
+                    .listProfiles(String.valueOf(principal.userId())).stream()
+                    .map(profile -> Map.of("id", profile.id(), "name", profile.name()))
+                    .toList();
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("profiles", profiles);
+            return ali(request, PluginHttpResponse.rawJson(200, JsonSupport.write(body)));
+        }
+        try {
+            PluginAuthService.IssuedSession issued = appService.issueSession(
+                    String.valueOf(principal.userId()), null, firstQuery(request, "profile"));
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("access_token", issued.accessToken());
+            body.put("client_token", issued.clientToken());
+            body.put("username", issued.username());
+            body.put("profile", Map.of("id", issued.profileId(), "name", issued.username()));
+            body.put("profiles", issued.availableProfiles().stream()
+                    .map(profile -> Map.of("id", profile.id(), "name", profile.name()))
+                    .toList());
+            return ali(request, PluginHttpResponse.rawJson(200, JsonSupport.write(body)));
+        } catch (IllegalArgumentException e) {
+            return error(request, 404, new AuthlibException("IllegalArgumentException", e.getMessage()));
+        }
+    }
+
+    private boolean isTrue(String value) {
+        return "true".equalsIgnoreCase(value) || "1".equals(value);
     }
 
     public PluginHttpResponse setTexture(PluginHttpRequest request) {

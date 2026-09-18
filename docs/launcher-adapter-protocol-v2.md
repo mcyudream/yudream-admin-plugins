@@ -504,10 +504,10 @@ GET /v2/packs/{packId}/versions/{versionId}/mrpack  → 首装快照（标准 mr
 
 ### YMCL（前端/Rust）
 
-- [ ] `auth/`：登录页按 `/v2/auth/methods` 渲染；password/oauth-web 直连宿主端点拿 token；
+- [x] `auth/`：登录页按 `/v2/auth/methods` 渲染；password/oauth-web 直连宿主端点拿 token；
   统一 `GET /v2/auth/session` 建会话；启动时 session 恢复（401 清本地）；删除 scope 推导。
-- [ ] `manifest/`：v2 拉取与缓存；导航树 → 路由/菜单纯数据驱动渲染。
-- [ ] `renderers/`：注册表（§3.3 九个内置渲染器）+ 未知渲染器占位页；`client:*` 动作处理器。
-- [ ] `install/`：head → manifest → sha1 对账 → 并发下载 → 原子替换；VANILLA channel 接标准安装器；
+- [x] `manifest/`：v2 拉取与缓存；导航树 → 路由/菜单纯数据驱动渲染。
+- [x] `renderers/`：注册表（§3.3 九个内置渲染器）+ 未知渲染器占位页；`client:*` 动作处理器。
+- [x] `install/`：head → manifest → sha1 对账 → 并发下载 → 原子替换；VANILLA channel 接标准安装器；
   mrpack 首装快速路径沿用既有 `write_ymcl_mrpack`。
 - [ ] 删除：pageVisibility 处理、内置页面清单、v1 packs 拼接逻辑（迁移观察期后）。

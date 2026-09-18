@@ -13,7 +13,9 @@ import javax.naming.NamingException;
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Optional;
 
 public class MinecraftStatusService {
@@ -31,7 +33,8 @@ public class MinecraftStatusService {
                         .timeout(3000, 3000)
                         .getSync();
                 return MinecraftEndpointStatus.online(endpoint.id(), response.getOnlinePlayers(), response.getMaxPlayers(),
-                        response.getVersionName(), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()), null);
+                        plainText(response.getVersionName()), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()), null,
+                        List.of());
             }
             ResolvedAddress address = resolveJavaAddress(endpoint);
             MCPingResponse response = MCPing.pingModern()
@@ -39,11 +42,28 @@ public class MinecraftStatusService {
                     .timeout(3000, 3000)
                     .getSync();
             return MinecraftEndpointStatus.online(endpoint.id(), response.getOnlinePlayers(), response.getMaxPlayers(),
-                    response.getVersionName(), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()),
-                    favicon(response.getFavicon()));
+                    plainText(response.getVersionName()), response.getProtocolId(), response.getPing(), plainMotd(response.getMotd()),
+                    favicon(response.getFavicon()), samplePlayers(response));
         } catch (RuntimeException e) {
             return MinecraftEndpointStatus.offline(endpoint.id(), e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
+    }
+
+    private static List<MinecraftEndpointStatus.PlayerInfo> samplePlayers(MCPingResponse response) {
+        if (response.players == null || response.players.sample == null) {
+            return List.of();
+        }
+        List<MinecraftEndpointStatus.PlayerInfo> players = new ArrayList<>();
+        for (MCPingResponse.Players.Player player : response.players.sample) {
+            if (player == null || player.name == null || player.name.isBlank()) {
+                continue;
+            }
+            players.add(new MinecraftEndpointStatus.PlayerInfo(player.id, player.name));
+            if (players.size() >= MinecraftEndpointStatus.MAX_SAMPLED_PLAYERS) {
+                break;
+            }
+        }
+        return players;
     }
 
     private static String favicon(String value) {
@@ -56,22 +76,26 @@ public class MinecraftStatusService {
     }
 
     public static String plainMotd(String motd) {
-        if (motd == null || motd.isBlank()) {
-            return motd;
+        return plainText(motd);
+    }
+
+    public static String plainText(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
         }
-        String value = motd.trim();
-        if (value.startsWith("{") || value.startsWith("[")) {
+        String text = value.trim();
+        if (text.startsWith("{") || text.startsWith("[")) {
             try {
-                StringBuilder text = new StringBuilder();
-                appendComponentText(JSON.readTree(value), text);
-                if (!text.isEmpty()) {
-                    value = text.toString();
+                StringBuilder builder = new StringBuilder();
+                appendComponentText(JSON.readTree(text), builder);
+                if (!builder.isEmpty()) {
+                    text = builder.toString();
                 }
             } catch (Exception ignored) {
-                // Some servers return malformed components; retain their original MOTD.
+                // Some servers return malformed components; retain their original text.
             }
         }
-        return value.replace("\\u00a7", "§")
+        return text.replace("\\u00a7", "§")
                 .replaceAll("(?i)(?:§|&)[0-9A-FK-ORX]", "")
                 .trim();
     }

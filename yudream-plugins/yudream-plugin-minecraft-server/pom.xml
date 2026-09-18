@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-minecraft-server</artifactId>
-    <version>1.5.5</version>
+    <version>1.5.7</version>
 
     <build>
         <resources>
@@ -80,8 +80,7 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>.jackson.core</groupId>
+            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>

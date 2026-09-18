@@ -457,6 +457,42 @@ public class YuDreamSkinAppService implements PluginSkinService {
     }
 
     @Override
+    public PluginSkinClosetItem uploadClosetCape(String ownerId, String name, String base64) {
+        String userId = requireText(ownerId, "用户不能为空");
+        SkinTexture texture = uploadOwnTexture(
+                new TextureUploadCmd(name, "cape", "default", "image/png", base64, false), userId, null);
+        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis());
+    }
+
+    @Override
+    public PluginSkinProfile createPlayerForOwner(String ownerId, String name) {
+        String userId = requireText(ownerId, "用户不能为空");
+        SkinPlayer player = createPlayer(new CreatePlayerCmd(requireText(name, "角色名不能为空"), userId), null);
+        return toProfile(player);
+    }
+
+    @Override
+    public void removeClosetSkin(String ownerId, String itemId) {
+        deleteOwnClosetItem(itemId, requireText(ownerId, "用户不能为空"));
+    }
+
+    @Override
+    public List<PluginSkinTexture> findVisibleTextures(String ownerId, int page, int size) {
+        return listVisibleTextures(requireText(ownerId, "用户不能为空"), false, page, size)
+                .stream()
+                .map(this::toTexture)
+                .toList();
+    }
+
+    @Override
+    public PluginSkinClosetItem collectTextureToCloset(String ownerId, String textureHash, String itemName) {
+        String userId = requireText(ownerId, "用户不能为空");
+        SkinClosetItem item = saveOwnClosetItem(
+                new ClosetItemSaveCmd(userId, requireText(textureHash, "材质不能为空"), itemName), userId, null);
+        return new PluginSkinClosetItem(item.id(), item.textureHash(), item.itemName(), item.createdAt());
+    }
+
+    @Override
     public Optional<PluginSkinTexture> findTextureByHash(String hash) {
         return repository.findTextureByHash(hash).map(this::toTexture);
     }

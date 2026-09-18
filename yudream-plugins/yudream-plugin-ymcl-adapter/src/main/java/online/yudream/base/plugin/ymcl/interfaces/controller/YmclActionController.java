@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.ymcl.interfaces.controller;
 
+import online.yudream.base.plugin.ymcl.api.YmclContributionProvider;
 import online.yudream.base.plugin.ymcl.api.YmclDataContext;
 import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.ymcl.interfaces.support.PathSegments;
@@ -30,14 +31,27 @@ public class YmclActionController {
         String actionCode = PathSegments.segment(request.path(), 3);
         PluginPrincipal principal = request.principal();
         YmclDataContext context = new YmclDataContext(1, 20,
-                principal == null ? null : principal.userId());
+                principal == null ? null : principal.userId(),
+                YmclDataController.flattenQuery(request));
         Map<String, Object> params = parseParams(request.body());
-        return aggregator.findProvider(providerCode, actionCode)
-                .map(provider -> PluginHttpResponse.rawJson(200,
-                        provider.executeAction(actionCode, params, context)))
+        return aggregator.findActionProvider(providerCode)
+                .map(provider -> execute(provider, actionCode, params, context))
                 .orElseGet(() -> PluginHttpResponse.rawJson(404,
                         YmclSessionController.error("action_not_found",
                                 "No provider executes " + providerCode + "/" + actionCode)));
+    }
+
+    /** 提供方未实现动作能力（SPI 默认方法）时按动作不存在处理，而非 500。 */
+    private PluginHttpResponse execute(YmclContributionProvider provider, String actionCode,
+                                       Map<String, Object> params, YmclDataContext context) {
+        try {
+            return PluginHttpResponse.rawJson(200,
+                    provider.executeAction(actionCode, params, context));
+        } catch (UnsupportedOperationException unsupported) {
+            return PluginHttpResponse.rawJson(404,
+                    YmclSessionController.error("action_not_found",
+                            "Provider " + provider.providerCode() + " executes no actions"));
+        }
     }
 
     private Map<String, Object> parseParams(String body) {

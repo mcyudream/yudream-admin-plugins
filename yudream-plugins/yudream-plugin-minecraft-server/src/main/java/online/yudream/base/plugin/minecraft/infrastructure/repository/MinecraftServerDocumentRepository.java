@@ -351,6 +351,14 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("motd", status.motd());
         document.put("favicon", status.favicon());
         document.put("errorMessage", status.errorMessage());
+        document.put("players", status.players().stream()
+                .map(player -> {
+                    Map<String, Object> item = new LinkedHashMap<String, Object>();
+                    item.put("id", player.id());
+                    item.put("name", player.name());
+                    return item;
+                })
+                .toList());
         document.put("checkedAt", status.checkedAt());
         return document;
     }
@@ -515,7 +523,14 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         );
     }
 
+    @SuppressWarnings("unchecked")
     private MinecraftEndpointStatus toEndpointStatus(Map<String, Object> document) {
+        List<MinecraftEndpointStatus.PlayerInfo> players = list(document, "players").stream()
+                .filter(item -> item instanceof Map<?, ?>)
+                .map(item -> (Map<String, Object>) item)
+                .map(item -> new MinecraftEndpointStatus.PlayerInfo(string(item, "id"), string(item, "name")))
+                .filter(player -> player.name() != null && !player.name().isBlank())
+                .toList();
         return new MinecraftEndpointStatus(
                 string(document, "endpointId"),
                 string(document, "status"),
@@ -527,6 +542,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 string(document, "motd"),
                 string(document, "favicon"),
                 string(document, "errorMessage"),
+                players,
                 number(document, "checkedAt", 0L)
         );
     }

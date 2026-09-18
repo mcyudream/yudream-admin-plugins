@@ -108,7 +108,11 @@ public class MinecraftServerAppAssembler {
     public MinecraftEndpointStatusDTO toDTO(MinecraftEndpointStatus status) {
         return new MinecraftEndpointStatusDTO(status.endpointId(), status.status(), status.onlinePlayers(), status.maxPlayers(),
                 status.versionName(), status.protocolId(), status.ping(), status.motd(), status.favicon(),
-                status.errorMessage(), status.checkedAt());
+                status.errorMessage(),
+                status.players().stream()
+                        .map(player -> new MinecraftEndpointStatusDTO.PlayerDTO(player.id(), player.name()))
+                        .toList(),
+                status.checkedAt());
     }
 
     public MinecraftSeasonOperationDTO toDTO(MinecraftSeasonOperation operation, Map<String, BigDecimal> realTotals) {

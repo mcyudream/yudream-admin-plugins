@@ -1,0 +1,52 @@
+.ymcl-card-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ymcl-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ymcl-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ymcl-label {
+  font-size: 13px;
+  color: var(--muted-foreground, #6b7280);
+}
+
+.ymcl-muted {
+  margin: 0;
+  color: var(--muted-foreground, #6b7280);
+  font-size: 13px;
+}
+
+.ymcl-break {
+  overflow-wrap: anywhere;
+}
+
+.ymcl-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ymcl-markdown {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--muted-foreground, #6b7280) 40%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ymcl-markdown .md-editor {
+  background: transparent;
+}
+

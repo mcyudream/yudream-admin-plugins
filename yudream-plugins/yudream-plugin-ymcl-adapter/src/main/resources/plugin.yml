@@ -1,6 +1,8 @@
 name: ymcl-adapter
 displayName: YMCL 适配器
-description: YMCL 启动器域适配协议（YAP）入口：capabilities、认证会话、manifest、数据信封与整合包分发。
-icon: i-ri:game-controller-line
+description: YMCL 启动器域适配协议（YAP）入口：capabilities、认证会话、manifest、数据信封、皮肤衣柜与整合包分发。
+icon: i-ri:gamepad-line
 main: online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin
-version: 0.1.0
+version: 0.7.0
+softdepend:
+  - yudream-skin

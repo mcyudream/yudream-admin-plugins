@@ -50,6 +50,8 @@
 | `wallet` | 钱包、余额、充值与交易管理 |
 | `world-map` | Minecraft 存档 3D 世界地图渲染与浏览（对标 BlueMap），支持原版资产渲染、公开匿名查看，预留标注/地点介绍/导航扩展 |
 | `yudream-skin` | YuDream Skin 皮肤系统 |
+| `ymcl-adapter` | YMCL 启动器域适配协议（YAP）入口 |
+| `ymcl-content` | YMCL 启动器自有更新平台（发包/清单/下载，独立公开端点，不依赖 adapter） |
 
 ## 架构
 

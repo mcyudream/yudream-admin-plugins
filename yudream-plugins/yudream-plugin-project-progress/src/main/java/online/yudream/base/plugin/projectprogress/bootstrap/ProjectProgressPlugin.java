@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.projectprogress.bootstrap;
 
 import online.yudream.base.plugin.projectprogress.application.service.ProjectProgressAppService;
+import online.yudream.base.plugin.projectprogress.infrastructure.launcher.ProjectProgressYmclContributionProvider;
 import online.yudream.base.plugin.projectprogress.infrastructure.repository.ProjectProgressDocumentRepository;
 import online.yudream.base.plugin.projectprogress.interfaces.controller.ProjectProgressController;
 import online.yudream.base.plugin.projectprogress.interfaces.http.ProjectProgressHttpFacade;
@@ -30,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @PluginSpec(
         code = ProjectProgressPlugin.CODE,
         name = "project-progress",
-        version = "1.2.2",
+        version = "1.3.0",
         description = "项目管理、进度监控、任务分配、打卡与验收插件，可选联动 Minecraft 在线时长。"
 )
 @PluginPermissions({
@@ -159,6 +160,7 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
                 context
         );
         context.registerHttpController(new ProjectProgressController(new ProjectProgressHttpFacade(appService)));
+        registerYmclContribution(context);
         context.registerAiTool(new PluginAiTool() {
             @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("project.my-tasks", "查询我的任务", "查询当前绑定用户的项目任务", CHECK_IN_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION"), Map.of()); }
             @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) {
@@ -166,6 +168,17 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
                 return new PluginAiToolResult("tasks", "已查询当前用户任务", Map.of("tasks", appService.myTasks(String.valueOf(execution.userId()), 1, 10)));
             }
         });
+    }
+
+    /** 向 YMCL 适配器贡献任务页与个人统计；ymcl-adapter 未安装时按 softdepend 降级。 */
+    private void registerYmclContribution(PluginContext context) {
+        try {
+            context.registerExtension(
+                    online.yudream.base.plugin.ymcl.api.YmclContributionProvider.class,
+                    new ProjectProgressYmclContributionProvider(appService));
+        } catch (LinkageError ignored) {
+            // ymcl-adapter 未安装，降级即可
+        }
     }
 
     @PluginCommand(code = "project-progress.my-tasks", command = "我的任务", name = "查询我的任务", description = "查看当前绑定账号的项目任务")

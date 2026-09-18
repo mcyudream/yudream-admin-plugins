@@ -1,0 +1,12 @@
+{
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": [
+    "minecraft",
+    "launcher",
+    "ymcl",
+    "distribution",
+    "update"
+  ],
+  "releaseNotes": "2.0.0：\n- 移除内容分发板块（新手指引、更新公告、在线内容）及其公开端点 /v1/capabilities、/v1/catalog、/v1/content/** 与对应管理页\n- 专注 YMCL 自有更新平台：/v1/update/** 公开端点与「更新发包」管理页保持不变\n- 启用时自动清理 1.x 遗留的内容目录数据\n\n1.2.0：\n- 新增：YMCL 自有更新平台（独立于 Axolotl update.axlmc.org）\n- 新增公开端点：GET /v1/update/{capabilities,latest,manifest,versions,downloads/latest,files/*}\n- 新增管理端：/admin/update/releases CRUD、URL/站内文件双模式制品、yank\n- 管理端新增「更新发包」页\n- 启动器可通过 VITE_YMCL_CONTENT_URL / VITE_YMCL_UPDATE_URL 指向本平台\n\n1.1.1：\n- 修复：kind 路由改为 /v1/content/{kind}，避免与 capabilities/catalog 冲突\n- 修复：路径解析兼容完整插件前缀\n\n1.1.0：\n- 变更：去掉 ymcl-adapter / YAP 依赖，改为独立公开端点分发\n- 新增：GET /api/plugins/ymcl-content/v1/{capabilities,catalog,content/*}\n\n1.0.0：\n- 新增：管理端内容目录 CRUD 与默认种子数据"
+}

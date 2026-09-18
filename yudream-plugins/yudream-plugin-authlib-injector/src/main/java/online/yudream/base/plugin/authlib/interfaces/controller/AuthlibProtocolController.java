@@ -42,6 +42,9 @@ public class AuthlibProtocolController {
     @PluginHttpEndpoint(method = "POST", path = "/api/profiles/minecraft", wrapResult = false)
     public PluginHttpResponse profiles(PluginHttpRequest request) { return http.profiles(request); }
 
+    @PluginHttpEndpoint(method = "POST", path = "/launcher/exchange", wrapResult = false)
+    public PluginHttpResponse exchange(PluginHttpRequest request) { return http.exchange(request); }
+
     @PluginHttpEndpoint(method = "PUT", path = "/api/user/profile/{uuid}/{textureType}", wrapResult = false)
     public PluginHttpResponse setTexture(PluginHttpRequest request) { return http.setTexture(request); }
 

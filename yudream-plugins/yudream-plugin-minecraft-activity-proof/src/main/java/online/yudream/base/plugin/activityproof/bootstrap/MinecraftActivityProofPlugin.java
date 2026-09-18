@@ -2,6 +2,7 @@ package online.yudream.base.plugin.activityproof.bootstrap;
 
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
 import online.yudream.base.plugin.activityproof.application.service.ActivityQuizService;
+import online.yudream.base.plugin.activityproof.infrastructure.launcher.ActivityYmclContributionProvider;
 import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityProofDocumentRepository;
 import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDependencyServices;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
@@ -24,7 +25,7 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.4.1",
+        version = "2.5.0",
         description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
@@ -180,6 +181,18 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
         context.registerExtension(PluginThemeBlockProvider.class, new ActivitySquareThemeBlockProvider(appService));
+        registerYmclContribution(context);
+    }
+
+    /** 向 YMCL 适配器贡献活动卡片页；ymcl-adapter 未安装时按 softdepend 降级。 */
+    private void registerYmclContribution(PluginContext context) {
+        try {
+            context.registerExtension(
+                    online.yudream.base.plugin.ymcl.api.YmclContributionProvider.class,
+                    new ActivityYmclContributionProvider(appService));
+        } catch (LinkageError ignored) {
+            // ymcl-adapter 未安装，降级即可
+        }
     }
 
     /** QQ 群活动报名：/报名 {活动ID}；官方连接的活动通知按钮点击后即以该指令发出。 */

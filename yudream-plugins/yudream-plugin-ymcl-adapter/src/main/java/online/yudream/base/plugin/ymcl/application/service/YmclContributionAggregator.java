@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.ymcl.application.service;
 
+import online.yudream.base.plugin.ymcl.api.YmclBundleContribution;
 import online.yudream.base.plugin.ymcl.api.YmclContributionProvider;
 import online.yudream.base.plugin.ymcl.api.YmclDataContext;
 import online.yudream.base.plugin.ymcl.api.YmclDataSourceDescriptor;
@@ -57,12 +58,36 @@ public class YmclContributionAggregator {
         return bindings;
     }
 
+    /** 提供方随 jar 贡献的页面 bundle（YAP §6.8），按 bundleId@version 定位。 */
+    public Optional<YmclBundleContribution> findBundle(String bundleId, String version) {
+        for (YmclContributionProvider provider : providers()) {
+            for (YmclBundleContribution bundle : provider.bundles()) {
+                if (bundle.bundleId().equals(bundleId) && bundle.version().equals(version)) {
+                    return Optional.of(bundle);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     /** 按数据端点路由（providerCode + sourceCode）定位提供方。 */
     public Optional<YmclContributionProvider> findProvider(String providerCode, String sourceCode) {
         return providers().stream()
                 .filter(provider -> provider.providerCode().equals(providerCode))
                 .filter(provider -> provider.dataSources().stream()
                         .anyMatch(source -> source.sourceCode().equals(sourceCode)))
+                .findFirst();
+    }
+
+    /**
+     * 按动作端点路由（providerCode）定位提供方。动作没有独立声明表——
+     * actionCode 由提供方 executeAction 内部解释（未知动作返回 toast 信封），
+     * 因此这里只按 providerCode 匹配。此前复用 findProvider 拿 actionCode
+     * 去匹配数据源码，任何动作都恒 404。
+     */
+    public Optional<YmclContributionProvider> findActionProvider(String providerCode) {
+        return providers().stream()
+                .filter(provider -> provider.providerCode().equals(providerCode))
                 .findFirst();
     }
 
