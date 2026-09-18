@@ -195,4 +195,24 @@ assert "compatibility" not in descriptor["plugin"]
 assert "dependencies" not in descriptor["plugin"]
 PY
 
+# Real checked-in plugin store.json files must stay valid JSON objects before
+# packaging; fixtures above only exercise the parser library itself.
+real_store_count=0
+while IFS= read -r store_path; do
+  [ -n "$store_path" ] || continue
+  real_store_count=$((real_store_count + 1))
+  "$PLUGIN_STORE_PYTHON" - "$store_path" <<'PY' || fail "invalid store.json (must be a valid JSON object): $store_path"
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    store = json.load(handle)
+if not isinstance(store, dict):
+    raise SystemExit("store.json must be an object")
+PY
+done <<STORE_JSON_LIST
+$(find "$ROOT_DIR/yudream-plugins" -path '*/src/main/resources/store.json' -type f | sort)
+STORE_JSON_LIST
+echo "[verify-plugin-store-catalog] validated $real_store_count checked-in plugin store.json file(s)"
+
 printf '[verify-plugin-store-catalog] OK\n'
