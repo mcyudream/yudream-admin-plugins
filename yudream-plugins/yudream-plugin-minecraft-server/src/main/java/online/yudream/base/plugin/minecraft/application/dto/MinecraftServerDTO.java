@@ -54,6 +54,14 @@ public record MinecraftServerDTO(
             boolean enabled,
             int sort
     ) {
+
+        /**
+         * 下发/展示地址。自动端口线路（{@code port <= 0}，Java 版由客户端自行 SRV 解析）
+         * 与 Java 默认端口 25565 一律只输出 host，拼接 {@code :0} 会导致客户端无法连接。
+         */
+        public String address() {
+            return port <= 0 || port == 25565 ? host : host + ":" + port;
+        }
     }
 
     public record SeasonDTO(

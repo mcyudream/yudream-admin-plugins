@@ -127,8 +127,7 @@ public class MinecraftYmclContributionProvider implements YmclContributionProvid
 
     private static String primaryAddress(MinecraftServerDTO dto) {
         var primary = primaryEndpoint(dto);
-        return primary == null ? null
-                : primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port());
+        return primary == null ? null : primary.address();
     }
 
     private static String statusView(MinecraftServerDTO dto) {
@@ -185,7 +184,7 @@ public class MinecraftYmclContributionProvider implements YmclContributionProvid
         card.put("sort", dto.sort());
         var primary = primaryEndpoint(dto);
         if (primary != null) {
-            card.put("address", primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port()));
+            card.put("address", primary.address());
             card.put("edition", primary.edition());
         }
         card.put("endpoints", endpointViews(dto));
@@ -248,9 +247,7 @@ public class MinecraftYmclContributionProvider implements YmclContributionProvid
                 })
                 .map(endpoint -> {
                     Map<String, Object> view = new LinkedHashMap<>();
-                    String address = endpoint.host()
-                            + (endpoint.port() == 25565 ? "" : ":" + endpoint.port());
-                    view.put("address", address);
+                    view.put("address", endpoint.address());
                     view.put("primary", endpoint.primaryLine());
                     view.put("edition", String.valueOf(endpoint.edition()));
                     view.put("name", endpoint.name());

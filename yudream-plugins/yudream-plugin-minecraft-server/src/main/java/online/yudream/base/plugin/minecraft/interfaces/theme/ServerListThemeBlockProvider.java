@@ -58,7 +58,7 @@ public final class ServerListThemeBlockProvider implements PluginThemeBlockProvi
         view.put("name", server.name());
         view.put("icon", endpointStatus == null || endpointStatus.favicon() == null ? "" : endpointStatus.favicon());
         view.put("description", BriefText.ofMarkdown(server.descriptionMarkdown()));
-        view.put("address", primary == null ? "" : primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port()));
+        view.put("address", primary == null ? "" : primary.address());
         view.put("online", online);
         view.put("statusText", online ? "在线" : "离线");
         view.put("motd", endpointStatus == null || endpointStatus.motd() == null || endpointStatus.motd().isBlank()

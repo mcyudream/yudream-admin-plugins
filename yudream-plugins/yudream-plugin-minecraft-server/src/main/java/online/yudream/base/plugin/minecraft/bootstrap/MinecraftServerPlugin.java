@@ -261,7 +261,7 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         view.put("online", status != null && "ONLINE".equalsIgnoreCase(status.status()));
         view.put("onlinePlayers", status == null ? 0 : status.onlinePlayers());
         view.put("maxPlayers", status == null ? 0 : status.maxPlayers());
-        view.put("address", primary == null ? "未配置线路" : primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port()));
+        view.put("address", primary == null ? "未配置线路" : primary.address());
         view.put("edition", primary == null ? "" : primary.edition());
         view.put("version", endpointStatus == null || endpointStatus.versionName() == null ? "版本未知" : endpointStatus.versionName());
         view.put("ping", endpointStatus == null || endpointStatus.ping() == null ? "--" : endpointStatus.ping() + " ms");
@@ -285,7 +285,7 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         view.put("maxPlayers", status == null ? 0 : status.maxPlayers());
         var primary = server.endpoints().stream().filter(MinecraftServerDTO.EndpointDTO::primaryLine).findFirst()
                 .orElse(server.endpoints().isEmpty() ? null : server.endpoints().getFirst());
-        view.put("address", primary == null ? "" : primary.host() + (primary.port() == 25565 ? "" : ":" + primary.port()));
+        view.put("address", primary == null ? "" : primary.address());
         return view;
     }
 
