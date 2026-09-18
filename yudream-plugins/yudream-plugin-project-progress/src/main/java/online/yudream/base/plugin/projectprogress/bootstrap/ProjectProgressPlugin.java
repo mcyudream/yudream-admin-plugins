@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @PluginSpec(
         code = ProjectProgressPlugin.CODE,
         name = "project-progress",
-        version = "1.3.0",
+        version = "1.4.0",
         description = "项目管理、进度监控、任务分配、打卡与验收插件，可选联动 Minecraft 在线时长。"
 )
 @PluginPermissions({
