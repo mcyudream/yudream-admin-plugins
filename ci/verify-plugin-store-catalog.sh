@@ -201,7 +201,7 @@ real_store_count=0
 while IFS= read -r store_path; do
   [ -n "$store_path" ] || continue
   real_store_count=$((real_store_count + 1))
-  "$PLUGIN_STORE_PYTHON" - "$store_path" <<'PY' || fail "invalid store.json (must be a valid JSON object): $store_path"
+  "$PLUGIN_STORE_PYTHON" - "$store_path" <<'PY' || fail "invalid store.json (must be a valid JSON object with in-limit releaseNotes): $store_path"
 import json
 import sys
 
@@ -209,6 +209,14 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     store = json.load(handle)
 if not isinstance(store, dict):
     raise SystemExit("store.json must be an object")
+# 与宿主 PluginMarketPublicationEditRequest/AppService 同规：发布说明 <=4096 字符、
+# 禁 ISO 控制字符；超限会在 tag 流水线 publish 阶段才 400，提前在 validate 拦下。
+notes = store.get("releaseNotes") or ""
+if len(notes) > 4096:
+    raise SystemExit(f"releaseNotes is {len(notes)} chars, host market limit is 4096")
+ctrl = sorted({c for c in notes if ord(c) < 32 and c not in "\n\t"})
+if ctrl:
+    raise SystemExit(f"releaseNotes contains ISO control characters: {[hex(ord(c)) for c in ctrl]}")
 PY
 done <<STORE_JSON_LIST
 $(find "$ROOT_DIR/yudream-plugins" -path '*/src/main/resources/store.json' -type f | sort)
