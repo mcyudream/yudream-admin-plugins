@@ -4,7 +4,3 @@
 # every entry must be a root-reactor module. Local and branch builds ignore this
 # file and always build the full reactor.
 yudream-plugin-minecraft-server
-yudream-plugin-minecraft-activity-proof
-yudream-plugin-project-progress
-yudream-plugin-questionbank
-yudream-plugin-material
