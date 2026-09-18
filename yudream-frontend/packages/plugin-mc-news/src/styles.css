@@ -121,6 +121,10 @@
   color: rgb(var(--orangered-6, 245 63 63));
 }
 
+.mc-news-status-muted {
+  color: var(--color-text-3, #86909c);
+}
+
 .mc-news-variables {
   display: flex;
   flex-wrap: wrap;
@@ -141,6 +145,152 @@
   background: var(--color-fill-3, #e5e6eb);
 }
 
+/* 只读胶囊（新闻源列表展示）：不表现可点击 */
+.mc-news-variables-readonly .mc-news-variable-chip {
+  cursor: default;
+}
+
+.mc-news-variables-readonly .mc-news-variable-chip:hover {
+  background: var(--color-fill-2, #f2f3f5);
+}
+
+/* 关键词模板：排除模板与非法模板在列表中一眼可辨 */
+.mc-news-variable-chip.mc-news-rule-exclude {
+  background: rgba(245, 63, 63, 0.08);
+  color: rgb(var(--danger-6, 245 63 63));
+}
+
+.mc-news-variable-chip.mc-news-rule-invalid {
+  background: rgba(245, 63, 63, 0.08);
+  color: rgb(var(--danger-6, 245 63 63));
+  text-decoration: underline wavy;
+}
+
+/* 新闻源编辑弹窗：规则卡片需要比默认 sm:max-w-lg 宽一点。
+   组件 CSS 不在插件 @layer 内，双类选择器只为稳定提权，与文档顺序无关。 */
+.mc-news-source-modal.mc-news-source-modal {
+  max-width: min(720px, calc(100% - 2rem));
+}
+
+/* 关键词规则：一格一条，卡片内是「关键词 + 三个通俗下拉 + 大白话复述」 */
+.mc-news-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mc-news-rule-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 8px;
+  background: var(--color-fill-1, #f7f8fa);
+  min-width: 0;
+}
+
+.mc-news-rule-card-error {
+  border-color: rgba(245, 63, 63, 0.55);
+  background: rgba(245, 63, 63, 0.05);
+}
+
+.mc-news-rule-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mc-news-rule-head .mc-news-rule-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mc-news-rule-ctrl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* FaSelect 触发器内置 w-[200px]，这里用双类选择器压回紧凑宽度 */
+.mc-news-rule-ctrl .mc-news-rule-action {
+  width: 84px;
+  flex: none;
+}
+
+.mc-news-rule-ctrl .mc-news-rule-scope {
+  width: 116px;
+  flex: none;
+}
+
+.mc-news-rule-ctrl .mc-news-rule-mode {
+  width: 140px;
+  flex: none;
+}
+
+.mc-news-rule-ctrl .mc-news-rule-flags {
+  width: 84px;
+  flex: none;
+}
+
+/* 大白话复述这一格做什么，顺带承载校验错误与提醒 */
+.mc-news-rule-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-3, #86909c);
+  word-break: break-word;
+}
+
+.mc-news-rule-desc-error {
+  color: rgb(var(--danger-6, 245 63 63));
+}
+
+.mc-news-rule-desc-warn {
+  color: rgb(var(--orangered-6, 245 63 63));
+}
+
+.mc-news-rule-helptoggle {
+  align-self: flex-start;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgb(var(--arcoblue-6, 0 100 200));
+  cursor: pointer;
+  user-select: none;
+}
+
+.mc-news-rule-helptoggle:hover {
+  text-decoration: underline;
+}
+
+.mc-news-rule-help {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 6px;
+  background: var(--color-fill-1, #f7f8fa);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-3, #86909c);
+}
+
+.mc-news-rule-help p {
+  margin: 0;
+}
+
+.mc-news-rule-help code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--color-fill-2, #f2f3f5);
+  color: var(--color-text-2, #4e5969);
+}
+
+/* 关键词规则汇总：几格收录、几格排除、几格填错 */
 .mc-news-preview {
   border: 1px solid var(--color-border-2, #e5e6eb);
   border-radius: 8px;
@@ -151,6 +301,17 @@
   line-height: 1.7;
   color: var(--color-text-1, #1d2129);
   background: var(--color-fill-1, #f7f8fa);
+}
+
+/* 关键词规则汇总：共几格、收录几条、几格填错 */
+.mc-news-keyword-summary {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-3, #86909c);
+}
+
+.mc-news-keyword-summary-error {
+  color: rgb(var(--danger-6, 245 63 63));
 }
 
 /* Markdown 推送预览：容器负责边框底色，md-editor 透明化跟随 */
@@ -229,4 +390,141 @@
   white-space: nowrap;
   display: inline-block;
   vertical-align: bottom;
+}
+
+/* 清空动态弹窗：两个可选项，默认均不勾选 */
+.mc-news-clear-modal.mc-news-clear-modal {
+  max-width: min(560px, calc(100% - 2rem));
+}
+
+.mc-news-clear-lead {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-2);
+}
+
+.mc-news-clear-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+}
+
+.mc-news-clear-option-muted {
+  opacity: 0.6;
+}
+
+.mc-news-clear-option .mc-news-form-hint {
+  padding-left: 24px;
+  line-height: 1.7;
+}
+
+/* 手动推送弹窗：目标清单较长，比清空弹窗略宽 */
+.mc-news-push-modal.mc-news-push-modal {
+  max-width: min(560px, calc(100% - 2rem));
+}
+
+/* 推送目标多选清单：目标多时可滚动，弹窗高度保持稳定 */
+.mc-news-target-picker {
+  max-height: 260px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+}
+
+.mc-news-target-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* 手动推送弹窗：顶部标题 + 状态 */
+.mc-news-push-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mc-news-push-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.mc-news-push-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text-1, #1d2129);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 目标操作行右侧：合并提示 + 全选按钮 */
+.mc-news-target-actions-side {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.mc-news-target-actions .mc-news-form-hint {
+  padding-left: 0;
+}
+
+/* 「立即轮询」右侧的推送开关：整块做成可点胶囊，开关状态一眼可辨 */
+.mc-news-poll-switch {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 999px;
+  background: var(--color-fill-1, #f7f8fa);
+  transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+}
+
+.mc-news-poll-switch:hover {
+  border-color: var(--color-border-3, #c9cdd4);
+}
+
+.mc-news-poll-switch .mc-news-switch-label {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-text-3, #86909c);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+/* 开启态：底色与文字加重，与关闭态一眼可辨 */
+.mc-news-poll-switch-on {
+  border-color: var(--color-border-3, #c9cdd4);
+  background: var(--color-fill-2, #f2f3f5);
+}
+
+.mc-news-poll-switch-on .mc-news-switch-label {
+  color: var(--color-text-1, #1d2129);
+}
+
+.mc-news-poll-switch-disabled {
+  opacity: 0.6;
+}
+
+.mc-news-poll-switch-disabled .mc-news-switch-label {
+  cursor: not-allowed;
 }

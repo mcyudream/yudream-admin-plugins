@@ -1,5 +1,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type {
+  ClearNewsOptions,
+  ClearNewsResult,
   ConnectionOption,
   GroupOption,
   McNewsSettingsView,
@@ -10,7 +12,10 @@ import type {
   NewsSourceView,
   Page,
   PollStatusView,
+  PushNewsOptions,
+  PushNewsResult,
   PushLogView,
+  PushTargetOptionsView,
   PushTargetPayload,
   PushTargetView,
   SourceTestView,
@@ -49,7 +54,7 @@ export function createMcNewsApi(sdk: YuDreamPluginSdk) {
     saveSettings: (payload: Partial<McNewsSettingsView>) =>
       http.request<McNewsSettingsView>('/admin/settings', { method: 'PUT', data: payload }),
     pollStatus: () => http.get<PollStatusView>('/admin/poll/status'),
-    triggerPoll: () => http.post<{ started: boolean }>('/admin/poll', {}),
+    triggerPoll: (push: boolean) => http.post<{ started: boolean }>('/admin/poll', { push }),
 
     // 新闻源
     sources: () => records<NewsSourceView>(http.get('/admin/sources')),
@@ -72,9 +77,12 @@ export function createMcNewsApi(sdk: YuDreamPluginSdk) {
     // 新闻动态与推送记录
     news: (page: number, size: number, sourceId: string, keyword: string) =>
       http.get<NewsPageView>(`/admin/news${query({ page, size, sourceId, keyword })}`),
-    deleteNews: (id: string) =>
-      http.request<{ deleted: boolean }>(`/admin/news/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    clearNews: () => http.post<{ cleared: number }>('/admin/news/clear', {}),
+    // 新闻 id 形如 mcnet:article/xxx（含 `:` 与 `/`），放路径会被编码成 %2F 而被网关拒绝，一律走请求体
+    deleteNews: (id: string) => http.post<{ deleted: boolean }>('/admin/news/delete', { id }),
+    clearNews: (options: ClearNewsOptions) => http.post<ClearNewsResult>('/admin/news/clear', options),
+    pushTargets: () => http.get<PushTargetOptionsView>('/admin/news/push-targets'),
+    pushNews: (id: string, options: PushNewsOptions) =>
+      http.post<PushNewsResult>('/admin/news/push', { id, ...options }),
     clearNewsTombstones: () => http.post<{ cleared: number }>('/admin/news/tombstones/clear', {}),
     logs: (page: number, size: number) => http.get<Page<PushLogView>>(`/admin/logs${query({ page, size })}`),
 

@@ -12,12 +12,13 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import online.yudream.base.plugin.mcnews.domain.NewsArticle;
+import online.yudream.base.plugin.mcnews.domain.NewsKeywordFilter;
+import online.yudream.base.plugin.mcnews.domain.NewsKeywordRule;
 import online.yudream.base.plugin.mcnews.domain.NewsSource;
 
 /**
@@ -38,12 +39,16 @@ public final class NewsFetchService {
         this.mapper = Objects.requireNonNull(mapper);
     }
 
-    /** 拉取并解析一个源，返回源内序（新→旧）的候选条目；关键词在源级过滤。 */
+    /** 拉取并解析一个源，返回源内序（新→旧）的候选条目；关键词模板在源级过滤。 */
     public List<NewsArticle> fetch(NewsSource source) {
+        return filterKeywords(parse(source), source.keywords());
+    }
+
+    /** 只抓取解析、不做关键词过滤：管理端「测试抓取」需要源原始条数与逐条模板命中情况。 */
+    public List<NewsArticle> parse(NewsSource source) {
         JsonNode root = getJson(source.url());
         long now = System.currentTimeMillis();
-        List<NewsArticle> items = source.mcnet() ? parseMcnet(source, root, now) : parseZendesk(source, root, now);
-        return filterKeywords(items, source.keywords());
+        return source.mcnet() ? parseMcnet(source, root, now) : parseZendesk(source, root, now);
     }
 
     /**
@@ -193,23 +198,19 @@ public final class NewsFetchService {
         return items;
     }
 
-    /** 关键词命中 title 或摘要任一即保留；关键词为空表示不过滤。 */
+    /**
+     * 关键词模板过滤：命中任一收录模板即保留；命中任一排除模板直接丢弃。
+     * 模板语法（子串 / 正则 / 通配 / 字段限定 / 排除）见 {@link NewsKeywordRule}；
+     * 非法模板在此被跳过（不会让整个源失效），保存新闻源时会提前拦截。
+     */
     static List<NewsArticle> filterKeywords(List<NewsArticle> items, List<String> keywords) {
-        if (keywords == null || keywords.isEmpty()) {
-            return items;
-        }
-        List<String> lowered = keywords.stream().map(item -> item.toLowerCase(Locale.ROOT)).toList();
-        List<NewsArticle> result = new ArrayList<>();
-        for (NewsArticle item : items) {
-            String haystack = (item.title() + "\n" + item.summary()).toLowerCase(Locale.ROOT);
-            for (String keyword : lowered) {
-                if (haystack.contains(keyword)) {
-                    result.add(item);
-                    break;
-                }
-            }
-        }
-        return result;
+        return NewsKeywordFilter.lenient(keywords).filter(items);
+    }
+
+    /** 关键词模板的逐条命中统计与非法模板清单，供管理端「测试抓取」诊断。 */
+    public static NewsKeywordFilter.Stats keywordStats(List<NewsArticle> items, List<String> keywords,
+                                                       List<String> invalid) {
+        return NewsKeywordFilter.lenient(keywords, invalid).stats(items);
     }
 
     /** 文章稳定 ID：去掉语言前缀，避免切换官网语言导致整源重新推送。 */

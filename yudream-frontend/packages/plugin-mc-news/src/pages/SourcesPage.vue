@@ -6,7 +6,7 @@ import { Tooltip as ArcoTooltip } from '@arco-design/web-vue'
 import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
-import { errorMessage, SOURCE_TYPE_OPTIONS } from '../composables/utils'
+import { checkKeywordDraft, describeKeywordDraft, errorMessage, parseKeywordDraft, SOURCE_TYPE_OPTIONS } from '../composables/utils'
 import SourceEditorModal from '../components/SourceEditorModal.vue'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
@@ -47,16 +47,59 @@ async function load() {
   }
 }
 
-/** 在线抓取该源验证可用性：不写缓存、不推送。 */
+/** 关键词规则的展示提示：填写有误标红，排除规则标红底（命中即丢弃）。 */
+function keywordChipClass(rule: string) {
+  const draft = parseKeywordDraft(rule)
+  const check = checkKeywordDraft(draft)
+  return {
+    'mc-news-rule-exclude': check.ok && draft.action === 'exclude',
+    'mc-news-rule-invalid': !check.ok,
+  }
+}
+
+/** 悬停时用大白话说清这条规则做什么，而不是只回显紧凑语法。 */
+function keywordChipTitle(rule: string) {
+  const draft = parseKeywordDraft(rule)
+  const check = checkKeywordDraft(draft)
+  if (!check.ok)
+    return `规则填写有误：${check.error}`
+  return describeKeywordDraft(draft)
+}
+
+/** 测试结果里回显规则时也用大白话，避免出现 title:re:^Version 这种看不懂的写法。 */
+function keywordText(rule: string) {
+  return describeKeywordDraft(parseKeywordDraft(rule))
+}
+
+/**
+ * 在线抓取该源验证可用性：不写缓存、不推送。
+ * 除收录条数外还回显源原始条数、被排除数与逐条模板命中情况，便于定位「为什么没匹配上」。
+ */
 async function test(row: NewsSourceView) {
   testingId.value = row.id
   try {
     const result = await api.testSource(row.id)
+    const elapsed = `${(result.elapsedMs / 1000).toFixed(1)}s`
+    if (result.invalid?.length) {
+      toast.error(`「${row.name}」有 ${result.invalid.length} 条关键词规则填写有误已跳过：${result.invalid[0]}`)
+      return
+    }
+    const detail: string[] = []
+    if (result.rejected > 0)
+      detail.push(`未命中模板 ${result.rejected} 条`)
+    if (result.excluded > 0)
+      detail.push(`被排除模板丢弃 ${result.excluded} 条`)
+    const suffix = detail.length ? `（源 ${result.beforeFilter} 条：${detail.join('，')}）` : ''
     if (result.count > 0) {
-      toast.success(`「${row.name}」抓取到 ${result.count} 条（${(result.elapsedMs / 1000).toFixed(1)}s），最新：${result.titles[0]?.title ?? ''}`)
+      const zeroHit = (result.rules ?? []).filter(rule => rule.hits === 0)
+      const zero = zeroHit.length ? `；${zeroHit.length} 条规则一次都没命中（如「${keywordText(zeroHit[0].rule)}」）` : ''
+      toast.success(`「${row.name}」收录 ${result.count} 条${suffix}，用时 ${elapsed}，最新：${result.titles[0]?.title ?? ''}${zero}`)
+    }
+    else if (result.beforeFilter > 0) {
+      toast.warning(`「${row.name}」源返回 ${result.beforeFilter} 条但 0 条收录${suffix}，请检查关键词规则`)
     }
     else {
-      toast.warning(`「${row.name}」抓取成功但 0 条命中，请检查关键词过滤或源内容`)
+      toast.warning(`「${row.name}」抓取成功但源返回 0 条内容，请检查源地址`)
     }
   }
   catch (error) {
@@ -112,7 +155,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <FaPageHeader title="新闻源" description="维护轮询的新闻来源：官网新闻 JSON 与反馈隧道文章 API，可按关键词筛选">
+  <FaPageHeader title="新闻源" description="维护轮询的新闻来源：官网新闻 JSON 与反馈隧道文章 API；可用关键词规则筛选（包含这几个字 / 通配符 / 正则，支持排除）">
     <FaButton @click="openCreate">
       <FaIcon name="i-ri:add-line" />新增源
     </FaButton>
@@ -137,8 +180,14 @@ onMounted(() => {
         <span class="mc-news-url" :title="row.original.url">{{ row.original.url }}</span>
       </template>
       <template #cell-keywords="{ row }">
-        <div class="mc-news-variables">
-          <span v-for="keyword in row.original.keywords" :key="keyword" class="mc-news-variable-chip">{{ keyword }}</span>
+        <div class="mc-news-variables mc-news-variables-readonly">
+          <span
+            v-for="keyword in row.original.keywords"
+            :key="keyword"
+            class="mc-news-variable-chip"
+            :class="keywordChipClass(keyword)"
+            :title="keywordChipTitle(keyword)"
+          >{{ keyword }}</span>
           <span v-if="!row.original.keywords.length" class="mc-news-form-hint">不过滤</span>
         </div>
       </template>

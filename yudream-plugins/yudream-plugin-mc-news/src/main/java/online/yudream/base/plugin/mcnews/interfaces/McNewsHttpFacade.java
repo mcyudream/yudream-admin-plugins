@@ -12,6 +12,8 @@ import online.yudream.base.plugin.mcnews.application.NewsSourceService;
 import online.yudream.base.plugin.mcnews.application.NewsSubscriptionService;
 import online.yudream.base.plugin.mcnews.application.NewsTargetService;
 import online.yudream.base.plugin.mcnews.application.NewsTemplateService;
+import online.yudream.base.plugin.mcnews.domain.NewsArticle;
+import online.yudream.base.plugin.mcnews.domain.NewsKeywordFilter;
 import online.yudream.base.plugin.mcnews.domain.NewsSource;
 import online.yudream.base.plugin.mcnews.domain.NewsTarget;
 import online.yudream.base.plugin.mcnews.infrastructure.McNewsStore;
@@ -162,6 +164,10 @@ public class McNewsHttpFacade {
         view.put("records", result.records().stream().map(McNewsHttpFacade::articleView).toList());
         view.put("total", result.total());
         view.put("ignored", feed.tombstoneCount());
+        view.put("seen", feed.seenCount());
+        view.put("pending", feed.pendingCount());
+        // 手动推送弹窗需要告知「同时发送给私信订阅用户」会影响多少人
+        view.put("subscribers", subscriptions.directSubscribers().size());
         return PluginHttpResponse.ok(view);
     }
 
@@ -172,8 +178,101 @@ public class McNewsHttpFacade {
         });
     }
 
-    public PluginHttpResponse clearNews() {
-        return HttpSupport.guard(() -> PluginHttpResponse.ok(Map.of("cleared", feed.clearArticles())));
+    /** 删除单条动态（id 走请求体）：新闻 id 含 `/`，放进路径会被网关按 %2F 拒绝（400）。 */
+    public PluginHttpResponse deleteNews(PluginHttpRequest request) {
+        var body = Json.read(request == null ? null : request.body());
+        return deleteNews(body.text("id"));
+    }
+
+    /**
+     * 清空动态。请求体两个可选项（缺省与非法值一律按 false 处理，兼容旧版前端只发 {}）：
+     * {@code clearCache} 是否连轮询缓存（去重记忆 + 未送达队列）一并清空；
+     * {@code pushOnNextPoll} 清空缓存后，下一次轮询是否把源里现存内容重新推送一轮。
+     */
+    public PluginHttpResponse clearNews(PluginHttpRequest request) {
+        var body = Json.read(request == null ? null : request.body());
+        boolean clearCache = body.boolOr("clearCache", false);
+        boolean pushOnNextPoll = clearCache && body.boolOr("pushOnNextPoll", false);
+        return HttpSupport.guard(() -> {
+            NewsFeedService.ClearResult result = feed.clearArticles(clearCache, pushOnNextPoll);
+            Map<String, Object> view = new LinkedHashMap<>();
+            view.put("cleared", result.cleared());
+            view.put("cacheCleared", result.cacheCleared());
+            view.put("pushOnNextPoll", result.pushOnNextPoll());
+            return PluginHttpResponse.ok(view);
+        });
+    }
+
+    /**
+     * 手动推送单条动态。请求体：{@code id} 必填；{@code targetIds} 可选（缺省或空数组＝全部可用目标，
+     * 否则只推勾选的目标）；{@code includeSubscribers} 缺省/非法一律 false。
+     *
+     * <p>id 走请求体而不是路径：新闻 id 形如 {@code mcnet:article/xxx}，含 `:` 与 `/`，
+     * 放进路径会被编码成 {@code %2F} 而被网关直接拒绝（400 Bad Request）。
+     */
+    public PluginHttpResponse pushNews(PluginHttpRequest request) {
+        var body = Json.read(request == null ? null : request.body());
+        return pushNews(body.text("id"), targetIds(body), body.boolOr("includeSubscribers", false));
+    }
+
+    /**
+     * 兼容旧路径端点 {@code POST /admin/news/{id}/push}：id 里含 `/` 时该路径本身就无法通过网关，
+     * 新前端一律走 {@link #pushNews(PluginHttpRequest)}。
+     */
+    public PluginHttpResponse pushNews(PluginHttpRequest request, String id) {
+        var body = Json.read(request == null ? null : request.body());
+        return pushNews(id, targetIds(body), body.boolOr("includeSubscribers", false));
+    }
+
+    private static List<String> targetIds(Json body) {
+        return body.has("targetIds") ? body.stringList("targetIds") : List.of();
+    }
+
+    /** 手动推送的可选目标：与轮询同一套端点去重规则，被合并的次要目标数一并回传供前端提示。 */
+    public PluginHttpResponse pushTargetOptions() {
+        Map<String, Object> view = new LinkedHashMap<>();
+        List<Map<String, Object>> items = new ArrayList<>();
+        List<NewsTarget> globalEnabled = targets.listGlobalEnabled();
+        List<NewsTarget> userEnabled = targets.listAllEnabled().stream()
+                .filter(target -> target.ownerUserId() != null).toList();
+        for (NewsPipeline.EndpointGroup group : NewsPipeline.endpointGroups(globalEnabled, userEnabled)) {
+            NewsTarget target = group.primary();
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", target.id());
+            item.put("name", target.name());
+            item.put("type", target.type());
+            item.put("owner", target.ownerUserId() == null ? "global" : "user");
+            item.put("endpointLabel", target.messaging()
+                    ? "群聊 " + target.channelName()
+                    : target.webhookUrl());
+            item.put("mergedCount", group.memberIds().size() - 1);
+            items.add(item);
+        }
+        view.put("targets", items);
+        view.put("subscribers", subscriptions.directSubscribers().size());
+        return PluginHttpResponse.ok(view);
+    }
+
+    private PluginHttpResponse pushNews(String id, List<String> targetIds, boolean includeSubscribers) {
+        return HttpSupport.guard(() -> {
+            NewsPipeline.PushOutcome outcome = pipeline.pushArticle(id, targetIds, includeSubscribers);
+            Map<String, Object> view = new LinkedHashMap<>();
+            view.put("ok", outcome.okCount() > 0);
+            view.put("okCount", outcome.okCount());
+            view.put("total", outcome.total());
+            List<Map<String, Object>> results = new ArrayList<>();
+            for (online.yudream.base.plugin.mcnews.domain.NewsPushLog.TargetResult result : outcome.results()) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("targetId", result.targetId());
+                entry.put("targetName", result.targetName());
+                entry.put("targetType", result.targetType());
+                entry.put("ok", result.ok());
+                entry.put("error", result.error());
+                results.add(entry);
+            }
+            view.put("results", results);
+            return PluginHttpResponse.ok(view);
+        });
     }
 
     public PluginHttpResponse clearNewsTombstones() {
@@ -185,14 +284,25 @@ public class McNewsHttpFacade {
         return PluginHttpResponse.ok(pageView(result.records().stream().map(McNewsHttpFacade::logView).toList(), result.total()));
     }
 
+    /** 手动轮询（默认推送）。 */
     public PluginHttpResponse triggerPoll() {
+        return triggerPoll(true);
+    }
+
+    /** 手动轮询：请求体 {@code push=false} 时本轮只回填列表与重建去重记录，不发送任何推送。 */
+    public PluginHttpResponse triggerPoll(PluginHttpRequest request) {
+        var body = Json.read(request == null ? null : request.body());
+        return triggerPoll(body.boolOr("push", true));
+    }
+
+    private PluginHttpResponse triggerPoll(boolean push) {
         return HttpSupport.guard(() -> {
             if (pipeline.polling()) {
                 throw new IllegalStateException("已有一次轮询正在进行，请稍后再试");
             }
             manualPollExecutor.execute(() -> {
                 try {
-                    pipeline.pollOnce("manual");
+                    pipeline.pollOnce("manual", push);
                 }
                 catch (RuntimeException e) {
                     // 竞态下被并发轮询拒绝属正常，忽略；其余失败已由 pipeline 记录状态
@@ -230,23 +340,42 @@ public class McNewsHttpFacade {
         return PluginHttpResponse.ok(view);
     }
 
-    /** 单源即时测试：在线抓取一个源并返回命中条数与前几条标题，不写缓存不推送。 */
+    /** 在线抓取该源：返回源原始条数、关键词模板逐条命中情况与非法模板，供管理员调整模板。 */
     public PluginHttpResponse testSource(String id) {
         return HttpSupport.guard(() -> {
-            online.yudream.base.plugin.mcnews.domain.NewsSource source = sources.require(id);
+            NewsSource source = sources.require(id);
             long start = System.currentTimeMillis();
-            var items = fetch.fetch(source);
+            List<NewsArticle> raw = fetch.parse(source);
+            List<String> invalid = new ArrayList<>();
+            NewsKeywordFilter filter = NewsKeywordFilter.lenient(source.keywords(), invalid);
+            List<NewsArticle> items = filter.filter(raw);
+            NewsKeywordFilter.Stats stats = filter.stats(raw);
             List<Map<String, Object>> titles = new ArrayList<>();
-            for (online.yudream.base.plugin.mcnews.domain.NewsArticle item : items.subList(0, Math.min(5, items.size()))) {
+            for (NewsArticle item : items.subList(0, Math.min(5, items.size()))) {
                 Map<String, Object> entry = new LinkedHashMap<>();
                 entry.put("title", item.title());
                 entry.put("url", item.url());
                 titles.add(entry);
             }
+            List<Map<String, Object>> rules = new ArrayList<>();
+            for (NewsKeywordFilter.RuleStat rule : stats.rules()) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("rule", rule.rule());
+                entry.put("kind", rule.kind());
+                entry.put("field", rule.field());
+                entry.put("exclude", rule.exclude());
+                entry.put("hits", rule.hits());
+                rules.add(entry);
+            }
             Map<String, Object> view = new LinkedHashMap<>();
             view.put("ok", true);
             view.put("count", items.size());
+            view.put("beforeFilter", stats.total());
+            view.put("excluded", stats.excluded());
+            view.put("rejected", stats.rejected());
             view.put("titles", titles);
+            view.put("rules", rules);
+            view.put("invalid", invalid);
             view.put("elapsedMs", System.currentTimeMillis() - start);
             return PluginHttpResponse.ok(view);
         });

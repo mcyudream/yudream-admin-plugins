@@ -3,9 +3,11 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { NewsArticleView, NewsSourceView, PollStatusView } from '../types'
 import { Tag as ArcoTag } from '@arco-design/web-vue'
-import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
+import ClearNewsModal from '../components/ClearNewsModal.vue'
+import PushNewsModal from '../components/PushNewsModal.vue'
 import { errorMessage, nextPollText, PUSH_STATE_META } from '../composables/utils'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
@@ -15,7 +17,9 @@ const confirm = useFaModal()
 
 const loading = ref(false)
 const pollBusy = ref(false)
-const clearing = ref(false)
+const clearOpen = ref(false)
+const pushOpen = ref(false)
+const pushRow = ref<NewsArticleView | null>(null)
 const clearingIgnored = ref(false)
 const deletingId = ref('')
 const rows = ref<NewsArticleView[]>([])
@@ -25,6 +29,14 @@ const filters = reactive({ sourceId: '', keyword: '' })
 const pollStatus = ref<PollStatusView | null>(null)
 const remainSeconds = ref(0)
 const ignoredCount = ref(0)
+const seenCount = ref(0)
+const pendingCount = ref(0)
+/** 手动轮询是否推送（默认开）：关闭时本轮只回填列表与重建去重记录 */
+const pushOnPoll = ref(true)
+/** 轮询进行中时开关与按钮一同禁用 */
+const pollDisabled = computed(() => pollBusy.value || (pollStatus.value?.polling ?? false))
+/** 列表、去重记录、未送达队列任一非空就允许清空（纯空缓存时按钮置灰） */
+const canClear = computed(() => pager.total > 0 || seenCount.value > 0 || pendingCount.value > 0)
 let statusTimer: number | undefined
 
 const columns: TableColumn<NewsArticleView>[] = [
@@ -34,7 +46,7 @@ const columns: TableColumn<NewsArticleView>[] = [
   { accessorKey: 'category', header: '分类', width: 100 },
   { id: 'pushState', header: '推送状态', width: 100 },
   { accessorKey: 'pushedAtLabel', header: '推送时间', width: 150 },
-  { id: 'operation', header: '操作', width: 90, fixed: 'right' },
+  { id: 'operation', header: '操作', width: 150, fixed: 'right' },
 ]
 
 const sourceOptions = ref<{ label: string, value: string }[]>([])
@@ -50,6 +62,8 @@ async function load() {
     rows.value = page.records ?? []
     pager.total = Number(page.total ?? 0)
     ignoredCount.value = Number(page.ignored ?? 0)
+    seenCount.value = Number(page.seen ?? 0)
+    pendingCount.value = Number(page.pending ?? 0)
   }
   catch (error) {
     toast.error(errorMessage(error, '加载新闻动态失败'))
@@ -133,32 +147,30 @@ function confirmDelete(row: NewsArticleView) {
   })
 }
 
-function confirmClear() {
-  confirm.confirm({
-    title: '清空动态',
-    content: `确认清空全部 ${pager.total} 条新闻动态吗？仅清空列表显示，下轮轮询会重建缓存基线（默认不重新推送）。若想让某条新闻不再推送，请使用单条删除。`,
-    onConfirm: async () => {
-      clearing.value = true
-      try {
-        const result = await api.clearNews()
-        toast.success(`已清空 ${result.cleared} 条动态`)
-        pager.page = 1
-        await load()
-      }
-      catch (error) {
-        toast.error(errorMessage(error, '清空失败'))
-      }
-      finally {
-        clearing.value = false
-      }
-    },
-  })
+/** 清空动态改为弹窗：两个可选项（是否清空轮询缓存、下次轮询是否推送）默认均为否。 */
+function openClear() {
+  clearOpen.value = true
+}
+
+async function onCleared() {
+  pager.page = 1
+  await load()
+}
+
+/** 手动推送单条动态：弹窗内可选是否同时发给私信订阅用户（默认否）。 */
+function openPush(row: NewsArticleView) {
+  pushRow.value = row
+  pushOpen.value = true
+}
+
+async function onPushed() {
+  await load()
 }
 
 function confirmClearIgnored() {
   confirm.confirm({
     title: '清空忽略名单',
-    content: `忽略名单中有 ${ignoredCount.value} 条被删除过的新闻，确认清空吗？它们会重新参与下轮轮询：若不在缓存中，将被视为新新闻推送。`,
+    content: `忽略名单中有 ${ignoredCount.value} 条被删除过的新闻，确认清空吗？清空后它们会重新参与下轮轮询：去重记录中对应的指纹会被移除，因此会作为新内容再推送一次。`,
     onConfirm: async () => {
       clearingIgnored.value = true
       try {
@@ -179,8 +191,10 @@ function confirmClearIgnored() {
 async function triggerPoll() {
   pollBusy.value = true
   try {
-    await api.triggerPoll()
-    toast.success('已触发手动轮询，稍后可在推送记录中查看结果')
+    await api.triggerPoll(pushOnPoll.value)
+    toast.success(pushOnPoll.value
+      ? '已触发手动轮询并推送，稍后可在推送记录中查看结果'
+      : '已触发手动轮询（本次不推送），新内容只回填列表')
     setTimeout(() => {
       void load()
       void loadPollStatus()
@@ -192,6 +206,13 @@ async function triggerPoll() {
   finally {
     pollBusy.value = false
   }
+}
+
+/** 开关文字也可点：整块胶囊都是可点区域，比只点小圆点好按 */
+function togglePushOnPoll() {
+  if (pollDisabled.value)
+    return
+  pushOnPoll.value = !pushOnPoll.value
 }
 
 onMounted(() => {
@@ -210,19 +231,43 @@ onUnmounted(() => {
 
 <template>
   <FaPageHeader title="新闻动态" description="已发现的 Minecraft 新闻与版本文章缓存，仅展示最近缓存的条目">
-    <FaButton variant="destructive" :disabled="!pager.total" :loading="clearing" @click="confirmClear">
+    <FaButton variant="destructive" :disabled="!canClear" @click="openClear">
       <FaIcon name="i-ri:delete-bin-line" />清空动态
     </FaButton>
-    <FaButton :loading="pollBusy || (pollStatus?.polling ?? false)" @click="triggerPoll">
+    <FaButton :loading="pollDisabled" @click="triggerPoll">
       <FaIcon name="i-ri:refresh-line" />立即轮询
     </FaButton>
+    <div class="mc-news-poll-switch" :class="{ 'mc-news-poll-switch-on': pushOnPoll, 'mc-news-poll-switch-disabled': pollDisabled }">
+      <FaSwitch v-model="pushOnPoll" :disabled="pollDisabled" />
+      <span
+        class="mc-news-switch-label"
+        :title="pollDisabled ? '轮询进行中，暂不可切换' : pushOnPoll ? '轮询完成后自动推送新内容' : '轮询只回填列表，本次不推送'"
+        @click="togglePushOnPoll"
+      >轮询后推送</span>
+    </div>
   </FaPageHeader>
   <FaPageMain>
+    <ClearNewsModal
+      v-model:open="clearOpen"
+      :sdk="props.sdk"
+      :total="pager.total"
+      :seen="seenCount"
+      :pending="pendingCount"
+      @cleared="onCleared"
+    />
+    <PushNewsModal
+      v-model:open="pushOpen"
+      :sdk="props.sdk"
+      :article="pushRow"
+      @pushed="onPushed"
+    />
     <div class="mc-news-poll-status">
       <span>上次轮询：{{ pollStatus?.lastPollAtLabel || '尚未轮询' }}</span>
       <span v-if="pollStatus?.lastPollSummary">{{ pollStatus.lastPollSummary }}</span>
       <span>下次轮询：{{ nextPollText(pollStatus, remainSeconds) || '加载中' }}</span>
       <span v-if="ignoredCount > 0" class="mc-news-status-warn">忽略名单：{{ ignoredCount }} 条（被删除的新闻不再推送）</span>
+      <span v-if="seenCount > 0" class="mc-news-status-muted">去重记录：{{ seenCount }} 条（标题 + 链接指纹，重复内容不再推送）</span>
+      <span v-if="pendingCount > 0" class="mc-news-status-muted">未送达待补推：{{ pendingCount }} 条（下轮轮询自动重试）</span>
       <FaButton v-if="ignoredCount > 0" size="sm" variant="outline" :loading="clearingIgnored" @click="confirmClearIgnored">
         清空忽略名单
       </FaButton>
@@ -272,6 +317,7 @@ onUnmounted(() => {
       </template>
       <template #cell-operation="{ row }">
         <div class="flex-center gap-2">
+          <FaButton size="sm" variant="outline" @click="openPush(row.original)">推送</FaButton>
           <FaButton size="sm" variant="destructive" :loading="deletingId === row.original.id" @click="confirmDelete(row.original)">删除</FaButton>
         </div>
       </template>

@@ -84,9 +84,30 @@ public class McNewsAdminController {
         return http.deleteNews(HttpSupport.segment(request, 2));
     }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/news/delete", permission = McNewsPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse deleteNewsByBody(PluginHttpRequest request) {
+        return http.deleteNews(request);
+    }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/news/push-targets", permission = McNewsPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse pushTargets() {
+        return http.pushTargetOptions();
+    }
+
     @PluginHttpEndpoint(method = "POST", path = "/admin/news/clear", permission = McNewsPlugin.MANAGE_PERMISSION)
-    public PluginHttpResponse clearNews() {
-        return http.clearNews();
+    public PluginHttpResponse clearNews(PluginHttpRequest request) {
+        return http.clearNews(request);
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/admin/news/push", permission = McNewsPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse pushNews(PluginHttpRequest request) {
+        return http.pushNews(request);
+    }
+
+    /** 旧路径端点：新闻 id 含 `:` 与 `/`，路径形态会被网关按 %2F 拒绝，仅保留给不含 `/` 的历史 id。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/news/{id}/push", permission = McNewsPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse pushNewsByPath(PluginHttpRequest request) {
+        return http.pushNews(request, HttpSupport.segment(request, 2));
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/news/tombstones/clear", permission = McNewsPlugin.MANAGE_PERMISSION)
@@ -100,8 +121,8 @@ public class McNewsAdminController {
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/poll", permission = McNewsPlugin.MANAGE_PERMISSION)
-    public PluginHttpResponse triggerPoll() {
-        return http.triggerPoll();
+    public PluginHttpResponse triggerPoll(PluginHttpRequest request) {
+        return http.triggerPoll(request);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/admin/poll/status", permission = McNewsPlugin.MANAGE_PERMISSION)

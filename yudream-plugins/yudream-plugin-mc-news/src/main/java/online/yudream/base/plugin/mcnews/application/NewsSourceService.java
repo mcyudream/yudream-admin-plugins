@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import online.yudream.base.plugin.mcnews.domain.NewsKeywordRule;
 import online.yudream.base.plugin.mcnews.domain.NewsSource;
 import online.yudream.base.plugin.mcnews.infrastructure.McNewsStore;
 
@@ -155,13 +156,38 @@ public final class NewsSourceService {
         return trimmed;
     }
 
+    /**
+     * 规范化关键词模板：一行一条，去掉空行与重复项，并逐条编译校验。
+     * 校验失败直接抛业务错误（HTTP 400），避免把写错的正则留到轮询时才炸。
+     */
     private List<String> cleanKeywords(List<String> keywords) {
         if (keywords == null) {
             return List.of();
         }
-        return keywords.stream()
-                .filter(item -> item != null && !item.isBlank())
-                .map(String::trim)
-                .toList();
+        List<String> result = new ArrayList<>();
+        for (String raw : keywords) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            // 兼容整段文本粘贴：每一行视为一条模板
+            for (String line : raw.split("\\R")) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || result.contains(trimmed)) {
+                    continue;
+                }
+                if (result.size() >= NewsKeywordRule.MAX_RULES) {
+                    throw new IllegalArgumentException(
+                            "关键词模板最多 " + NewsKeywordRule.MAX_RULES + " 条");
+                }
+                try {
+                    NewsKeywordRule.parse(trimmed);
+                }
+                catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("关键词模板「" + trimmed + "」不合法：" + e.getMessage());
+                }
+                result.add(trimmed);
+            }
+        }
+        return result;
     }
 }

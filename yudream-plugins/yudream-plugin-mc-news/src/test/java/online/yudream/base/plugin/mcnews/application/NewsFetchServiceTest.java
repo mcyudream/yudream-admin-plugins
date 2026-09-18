@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import online.yudream.base.plugin.mcnews.domain.NewsArticle;
+import online.yudream.base.plugin.mcnews.domain.NewsKeywordFilter;
 import online.yudream.base.plugin.mcnews.domain.NewsSource;
 import org.junit.jupiter.api.Test;
 
@@ -77,6 +78,43 @@ class NewsFetchServiceTest {
         assertEquals(2, NewsFetchService.filterKeywords(items, List.of("A Minecraft Java")).size());
         assertEquals(3, NewsFetchService.filterKeywords(items, List.of()).size());
         assertEquals(1, NewsFetchService.filterKeywords(items, List.of("marketplace")).size());
+    }
+
+    @Test
+    void keywordTemplatesSupportRegexGlobFieldScopeAndExclude() {
+        List<NewsArticle> items = List.of(
+                article("Minecraft 26.3 Release Candidate 2", "A Minecraft Java Release Candidate"),
+                article("LET'S PLAY: ETERNAL CAVES", "Marketplace 博客"),
+                article("a minecraft java snapshot", ""),
+                article("Beta 26.3-pre1", ""));
+        assertEquals(1, NewsFetchService.filterKeywords(items, List.of("re:^Beta")).size());
+        assertEquals(2, NewsFetchService.filterKeywords(items, List.of("glob:*snapshot*", "title:re:^Beta")).size());
+        assertEquals(1, NewsFetchService.filterKeywords(items, List.of("/^a minecraft java/")).size());
+        assertEquals(1,
+                NewsFetchService.filterKeywords(items, List.of("A Minecraft Java", "!re:snapshot")).size(),
+                "排除模板优先于收录模板：命中排除的条目即使命中收录也被丢弃");
+        assertEquals(0, NewsFetchService.filterKeywords(items, List.of("title:marketplace")).size(),
+                "字段限定只看标题：摘要里的词不算命中");
+        assertEquals(1, NewsFetchService.filterKeywords(items, List.of("summary:marketplace")).size());
+    }
+
+    @Test
+    void keywordStatsReportSourceTotalsAndPerRuleHits() {
+        List<NewsArticle> items = List.of(
+                article("Minecraft 26.3 Release Candidate 2", "A Minecraft Java Release Candidate"),
+                article("LET'S PLAY: ETERNAL CAVES", "Marketplace 博客"),
+                article("a minecraft java snapshot", ""));
+        List<String> invalid = new java.util.ArrayList<>();
+        NewsKeywordFilter.Stats stats = NewsFetchService.keywordStats(items,
+                List.of("A Minecraft Java", "re:(unclosed"), invalid);
+
+        assertEquals(3, stats.total());
+        assertEquals(2, stats.kept());
+        assertEquals(0, stats.excluded());
+        assertEquals(1, stats.rejected());
+        assertEquals(1, stats.rules().size(), "非法模板被跳过，不影响同一源里的其他模板");
+        assertEquals(2, stats.rules().get(0).hits());
+        assertEquals(1, invalid.size());
     }
 
     @Test

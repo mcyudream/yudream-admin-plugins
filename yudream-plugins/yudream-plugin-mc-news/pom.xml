@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-mc-news</artifactId>
-    <version>1.0.0</version>
+    <version>1.4.3</version>
     <name>YuDream Plugin - Mc News</name>
     <description>MC 新闻推送：轮询 Minecraft 官网新闻与反馈隧道版本文章，AI 整合后推送到机器人群聊、Webhook 与订阅用户。</description>
 
