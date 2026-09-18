@@ -54,7 +54,7 @@ import java.util.Map;
 public class YmclContentPlugin implements YuDreamPlugin {
 
     public static final String CODE = "ymcl-content";
-    public static final String VERSION = "2.0.0";
+    public static final String VERSION = "2.1.0";
 
     public static final String MANAGE_PERMISSION = "plugin:ymcl-content:manage";
 

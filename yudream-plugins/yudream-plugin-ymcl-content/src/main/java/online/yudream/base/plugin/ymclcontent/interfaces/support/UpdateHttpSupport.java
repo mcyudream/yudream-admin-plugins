@@ -123,6 +123,11 @@ public final class UpdateHttpSupport {
         return UPDATE_API_PREFIX + "/files/" + urlEncode(version) + "/" + urlEncode(filename);
     }
 
+    /** 发布的公开更新日志页地址；externalUrl 未手动覆盖时启动器「查看完整更新日志」打开此页。 */
+    public static String absoluteChangelogUrl(String origin, String version) {
+        return trimTrailingSlash(origin) + UPDATE_API_PREFIX + "/changelog/" + urlEncode(version);
+    }
+
     public static String trimTrailingSlash(String value) {
         if (value == null) {
             return "";

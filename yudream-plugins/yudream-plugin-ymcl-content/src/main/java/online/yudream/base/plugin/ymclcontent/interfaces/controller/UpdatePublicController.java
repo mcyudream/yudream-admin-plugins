@@ -7,8 +7,10 @@ import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.base.plugin.ymclcontent.application.service.UpdatePlatformService;
 import online.yudream.base.plugin.ymclcontent.domain.UpdateArtifact;
 import online.yudream.base.plugin.ymclcontent.domain.UpdateRelease;
+import online.yudream.base.plugin.ymclcontent.interfaces.support.UpdateChangelogPage;
 import online.yudream.base.plugin.ymclcontent.interfaces.support.UpdateHttpSupport;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,7 +45,8 @@ public class UpdatePublicController {
                 "versionsCatalog", true,
                 "downloadsLatest", true,
                 "hostedFiles", true,
-                "history", true));
+                "history", true,
+                "changelogPage", true));
         payload.put("channels", List.of("release", "beta"));
         payload.put("platforms", List.of(
                 "windows-x86_64",
@@ -61,6 +64,7 @@ public class UpdatePublicController {
     @PluginHttpEndpoint(method = "GET", path = "/v1/update/history", wrapResult = false)
     public PluginHttpResponse history(PluginHttpRequest request) {
         String channel = UpdateHttpSupport.firstQuery(request, "channel");
+        String origin = UpdateHttpSupport.normalizeOrigin(request);
         int limit = 50;
         String rawLimit = UpdateHttpSupport.firstQuery(request, "limit");
         if (rawLimit != null && !rawLimit.isBlank()) {
@@ -89,7 +93,7 @@ public class UpdatePublicController {
             item.put("forceUpdate", release.forceUpdate());
             item.put("notes", release.resolvedNotes());
             item.put("changes", release.normalizedChanges());
-            item.put("externalUrl", release.externalUrl() == null ? "" : release.externalUrl());
+            item.put("externalUrl", externalOrDefault(origin, release));
             releases.add(item);
             if (releases.size() >= limit) {
                 break;
@@ -105,6 +109,7 @@ public class UpdatePublicController {
     @PluginHttpEndpoint(method = "GET", path = "/v1/update/latest", wrapResult = false)
     public PluginHttpResponse latest(PluginHttpRequest request) {
         String channel = UpdateHttpSupport.queryOrHeader(request, "channel", "X-YMCL-Channel", "release");
+        String origin = UpdateHttpSupport.normalizeOrigin(request);
         Optional<UpdateRelease> release = updates.latestForChannel(channel);
         if (release.isEmpty()) {
             return PluginHttpResponse.rawJson(200, Map.of(
@@ -122,7 +127,7 @@ public class UpdatePublicController {
         payload.put("forceUpdate", value.forceUpdate());
         payload.put("notes", value.resolvedNotes());
         payload.put("changes", value.normalizedChanges());
-        payload.put("externalUrl", value.externalUrl() == null ? "" : value.externalUrl());
+        payload.put("externalUrl", externalOrDefault(origin, value));
         return PluginHttpResponse.rawJson(200, payload);
     }
 
@@ -204,9 +209,7 @@ public class UpdatePublicController {
         payload.put("published_at", pubDate);
         payload.put("force_update", release.forceUpdate());
         payload.put("channel", release.channel());
-        if (release.externalUrl() != null && !release.externalUrl().isBlank()) {
-            payload.put("externalUrl", release.externalUrl());
-        }
+        payload.put("externalUrl", externalOrDefault(origin, release));
         return PluginHttpResponse.rawJson(200, payload);
     }
 
@@ -299,6 +302,31 @@ public class UpdatePublicController {
         return PluginHttpResponse.rawJson(200, payload);
     }
 
+    /** 更新日志索引页（HTML）：全部公开版本列表。 */
+    @PluginHttpEndpoint(method = "GET", path = "/v1/update/changelog", wrapResult = false)
+    public PluginHttpResponse changelogIndex(PluginHttpRequest request) {
+        String origin = UpdateHttpSupport.normalizeOrigin(request);
+        List<UpdateRelease> visible = updates.listReleases().stream()
+                .filter(UpdateRelease::isPubliclyVisible)
+                .toList();
+        return html(200, UpdateChangelogPage.renderIndexPage(visible, origin));
+    }
+
+    /** 单版本更新日志页（HTML）：启动器「查看完整更新日志」的自动落地页。 */
+    @PluginHttpEndpoint(method = "GET", path = "/v1/update/changelog/{version}", wrapResult = false)
+    public PluginHttpResponse changelogVersion(PluginHttpRequest request) {
+        String version = UpdateHttpSupport.segmentAfter(request.path(), "changelog", 0);
+        if (version == null || version.isBlank()) {
+            return changelogIndex(request);
+        }
+        Optional<UpdateRelease> release = updates.findRelease(version);
+        if (release.isEmpty() || !release.get().isPubliclyVisible()) {
+            return html(404, UpdateChangelogPage.renderNotFound(version));
+        }
+        String origin = UpdateHttpSupport.normalizeOrigin(request);
+        return html(200, UpdateChangelogPage.renderVersionPage(release.get(), origin, updates));
+    }
+
     /** 站内托管更新包下载。 */
     @PluginHttpEndpoint(method = "GET", path = "/v1/update/files/{version}/{filename}", wrapResult = false)
     public PluginHttpResponse downloadFile(PluginHttpRequest request) {
@@ -334,6 +362,23 @@ public class UpdatePublicController {
             return null;
         }
         return platform.trim().toLowerCase() + "-" + architecture.trim().toLowerCase();
+    }
+
+    private static PluginHttpResponse html(int status, String document) {
+        return new PluginHttpResponse(
+                status,
+                Map.of("Cache-Control", "public, max-age=300"),
+                "text/html; charset=utf-8",
+                document.getBytes(StandardCharsets.UTF_8),
+                false);
+    }
+
+    /** 启动器外链：手动 externalUrl 优先，否则指向本平台自动生成的更新日志页。 */
+    private static String externalOrDefault(String origin, UpdateRelease release) {
+        if (release.externalUrl() != null && !release.externalUrl().isBlank()) {
+            return release.externalUrl();
+        }
+        return UpdateHttpSupport.absoluteChangelogUrl(origin, release.version());
     }
 
     private static boolean eqIgnoreCase(String left, String right) {
