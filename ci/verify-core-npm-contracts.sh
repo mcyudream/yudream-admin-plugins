@@ -44,7 +44,9 @@ cat > "$VERIFY_DIR/package.json" <<EOF
 EOF
 
 cat > "$VERIFY_DIR/.npmrc" <<EOF
-registry=https://registry.npmjs.org/
+# 非 @yudream 依赖（vue/vue-router/@iconify/json 等）必须走镜像源：
+# 国内 runner 与本地直连 registry.npmjs.org 拉 @iconify/json 会 ECONNRESET/超时。
+registry=${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}
 @yudream:registry=${TARGET_REGISTRY}
 strict-peer-dependencies=false
 EOF
@@ -52,7 +54,12 @@ EOF
 echo "[verify-core-npm-contracts] installing @yudream/plugin-sdk@${SDK_VERSION} from ${TARGET_REGISTRY}"
 echo "[verify-core-npm-contracts] installing @yudream/components@${COMPONENTS_VERSION} from ${TARGET_REGISTRY}"
 
-pnpm --dir "$VERIFY_DIR" install --lockfile=false --ignore-scripts --config.strict-peer-dependencies=false >/dev/null
+# pnpm 把安装失败也打到 stdout，直接丢弃会让 job 无报错 exit 1；落日志失败时回显。
+if ! pnpm --dir "$VERIFY_DIR" install --lockfile=false --ignore-scripts \
+    --config.strict-peer-dependencies=false >"$VERIFY_DIR/install.log" 2>&1; then
+  cat "$VERIFY_DIR/install.log" >&2
+  fail "pnpm install failed for published npm contracts"
+fi
 
 [ -f "$VERIFY_DIR/node_modules/@yudream/plugin-sdk/vite-shared.js" ] || fail "installed @yudream/plugin-sdk is missing vite-shared.js"
 [ -f "$VERIFY_DIR/node_modules/@yudream/plugin-sdk/vite-shared.d.ts" ] || fail "installed @yudream/plugin-sdk is missing vite-shared.d.ts"
