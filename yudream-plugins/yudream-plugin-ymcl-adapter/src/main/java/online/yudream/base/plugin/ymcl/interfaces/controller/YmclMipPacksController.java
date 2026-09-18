@@ -125,6 +125,7 @@ public class YmclMipPacksController {
         }
 
         String channel = partText(request, "channel");
+        String notes = partText(request, "notes");
         String origin = YmclCapabilitiesController.resolveOrigin(request);
         List<Map<String, Object>> manifestFiles;
         List<Map<String, Object>> features;
@@ -158,8 +159,8 @@ public class YmclMipPacksController {
         // 留存原始 mrpack：无 features 裁剪的首装下载直接回原件（MIP WF-4）。
         files.put(packArchiveKey(packId, version), new ByteArrayInputStream(archive.data()),
                 (long) archive.data().length, "application/x-modrinth-modpack+zip");
-        saveVersion(packId, version, channel, manifest);
-        registerPackVersion(packId, version, channel);
+        saveVersion(packId, version, channel, manifest, notes);
+        registerPackVersion(packId, version, channel, notes);
 
         // 一键推送的绑定语义（YAP §7）：part "bind" {serverId, updatePolicy,
         // optional}，发布即投放，与 delta 保持对称；optional=true 合并写为
@@ -242,8 +243,8 @@ public class YmclMipPacksController {
             manifest.put("game", baseGame);
         }
 
-        saveVersion(packId, version, channel, manifest);
-        registerPackVersion(packId, version, channel);
+        saveVersion(packId, version, channel, manifest, str(body, "notes"));
+        registerPackVersion(packId, version, channel, str(body, "notes"));
 
         if (bind != null) {
             saveBinding(packId, version, channel, str(bind, "serverId"),
@@ -1551,18 +1552,23 @@ public class YmclMipPacksController {
         eventBus.publish(YmclEventBus.TYPE_BINDING_UPDATED, Map.of("serverId", serverId, "packId", packId));
     }
 
-    private void saveVersion(String packId, String version, String channel, Map<String, Object> manifest) {
+    private void saveVersion(String packId, String version, String channel,
+            Map<String, Object> manifest, String notes) {
         Map<String, Object> doc = new LinkedHashMap<>();
         doc.put("packId", packId);
         doc.put("version", version);
         doc.put("channel", channel == null ? "stable" : channel);
         doc.put("releasedAt", String.valueOf(System.currentTimeMillis()));
+        // 发布说明（可选）：管理页与玩家更新提示共用；留空不落键。
+        if (notes != null && !notes.isBlank()) {
+            doc.put("notes", notes.trim());
+        }
         doc.put("manifest", manifest);
         documents.save(VERSION_COLLECTION, versionKey(packId, version), doc);
     }
 
     @SuppressWarnings("unchecked")
-    private void registerPackVersion(String packId, String version, String channel) {
+    private void registerPackVersion(String packId, String version, String channel, String notes) {
         Map<String, Object> pack = documents.findById(PACK_COLLECTION, packId)
                 .orElseGet(() -> {
                     Map<String, Object> created = new LinkedHashMap<>();
@@ -1580,6 +1586,10 @@ public class YmclMipPacksController {
         entry.put("version", version);
         entry.put("channel", channel == null ? "stable" : channel);
         entry.put("releasedAt", String.valueOf(System.currentTimeMillis()));
+        // 版本列表端点按 entry 原样回传，notes 放这里即可透传给启动器。
+        if (notes != null && !notes.isBlank()) {
+            entry.put("notes", notes.trim());
+        }
         versions.add(entry);
         pack.put("versions", versions);
         documents.save(PACK_COLLECTION, packId, pack);

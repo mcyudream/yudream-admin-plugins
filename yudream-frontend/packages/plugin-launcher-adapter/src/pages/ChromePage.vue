@@ -15,6 +15,7 @@ import {
 import { computed, onMounted, ref, watch } from 'vue'
 import ChromeNavTree from '../components/ChromeNavTree.vue'
 import type { ChromeTreeNode } from '../components/ChromeNavTree.vue'
+import NavIconPicker from '../components/NavIconPicker.vue'
 import { useLauncherPlugin } from '../composables/useLauncherPlugin'
 import type { YmclChromePage, YmclNavKind, YmclNavNode } from '../types'
 
@@ -211,6 +212,22 @@ const boundVisible = computed({
   },
 })
 
+const boundIcon = computed({
+  get: () => selectedNav.value?.icon || '',
+  set: (value: string) => {
+    if (selectedNav.value) {
+      selectedNav.value.icon = value
+    }
+  },
+})
+
+const selectedIconFallback = computed(() => {
+  if (!selectedNav.value) {
+    return ''
+  }
+  return nodeIcon(selectedNav.value)
+})
+
 const pageOptions = computed(() => [
   { label: '不绑定注册页（仅作分组）', value: '' },
   ...model.chromePages.map(page => ({
@@ -305,8 +322,11 @@ function depthLabel(node: ChromeTreeNode) {
                   <FaInput v-model="selectedNav.title" placeholder="显示在启动器里的名字" />
                 </div>
                 <div class="detail-cell detail-cell--label">图标</div>
-                <div class="detail-cell">
-                  <FaInput v-model="selectedNav.icon" placeholder="i-ri:planet-line" />
+                <div class="detail-cell detail-cell--wide">
+                  <NavIconPicker
+                    v-model="boundIcon"
+                    :fallback="selectedIconFallback"
+                  />
                 </div>
                 <div class="detail-cell detail-cell--label">绑定注册页</div>
                 <div class="detail-cell detail-cell--wide">

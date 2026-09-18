@@ -12,6 +12,7 @@ import online.yudream.base.plugin.launcher.application.service.LauncherProviderA
 import online.yudream.base.plugin.launcher.application.service.ManifestAppService;
 import online.yudream.base.plugin.launcher.application.service.PackAppService;
 import online.yudream.base.plugin.launcher.application.service.YmclChromeAppService;
+import online.yudream.base.plugin.launcher.domain.aggregate.LauncherPackVersion;
 import online.yudream.base.plugin.launcher.domain.valobj.YmclLauncherChrome;
 import online.yudream.base.plugin.launcher.domain.valobj.YmclNavNode;
 import online.yudream.base.plugin.launcher.interfaces.assembler.LauncherWebAssembler;
@@ -120,11 +121,21 @@ public class LauncherHttpFacade {
     }
 
     public PluginHttpResponse getPack(PluginHttpRequest request) {
-        return run(() -> {
+        try {
             String packId = requireSegment(request.path(), "packs");
+            List<LauncherPackVersion> versions;
+            try {
+                versions = packAppService.listVersions(packId);
+            } catch (RuntimeException e) {
+                versions = List.of();
+            }
             return PluginHttpResponse.rawJson(200, assembler.toDetailRes(
-                    packAppService.requirePack(packId), packAppService.listVersions(packId)));
-        });
+                    packAppService.requirePack(packId), versions));
+        } catch (IllegalArgumentException e) {
+            return PluginHttpResponse.rawJson(404, Map.of("message", e.getMessage()));
+        } catch (RuntimeException e) {
+            return PluginHttpResponse.rawJson(500, Map.of("message", e.getMessage()));
+        }
     }
 
     public PluginHttpResponse listVersions(PluginHttpRequest request) {

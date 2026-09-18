@@ -203,7 +203,11 @@ public class PackAppService {
 
     public List<LauncherPackVersion> listVersions(String packId) {
         requirePack(packId);
-        return repository.listVersions(packId);
+        try {
+            return repository.listVersions(packId);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
     }
 
     public LauncherPackVersion requireVersion(String packId, String versionId) {

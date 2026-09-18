@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.launcher.infrastructure.repository;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import online.yudream.base.plugin.launcher.domain.aggregate.LauncherPack;
@@ -35,7 +36,10 @@ public class FilePackRepository implements PackRepository {
 
     public FilePackRepository(PluginFileStore store) {
         this.store = store;
-        this.mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+        this.mapper = new ObjectMapper()
+                .enable(SerializationFeature.INDENT_OUTPUT)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
     }
 
     @Override
@@ -69,8 +73,9 @@ public class FilePackRepository implements PackRepository {
         }
         try {
             return Optional.of(mapper.readValue(file.get().inputStream().readAllBytes(), LauncherPackVersion.class));
-        } catch (IOException e) {
-            throw new RuntimeException("解析版本元数据失败: " + packId + "@" + versionId, e);
+        } catch (IOException | RuntimeException e) {
+            // 旧格式 / 空文件 / 半写入：视为不存在，允许发布覆盖，避免 500 卡死整条管线
+            return Optional.empty();
         }
     }
 
@@ -92,7 +97,7 @@ public class FilePackRepository implements PackRepository {
         try {
             LauncherPack[] arr = mapper.readValue(file.get().inputStream().readAllBytes(), LauncherPack[].class);
             return List.of(arr);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             throw new RuntimeException("解析 packs-index.json 失败", e);
         }
     }
@@ -105,8 +110,8 @@ public class FilePackRepository implements PackRepository {
         try {
             String[] ids = mapper.readValue(file.get().inputStream().readAllBytes(), String[].class);
             return List.of(ids);
-        } catch (IOException e) {
-            throw new RuntimeException("解析版本索引失败: " + packId, e);
+        } catch (IOException | RuntimeException e) {
+            return List.of();
         }
     }
 

@@ -1,12 +1,13 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
 import 'virtual:uno.css'
 import './styles.css'
+import NavIconPicker from './components/NavIconPicker.vue'
 import YmclConnectCard from './components/YmclConnectCard.vue'
 import ChromePage from './pages/ChromePage.vue'
 import ConnectPage from './pages/ConnectPage.vue'
 import PacksPage from './pages/PacksPage.vue'
 
-export { YmclConnectCard }
+export { NavIconPicker, YmclConnectCard }
 export const Connect = ConnectPage
 export const Packs = PacksPage
 export const Chrome = ChromePage
