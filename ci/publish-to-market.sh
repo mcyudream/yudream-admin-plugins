@@ -170,6 +170,23 @@ PY
   [ -z "$tags" ] || set -- "$@" -F "tags=$tags"
   [ "$metadata" = "{}" ] || set -- "$@" -F "metadata=$metadata"
   if ! "$@" -o "$response_file"; then
+    # 市场规则 {code}@{pluginVersion} 不可覆盖：重复发包（版本未变）按已发布跳过，
+    # 其余错误仍然失败。已存在响应形如 {"code":1000,"message":"版本已存在：x@y（…）"}。
+    if "$MARKET_PYTHON" - "$response_file" <<'PY'
+import json
+import sys
+
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+message = str(payload.get("message") or "")
+raise SystemExit(0 if payload.get("code") in (1000, "1000") and "版本已存在" in message else 1)
+PY
+    then
+      echo "[publish-to-market] $plugin_code@$plugin_version already exists in market, skipping (bump plugin.yml version to publish changes)"
+      continue
+    fi
     echo "[publish-to-market] upload failed for $plugin_code@$plugin_version" >&2
     cat "$response_file" >&2 || true
     fail "market publish HTTP error: $plugin_code@$plugin_version"
