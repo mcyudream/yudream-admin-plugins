@@ -950,7 +950,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return seasons.stream()
                 .map(item -> new MinecraftServerSeason(item.id(), item.name(), item.description(), item.startedAt(), item.endedAt(),
                         Boolean.TRUE.equals(item.current()), item.sort() == null ? 0 : item.sort(),
-                        toModpackBinding(item.binding())))
+                        toModpackBinding(item.modpackBinding())))
                 .toList();
     }
 

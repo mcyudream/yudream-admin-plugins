@@ -65,12 +65,12 @@ function setBindingType(season: { modpackBinding?: ModpackBinding | null }, type
             <FaSelect :model-value="bindingOf(season).type || 'NONE'" :options="typeOptions" @update:model-value="setBindingType(season, String($event))" />
           </label>
           <template v-if="bindingOf(season).type === 'VANILLA'">
-            <label class="grid gap-2"><span>游戏版本</span><FaInput v-model="bindingOf(season).gameVersion" placeholder="1.21.4" /></label>
+            <label class="grid gap-2"><span>游戏版本</span><FaInput :model-value="bindingOf(season).gameVersion ?? undefined" placeholder="1.21.4" @update:model-value="bindingOf(season).gameVersion = String($event ?? '')" /></label>
             <label class="grid gap-2"><span>加载器</span><FaSelect v-model="bindingOf(season).loader" :options="loaderOptions" /></label>
           </template>
           <template v-else-if="bindingOf(season).type === 'MRPACK'">
-            <label class="grid gap-2"><span>整合包 ID</span><FaInput v-model="bindingOf(season).packId" placeholder="pack-id" /></label>
-            <label class="grid gap-2"><span>版本（可选）</span><FaInput v-model="bindingOf(season).versionId" placeholder="推荐版本可留空" /></label>
+            <label class="grid gap-2"><span>整合包 ID</span><FaInput :model-value="bindingOf(season).packId ?? undefined" placeholder="pack-id" @update:model-value="bindingOf(season).packId = String($event ?? '')" /></label>
+            <label class="grid gap-2"><span>版本（可选）</span><FaInput :model-value="bindingOf(season).versionId ?? undefined" placeholder="推荐版本可留空" @update:model-value="bindingOf(season).versionId = String($event ?? '')" /></label>
           </template>
         </div>
         <div class="flex justify-end">

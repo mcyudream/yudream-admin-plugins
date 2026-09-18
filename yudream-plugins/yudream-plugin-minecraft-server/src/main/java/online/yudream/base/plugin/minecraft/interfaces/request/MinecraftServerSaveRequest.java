@@ -32,7 +32,7 @@ public record MinecraftServerSaveRequest(
             Long endedAt,
             Boolean current,
             Integer sort,
-            ModpackBinding binding
+            ModpackBinding modpackBinding
     ) {
     }
 

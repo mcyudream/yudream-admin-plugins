@@ -4,5 +4,4 @@
 # every entry must be a root-reactor module. Local and branch builds ignore this
 # file and always build the full reactor.
 
-yudream-plugin-launcher-adapter
-yudream-plugin-ymcl-adapter
+yudream-plugin-minecraft-server

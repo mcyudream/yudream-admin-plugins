@@ -237,7 +237,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
         seasons: serverForm.seasons.map((season, index) => ({
           ...season,
           sort: season.sort ?? index * 10,
-          binding: toBindingPayload(season.modpackBinding),
+          modpackBinding: toBindingPayload(season.modpackBinding),
         })),
       })
       replaceServer(saved)

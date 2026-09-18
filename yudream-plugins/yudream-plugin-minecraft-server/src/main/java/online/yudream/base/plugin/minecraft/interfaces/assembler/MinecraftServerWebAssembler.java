@@ -134,12 +134,12 @@ public class MinecraftServerWebAssembler {
     private MinecraftServerSaveCmd.Season toCmd(MinecraftServerSaveRequest.Season request) {
         return new MinecraftServerSaveCmd.Season(request.id(), request.name(), request.description(), request.startedAt(),
                 request.endedAt(), request.current(), request.sort(),
-                request.binding() == null ? null : new MinecraftServerSaveCmd.ModpackBinding(
-                        request.binding().type(),
-                        request.binding().gameVersion(),
-                        request.binding().loader(),
-                        request.binding().packId(),
-                        request.binding().versionId()
+                request.modpackBinding() == null ? null : new MinecraftServerSaveCmd.ModpackBinding(
+                        request.modpackBinding().type(),
+                        request.modpackBinding().gameVersion(),
+                        request.modpackBinding().loader(),
+                        request.modpackBinding().packId(),
+                        request.modpackBinding().versionId()
                 ));
     }
 
