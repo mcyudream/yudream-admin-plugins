@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
 import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
-import type { MaterialSummary, PreviewInfo } from '../types'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
+import type { MaterialItemView, MaterialSummary, PreviewInfo } from '../types'
+import { FaButton, FaDrawer, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref, watch } from 'vue'
 import CategoryPicker from '../components/CategoryPicker.vue'
 import EditMaterialModal from '../components/EditMaterialModal.vue'
+import MaterialItemManager from '../components/MaterialItemManager.vue'
 import NewVersionModal from '../components/NewVersionModal.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
 import ShareModal from '../components/ShareModal.vue'
 import TagPicker from '../components/TagPicker.vue'
-import { formatSize, formatTime, MATERIAL_TYPES } from '../types'
+import { formatSize, formatTime, isBundle, MATERIAL_TYPES } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -29,6 +30,13 @@ const newVersionOpen = ref(false)
 const newVersionTarget = ref<MaterialSummary | null>(null)
 const shareOpen = ref(false)
 const shareTarget = ref<MaterialSummary | null>(null)
+
+// 子物料抽屉：管理员对任意用户的物料增删改子物料并独立管理各子物料版本（走 /admin 代操作接口）
+const itemsOpen = ref(false)
+const itemsTarget = ref<MaterialSummary | null>(null)
+const itemsActiveId = ref('')
+const itemPreviewOpen = ref(false)
+const itemPreviewLabel = ref('')
 
 // 批量操作：FaResponsiveTable 会吞 selectionChange，批量勾选必须用 FaTable（questionbank 同款坑）
 const selectedRows = ref<MaterialSummary[]>([])
@@ -57,10 +65,10 @@ const columns: TableColumn<MaterialSummary>[] = [
   { id: 'owner', header: '归属用户', width: 120 },
   { accessorKey: 'categoryName', header: '分类', width: 100 },
   { id: 'size', header: '大小', width: 100 },
-  { id: 'version', header: '版本', width: 70 },
+  { id: 'version', header: '版本', width: 90 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 430 },
+  { id: 'operation', header: '操作', width: 500 },
 ]
 
 /** 翻页/筛选/刷新后行对象重建，勾选项按 id 修剪，避免对已不在当前页的行批量操作 */
@@ -133,6 +141,32 @@ function openShare(row: MaterialSummary) {
   shareOpen.value = true
 }
 
+/** 打开子物料抽屉：立即拉取该物料的子物料列表（管理端可见任意用户物料的子物料）。 */
+function openItems(row: MaterialSummary) {
+  itemsTarget.value = row
+  itemsActiveId.value = ''
+  itemsOpen.value = true
+  void model.loadItems(row.id, true)
+}
+
+/**
+ * 抽屉内的子物料预览：复用插件的登录态预览端点（管理端走 /admin），
+ * 以 model.preview 为数据源；层级设在抽屉之上，避免被抽屉遮住。
+ */
+function previewItem(payload: { item: MaterialItemView, version: number }) {
+  if (!itemsTarget.value) {
+    return
+  }
+  itemPreviewLabel.value = `${payload.item.name} · v${payload.version}`
+  itemPreviewOpen.value = true
+  void model.loadItemPreview(itemsTarget.value.id, payload.item.id, payload.version, true)
+}
+
+/** 组合物料没有主文件，主文件预览/下载/新版本对它无意义，只在有主文件时开放。 */
+function hasMainFile(row: MaterialSummary) {
+  return !isBundle(row)
+}
+
 function confirmArchive(row: MaterialSummary) {
   confirm.confirm({
     title: '归档物料',
@@ -142,9 +176,12 @@ function confirmArchive(row: MaterialSummary) {
 }
 
 function confirmDelete(row: MaterialSummary) {
+  const scope = hasMainFile(row)
+    ? `全部 ${row.currentVersion} 个版本与文件都会删除`
+    : `其全部 ${row.itemCount} 个子物料（含各自的版本与文件）都会删除`
   confirm.confirm({
     title: '删除物料',
-    content: `确认删除用户 ${row.ownerName || row.ownerId} 的「${row.name}」吗？全部 ${row.currentVersion} 个版本与文件都会删除，不可恢复。`,
+    content: `确认删除用户 ${row.ownerName || row.ownerId} 的「${row.name}」吗？${scope}，不可恢复。`,
     onConfirm: () => model.adminRemove(row),
   })
 }
@@ -254,14 +291,20 @@ onMounted(() => {
       <template #cell-name="{ row }">
         <div class="flex items-center gap-2">
           <strong>{{ row.original.name }}</strong>
-          <FaTag variant="outline" class="shrink-0">.{{ row.original.ext || '?' }}</FaTag>
+          <FaTag v-if="hasMainFile(row.original)" variant="outline" class="shrink-0">.{{ row.original.ext || '?' }}</FaTag>
+          <FaTag v-else variant="secondary" class="shrink-0">组合物料</FaTag>
         </div>
       </template>
-      <template #cell-type="{ row }"><FaTag variant="secondary">{{ row.original.typeLabel }}</FaTag></template>
+      <template #cell-type="{ row }">
+        <FaTag variant="secondary">{{ hasMainFile(row.original) ? row.original.typeLabel : '组合物料' }}</FaTag>
+      </template>
       <template #cell-owner="{ row }">{{ row.original.ownerName || row.original.ownerId }}</template>
       <template #cell-categoryName="{ row }">{{ row.original.categoryName || '-' }}</template>
-      <template #cell-size="{ row }">{{ formatSize(row.original.size) }}</template>
-      <template #cell-version="{ row }">v{{ row.original.currentVersion }}</template>
+      <template #cell-size="{ row }">{{ hasMainFile(row.original) ? formatSize(row.original.size) : '-' }}</template>
+      <template #cell-version="{ row }">
+        <span v-if="hasMainFile(row.original)">v{{ row.original.currentVersion }}</span>
+        <span v-else>{{ row.original.itemCount }} 项</span>
+      </template>
       <template #cell-status="{ row }">
         <FaTag :variant="row.original.status === 'ARCHIVED' ? 'outline' : 'default'">{{ row.original.status === 'ARCHIVED' ? '已归档' : '正常' }}</FaTag>
       </template>
@@ -269,10 +312,11 @@ onMounted(() => {
       <template #cell-operation="{ row }">
         <div class="flex-center flex-wrap gap-2">
           <FaButton size="sm" variant="outline" @click="openPreview(row.original)"><FaIcon name="i-ri:eye-line" />预览</FaButton>
+          <FaButton size="sm" variant="outline" @click="openItems(row.original)"><FaIcon name="i-ri:stack-line" />子物料</FaButton>
           <FaButton size="sm" variant="outline" @click="openEdit(row.original)"><FaIcon name="i-ri:edit-line" />编辑</FaButton>
-          <FaButton size="sm" variant="outline" @click="openNewVersion(row.original)"><FaIcon name="i-ri:upload-cloud-2-line" />新版本</FaButton>
-          <FaButton size="sm" variant="outline" @click="openShare(row.original)"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
-          <FaButton size="sm" variant="outline" @click="model.adminDownload(row.original)"><FaIcon name="i-ri:download-line" />下载</FaButton>
+          <FaButton v-if="hasMainFile(row.original)" size="sm" variant="outline" @click="openNewVersion(row.original)"><FaIcon name="i-ri:upload-cloud-2-line" />新版本</FaButton>
+          <FaButton v-if="hasMainFile(row.original)" size="sm" variant="outline" @click="openShare(row.original)"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
+          <FaButton v-if="hasMainFile(row.original)" size="sm" variant="outline" @click="model.adminDownload(row.original)"><FaIcon name="i-ri:download-line" />下载</FaButton>
           <FaButton v-if="row.original.status !== 'ARCHIVED'" size="sm" variant="outline" @click="confirmArchive(row.original)">归档</FaButton>
           <FaButton v-else size="sm" variant="outline" @click="model.adminSetStatus(row.original, 'ACTIVE')">恢复</FaButton>
           <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
@@ -302,11 +346,49 @@ onMounted(() => {
       :categories="model.categories"
       :tags="model.tags"
       :dept-options="model.adminDeptOptions"
+      :create-category="model.quickCreateCategory"
       :saving="saving"
       @submit="submitEdit"
     />
     <NewVersionModal v-model="newVersionOpen" :sdk="model.sdk" :saving="saving" @submit="submitNewVersion" />
     <ShareModal v-model="shareOpen" :material="shareTarget" :model="model" admin />
+    <FaDrawer
+      v-model="itemsOpen"
+      :title="itemsTarget ? `子物料：${itemsTarget.name}` : '子物料'"
+      description="代任意用户维护子物料，并分别管理每个子物料的独立版本链"
+      side="right"
+      :show-confirm-button="false"
+      show-cancel-button
+      cancel-button-text="关闭"
+      content-class="material-items-drawer"
+      @closed="itemsTarget = null"
+    >
+      <template v-if="itemsTarget">
+        <MaterialItemManager
+          v-model:active-id="itemsActiveId"
+          :model="model"
+          :material-id="itemsTarget.id"
+          :preview-item-id="itemsTarget.previewItemId || ''"
+          admin
+          @preview="previewItem"
+        />
+      </template>
+    </FaDrawer>
+    <FaModal
+      v-model="itemPreviewOpen"
+      :title="`预览：${itemPreviewLabel}`"
+      :z-index="2400"
+      maximize
+      :show-confirm-button="false"
+      show-cancel-button
+      cancel-button-text="关闭"
+    >
+      <PreviewFrame
+        :sdk="model.sdk"
+        :info="model.preview"
+        :loading="model.previewLoading"
+      />
+    </FaModal>
     <FaModal
       v-model="batchCategoryOpen"
       title="批量移动分组"

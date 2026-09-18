@@ -27,6 +27,22 @@ const deptModeOptions = [
 
 const deptSelectOptions = computed(() => deptOptions.value.map(item => ({ label: item.label || item.name, value: item.id })))
 const serverSelectOptions = computed(() => servers.value.map(item => ({ label: item.name, value: item.id })))
+
+/**
+ * 子服选项；默认入口与已装传感器的子服在标签里标出来。
+ *
+ * 首项是空值的「整服」：FaSelect 没有 clearable，如果把「整服」只写成 placeholder，一旦选了
+ * 某台子服就再也回不到整服口径——placeholder 只在无值时显示，点不到。
+ */
+const subServerOptions = (serverId: string) => [
+  { label: '整服（不限子服）', value: '' },
+  ...model.subServersOf(serverId).map(sub => ({
+    value: sub.name,
+    label: sub.name
+      + (sub.defaultServer ? '（默认入口）' : '')
+      + (sub.sensor ? '' : '（未装传感器）'),
+  })),
+]
 const formSelectOptions = computed(() => formOptions.value.map(item => ({ label: item.description ? `${item.name}（${item.description}）` : item.name, value: item.code })))
 
 // FaImageUpload 内部通过 push/splice 原地改数组，不会触发 update:modelValue；
@@ -229,7 +245,13 @@ async function save() {
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <label class="grid gap-2">
                         <span>服务器 <em class="required-mark">*</em></span>
-                        <FaSelect v-model="binding.serverId" :options="serverSelectOptions" placeholder="选择服务器" />
+                        <FaSelect :model-value="binding.serverId" :options="serverSelectOptions" placeholder="选择服务器" @update:model-value="value => model.changeServer(binding, String(value || ''))" />
+                      </label>
+                      <!-- 代理端才有下游子服；单机服的 subServers 为空，这里整块不出现。 -->
+                      <label v-if="model.subServersOf(binding.serverId).length" class="grid gap-2">
+                        <span>子服</span>
+                        <FaSelect v-model="binding.subServer" :options="subServerOptions(binding.serverId)" placeholder="整服（不限子服）" />
+                        <span class="text-xs text-muted-foreground">留空表示整服口径：把该玩家在这台服务器全部子服上的时长相加。选择某一台子服后只按那台计时长。</span>
                       </label>
                       <label class="grid gap-2">
                         <span>活动时段在线时长（分钟）</span>

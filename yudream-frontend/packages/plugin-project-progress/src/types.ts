@@ -22,12 +22,24 @@ export interface ProjectDeptOption {
   children: ProjectDeptOption[]
 }
 
+/** 一台下游子服；只有群组服代理条目才有，单机服为空数组。 */
+export interface ProjectMinecraftSubServer {
+  name: string
+  address: string
+  online: number
+  sensor: boolean
+  defaultServer: boolean
+  sort: number
+}
+
 export interface ProjectMinecraftServerOption {
   id: string
   name: string
   enabled: boolean
   currentSeasonId?: string
   currentSeasonName?: string
+  /** 该服务器的下游子服；界面据此决定要不要显示子服选择。 */
+  subServers?: ProjectMinecraftSubServer[]
 }
 
 export interface ProjectNotificationConnection {
@@ -48,6 +60,8 @@ export interface ProjectStatusOption {
 export interface ProjectMinecraftPolicy {
   enabled: boolean
   serverId: string
+  /** 空表示整服口径（不限子服）；仅在群组服下才可能有值。 */
+  subServer: string
   requiredOnlineMinutes: number
   includeAfk: boolean
   autoCheckInEnabled: boolean
@@ -101,6 +115,12 @@ export interface ProjectWorkDetail {
   updatedAt: number
 }
 
+export interface ProjectMinecraftSubServerEvidence {
+  name: string
+  onlineMillis: number
+  afkMillis: number
+}
+
 export interface ProjectCheckIn {
   id: string
   projectId: string
@@ -118,11 +138,24 @@ export interface ProjectCheckIn {
     serverId: string
     playerId: string
     playerName: string
+    /**
+     * 本次判定所用的子服口径；空表示整服（把该玩家在这台服全部子服上的时长相加）。
+     *
+     * 与 subServers 是两件事：这里回答「这次按哪台算」，subServers 回答「时间分布在哪几台」。
+     */
+    subServer?: string
     totalOnlineMillis: number
     totalAfkMillis: number
     effectiveOnlineMillis: number
     periodStart: number
     periodEnd: number
+    /**
+     * 各子服的**累计**时长明细，只作证据附注。
+     *
+     * 与上面三个 millis 字段口径不同：那几个是打卡周期内的窗口值，这份是该玩家在各子服上的全部
+     * 历史累计，两者不可相加。name 为空表示该记录没有子服维度（单机服或旧版上报）。
+     */
+    subServers?: ProjectMinecraftSubServerEvidence[]
   } | null
   reviewStatus: 'APPROVED' | 'REJECTED'
   reviewedByUserId?: string

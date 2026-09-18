@@ -25,6 +25,28 @@
         </div>
       </FaCard>
       <FaCard title="在线人数趋势" description="Trend"><OnlineTrendChart :items="model.statusHistory" :max-players="server.status?.maxPlayers" :format-time="model.formatTime" /></FaCard>
+      <FaCard v-if="model.adminSurface && server.topology?.reported" title="群组服子服" description="Proxy">
+        <div class="mc-status-board">
+          <FaTag variant="default">{{ server.topology.proxy || 'proxy' }}</FaTag>
+          <strong>{{ server.topology.onlinePlayers }} 人在线</strong>
+          <span>{{ server.topology.servers.length }} 个子服 · {{ server.topology.sensorCount }} 个已装传感器</span>
+          <span>上报于 {{ model.formatTime(server.topology.reportedAt) }}</span>
+          <FaButton size="sm" :loading="model.resolvingTopology" @click="model.resolveTopology(server)"><FaIcon name="i-ri:refresh-line" />重新解析</FaButton>
+        </div>
+        <p v-if="server.topology.proxyVersion" class="mc-topology-note">代理版本 {{ server.topology.proxyVersion }}。子服列表由代理端桥接上报，Admin 无法探测，因此这里只读。</p>
+        <FaResponsiveTable row-key="name" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="subServerColumns" :data="server.topology.servers">
+          <template #cell-address="{ row }"><code>{{ row.original.address || '-' }}</code></template>
+          <template #cell-sensor="{ row }"><FaTag :variant="row.original.sensor ? 'default' : 'secondary'">{{ row.original.sensor ? '已装' : '未装' }}</FaTag></template>
+          <template #cell-defaultServer="{ row }"><FaTag v-if="row.original.defaultServer" variant="default">默认</FaTag><span v-else>-</span></template>
+          <template #card="{ row }">
+            <FaCard class="w-full"><div class="flex flex-col gap-3"><div class="flex items-center justify-between gap-2"><span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span><FaTag :variant="row.sensor ? 'default' : 'secondary'">{{ row.sensor ? '已装传感器' : '未装传感器' }}</FaTag></div><div class="flex flex-col gap-1 text-sm"><div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">地址</span><span class="break-all">{{ row.address || '-' }}</span></div><div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">在线</span><span>{{ row.online }}</span></div><div v-if="row.defaultServer" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">默认服</span><span>是</span></div></div></div></FaCard>
+          </template>
+        </FaResponsiveTable>
+      </FaCard>
+      <FaCard v-else-if="model.adminSurface" title="群组服子服" description="Proxy">
+        <div class="mc-closed-notice">还没有收到代理的子服上报。代理的子服列表只能由代理端桥接上报——Server List Ping 只返回代理自身信息，Admin 无法探测。</div>
+        <div class="mc-actions mc-topology-actions"><FaButton :loading="model.resolvingTopology" @click="model.resolveTopology(server)"><FaIcon name="i-ri:radar-line" />解析群组服</FaButton></div>
+      </FaCard>
       <FaCard title="服务器说明" description="Markdown"><MarkdownPreview :content="server.descriptionMarkdown" /></FaCard>
       <FaCard v-if="model.walletEnabled" title="我的操作记录" description="Records"><FaResponsiveTable row-key="id" table-root-class="max-w-full overflow-x-auto rounded-lg" border stripe :columns="recordColumns" :data="model.records"><template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template><template #cell-source="{ row }">{{ row.original.source || row.original.type }}</template><template #cell-amount="{ row }">{{ model.formatAmount(row.original.amount) }}</template><template #cell-remark="{ row }">{{ row.original.remark || row.original.businessNo || '-' }}</template><template #card="{ row }"><FaCard class="w-full"><div class="flex flex-col gap-3"><div class="flex items-center justify-between gap-2"><span class="min-w-0 break-words text-base font-semibold">{{ row.source || row.type }}</span></div><div class="flex flex-col gap-1 text-sm"><div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">币种</span><span class="break-all">{{ row.assetCode }}</span></div><div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">金额</span><span class="break-all">{{ model.formatAmount(row.amount) }}</span></div><div class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">时间</span><span>{{ model.formatTime(row.createdAt) }}</span></div><div v-if="row.remark || row.businessNo" class="flex gap-2"><span class="shrink-0 text-secondary-foreground/60">备注</span><span class="break-all">{{ row.remark || row.businessNo }}</span></div></div></div></FaCard></template></FaResponsiveTable><FaPagination v-model:page="model.recordsPager.page" v-model:size="model.recordsPager.size" :total="model.recordsPager.total" class="mt-3" @page-change="reloadRecords" @size-change="reloadRecords" /></FaCard>
     </div>
@@ -33,7 +55,7 @@
 </template>
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
-import type { EconomyRecord } from '../types'
+import type { EconomyRecord, MinecraftSubServer } from '../types'
 import { computed } from 'vue'
 import { FaButton, FaCard, FaIcon, FaPagination, FaResponsiveTable, FaTag } from '@yudream/components'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
@@ -43,5 +65,6 @@ const props = defineProps<{ model: MinecraftServerPluginModel }>()
 const server = computed(() => props.model.selectedServer)
 async function reloadRecords() { await props.model.loadRecords() }
 const recordColumns: TableColumn<EconomyRecord>[] = [{ id: 'createdAt', header: '时间', width: 180 }, { id: 'source', header: '类型', width: 140 }, { accessorKey: 'assetCode', header: '币种', width: 100 }, { id: 'amount', header: '金额', width: 120, align: 'right' }, { id: 'remark', header: '备注', minWidth: 240 }]
+const subServerColumns: TableColumn<MinecraftSubServer>[] = [{ accessorKey: 'name', header: '子服', minWidth: 160 }, { accessorKey: 'address', header: '地址', minWidth: 180 }, { accessorKey: 'online', header: '在线', width: 90, align: 'right' }, { accessorKey: 'sensor', header: '传感器', width: 100 }, { accessorKey: 'defaultServer', header: '默认服', width: 90 }]
 function endpointStatus(endpointId?: string) { return server.value?.status?.endpoints.find(item => item.endpointId === endpointId) }
 </script>

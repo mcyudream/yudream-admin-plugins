@@ -139,4 +139,29 @@ class ShareServiceTest {
         assertThrows(NotFoundException.class, () -> service.resolveValid(view.id()));
         assertTrue(shares.listByMaterial(materialId).isEmpty());
     }
+
+    /** 组合物料没有主文件，分享页只渲染当前主文件版本，因此签发阶段就要拒绝而不是发出去打不开。 */
+    @Test
+    void bundleMaterialCannotBeShared() {
+        String bundleId = materialService.create("7",
+                new CreateMaterialCommand(null, null, "明信片", null, List.of(), null, null)).material().id();
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.create("7", bundleId, null, null));
+        assertTrue(error.getMessage().contains("组合物料"));
+        assertThrows(IllegalArgumentException.class, () -> service.createAs("9", bundleId, 24, null));
+        assertTrue(service.listOf(bundleId).isEmpty());
+    }
+
+    /** 升级前签发的（或数据被改成无主文件的）分享链接解析时不能再抛 500，要落到友好错误页。 */
+    @Test
+    void bundleVersionResolveExplainsMissingMainFile() {
+        String bundleId = materialService.create("7",
+                new CreateMaterialCommand(null, null, "明信片", null, List.of(), null, null)).material().id();
+        shares.save(new MaterialShare("tok-bundle", bundleId, "7", "用户7", null, 0, 1000L));
+
+        NotFoundException error = assertThrows(NotFoundException.class,
+                () -> materialService.resolveVersion(service.resolveValid("tok-bundle"), null));
+        assertTrue(error.getMessage().contains("组合物料"));
+    }
 }

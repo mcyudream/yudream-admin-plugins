@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.questionbank.application;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import online.yudream.base.plugin.questionbank.domain.CommandWindow;
 import online.yudream.base.plugin.questionbank.domain.Question;
 import online.yudream.base.plugin.questionbank.infrastructure.QuestionRepository;
 import online.yudream.base.plugin.spi.core.PluginContext;
@@ -63,6 +65,9 @@ public final class QqQuizService implements AutoCloseable {
         if (event.channelId() == null || event.channelId().isBlank()) {
             return;
         }
+        if (rejectOutsideCommandWindow(command, context)) {
+            return;
+        }
         String channelKey = channelKey(event);
         if (activeQuizzes.containsKey(channelKey)) {
             reply(command, context, "当前群正在抢答中，请先等这题结束～", RANK_BUTTONS);
@@ -93,9 +98,12 @@ public final class QqQuizService implements AutoCloseable {
         if (event.channelId() == null || event.channelId().isBlank()) {
             return;
         }
+        if (rejectOutsideCommandWindow(command, context)) {
+            return;
+        }
         List<Map<String, Object>> entries = quizScores.channelLeaderboard(event.connectionId(), event.channelId());
         if (entries.isEmpty()) {
-            reply(command, context, "本群还没有抢答成绩，发送「抽题」开始抢答吧！", DRAW_BUTTONS);
+            reply(command, context, "本群还没有抢答成绩，发送 /抽题 开始抢答吧！", DRAW_BUTTONS);
             return;
         }
         StringBuilder sb = new StringBuilder("🏆 本群抢答排行榜");
@@ -320,6 +328,27 @@ public final class QqQuizService implements AutoCloseable {
 
     private String channelKey(PluginEvent event) {
         return event.connectionId() + ":" + event.channelId();
+    }
+
+    /**
+     * 群指令开放时间闸门：不在开放时间内时只回一条提示，返回 true 表示调用已被拦下。
+     *
+     * <p>只拦指令入口（抽题/抢答榜）。已经出出去的题照常作答：题目在开放时间内发出，玩家答题不该
+     * 因为跨过关闭时刻而失效。
+     */
+    private boolean rejectOutsideCommandWindow(PluginCommandContext command, PluginContext context) {
+        if (!settings.qqCommandWindowEnabled()) {
+            return false;
+        }
+        List<CommandWindow> windows = settings.qqCommandWindows();
+        if (windows.isEmpty()) {
+            return false;
+        }
+        if (CommandWindow.containsAny(windows, LocalTime.now())) {
+            return false;
+        }
+        reply(command, context, "现在不在开放时间，开放时间为 " + CommandWindow.describe(windows) + "。");
+        return true;
     }
 
     private void reply(PluginCommandContext command, PluginContext context, String text) {

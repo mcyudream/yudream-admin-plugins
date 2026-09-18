@@ -415,6 +415,10 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("type", binding.type().name());
         document.put("serverId", binding.serverId());
+        // 只在绑定了子服时写：整服绑定的文档与改造前逐字节一致。
+        if (!binding.subServer().isEmpty()) {
+            document.put("subServer", binding.subServer());
+        }
         document.put("minOnlineMinutes", binding.minOnlineMinutes());
         document.put("includeAfk", binding.includeAfk());
         document.put("autoJoin", binding.autoJoin());
@@ -632,6 +636,8 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         return new ActivityBinding(
                 type,
                 string(document, "serverId"),
+                // subServer 是后加的键：老文档没有它，读成空串即整服口径。
+                string(document, "subServer"),
                 (int) number(document, "minOnlineMinutes", 0),
                 bool(document.get("includeAfk")),
                 bool(document.get("autoJoin")),

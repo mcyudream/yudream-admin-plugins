@@ -4,7 +4,7 @@ import java.io.InputStream;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 
-/** 插件文件存储封装：objectKey 不可变，按 materials/{materialId}/v{version}/file 布局。 */
+/** 插件文件存储封装：objectKey 不可变，按 materials/{materialId}/[items/{itemId}/]v{version}/file 布局。 */
 public final class MaterialFileStorage {
     private final PluginFileStore files;
 
@@ -12,12 +12,22 @@ public final class MaterialFileStorage {
         this.files = files;
     }
 
+    /** 父物料主文件。 */
     public String objectKey(String materialId, int version) {
         return "materials/" + materialId + "/v" + version + "/file";
     }
 
     public String coverObjectKey(String materialId, int version) {
         return "materials/" + materialId + "/v" + version + "/cover.jpg";
+    }
+
+    /** 子物料文件：挂在父物料目录下，itemId 已含父物料前缀但这里仍显式分层，便于按目录排查与清理。 */
+    public String itemObjectKey(String materialId, String itemId, int version) {
+        return "materials/" + materialId + "/items/" + itemId + "/v" + version + "/file";
+    }
+
+    public String itemCoverObjectKey(String materialId, String itemId, int version) {
+        return "materials/" + materialId + "/items/" + itemId + "/v" + version + "/cover.jpg";
     }
 
     public String put(String objectKey, InputStream input, long contentLength, String contentType) {

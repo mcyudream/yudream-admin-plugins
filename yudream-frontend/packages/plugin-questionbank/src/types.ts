@@ -153,6 +153,12 @@ export interface QqQuizGroup {
   tags?: string[]
 }
 
+/** 群指令的开放时间段，HH:mm 文本；start 晚于 end 表示跨零点（22:00-次日 02:00）。 */
+export interface QqCommandWindow {
+  start: string
+  end: string
+}
+
 export interface PluginSettings {
   practiceEnabled: boolean
   aiProviderCode?: string | null
@@ -161,6 +167,10 @@ export interface PluginSettings {
   qqDefaultGroup?: string | null
   qqAnswerSeconds: number
   qqAiGrading: boolean
+  /** 是否限制群指令（抽题/抢答榜）的调用时间。 */
+  qqCommandWindowEnabled: boolean
+  /** 开放时间段；空列表表示不限制。 */
+  qqCommandWindows: QqCommandWindow[]
 }
 
 /** 组卷/大屏共用的随机抽题规则。 */

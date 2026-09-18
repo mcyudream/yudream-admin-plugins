@@ -1,5 +1,6 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, ModpackBinding, PlayerActivity, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
+import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, ModpackBinding, PlayerActivity, PlayerSubServerDetail, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
+import { subServerBreakdown as breakdownOf, hasSubServerDimension, isDefaultSubServer, subServerLabel } from '../utils/subServer'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMinecraftApi } from '../api/minecraft-api'
@@ -25,6 +26,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   const adminSurface = ref(false)
   const closedSurface = ref(false)
   const mapOperating = ref(false)
+  const resolvingTopology = ref(false)
   const serverPager = reactive({ page: 1, size: 10, total: 0 })
   const recordsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const operationsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
@@ -353,6 +355,30 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  /**
+   * 一键解析群组服：拉取代理端桥接已上报的子服表并挂到当前服务器。
+   * 代理的子服列表无法从 Admin 侧探测（Server List Ping 不返回子服），
+   * 未安装桥接时后端会返回具体原因，这里不做额外包装，直接让错误冒泡。
+   */
+  async function resolveTopology(server?: MinecraftServer) {
+    const target = server || selectedServer.value
+    if (!target) {
+      return
+    }
+    resolvingTopology.value = true
+    try {
+      const topology = await api.resolveTopology(target.id)
+      const current = servers.value.find(item => item.id === target.id)
+      if (current) {
+        current.topology = topology
+      }
+      toast.success(`已解析出 ${topology.servers.length} 个子服`)
+    }
+    finally {
+      resolvingTopology.value = false
+    }
+  }
+
   async function previewSeason() {
     if (!walletEnabled.value) {
       toast.warning('钱包插件未启用，周目货币继承已关闭')
@@ -637,6 +663,16 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     return { type: 'NONE' }
   }
 
+  /**
+   * 一个玩家的按子服时长明细。
+   *
+   * 兜底桶的处理与排序口径在 `utils/subServer.ts`，那里是纯函数、有单测；这里只把本组件的时长
+   * 展示口径绑上去。
+   */
+  function subServerBreakdown(record?: PlayerActivity | null): PlayerSubServerDetail[] {
+    return breakdownOf(record, formatDuration)
+  }
+
   function seasonPayload() {
     return {
       name: seasonForm.name.trim(),
@@ -698,6 +734,8 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     mapOperating,
     walletEnabled,
     closedSurface,
+    adminSurface,
+    resolvingTopology,
     servers,
     selectedId,
     selectedServer,
@@ -735,6 +773,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     deleteMap,
     downloadMap,
     refreshStatus,
+    resolveTopology,
     copyServerId,
     previewSeason,
     openSeason,
@@ -750,6 +789,10 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     endpointAddress,
     uploadMarkdownImage,
     formatDuration,
+    subServerLabel,
+    isDefaultSubServer,
+    hasSubServerDimension,
+    subServerBreakdown,
     nextRecordsPage,
     prevRecordsPage,
     nextOperationsPage,

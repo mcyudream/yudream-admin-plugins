@@ -3,8 +3,10 @@ package online.yudream.base.plugin.projectprogress.domain.aggregate;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectAssignmentMode;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectFileEvidence;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record ProjectWorkDetail(
@@ -24,7 +26,8 @@ public record ProjectWorkDetail(
         List<ProjectFileEvidence> acceptanceFiles,
         Long dueAt,
         long createdAt,
-        long updatedAt
+        long updatedAt,
+        Map<String, Long> assigneeSince
 ) {
 
     public ProjectWorkDetail {
@@ -40,6 +43,18 @@ public record ProjectWorkDetail(
         acceptorUserIds = normalizeIds(acceptorUserIds);
         acceptanceSummary = text(acceptanceSummary);
         acceptanceFiles = acceptanceFiles == null ? List.of() : List.copyOf(acceptanceFiles);
+        assigneeSince = normalizeAssigneeSince(assigneeSince, assigneeUserIds);
+    }
+
+    /**
+     * 某个负责人「成为该任务负责人」的时刻，0 表示无从得知。
+     *
+     * <p>时长类证据要按这个时刻起算：玩家接取任务之前的在线时长不该算进这次任务的时长。没有该键的
+     * 老文档（本字段之前落库的细节）读出来是空表，调用方按 0 处理。
+     */
+    public long assigneeSinceOf(String userId) {
+        Long value = assigneeSince.get(text(userId));
+        return value == null ? 0L : value;
     }
 
     public static ProjectWorkDetail create(String projectId, String title, String description, String statusCode,
@@ -49,31 +64,37 @@ public record ProjectWorkDetail(
         long now = System.currentTimeMillis();
         return new ProjectWorkDetail(UUID.randomUUID().toString(), projectId, title, description, statusCode,
                 assignmentMode, requiredAssigneeCount, candidateUserIds, assigneeUserIds, acceptorUserIds,
-                false, false, "", List.of(), dueAt, now, now);
+                false, false, "", List.of(), dueAt, now, now, mergeAssigneeSince(Map.of(), assigneeUserIds, List.of(), now));
     }
 
     public ProjectWorkDetail update(String title, String description, String statusCode, ProjectAssignmentMode assignmentMode,
                                     int requiredAssigneeCount, List<String> candidateUserIds, List<String> assigneeUserIds,
                                     List<String> acceptorUserIds, Boolean published, Long dueAt) {
+        long now = System.currentTimeMillis();
         return new ProjectWorkDetail(id, projectId, title, description, statusCode, assignmentMode, requiredAssigneeCount,
                 candidateUserIds, assigneeUserIds, acceptorUserIds, published == null ? this.published : published,
-                pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt, now,
+                mergeAssigneeSince(assigneeSince, assigneeUserIds, this.assigneeUserIds, now));
     }
 
     public ProjectWorkDetail publish(List<String> assignees) {
+        long now = System.currentTimeMillis();
+        List<String> nextAssignees = assignees == null ? assigneeUserIds : assignees;
         return new ProjectWorkDetail(id, projectId, title, description, statusCode, assignmentMode, requiredAssigneeCount,
-                candidateUserIds, assignees == null ? assigneeUserIds : assignees, acceptorUserIds, true,
-                pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                candidateUserIds, nextAssignees, acceptorUserIds, true,
+                pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt, now,
+                mergeAssigneeSince(assigneeSince, nextAssignees, assigneeUserIds, now));
     }
 
     public ProjectWorkDetail assign(List<String> assignees) {
         if (assignees == null || assignees.isEmpty()) {
             throw new IllegalArgumentException("分配用户不能为空");
         }
+        long now = System.currentTimeMillis();
         return new ProjectWorkDetail(id, projectId, title, description, statusCode, assignmentMode, requiredAssigneeCount,
                 candidateUserIds, assignees, acceptorUserIds, true, pendingAcceptance, acceptanceSummary,
-                acceptanceFiles, dueAt, createdAt,
-                System.currentTimeMillis());
+                acceptanceFiles, dueAt, createdAt, now,
+                mergeAssigneeSince(assigneeSince, assignees, assigneeUserIds, now));
     }
 
     public ProjectWorkDetail claim(String userId) {
@@ -95,9 +116,11 @@ public record ProjectWorkDetail(
         }
         List<String> nextAssignees = new java.util.ArrayList<>(assigneeUserIds);
         nextAssignees.add(safeUserId);
+        long now = System.currentTimeMillis();
         return new ProjectWorkDetail(id, projectId, title, description, statusCode, assignmentMode, requiredAssigneeCount,
                 candidateUserIds, normalizeIds(nextAssignees), acceptorUserIds, true, pendingAcceptance,
-                acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                acceptanceSummary, acceptanceFiles, dueAt, createdAt, now,
+                mergeAssigneeSince(assigneeSince, nextAssignees, assigneeUserIds, now));
     }
 
     public ProjectWorkDetail submitAcceptance(String reviewingStatusCode, String summary, List<ProjectFileEvidence> files) {
@@ -114,19 +137,19 @@ public record ProjectWorkDetail(
         }
         return new ProjectWorkDetail(id, projectId, title, description, requireText(reviewingStatusCode, "验收状态不能为空"),
                 assignmentMode, requiredAssigneeCount, candidateUserIds, assigneeUserIds, acceptorUserIds, published,
-                true, safeSummary, safeFiles, dueAt, createdAt, System.currentTimeMillis());
+                true, safeSummary, safeFiles, dueAt, createdAt, System.currentTimeMillis(), assigneeSince);
     }
 
     public ProjectWorkDetail accept(String doneStatusCode) {
         return new ProjectWorkDetail(id, projectId, title, description, requireText(doneStatusCode, "完成状态不能为空"),
                 assignmentMode, requiredAssigneeCount, candidateUserIds, assigneeUserIds, acceptorUserIds, published,
-                false, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                false, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis(), assigneeSince);
     }
 
     public ProjectWorkDetail reject(String resetStatusCode) {
         return new ProjectWorkDetail(id, projectId, title, description, requireText(resetStatusCode, "重置状态不能为空"),
                 assignmentMode, requiredAssigneeCount, candidateUserIds, assigneeUserIds, acceptorUserIds, published,
-                false, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                false, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis(), assigneeSince);
     }
 
     public boolean claimableBy(String userId) {
@@ -142,7 +165,8 @@ public record ProjectWorkDetail(
     public ProjectWorkDetail withStatus(String nextStatusCode) {
         return new ProjectWorkDetail(id, projectId, title, description, requireText(nextStatusCode, "状态不能为空"),
                 assignmentMode, requiredAssigneeCount, candidateUserIds, assigneeUserIds, acceptorUserIds,
-                published, pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt, System.currentTimeMillis());
+                published, pendingAcceptance, acceptanceSummary, acceptanceFiles, dueAt, createdAt,
+                System.currentTimeMillis(), assigneeSince);
     }
 
     public boolean canAccept(String userId, ProjectProgressProject project) {
@@ -152,6 +176,46 @@ public record ProjectWorkDetail(
 
     public boolean assignedTo(String userId) {
         return assigneeUserIds.contains(text(userId));
+    }
+
+    /**
+     * 把「成为负责人」的时刻对齐到新的负责人列表：本次才进入列表的记为 {@code now}，仍在列表里的保留
+     * 原时刻，被移出列表的丢弃。
+     *
+     * <p>只记首次出现的时刻，不做「移出再加回就重置」：一次任务被移出负责人再放回来，谁都说不清算不算
+     * 重新接取，保留原时刻至少是单调、可解释的。
+     *
+     * <p>「之前就是负责人、但这台细节没有记录」的用户保持未知而不是记成 {@code now}：那是本字段落库
+     * 之前的老数据，读的时候会退回事件流水里真实的认领时刻，在这里补一个「此刻」只会把窗口无端收窄。
+     */
+    private static Map<String, Long> mergeAssigneeSince(Map<String, Long> current, List<String> assignees,
+                                                        List<String> previous, long now) {
+        Map<String, Long> present = current == null ? Map.of() : current;
+        List<String> before = normalizeIds(previous);
+        Map<String, Long> next = new LinkedHashMap<>();
+        for (String userId : normalizeIds(assignees)) {
+            Long existing = present.get(userId);
+            if (existing != null && existing > 0) {
+                next.put(userId, existing);
+            } else if (!before.contains(userId)) {
+                next.put(userId, now);
+            }
+        }
+        return Map.copyOf(next);
+    }
+
+    private static Map<String, Long> normalizeAssigneeSince(Map<String, Long> values, List<String> assignees) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Long> next = new LinkedHashMap<>();
+        for (String userId : assignees) {
+            Long value = values.get(userId);
+            if (value != null && value > 0) {
+                next.put(userId, value);
+            }
+        }
+        return Map.copyOf(next);
     }
 
     private static List<String> normalizeIds(List<String> values) {

@@ -414,3 +414,15 @@
     gap: 4px;
   }
 }
+
+/* 群组服子服表：说明文字与操作区 */
+.mc-topology-note {
+  margin: 8px 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+.mc-topology-actions {
+  margin-top: 12px;
+}

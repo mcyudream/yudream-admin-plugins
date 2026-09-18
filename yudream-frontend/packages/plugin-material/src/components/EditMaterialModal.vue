@@ -15,6 +15,8 @@ const props = defineProps<{
   categories: CategoryView[]
   tags: TagView[]
   deptOptions: DeptOption[]
+  /** 选择分类时就地新增分类（同名会复用已有分类） */
+  createCategory?: (name: string) => Promise<CategoryView | null>
   saving?: boolean
 }>()
 const open = defineModel<boolean>({ required: true })
@@ -64,7 +66,7 @@ function onConfirm() {
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">分类</span>
-        <CategoryPicker v-model="categoryId" :categories="props.categories" />
+        <CategoryPicker v-model="categoryId" :categories="props.categories" :create="props.createCategory" />
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">标签（最多 8 个）</span>

@@ -44,8 +44,7 @@ import java.util.Set;
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
         name = "minecraft-server",
-        version = "1.5.7",
-        description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
+        version = "1.6.0",        description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
 )
 @PluginPermissions({
         @PluginPermission(code = MinecraftServerPlugin.VIEW_PERMISSION, name = "查看 MC 服务器", module = "平台插件", description = "查看 Minecraft 服务器列表、详情与在线状态"),
@@ -289,13 +288,40 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         return view;
     }
 
+    /**
+     * 多台 Admin 服务器条目上的同一玩家合并成一条展示记录。
+     *
+     * <p>子服拆分同样合并：同名子服求和，不同子服的明细都保留，界面才能显示“A 服多久 + B 服多久”。
+     */
     private MinecraftPlayerActivityDTO mergeActivities(String serverName, List<MinecraftPlayerActivityDTO> items) {
         MinecraftPlayerActivityDTO first = items.getFirst();
+        Map<String, List<MinecraftPlayerActivityDTO.SubServerDTO>> byName = items.stream()
+                .flatMap(item -> item.subServers().stream())
+                .collect(java.util.stream.Collectors.groupingBy(
+                        MinecraftPlayerActivityDTO.SubServerDTO::name, LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+        List<MinecraftPlayerActivityDTO.SubServerDTO> subServers = byName.entrySet().stream()
+                .map(entry -> mergeSubServers(entry.getKey(), entry.getValue()))
+                .toList();
         return new MinecraftPlayerActivityDTO(serverName, first.playerId(), first.playerName(),
                 items.stream().anyMatch(MinecraftPlayerActivityDTO::online), items.stream().anyMatch(MinecraftPlayerActivityDTO::afk),
                 items.stream().mapToLong(MinecraftPlayerActivityDTO::totalOnlineMillis).sum(),
                 items.stream().mapToLong(MinecraftPlayerActivityDTO::totalAfkMillis).sum(), null, null,
-                first.lastJoinedAt(), first.lastQuitAt(), first.updatedAt());
+                first.lastJoinedAt(), first.lastQuitAt(), first.updatedAt(), subServers);
+    }
+
+    private static MinecraftPlayerActivityDTO.SubServerDTO mergeSubServers(
+            String name, List<MinecraftPlayerActivityDTO.SubServerDTO> items) {
+        return new MinecraftPlayerActivityDTO.SubServerDTO(name,
+                items.stream().anyMatch(MinecraftPlayerActivityDTO.SubServerDTO::online),
+                items.stream().anyMatch(MinecraftPlayerActivityDTO.SubServerDTO::afk),
+                items.stream().mapToLong(MinecraftPlayerActivityDTO.SubServerDTO::onlineMillis).sum(),
+                items.stream().mapToLong(MinecraftPlayerActivityDTO.SubServerDTO::afkMillis).sum(),
+                null, null,
+                items.stream().map(MinecraftPlayerActivityDTO.SubServerDTO::lastJoinedAt)
+                        .filter(java.util.Objects::nonNull).findFirst().orElse(null),
+                items.stream().map(MinecraftPlayerActivityDTO.SubServerDTO::lastQuitAt)
+                        .filter(java.util.Objects::nonNull).findFirst().orElse(null));
     }
 
     private Map<String, Object> activityView(MinecraftPlayerActivityDTO activity, String serverName) {

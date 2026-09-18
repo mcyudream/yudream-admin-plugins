@@ -2,6 +2,7 @@ package online.yudream.base.plugin.minecraft.infrastructure.repository;
 
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServerTopology;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftEdition;
@@ -15,6 +16,8 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSubServer;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSubServerActivity;
 import online.yudream.base.plugin.minecraft.domain.valobj.ModpackBinding;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
@@ -32,6 +35,21 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     private static final String OPERATIONS = "season-operations";
     private static final String PLAYER_ACTIVITIES = "player-activities";
     private static final String PLAYER_ACTIVITY_EVENTS = "player-activity-events";
+    private static final String TOPOLOGIES = "server-topologies";
+
+    /**
+     * 事件排序：先按发生时间，同一时刻把「收尾」排在「开启」之前。
+     *
+     * <p>代理在换服时于同一毫秒发出「旧子服 QUIT + 新子服 JOIN」。若 JOIN 排在前面，新子服的区间会
+     * 被紧随其后的旧 QUIT 立刻关掉，这一段时长既没算给新子服、又被旧 QUIT 当成自己的收尾——实测能
+     * 让一次几十秒的会话在按子服统计时变成 0 分钟。收尾先于开启才符合「同一时刻不可能同时在线于两
+     * 台子服」的事实。
+     */
+    private static final java.util.Comparator<MinecraftPlayerActivityEvent> EVENT_ORDER =
+            java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt)
+                    .thenComparingInt(event -> event.type() == MinecraftPlayerActivityEvent.Type.JOIN
+                            || event.type() == MinecraftPlayerActivityEvent.Type.AFK_START ? 1 : 0);
+
     private static final int SERVER_SCAN_PAGE_SIZE = 200;
     private static final int SNAPSHOT_SCAN_PAGE_SIZE = 200;
     private static final int SNAPSHOT_SCAN_MAX_PAGES = 10;
@@ -80,6 +98,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         deleteByServerId(OPERATIONS, id);
         deleteByServerId(PLAYER_ACTIVITIES, id);
         deleteByServerId(PLAYER_ACTIVITY_EVENTS, id);
+        documents.delete(TOPOLOGIES, id);
     }
 
     @Override
@@ -176,7 +195,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         return allPlayerActivityEventDocuments(serverId).stream()
                 .map(this::toPlayerActivityEvent)
                 .filter(event -> event.playerId().equals(playerId))
-                .sorted(java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt))
+                .sorted(EVENT_ORDER)
                 .skip((long) (safePage - 1) * safeSize)
                 .limit(safeSize)
                 .toList();
@@ -230,12 +249,21 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     public List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId) {
         return allPlayerActivityEventDocuments(serverId).stream()
                 .map(this::toPlayerActivityEvent)
-                .sorted(java.util.Comparator.comparingLong(MinecraftPlayerActivityEvent::occurredAt))
+                .sorted(EVENT_ORDER)
                 .toList();
     }
 
-    private List<Map<String, Object>> allPlayerActivityEventDocuments(String serverId) {
-        List<Map<String, Object>> result = new java.util.ArrayList<>();
+    @Override
+    public MinecraftServerTopology saveTopology(MinecraftServerTopology topology) {
+        return toTopology(documents.save(TOPOLOGIES, topology.serverId(), topologyDocument(topology)));
+    }
+
+    @Override
+    public Optional<MinecraftServerTopology> findTopology(String serverId) {
+        return documents.findById(TOPOLOGIES, serverId).map(this::toTopology);
+    }
+
+    private List<Map<String, Object>> allPlayerActivityEventDocuments(String serverId) {        List<Map<String, Object>> result = new java.util.ArrayList<>();
         int page = 1;
         while (true) {
             List<Map<String, Object>> rows = documents.findByField(PLAYER_ACTIVITY_EVENTS, "serverId", serverId, page, SERVER_SCAN_PAGE_SIZE);
@@ -374,8 +402,29 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         return document;
     }
 
-    private Map<String, Object> operationDocument(MinecraftSeasonOperation operation) {
+    private Map<String, Object> topologyDocument(MinecraftServerTopology topology) {
         Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", topology.serverId());
+        document.put("serverId", topology.serverId());
+        document.put("proxy", topology.proxy());
+        document.put("proxyVersion", topology.proxyVersion());
+        document.put("reportedAt", topology.reportedAt());
+        document.put("servers", topology.servers().stream().map(this::subServerDocument).toList());
+        return document;
+    }
+
+    private Map<String, Object> subServerDocument(MinecraftSubServer server) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("name", server.name());
+        document.put("address", server.address());
+        document.put("online", server.online());
+        document.put("sensor", server.sensor());
+        document.put("defaultServer", server.defaultServer());
+        document.put("sort", server.sort());
+        return document;
+    }
+
+    private Map<String, Object> operationDocument(MinecraftSeasonOperation operation) {        Map<String, Object> document = new LinkedHashMap<>();
         document.put("id", operation.id());
         document.put("serverId", operation.serverId());
         document.put("fromSeasonId", operation.fromSeasonId());
@@ -405,6 +454,22 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("lastQuitAt", activity.lastQuitAt());
         document.put("createdAt", activity.createdAt());
         document.put("updatedAt", activity.updatedAt());
+        // 子服拆分。顶层字段是它的汇总，写入两边只是为了文档可读与旧读者兜底。
+        document.put("subServers", activity.subServers().values().stream()
+                .map(this::subServerActivityDocument)
+                .toList());
+        return document;
+    }
+
+    private Map<String, Object> subServerActivityDocument(MinecraftSubServerActivity activity) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("name", activity.name());
+        document.put("onlineMillis", activity.onlineMillis());
+        document.put("afkMillis", activity.afkMillis());
+        document.put("currentOnlineSince", activity.currentOnlineSince());
+        document.put("currentAfkSince", activity.currentAfkSince());
+        document.put("lastJoinedAt", activity.lastJoinedAt());
+        document.put("lastQuitAt", activity.lastQuitAt());
         return document;
     }
 
@@ -414,6 +479,10 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("serverId", event.serverId());
         document.put("playerId", event.playerId());
         document.put("playerName", event.playerName());
+        // 只在有子服维度时写这个键：整服事件的文档与改造前逐字节一致，也让旧的读取路径不受影响。
+        if (!event.subServer().isEmpty()) {
+            document.put("subServer", event.subServer());
+        }
         document.put("type", event.type().name());
         document.put("occurredAt", event.occurredAt());
         return document;
@@ -559,6 +628,31 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     }
 
     @SuppressWarnings("unchecked")
+    private MinecraftServerTopology toTopology(Map<String, Object> document) {
+        List<MinecraftSubServer> servers = list(document, "servers").stream()
+                .map(item -> toSubServer((Map<String, Object>) item))
+                .toList();
+        return new MinecraftServerTopology(
+                string(document, "serverId"),
+                string(document, "proxy"),
+                string(document, "proxyVersion"),
+                number(document, "reportedAt", 0L),
+                servers
+        );
+    }
+
+    private MinecraftSubServer toSubServer(Map<String, Object> document) {
+        return new MinecraftSubServer(
+                string(document, "name"),
+                string(document, "address"),
+                integer(document, "online", 0),
+                bool(document, "sensor", false),
+                bool(document, "defaultServer", false),
+                integer(document, "sort", 0)
+        );
+    }
+
+    @SuppressWarnings("unchecked")
     private MinecraftSeasonOperation toOperation(Map<String, Object> document) {
         List<MinecraftInheritanceRule> rules = list(document, "rules").stream()
                 .map(item -> toRule((Map<String, Object>) item))
@@ -608,7 +702,14 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         );
     }
 
+    @SuppressWarnings("unchecked")
     private MinecraftPlayerActivity toPlayerActivity(Map<String, Object> document) {
+        // 本次改动之前写入的文档没有 subServers：这里读出空表，由聚合构造器用汇总字段补一个默认桶。
+        Map<String, MinecraftSubServerActivity> subServers = new LinkedHashMap<>();
+        for (Map<String, Object> item : list(document, "subServers")) {
+            MinecraftSubServerActivity activity = toSubServerActivity(item);
+            subServers.put(activity.name(), activity);
+        }
         return new MinecraftPlayerActivity(
                 string(document, "id"),
                 string(document, "serverId"),
@@ -621,14 +722,30 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 nullableNumber(document, "lastJoinedAt"),
                 nullableNumber(document, "lastQuitAt"),
                 number(document, "createdAt", 0L),
-                number(document, "updatedAt", 0L)
+                number(document, "updatedAt", 0L),
+                subServers
+        );
+    }
+
+    private MinecraftSubServerActivity toSubServerActivity(Map<String, Object> document) {
+        return new MinecraftSubServerActivity(
+                string(document, "name"),
+                number(document, "onlineMillis", 0L),
+                number(document, "afkMillis", 0L),
+                nullableNumber(document, "currentOnlineSince"),
+                nullableNumber(document, "currentAfkSince"),
+                nullableNumber(document, "lastJoinedAt"),
+                nullableNumber(document, "lastQuitAt")
         );
     }
 
     private MinecraftPlayerActivityEvent toPlayerActivityEvent(Map<String, Object> document) {
+        // subServer 是后加的键，改造之前的事件没有它：string(...) 对缺失键返回空串，
+        // 正好等价于「这条事件没有子服维度」。
         return new MinecraftPlayerActivityEvent(
                 string(document, "id"), string(document, "serverId"), string(document, "playerId"),
-                string(document, "playerName"), MinecraftPlayerActivityEvent.Type.valueOf(string(document, "type")),
+                string(document, "playerName"), string(document, "subServer"),
+                MinecraftPlayerActivityEvent.Type.valueOf(string(document, "type")),
                 number(document, "occurredAt", 0L)
         );
     }

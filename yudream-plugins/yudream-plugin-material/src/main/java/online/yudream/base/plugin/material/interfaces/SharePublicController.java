@@ -42,7 +42,14 @@ public final class SharePublicController {
         catch (NotFoundException e) {
             return html(403, errorPage("链接无效或已过期", "该分享链接可能已被撤销、过期或对应物料已删除。"));
         }
-        MaterialVersion version = materialService.resolveVersion(material, null);
+        MaterialVersion version;
+        try {
+            // 升级前签发的组合物料分享链接（或数据被改成无主文件）不能直接 500，要落到友好错误页
+            version = materialService.resolveVersion(material, null);
+        }
+        catch (NotFoundException e) {
+            return html(404, errorPage("该物料无法在线分享", e.getMessage()));
+        }
         PreviewInfo preview;
         try {
             preview = previewService.previewShared(material, version, token, request);

@@ -2,6 +2,7 @@ package online.yudream.base.plugin.projectprogress.application.service;
 
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftPolicy;
+import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftSubServerEvidence;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
@@ -10,6 +11,7 @@ import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class ProjectProgressMinecraftService {
@@ -35,8 +37,10 @@ public class ProjectProgressMinecraftService {
         }
         PluginMinecraftPlayerActivity activity = matchActivity(policy.serverId(), userId)
                 .orElseThrow(() -> new IllegalArgumentException("未找到当前用户的 Minecraft 在线记录"));
+        // 绑定了子服就只按那台子服算：整服口径会把玩家在多台子服上的时间加在一起。
         PluginMinecraftOnlineWindow window = minecraft()
-                .flatMap(service -> service.minecraftOnlineWindow(policy.serverId(), activity.playerId(), periodStart, periodEnd))
+                .flatMap(service -> service.minecraftOnlineWindow(policy.serverId(), activity.playerId(),
+                        policy.scopedToSubServer() ? policy.subServer() : "", periodStart, periodEnd))
                 .orElseThrow(() -> new IllegalArgumentException("Minecraft activity events cannot calculate this check-in period"));
         long effective = policy.includeAfk() ? window.onlineMillis() : window.effectiveOnlineMillis();
         long requiredMillis = policy.requiredOnlineMinutes() * 60_000L;
@@ -44,7 +48,33 @@ public class ProjectProgressMinecraftService {
             throw new IllegalArgumentException("Minecraft 在线时长未达到自动打卡要求");
         }
         return new ProjectMinecraftEvidence(policy.serverId(), activity.playerId(), activity.playerName(),
-                window.onlineMillis(), window.afkMillis(), effective, periodStart, periodEnd);
+                policy.scopedToSubServer() ? policy.subServer() : "",
+                window.onlineMillis(), window.afkMillis(), effective, periodStart, periodEnd,
+                subServerEvidence(policy.serverId(), activity.playerId()));
+    }
+
+    /**
+     * 该玩家在各子服上的累计时长明细，作为打卡证据的附注。
+     *
+     * <p>这是**累计**值，与判定所用的窗口值不是同一口径，因此只随证据留存、不参与达标判断。
+     *
+     * <p>接口自 minecraft-server 1.6.0 起提供。宿主仍运行更早版本时调用会抛 {@link LinkageError}
+     * 而不是 RuntimeException（该方法在旧接口上不存在），此时按「该能力不可用」降级为空明细：
+     * 附带信息缺失不该让玩家这次打卡失败，与项目对软依赖的一贯处理一致。
+     */
+    private List<ProjectMinecraftSubServerEvidence> subServerEvidence(String serverId, String playerId) {
+        Optional<PluginMinecraftService> service = minecraft();
+        if (service.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return service.get().minecraftSubServerActivities(serverId, playerId).stream()
+                    .filter(Objects::nonNull)
+                    .map(item -> new ProjectMinecraftSubServerEvidence(item.subServer(), item.totalOnlineMillis(), item.totalAfkMillis()))
+                    .toList();
+        } catch (LinkageError | RuntimeException e) {
+            return List.of();
+        }
     }
 
     private Optional<PluginMinecraftPlayerActivity> matchActivity(String serverId, String userId) {

@@ -56,4 +56,11 @@ public interface ProjectProgressRepository {
     ProjectProgressEvent saveEvent(ProjectProgressEvent event);
 
     List<ProjectProgressEvent> listEvents(String projectId, Long since, int page, int size);
+
+    /**
+     * 某个工作细节的事件流水（按时间正序）。
+     *
+     * <p>用于在没有「接取时刻」字段的老细节上回溯认领时刻，因此只按 detailId 取，不按项目全量扫描。
+     */
+    List<ProjectProgressEvent> listDetailEvents(String detailId, int page, int size);
 }

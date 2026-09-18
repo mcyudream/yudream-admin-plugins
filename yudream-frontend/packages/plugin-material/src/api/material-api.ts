@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { BatchResult, CategoryView, CoverView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { BatchResult, CategoryView, CoverView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialItemDetail, MaterialItemVersionView, MaterialItemView, MaterialSummary, Page, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 
 type UsersCatalog = {
   departments: (query?: { keyword?: string, flatten?: boolean }) => Promise<DeptOption[]>
@@ -63,12 +63,37 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
       sdk.http.get<PreviewInfo>(`/me/materials/${id(materialId)}/preview${query({ version })}`),
     downloadMine: (materialId: string, version?: number) =>
       sdk.http.blob(`/me/materials/${id(materialId)}/download${query({ version })}`),
+    // ---------- 用户端：子物料（各自独立版本链） ----------
+    myItems: (materialId: string) => records<MaterialItemView>(sdk.http.get(`/me/materials/${id(materialId)}/items`)),
+    createItem: (materialId: string, data: { fileId: string, filename: string, name?: string }) =>
+      sdk.http.post<MaterialItemDetail>(`/me/materials/${id(materialId)}/items`, data),
+    renameItem: (materialId: string, itemId: string, name: string) =>
+      sdk.http.request<MaterialItemView>(`/me/materials/${id(materialId)}/items/${id(itemId)}`, { method: 'PUT', data: { name } }),
+    deleteItem: (materialId: string, itemId: string) =>
+      sdk.http.request<{ deleted: boolean }>(`/me/materials/${id(materialId)}/items/${id(itemId)}`, { method: 'DELETE' }),
+    myItemVersions: (materialId: string, itemId: string) =>
+      records<MaterialItemVersionView>(sdk.http.get(`/me/materials/${id(materialId)}/items/${id(itemId)}/versions`)),
+    newItemVersion: (materialId: string, itemId: string, data: { fileId: string, filename: string, note?: string }) =>
+      sdk.http.post<MaterialItemDetail>(`/me/materials/${id(materialId)}/items/${id(itemId)}/versions`, data),
+    restoreItem: (materialId: string, itemId: string, version: number) =>
+      sdk.http.post<MaterialItemDetail>(`/me/materials/${id(materialId)}/items/${id(itemId)}/restore`, { version }),
+    deleteItemVersion: (materialId: string, itemId: string, version: number) =>
+      sdk.http.request<{ deleted: boolean }>(`/me/materials/${id(materialId)}/items/${id(itemId)}/versions/${version}`, { method: 'DELETE' }),
+    itemPreview: (materialId: string, itemId: string, version?: number) =>
+      sdk.http.get<PreviewInfo>(`/me/materials/${id(materialId)}/items/${id(itemId)}/preview${query({ version })}`),
+    downloadItem: (materialId: string, itemId: string, version?: number) =>
+      sdk.http.blob(`/me/materials/${id(materialId)}/items/${id(itemId)}/download${query({ version })}`),
+    /** 设置组合物料的预览主文件（itemId 为空表示取消指定）；返回被指定的子物料 id（取消时为 ''）。 */
+    setPreviewItem: (materialId: string, itemId: string) =>
+      sdk.http.request<{ previewItemId: string }>(`/me/materials/${id(materialId)}/preview-item`, { method: 'PUT', data: { itemId } }),
     myShares: (materialId: string) => records<ShareView>(sdk.http.get(`/me/materials/${id(materialId)}/shares`)),
     createShare: (materialId: string, data: { expiresInHours?: number, note?: string }) =>
       sdk.http.post<ShareView>(`/me/materials/${id(materialId)}/shares`, data),
     revokeShare: (materialId: string, shareId: string) =>
       sdk.http.request<{ deleted: boolean }>(`/me/materials/${id(materialId)}/shares/${id(shareId)}`, { method: 'DELETE' }),
     myCategories: () => records<CategoryView>(sdk.http.get('/me/categories')),
+    /** 上传/编辑物料时的快捷新增分类：后端同名（忽略大小写）会复用已有分类并原样返回。 */
+    createMyCategory: (data: { name: string }) => sdk.http.post<CategoryView>('/me/categories', data),
     myTags: () => records<TagView>(sdk.http.get('/me/tags')),
     myCovers: (ids: string[]) => records<CoverView>(sdk.http.get(`/me/covers${query({ ids: ids.join(',') })}`)),
     /** 当前用户加入的部门（可见范围选择器数据源，只暴露自己所在部门）。 */
@@ -108,6 +133,29 @@ export function createMaterialApi(sdk: YuDreamPluginSdk) {
       sdk.http.get<PreviewInfo>(`/admin/materials/${id(materialId)}/preview${query({ version })}`),
     adminDownload: (materialId: string, version?: number) =>
       sdk.http.blob(`/admin/materials/${id(materialId)}/download${query({ version })}`),
+    // ---------- 管理端：子物料（跨用户，代操作） ----------
+    adminItems: (materialId: string) => records<MaterialItemView>(sdk.http.get(`/admin/materials/${id(materialId)}/items`)),
+    adminCreateItem: (materialId: string, data: { fileId: string, filename: string, name?: string }) =>
+      sdk.http.post<MaterialItemDetail>(`/admin/materials/${id(materialId)}/items`, data),
+    adminRenameItem: (materialId: string, itemId: string, name: string) =>
+      sdk.http.request<MaterialItemView>(`/admin/materials/${id(materialId)}/items/${id(itemId)}`, { method: 'PUT', data: { name } }),
+    adminDeleteItem: (materialId: string, itemId: string) =>
+      sdk.http.request<{ deleted: boolean }>(`/admin/materials/${id(materialId)}/items/${id(itemId)}`, { method: 'DELETE' }),
+    adminItemVersions: (materialId: string, itemId: string) =>
+      records<MaterialItemVersionView>(sdk.http.get(`/admin/materials/${id(materialId)}/items/${id(itemId)}/versions`)),
+    adminNewItemVersion: (materialId: string, itemId: string, data: { fileId: string, filename: string, note?: string }) =>
+      sdk.http.post<MaterialItemDetail>(`/admin/materials/${id(materialId)}/items/${id(itemId)}/versions`, data),
+    adminRestoreItem: (materialId: string, itemId: string, version: number) =>
+      sdk.http.post<MaterialItemDetail>(`/admin/materials/${id(materialId)}/items/${id(itemId)}/restore`, { version }),
+    adminDeleteItemVersion: (materialId: string, itemId: string, version: number) =>
+      sdk.http.request<{ deleted: boolean }>(`/admin/materials/${id(materialId)}/items/${id(itemId)}/versions/${version}`, { method: 'DELETE' }),
+    adminItemPreview: (materialId: string, itemId: string, version?: number) =>
+      sdk.http.get<PreviewInfo>(`/admin/materials/${id(materialId)}/items/${id(itemId)}/preview${query({ version })}`),
+    adminDownloadItem: (materialId: string, itemId: string, version?: number) =>
+      sdk.http.blob(`/admin/materials/${id(materialId)}/items/${id(itemId)}/download${query({ version })}`),
+    /** 代指定组合物料的预览主文件（不校验归属，itemId 为空表示取消指定）。 */
+    adminSetPreviewItem: (materialId: string, itemId: string) =>
+      sdk.http.request<{ previewItemId: string }>(`/admin/materials/${id(materialId)}/preview-item`, { method: 'PUT', data: { itemId } }),
     adminCategories: () => records<CategoryView>(sdk.http.get('/admin/categories')),
     createCategory: (data: { name: string, sort?: number }) => sdk.http.post<CategoryView>('/admin/categories', data),
     updateCategory: (categoryId: string, data: { name?: string, sort?: number }) =>

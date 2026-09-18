@@ -15,9 +15,11 @@ import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectFileEvide
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectLocationEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftPolicy;
+import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftSubServerEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectStatusOption;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -204,6 +206,14 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 .toList();
     }
 
+    @Override
+    public List<ProjectProgressEvent> listDetailEvents(String detailId, int page, int size) {
+        return documents.findByField(EVENTS, "detailId", detailId, page, size).stream()
+                .map(this::toEvent)
+                .sorted(Comparator.comparingLong(ProjectProgressEvent::createdAt))
+                .toList();
+    }
+
     private List<ProjectWorkDetail> allDetails() {
         List<ProjectWorkDetail> result = new java.util.ArrayList<>();
         int page = 1;
@@ -299,6 +309,10 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         document.put("dueAt", detail.dueAt());
         document.put("createdAt", detail.createdAt());
         document.put("updatedAt", detail.updatedAt());
+        // 只在非空时落键：从来没有负责人、或老细节读进来是空表时，文档与改造前逐字节一致。
+        if (!detail.assigneeSince().isEmpty()) {
+            document.put("assigneeSince", detail.assigneeSince());
+        }
         return document;
     }
 
@@ -360,6 +374,10 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("enabled", policy.enabled());
         document.put("serverId", policy.serverId());
+        // 只在绑定了子服时写：整服策略的文档与改造前逐字节一致。
+        if (policy.subServer() != null && !policy.subServer().isEmpty()) {
+            document.put("subServer", policy.subServer());
+        }
         document.put("requiredOnlineMinutes", policy.requiredOnlineMinutes());
         document.put("includeAfk", policy.includeAfk());
         document.put("autoCheckInEnabled", policy.autoCheckInEnabled());
@@ -395,11 +413,27 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
         document.put("serverId", minecraft.serverId());
         document.put("playerId", minecraft.playerId());
         document.put("playerName", minecraft.playerName());
+        // 判定所依据的子服；空表示整服口径，此时不写键。
+        if (!minecraft.subServer().isEmpty()) {
+            document.put("subServer", minecraft.subServer());
+        }
         document.put("totalOnlineMillis", minecraft.totalOnlineMillis());
         document.put("totalAfkMillis", minecraft.totalAfkMillis());
         document.put("effectiveOnlineMillis", minecraft.effectiveOnlineMillis());
         document.put("periodStart", minecraft.periodStart());
         document.put("periodEnd", minecraft.periodEnd());
+        // 子服累计明细只作证据附注；没有时不写空数组，老文档与单机服的记录保持原样。
+        if (!minecraft.subServers().isEmpty()) {
+            List<Map<String, Object>> subServers = new ArrayList<>();
+            for (ProjectMinecraftSubServerEvidence subServer : minecraft.subServers()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("name", subServer.name());
+                row.put("onlineMillis", subServer.onlineMillis());
+                row.put("afkMillis", subServer.afkMillis());
+                subServers.add(row);
+            }
+            document.put("subServers", subServers);
+        }
         return document;
     }
 
@@ -443,8 +477,38 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 fileList(document.get("acceptanceFiles")),
                 longObject(document, "dueAt"),
                 number(document, "createdAt", 0),
-                number(document, "updatedAt", 0)
+                number(document, "updatedAt", 0),
+                // assigneeSince 是后加的键：老文档没有它，读成空表即「接取时刻未知」。
+                assigneeSinceMap(document.get("assigneeSince"))
         );
+    }
+
+    /** 负责人接取时刻表：键是用户 id，值是毫秒；老文档缺这个键，或值不可解析时读成空表。 */
+    private Map<String, Long> assigneeSinceMap(Object value) {
+        if (!(value instanceof Map<?, ?> raw)) {
+            return Map.of();
+        }
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            long millis;
+            if (entry.getValue() instanceof Number number) {
+                millis = number.longValue();
+            } else {
+                try {
+                    millis = Long.parseLong(String.valueOf(entry.getValue()).trim());
+                } catch (NumberFormatException ignored) {
+                    continue;
+                }
+            }
+            String userId = String.valueOf(entry.getKey()).trim();
+            if (!userId.isEmpty() && millis > 0) {
+                result.put(userId, millis);
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private ProjectCheckInRecord toCheckIn(Map<String, Object> document) {
@@ -508,6 +572,8 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
             return ProjectMinecraftPolicy.disabled();
         }
         return new ProjectMinecraftPolicy(bool(document, "enabled", false), string(document, "serverId"),
+                // subServer 是后加的键：老文档没有它，读成 null 即整服口径。
+                string(document, "subServer"),
                 integer(document, "requiredOnlineMinutes", 0), bool(document, "includeAfk", false),
                 bool(document, "autoCheckInEnabled", false));
     }
@@ -520,8 +586,18 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
     private ProjectMinecraftEvidence toMinecraftEvidence(Map<String, Object> document) {
         return document == null || document.isEmpty() ? null : new ProjectMinecraftEvidence(string(document, "serverId"),
                 string(document, "playerId"), string(document, "playerName"),
+                string(document, "subServer"),
                 number(document, "totalOnlineMillis", 0), number(document, "totalAfkMillis", 0),
-                number(document, "effectiveOnlineMillis", 0), number(document, "periodStart", 0), number(document, "periodEnd", 0));
+                number(document, "effectiveOnlineMillis", 0), number(document, "periodStart", 0), number(document, "periodEnd", 0),
+                subServerEvidenceList(document.get("subServers")));
+    }
+
+    /** 读取子服累计明细；这个键是后加的，老文档与单机服记录里不存在，按空明细处理。 */
+    private List<ProjectMinecraftSubServerEvidence> subServerEvidenceList(Object value) {
+        return mapList(value).stream()
+                .map(row -> new ProjectMinecraftSubServerEvidence(string(row, "name"),
+                        number(row, "onlineMillis", 0), number(row, "afkMillis", 0)))
+                .toList();
     }
 
     private String nullableText(Map<String, Object> document, String key) {

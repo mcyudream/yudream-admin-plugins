@@ -40,7 +40,7 @@ public class ProjectProgressWebAssembler {
                 .toList(), request.defaultStatusCode(), request.doneStatusCode(), request.reworkStatusCode(),
                 request.minCheckInIntervalMinutes(), request.allowedCheckInTypes(),
                 request.minecraftPolicy() == null ? null : new ProjectProgressProjectSaveCmd.MinecraftPolicy(
-                        request.minecraftPolicy().enabled(), request.minecraftPolicy().serverId(),
+                        request.minecraftPolicy().enabled(), request.minecraftPolicy().serverId(), request.minecraftPolicy().subServer(),
                         request.minecraftPolicy().requiredOnlineMinutes(), request.minecraftPolicy().includeAfk(),
                         request.minecraftPolicy().autoCheckInEnabled()),
                 request.notificationConnectionId(), request.notificationChannelId(),
@@ -80,7 +80,11 @@ public class ProjectProgressWebAssembler {
 
     public ProjectMinecraftServerOptionRes toRes(ProjectMinecraftServerOptionDTO dto) {
         return new ProjectMinecraftServerOptionRes(dto.id(), dto.name(), dto.enabled(),
-                dto.currentSeasonId(), dto.currentSeasonName());
+                dto.currentSeasonId(), dto.currentSeasonName(),
+                dto.subServers().stream()
+                        .map(sub -> new ProjectMinecraftServerOptionRes.ProjectMinecraftSubServerRes(
+                                sub.name(), sub.address(), sub.online(), sub.sensor(), sub.defaultServer(), sub.sort()))
+                        .toList());
     }
 
     public ProjectProgressProjectRes toRes(ProjectProgressProjectDTO dto) {
@@ -88,7 +92,7 @@ public class ProjectProgressWebAssembler {
                 dto.statuses().stream().map(item -> new ProjectProgressProjectRes.StatusRes(item.code(), item.label(), item.terminal(), item.sort())).toList(),
                 dto.defaultStatusCode(), dto.doneStatusCode(), dto.reworkStatusCode(), dto.minCheckInIntervalMinutes(),
                 dto.allowedCheckInTypes(),
-                new ProjectProgressProjectRes.MinecraftPolicyRes(dto.minecraftPolicy().enabled(), dto.minecraftPolicy().serverId(),
+                new ProjectProgressProjectRes.MinecraftPolicyRes(dto.minecraftPolicy().enabled(), dto.minecraftPolicy().serverId(), dto.minecraftPolicy().subServer(),
                         dto.minecraftPolicy().requiredOnlineMinutes(), dto.minecraftPolicy().includeAfk(), dto.minecraftPolicy().autoCheckInEnabled()),
                 dto.notificationConnectionId(), dto.notificationChannelId(),
                 dto.enabled(), dto.createdAt(), dto.updatedAt());
@@ -109,8 +113,12 @@ public class ProjectProgressWebAssembler {
                 dto.files().stream().map(file -> new ProjectCheckInRes.FileEvidenceRes(file.objectKey(), file.filename(), file.contentType(), file.size(), file.image())).toList(),
                 dto.location() == null ? null : new ProjectCheckInRes.LocationRes(dto.location().address(), dto.location().latitude(), dto.location().longitude()),
                 dto.minecraft() == null ? null : new ProjectCheckInRes.MinecraftEvidenceRes(dto.minecraft().serverId(), dto.minecraft().playerId(),
-                        dto.minecraft().playerName(), dto.minecraft().totalOnlineMillis(), dto.minecraft().totalAfkMillis(), dto.minecraft().effectiveOnlineMillis(),
-                        dto.minecraft().periodStart(), dto.minecraft().periodEnd()),
+                        dto.minecraft().playerName(), dto.minecraft().subServer(), dto.minecraft().totalOnlineMillis(), dto.minecraft().totalAfkMillis(), dto.minecraft().effectiveOnlineMillis(),
+                        dto.minecraft().periodStart(), dto.minecraft().periodEnd(),
+                        dto.minecraft().subServers().stream()
+                                .map(subServer -> new ProjectCheckInRes.MinecraftSubServerRes(
+                                        subServer.name(), subServer.onlineMillis(), subServer.afkMillis()))
+                                .toList()),
                 dto.reviewStatus(), dto.reviewedByUserId(), dto.reviewedAt(),
                 dto.createdAt());
     }

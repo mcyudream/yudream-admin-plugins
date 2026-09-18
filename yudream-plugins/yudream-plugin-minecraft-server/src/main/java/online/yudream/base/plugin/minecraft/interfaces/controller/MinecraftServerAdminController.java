@@ -58,4 +58,8 @@ public class MinecraftServerAdminController {
 
     @PluginHttpEndpoint(method = "GET", path = "/admin/servers/{serverId}/players", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse playerActivities(PluginHttpRequest request) { return http.playerActivities(request); }
+
+    /** 一键解析群组服：读取代理已上报的子服表；尚未上报时返回可操作的原因。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/topology/resolve", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse resolveTopology(PluginHttpRequest request) { return http.resolveTopology(request); }
 }

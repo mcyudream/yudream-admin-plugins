@@ -12,10 +12,13 @@ fail() {
 search_tree() {
   pattern=$1
   shift
+  # node_modules is a required local artifact (pnpm install before typecheck/build) and can hold
+  # hundreds of MB. Scanning it made this check time out on any machine that had built once, so it
+  # is excluded here the same way the shared-package check below already excluded it.
   if command -v rg >/dev/null 2>&1; then
-    rg -n --no-messages "$pattern" "$@" >/dev/null 2>&1
+    rg -n --no-messages -g '!**/node_modules/**' "$pattern" "$@" >/dev/null 2>&1
   else
-    grep -R -n -- "$pattern" "$@" >/dev/null 2>&1
+    grep -R -n --exclude-dir=node_modules -- "$pattern" "$@" >/dev/null 2>&1
   fi
 }
 
@@ -111,7 +114,10 @@ echo "[verify-plugin-repo-independence] checking shared package public API bound
 if command -v rg >/dev/null 2>&1; then
   invalid_shared_imports=$(rg -n --no-messages '@yudream/(plugin-sdk|components)/' yudream-frontend/packages yudream-plugins -g '!**/node_modules/**' | grep -v '@yudream/plugin-sdk/vite-shared' | grep -v '@yudream/plugin-sdk/uno-config' | grep -v '@yudream/components/resolver' || true)
 else
-  invalid_shared_imports=$(grep -R -n '@yudream/\(plugin-sdk\|components\)/' yudream-frontend/packages yudream-plugins 2>/dev/null | grep -v '@yudream/plugin-sdk/vite-shared' | grep -v '@yudream/plugin-sdk/uno-config' | grep -v '@yudream/components/resolver' || true)
+  # rg honours .gitignore, so it never sees build output; grep does not. Without these excludes the
+  # fallback scans node_modules (whose published SDK references @yudream/plugin-sdk/*) and the built
+  # remoteEntry.js sourcemap comments, and reports every plugin as a violation.
+  invalid_shared_imports=$(grep -R -n --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=target '@yudream/\(plugin-sdk\|components\)/' yudream-frontend/packages yudream-plugins 2>/dev/null | grep -v '@yudream/plugin-sdk/vite-shared' | grep -v '@yudream/plugin-sdk/uno-config' | grep -v '@yudream/components/resolver' || true)
 fi
 
 if [ -n "$invalid_shared_imports" ]; then

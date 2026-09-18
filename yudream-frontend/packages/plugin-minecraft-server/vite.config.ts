@@ -14,6 +14,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // 与其它插件一致：产物需带 manifest.json，JAR 里按 §7 要求同时包含 remoteEntry.js 与 manifest.json
+    manifest: 'manifest.json',
     lib: {
       entry: 'src/index.ts',
       formats: ['es'],

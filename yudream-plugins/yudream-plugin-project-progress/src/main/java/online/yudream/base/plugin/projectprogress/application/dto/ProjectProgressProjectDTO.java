@@ -24,7 +24,7 @@ public record ProjectProgressProjectDTO(
     public record StatusDTO(String code, String label, boolean terminal, int sort) {
     }
 
-    public record MinecraftPolicyDTO(boolean enabled, String serverId, int requiredOnlineMinutes,
+    public record MinecraftPolicyDTO(boolean enabled, String serverId, String subServer, int requiredOnlineMinutes,
                                      boolean includeAfk, boolean autoCheckInEnabled) {
     }
 }

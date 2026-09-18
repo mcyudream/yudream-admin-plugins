@@ -40,6 +40,10 @@ public final class ShareService {
     }
 
     private ShareView doCreate(String actorId, Material material, Integer expiresInHours, String note) {
+        if (!material.mainFilePresent()) {
+            // 分享页与分享下载都只渲染「当前主文件版本」，组合物料没有主文件，签发出来必然打不开
+            throw new IllegalArgumentException("组合物料没有主文件，暂不支持生成分享链接，请分享具体子物料");
+        }
         long now = System.currentTimeMillis();
         long expiresAt = 0;
         if (expiresInHours != null) {

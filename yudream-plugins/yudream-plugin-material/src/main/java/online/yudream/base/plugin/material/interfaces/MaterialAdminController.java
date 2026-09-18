@@ -2,13 +2,17 @@ package online.yudream.base.plugin.material.interfaces;
 
 import online.yudream.base.plugin.material.application.AdminMaterialService;
 import online.yudream.base.plugin.material.application.CategoryService;
+import online.yudream.base.plugin.material.application.MaterialItemService;
 import online.yudream.base.plugin.material.application.MaterialService;
+import online.yudream.base.plugin.material.application.NotFoundException;
 import online.yudream.base.plugin.material.application.PreviewService;
 import online.yudream.base.plugin.material.application.ShareService;
 import online.yudream.base.plugin.material.application.command.NewVersionCommand;
 import online.yudream.base.plugin.material.application.command.UpdateMaterialCommand;
+import online.yudream.base.plugin.material.application.dto.MaterialItemView;
 import online.yudream.base.plugin.material.bootstrap.MaterialPlugin;
 import online.yudream.base.plugin.material.domain.Material;
+import online.yudream.base.plugin.material.domain.MaterialItemVersion;
 import online.yudream.base.plugin.material.domain.MaterialVersion;
 import online.yudream.base.plugin.material.infrastructure.JsonSupport;
 import online.yudream.base.plugin.material.interfaces.request.BatchCategoryRequest;
@@ -18,6 +22,7 @@ import online.yudream.base.plugin.material.interfaces.request.BatchTagsRequest;
 import online.yudream.base.plugin.material.interfaces.request.CategoryRequest;
 import online.yudream.base.plugin.material.interfaces.request.CreateShareRequest;
 import online.yudream.base.plugin.material.interfaces.request.NewVersionRequest;
+import online.yudream.base.plugin.material.interfaces.request.SetPreviewItemRequest;
 import online.yudream.base.plugin.material.interfaces.request.StatusRequest;
 import online.yudream.base.plugin.material.interfaces.request.UpdateMaterialRequest;
 import online.yudream.base.plugin.material.interfaces.support.HttpSupport;
@@ -32,16 +37,18 @@ public final class MaterialAdminController {
     private final CategoryService categoryService;
     private final PreviewService previewService;
     private final ShareService shareService;
+    private final MaterialItemService itemService;
     private final JsonSupport json;
 
     public MaterialAdminController(AdminMaterialService adminService, MaterialService materialService,
                                    CategoryService categoryService, PreviewService previewService,
-                                   ShareService shareService, JsonSupport json) {
+                                   ShareService shareService, MaterialItemService itemService, JsonSupport json) {
         this.adminService = adminService;
         this.materialService = materialService;
         this.categoryService = categoryService;
         this.previewService = previewService;
         this.shareService = shareService;
+        this.itemService = itemService;
         this.json = json;
     }
 
@@ -169,6 +176,13 @@ public final class MaterialAdminController {
     public PluginHttpResponse download(PluginHttpRequest request) {
         return HttpSupport.guard(() -> {
             Material material = materialService.requireAny(HttpSupport.segmentAfter(request.path(), "materials"));
+            if (!material.mainFilePresent()) {
+                // 组合物料按「预览主文件」所指子物料的版本取值，与管理端预览看到的是同一个文件
+                MaterialItemService.PreviewTarget target = requirePreviewTarget(material);
+                MaterialItemVersion version = itemService.resolveVersion(target.item(), HttpSupport.optionalVersion(request));
+                return HttpSupport.download(itemService.resolveVersionFilename(target.item(), version),
+                        version.contentType(), itemService.readBytes(version));
+            }
             MaterialVersion version = materialService.resolveVersion(material, HttpSupport.optionalVersion(request));
             byte[] bytes = materialService.readBytes(version);
             return HttpSupport.download(materialService.resolveVersionFilename(material, version),
@@ -180,8 +194,26 @@ public final class MaterialAdminController {
     public PluginHttpResponse preview(PluginHttpRequest request) {
         return HttpSupport.guard(() -> {
             Material material = materialService.requireAny(HttpSupport.segmentAfter(request.path(), "materials"));
+            if (!material.mainFilePresent()) {
+                MaterialItemService.PreviewTarget target = requirePreviewTarget(material);
+                MaterialItemVersion version = itemService.resolveVersion(target.item(), HttpSupport.optionalVersion(request));
+                return PluginHttpResponse.ok(previewService.previewItem(target.item(), version, request));
+            }
             MaterialVersion version = materialService.resolveVersion(material, HttpSupport.optionalVersion(request));
             return PluginHttpResponse.ok(previewService.preview(material, version, request));
+        });
+    }
+
+    /** 代指定组合物料的预览主文件：itemId 留空表示取消指定。 */
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/materials/{id}/preview-item", permission = MaterialPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse setPreviewItem(PluginHttpRequest request) {
+        return HttpSupport.guard(() -> {
+            SetPreviewItemRequest body = json.read(request.body(), SetPreviewItemRequest.class);
+            MaterialItemView previewItem = itemService.setPreviewItemAs(
+                    HttpSupport.segmentAfter(request.path(), "materials"), body.itemId());
+            // 取消指定时 previewItem 为 null，Map.of 不接受 null，统一空串表达「未指定」
+            return PluginHttpResponse.ok(java.util.Map.of("previewItemId",
+                    previewItem == null ? "" : previewItem.id()));
         });
     }
 
@@ -196,6 +228,15 @@ public final class MaterialAdminController {
     @PluginHttpEndpoint(method = "GET", path = "/admin/categories", permission = MaterialPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse categories(PluginHttpRequest request) {
         return HttpSupport.guard(() -> PluginHttpResponse.ok(java.util.Map.of("records", categoryService.list())));
+    }
+
+    /** 组合物料的主文件等价物：预览主文件所指子物料（未指定时回退第一个子物料），一个都没有则明确报错。 */
+    private MaterialItemService.PreviewTarget requirePreviewTarget(Material material) {
+        MaterialItemService.PreviewTarget target = itemService.resolvePreviewTarget(material);
+        if (target == null) {
+            throw new NotFoundException("组合物料还没有子物料，请先新增子物料或指定预览主文件");
+        }
+        return target;
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/categories", permission = MaterialPlugin.MANAGE_PERMISSION)

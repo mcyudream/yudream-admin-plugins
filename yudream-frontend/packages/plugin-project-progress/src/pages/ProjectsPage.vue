@@ -18,6 +18,24 @@ const checkInTypeOptions = [
 ]
 const statusOptions = computed(() => props.model.projectStatusOptions.map(item => ({ label: item.label, value: item.code })))
 const serverOptions = computed(() => [{ label: '未选择', value: '' }, ...props.model.minecraftServers.map(server => ({ label: `${server.name}${server.currentSeasonName ? ` · ${server.currentSeasonName}` : ''}`, value: server.id }))])
+
+/**
+ * 子服选项；默认入口与未装传感器的子服在标签里标出来。
+ *
+ * 首项是空值的「整服」：FaSelect 没有 clearable，如果把「整服」只写成 placeholder，一旦选了
+ * 某台子服就再也回不到整服口径——placeholder 只在无值时显示，点不到。
+ */
+const minecraftSubServerOptions = computed(() => [
+  { label: '整服（不限子服）', value: '' },
+  ...(props.model.subServersOf(props.model.projectForm.minecraftPolicy.serverId) || []).map(
+    (sub: { name: string, defaultServer: boolean, sensor: boolean }) => ({
+      value: sub.name,
+      label: sub.name
+        + (sub.defaultServer ? '（默认入口）' : '')
+        + (sub.sensor ? '' : '（未装传感器）'),
+    }),
+  ),
+])
 const pagedRows = computed(() => props.model.projects.slice((pagination.page - 1) * pagination.size, pagination.page * pagination.size))
 const columns: TableColumn<ProjectProgressProject>[] = [
   { id: 'project', header: '项目', width: 300, fixed: 'left' }, { id: 'status', header: '状态', width: 110 }, { id: 'managers', header: '负责人', width: 220 }, { id: 'members', header: '成员', width: 90 }, { id: 'checkInTypes', header: '打卡方式', width: 240 }, { id: 'server', header: 'MC 服务器', width: 170 }, { id: 'updatedAt', header: '更新时间', width: 180 }, { id: 'operation', header: '操作', width: 220, align: 'center', fixed: 'right' },
@@ -83,7 +101,8 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
         <div class="pp-form-grid three"><label><span>默认状态</span><FaSelect v-model="model.projectForm.defaultStatusCode" :options="statusOptions" class="w-full" /></label><label><span>完成状态</span><FaSelect v-model="model.projectForm.doneStatusCode" :options="statusOptions" class="w-full" /></label><label><span>返工状态</span><FaSelect v-model="model.projectForm.reworkStatusCode" :options="[{ label: '未设置', value: '' }, ...statusOptions]" class="w-full" /></label></div>
         <div class="pp-form-grid two"><label><span>打卡周期（分钟）</span><FaNumberField v-model="model.projectForm.minCheckInIntervalMinutes" :min="0" class="w-full" /><p class="pp-help">1440 表示每天至少打卡一次，0 表示不限制周期。</p></label><label><span>允许打卡方式</span><FaCheckboxGroup v-model="model.projectForm.allowedCheckInTypes" :options="checkInTypeOptions" class="pp-checkbox-grid" /></label></div>
         <div class="pp-form-grid three"><label><span>本项目 MC 打卡</span><FaSwitch v-model="model.projectForm.minecraftPolicy.enabled" /></label><label><span>满足时长自动打卡</span><FaSwitch v-model="model.projectForm.minecraftPolicy.autoCheckInEnabled" /></label><label><span>AFK 计入在线时长</span><FaSwitch v-model="model.projectForm.minecraftPolicy.includeAfk" /></label></div>
-        <div class="pp-form-grid two"><label><span>Minecraft 服务器</span><FaSelect v-model="model.projectForm.minecraftPolicy.serverId" :options="serverOptions" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" /></label><label><span>要求在线分钟</span><FaNumberField v-model="model.projectForm.minecraftPolicy.requiredOnlineMinutes" :min="1" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" /></label></div>
+        <div class="pp-form-grid two"><label><span>Minecraft 服务器</span><FaSelect :model-value="model.projectForm.minecraftPolicy.serverId" :options="serverOptions" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" @update:model-value="value => model.changeMinecraftServer(String(value || ''))" /></label><label><span>要求在线分钟</span><FaNumberField v-model="model.projectForm.minecraftPolicy.requiredOnlineMinutes" :min="1" class="w-full" :disabled="!model.projectForm.minecraftPolicy.enabled" /></label></div>
+        <div v-if="model.projectForm.minecraftPolicy.enabled && model.subServersOf(model.projectForm.minecraftPolicy.serverId).length" class="pp-form-grid two"><label><span>子服</span><FaSelect v-model="model.projectForm.minecraftPolicy.subServer" :options="minecraftSubServerOptions" placeholder="整服（不限子服）" class="w-full" /><p class="pp-help">留空表示整服口径：把该玩家在这台服务器全部子服上的时长相加。选择某一台后只按那台计时长。</p></label></div>
         <div class="pp-form-grid two"><label><span>发布通知连接</span><FaSelect v-model="model.projectForm.notificationConnectionId" :options="model.notificationConnections.map(item => ({ label: `${item.name}（${item.protocol === 'official' ? '官方 QQ' : item.protocol === 'milky' ? 'Milky' : item.platform || '未知平台'}）`, value: item.id }))" class="w-full" clearable /></label><label><span>发布通知群号</span><FaInput v-model="model.projectForm.notificationChannelId" class="w-full" placeholder="Milky 群号或官方群 openid" /></label></div>
       </div>
       <template #footer><FaButton variant="outline" @click="modalVisible = false">取消</FaButton><FaButton :loading="model.saving" @click="saveProject">保存项目</FaButton></template>

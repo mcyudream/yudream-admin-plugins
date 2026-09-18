@@ -1,4 +1,4 @@
-import type { EconomyRecord, MinecraftServer, MinecraftStatusSnapshot, PageResult, PlayerActivity, SeasonOperation } from '../types'
+import type { EconomyRecord, MinecraftServer, MinecraftStatusSnapshot, MinecraftTopology, PageResult, PlayerActivity, SeasonOperation } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 
 export function createMinecraftApi(sdk: YuDreamPluginSdk) {
@@ -36,5 +36,7 @@ export function createMinecraftApi(sdk: YuDreamPluginSdk) {
     rollbackOperation: (operationId: string) => sdk.http.post<SeasonOperation>(`/admin/operations/${encodeURIComponent(operationId)}/rollback`),
     myRecords: (id: string, page = 1, size = 10) => sdk.http.get<PageResult<EconomyRecord>>(`/me/servers/${serverPath(id)}/records${query({ page, size })}`),
     playerActivities: (id: string, page = 1, size = 10) => sdk.http.get<PageResult<PlayerActivity>>(`/admin/servers/${serverPath(id)}/players${query({ page, size })}`),
+    /** 一键解析群组服：读取代理已上报的子服表，未上报时后端会返回具体原因。 */
+    resolveTopology: (id: string) => sdk.http.post<MinecraftTopology>(`/admin/servers/${serverPath(id)}/topology/resolve`),
   }
 }

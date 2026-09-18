@@ -13,9 +13,31 @@ public record MinecraftServerRes(
         SeasonRes currentSeason,
         MinecraftServerStatusRes status,
         MapRes map,
+        TopologyRes topology,
         long createdAt,
         long updatedAt
 ) {
+
+    public record TopologyRes(
+            String proxy,
+            String proxyVersion,
+            long reportedAt,
+            boolean reported,
+            int onlinePlayers,
+            long sensorCount,
+            List<SubServerRes> servers
+    ) {
+    }
+
+    public record SubServerRes(
+            String name,
+            String address,
+            int online,
+            boolean sensor,
+            boolean defaultServer,
+            int sort
+    ) {
+    }
 
     public record MapRes(String fileId, String originalName, boolean publicAccess, String externalUrl) {}
 

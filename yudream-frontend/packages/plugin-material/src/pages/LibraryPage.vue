@@ -9,7 +9,7 @@ import ImportFolderModal from '../components/ImportFolderModal.vue'
 import MaterialCover from '../components/MaterialCover.vue'
 import UploadMaterialModal from '../components/UploadMaterialModal.vue'
 import ShareModal from '../components/ShareModal.vue'
-import { formatSize, MATERIAL_TYPES, TYPE_ICONS, visibilityLabel } from '../types'
+import { formatSize, isBundle, MATERIAL_TYPES, TYPE_ICONS, visibilityLabel } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -39,6 +39,11 @@ function openShare(row: MaterialSummary) {
 /** 卡片上的编辑/分享入口：属主或有管理权限者可用（删除仍仅属主，他人物料的删除在管理页） */
 function canOperate(row: MaterialSummary) {
   return model.isOwner(row) || model.hasManage
+}
+
+/** 下载入口：带主文件的物料下自己的当前版本；组合物料下载「预览主文件」（未指定时为第一个子物料），指定前没有可下载的文件 */
+function canDownload(row: MaterialSummary) {
+  return !isBundle(row) || !!row.previewItemId
 }
 
 const statusOptions = [
@@ -73,7 +78,8 @@ const filteredTags = computed(() => {
 })
 
 function typeIcon(row: MaterialSummary) {
-  return TYPE_ICONS[row.type] || TYPE_ICONS.OTHER
+  // 组合物料本身没有主文件类型，用堆叠图标与卡片「组合物料」标签呼应
+  return isBundle(row) ? 'i-ri:stack-line' : (TYPE_ICONS[row.type] || TYPE_ICONS.OTHER)
 }
 
 function goDetail(row: MaterialSummary) {
@@ -124,11 +130,19 @@ async function submitEdit(payload: { materialId: string, name: string, categoryI
 }
 
 function confirmDelete(row: MaterialSummary) {
+  const scope = isBundle(row)
+    ? `其全部 ${row.itemCount} 个子物料（含各自的版本与文件）都会删除`
+    : `全部 ${row.currentVersion} 个版本与文件都会删除`
   confirm.confirm({
     title: '删除物料',
-    content: `确认删除「${row.name}」吗？全部 ${row.currentVersion} 个版本与文件都会删除，不可恢复。`,
+    content: `确认删除「${row.name}」吗？${scope}，不可恢复。`,
     onConfirm: () => model.removeMaterial(row),
   })
+}
+
+/** 导入文件夹时若选「导入为单个组合物料」，成功后可直接进入该物料详情页维护子物料。 */
+function openImportedBundle(materialId: string) {
+  void router.push({ path: '/platform/plugins/material/detail', query: { id: materialId } })
 }
 
 onMounted(() => {
@@ -240,23 +254,30 @@ onMounted(() => {
                 <MaterialCover v-if="model.covers[row.id]" :src="model.covers[row.id]" :alt="row.name" />
                 <div v-else class="material-thumb-icon">
                   <FaIcon :name="typeIcon(row)" />
-                  <span class="material-thumb-ext">.{{ row.ext || '?' }}</span>
+                  <span class="material-thumb-ext">{{ isBundle(row) ? '组合物料' : `.${row.ext || '?'}` }}</span>
                 </div>
                 <FaTag v-if="row.status === 'ARCHIVED'" variant="secondary" class="material-thumb-archived">已归档</FaTag>
+                <FaTag v-if="isBundle(row)" variant="secondary" class="material-thumb-bundle">{{ row.itemCount }} 个子物料</FaTag>
                 <div class="material-overlay">
                   <button class="material-overlay-btn" title="预览" @click.stop="goDetail(row)"><FaIcon name="i-ri:eye-line" /></button>
-                  <button class="material-overlay-btn" title="下载" @click.stop="model.downloadMine(row)"><FaIcon name="i-ri:download-line" /></button>
+                  <button v-if="canDownload(row)" class="material-overlay-btn" title="下载" @click.stop="model.downloadMine(row)"><FaIcon name="i-ri:download-line" /></button>
                   <button v-if="canOperate(row)" class="material-overlay-btn" title="编辑" @click.stop="openEdit(row)"><FaIcon name="i-ri:edit-line" /></button>
-                  <button v-if="canOperate(row)" class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
+                  <button v-if="canOperate(row) && !isBundle(row)" class="material-overlay-btn" title="分享" @click.stop="openShare(row)"><FaIcon name="i-ri:share-forward-line" /></button>
                   <button v-if="model.isOwner(row)" class="material-overlay-btn is-danger" title="删除" @click.stop="confirmDelete(row)"><FaIcon name="i-ri:delete-bin-line" /></button>
                 </div>
               </div>
               <div class="material-card-body">
                 <button class="material-link material-card-name" :title="row.name" @click="goDetail(row)">{{ row.name }}</button>
                 <div class="material-card-meta">
-                  <span>{{ row.typeLabel }}</span>
-                  <span>{{ formatSize(row.size) }}</span>
-                  <span>v{{ row.currentVersion }}</span>
+                  <template v-if="isBundle(row)">
+                    <span>组合物料</span>
+                    <span>{{ row.itemCount }} 个子物料</span>
+                  </template>
+                  <template v-else>
+                    <span>{{ row.typeLabel }}</span>
+                    <span>{{ formatSize(row.size) }}</span>
+                    <span>v{{ row.currentVersion }}</span>
+                  </template>
                 </div>
                 <div class="material-card-meta">
                   <span v-if="!model.isOwner(row)" class="truncate">{{ row.ownerName || '其他成员' }}</span>
@@ -284,7 +305,7 @@ onMounted(() => {
         />
       </div>
     </div>
-    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :tags="model.tags" :dept-options="model.myDeptOptions" :saving="saving" @submit="submitUpload" />
+    <UploadMaterialModal v-model="uploadOpen" :sdk="model.sdk" :categories="model.categories" :tags="model.tags" :dept-options="model.myDeptOptions" :create-category="model.quickCreateCategory" :saving="saving" @submit="submitUpload" />
     <ImportFolderModal v-model="importOpen" :sdk="model.sdk" :tags="model.tags" :dept-options="model.myDeptOptions" :submit="model.importFolder" />
     <ShareModal v-model="shareOpen" :material="shareTarget" :model="model" :admin="shareAsAdmin" />
     <EditMaterialModal
@@ -293,6 +314,7 @@ onMounted(() => {
       :categories="model.categories"
       :tags="model.tags"
       :dept-options="editDeptOptions"
+      :create-category="model.quickCreateCategory"
       :saving="saving"
       @submit="submitEdit"
     />

@@ -1,8 +1,9 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { BatchResult, CategoryView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
+import type { BatchResult, CategoryView, DeptOption, FolderImportPayload, FolderImportResult, MaterialDetail, MaterialItemView, MaterialSummary, PreviewInfo, ShareView, TagView, VersionView } from '../types'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createMaterialApi, saveBlob } from '../api/material-api'
+import { isBundle } from '../types'
 
 export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   const api = createMaterialApi(sdk)
@@ -16,7 +17,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   const libraryPager = reactive({ page: 1, size: 24, total: 0 })
   const libraryFilters = reactive({ keyword: '', type: '', categoryId: '', status: '', tag: '', scope: '' })
   const tags = ref<TagView[]>([])
-  /** 封面图：materialId -> 签名公开地址（仅图片类型物料有值）。 */
+  /** 封面图：materialId -> 签名公开地址（图片物料用自身缩略图，组合物料用首个图片子物料的缩略图）。 */
   const covers = ref<Record<string, string>>({})
   let librarySeq = 0
   let coverSeq = 0
@@ -26,6 +27,13 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   const versions = ref<VersionView[]>([])
   const preview = ref<PreviewInfo | null>(null)
   const previewLoading = ref(false)
+
+  // ---------- 用户端：子物料（各自独立版本链） ----------
+  const items = ref<MaterialItemView[]>([])
+  const itemsLoading = ref(false)
+  /** 当前展示版本链的子物料 id；与版本列表配套，避免切换目标时出现错配的版本行。 */
+  const itemVersionsFor = ref('')
+  const itemVersions = ref<VersionView[]>([])
 
   // ---------- 用户端：分享外链 ----------
   const shares = ref<ShareView[]>([])
@@ -63,6 +71,34 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
 
   async function loadCategories() {
     categories.value = await api.myCategories()
+  }
+
+  /**
+   * 上传/编辑物料时就地新增分类。先按名称（忽略大小写）在已加载列表里查，命中就直接复用并选中，
+   * 不产生同名重复分类；未命中才调后端。后端同样按名称复用（兜住并发重复点击），所以这里不必再做去重。
+   * 返回 null 表示失败或名称为空，调用方应保持原选中不变。
+   */
+  async function quickCreateCategory(name: string): Promise<CategoryView | null> {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      toast.error('分类名称不能为空')
+      return null
+    }
+    const existing = categories.value.find(category => category.name.toLowerCase() === trimmed.toLowerCase())
+    if (existing) {
+      toast.info(`分类「${existing.name}」已存在，已为你选中`)
+      return existing
+    }
+    try {
+      const created = await api.createMyCategory({ name: trimmed })
+      categories.value = [...categories.value, created]
+      toast.success(`已新增分类「${created.name}」`)
+      return created
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      return null
+    }
   }
 
   async function loadLibrary() {
@@ -116,11 +152,11 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  /** 为当前页的图片物料批量签发缩略图地址；无封面时前端用类型图标兜底。 */
+  /** 为当前页的图片物料批量签发缩略图地址；组合物料取首个图片子物料的缩略图，无封面时前端用类型图标兜底。 */
   async function loadCovers() {
     const seq = ++coverSeq
     const visibleIds = new Set(library.value.map(item => item.id))
-    const ids = library.value.filter(item => item.type === 'IMAGE').map(item => item.id).slice(0, 60)
+    const ids = library.value.filter(item => item.type === 'IMAGE' || isBundle(item)).map(item => item.id).slice(0, 60)
     if (ids.length === 0) {
       if (seq === coverSeq) {
         covers.value = {}
@@ -153,7 +189,8 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
   async function uploadMaterial(fileId: string, filename: string, name: string, categoryId: string, tags: string[], visibility: string, deptIds: string[]) {
     try {
       await api.createMaterial({ fileId, filename, name, categoryId: categoryId || undefined, tags, visibility: visibility || undefined, deptIds })
-      toast.success('物料已上传')
+      // fileId 为空即组合物料：本身没有文件，需要到详情页继续添加子物料
+      toast.success(fileId ? '物料已上传' : '组合物料已创建，请在详情页添加子物料')
       await loadLibrary()
       void loadTags()
     }
@@ -163,13 +200,19 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  /** 文件夹批量导入：分类按名复用或自动创建（可能新增分类），返回 null 表示请求失败。 */
+  /** 文件夹导入：分类按名复用或自动创建（可能新增分类），返回 null 表示请求失败。 */
   async function importFolder(payload: FolderImportPayload): Promise<FolderImportResult | null> {
     try {
       const result = await api.importFolder(payload)
       const target = result.categoryName ? `到「${result.categoryName}」` : ''
+      const bundle = payload.mode === 'BUNDLE'
       if (result.failures.length) {
-        toast.warning(`已导入 ${result.created}/${result.total} 个文件${target}，失败清单见导入窗口`)
+        toast.warning(bundle
+          ? `已创建组合物料「${result.materialName || payload.name || '未命名'}」并导入 ${result.created}/${result.total} 个子物料，失败清单见导入窗口`
+          : `已导入 ${result.created}/${result.total} 个文件${target}，失败清单见导入窗口`)
+      }
+      else if (bundle) {
+        toast.success(`已创建组合物料「${result.materialName || payload.name || '未命名'}」，共 ${result.created} 个子物料${target}`)
       }
       else {
         toast.success(`已导入 ${result.created} 个文件${target}`)
@@ -289,6 +332,193 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
       await api.deleteVersion(materialId, version)
       versions.value = await api.myVersions(materialId)
       toast.success(`已删除 v${version}`)
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+    }
+  }
+
+  // ---------- 用户端：子物料（每个子物料一条独立版本链，admin=true 时走管理端代操作接口） ----------
+
+  async function loadItems(materialId: string, admin = false) {
+    itemsLoading.value = true
+    try {
+      items.value = admin ? await api.adminItems(materialId) : await api.myItems(materialId)
+    }
+    catch (error) {
+      items.value = []
+      toast.error(errorMessage(error))
+    }
+    finally {
+      itemsLoading.value = false
+    }
+  }
+
+  /** 子物料版本列表；itemId 为空表示目标是父物料主文件，此时清空并回退到主版本链。 */
+  async function loadItemVersions(materialId: string, itemId: string, admin = false) {
+    if (!itemId) {
+      itemVersions.value = []
+      itemVersionsFor.value = ''
+      return
+    }
+    try {
+      const records = admin ? await api.adminItemVersions(materialId, itemId) : await api.myItemVersions(materialId, itemId)
+      itemVersions.value = records
+      itemVersionsFor.value = itemId
+    }
+    catch (error) {
+      itemVersions.value = []
+      itemVersionsFor.value = ''
+      toast.error(errorMessage(error))
+    }
+  }
+
+  /** 子物料增删后刷新子物料列表、版本链与父物料详情（itemCount 冗余统计跟随变化）。 */
+  async function refreshItems(materialId: string, admin = false, activeItemId = '') {
+    await loadItems(materialId, admin)
+    if (!admin && detail.value?.material.id === materialId) {
+      detail.value = await api.myDetail(materialId)
+    }
+    await loadItemVersions(materialId, activeItemId, admin)
+  }
+
+  async function createItem(materialId: string, fileId: string, filename: string, name: string, admin = false) {
+    try {
+      const created = admin
+        ? await api.adminCreateItem(materialId, { fileId, filename, name: name || undefined })
+        : await api.createItem(materialId, { fileId, filename, name: name || undefined })
+      toast.success(`已添加子物料「${created.item.name}」`)
+      return created
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function renameItem(materialId: string, itemId: string, name: string, admin = false) {
+    try {
+      if (admin) {
+        await api.adminRenameItem(materialId, itemId, name)
+      }
+      else {
+        await api.renameItem(materialId, itemId, name)
+      }
+      toast.success('子物料名称已更新')
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function removeItem(materialId: string, itemId: string, name: string, admin = false) {
+    try {
+      if (admin) {
+        await api.adminDeleteItem(materialId, itemId)
+      }
+      else {
+        await api.deleteItem(materialId, itemId)
+      }
+      toast.success(`已删除子物料「${name}」`)
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  /** 上传子物料新版本：只影响该子物料的版本链，其他子物料不受影响。 */
+  async function uploadItemVersion(materialId: string, itemId: string, fileId: string, filename: string, note: string, admin = false) {
+    try {
+      const data = { fileId, filename, note: note || undefined }
+      const result = admin
+        ? await api.adminNewItemVersion(materialId, itemId, data)
+        : await api.newItemVersion(materialId, itemId, data)
+      toast.success(`${result.item.name} 已上传 v${result.item.currentVersion}`)
+      return result
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function restoreItemVersion(materialId: string, itemId: string, version: number, admin = false) {
+    try {
+      const result = admin
+        ? await api.adminRestoreItem(materialId, itemId, version)
+        : await api.restoreItem(materialId, itemId, version)
+      toast.success(`${result.item.name} 已回滚到 v${version}`)
+      return result
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  async function removeItemVersion(materialId: string, itemId: string, version: number, admin = false) {
+    try {
+      if (admin) {
+        await api.adminDeleteItemVersion(materialId, itemId, version)
+      }
+      else {
+        await api.deleteItemVersion(materialId, itemId, version)
+      }
+      toast.success(`已删除 v${version}`)
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      throw error
+    }
+  }
+
+  /**
+   * 指定/取消组合物料的预览主文件（itemId 为空表示取消，预览回退第一个子物料）。
+   * 成功后刷新父物料详情，使 mainFilePresent 之外的 previewItemId 也同步到界面。
+   */
+  async function setPreviewItem(materialId: string, itemId: string, admin = false) {
+    try {
+      if (admin) {
+        await api.adminSetPreviewItem(materialId, itemId)
+      }
+      else {
+        await api.setPreviewItem(materialId, itemId)
+      }
+      toast.success(itemId ? '已指定预览主文件' : '已取消预览主文件，预览回到第一个子物料')
+      if (!admin && detail.value?.material.id === materialId) {
+        detail.value = await api.myDetail(materialId)
+      }
+      return true
+    }
+    catch (error) {
+      toast.error(errorMessage(error))
+      return false
+    }
+  }
+
+  async function loadItemPreview(materialId: string, itemId: string, version?: number, admin = false) {    previewLoading.value = true
+    preview.value = null
+    try {
+      preview.value = admin
+        ? await api.adminItemPreview(materialId, itemId, version)
+        : await api.itemPreview(materialId, itemId, version)
+    }
+    catch (error) {
+      preview.value = { mode: 'NONE', message: errorMessage(error) }
+    }
+    finally {
+      previewLoading.value = false
+    }
+  }
+
+  async function downloadItem(materialId: string, itemId: string, fallbackName: string, version?: number, admin = false) {
+    try {
+      const blob = admin
+        ? await api.adminDownloadItem(materialId, itemId, version)
+        : await api.downloadItem(materialId, itemId, version)
+      saveBlob(blob.data, blob.headers, fallbackName)
     }
     catch (error) {
       toast.error(errorMessage(error))
@@ -560,6 +790,10 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     covers,
     detail,
     versions,
+    items,
+    itemsLoading,
+    itemVersions,
+    itemVersionsFor,
     preview,
     previewLoading,
     shares,
@@ -570,6 +804,7 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     adminPager,
     adminFilters,
     loadCategories,
+    quickCreateCategory,
     loadLibrary,
     applyLibraryFilters,
     setCategory,
@@ -587,6 +822,18 @@ export function useMaterialPlugin(sdk: YuDreamPluginSdk) {
     uploadNewVersion,
     restoreVersion,
     removeVersion,
+    loadItems,
+    loadItemVersions,
+    refreshItems,
+    createItem,
+    renameItem,
+    removeItem,
+    uploadItemVersion,
+    restoreItemVersion,
+    removeItemVersion,
+    setPreviewItem,
+    loadItemPreview,
+    downloadItem,
     loadShares,
     createShare,
     revokeShare,

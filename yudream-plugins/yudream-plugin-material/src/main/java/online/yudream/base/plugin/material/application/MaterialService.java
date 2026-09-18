@@ -1,7 +1,5 @@
 package online.yudream.base.plugin.material.application;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,10 +33,17 @@ import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 /**
  * 用户端物料用例：写操作以 ownerId 限定归属，无管理员越权分支；
  * 读操作按 visibility 放行——属主全部可见，非属主可见 PUBLIC 与同部门（部门快照交集）的 DEPT。
+ *
+ * <p>物料分两种形态：带主文件的普通物料（currentVersion ≥ 1），以及不带主文件的组合物料
+ * （currentVersion = 0，文件全部来自 {@link MaterialItemService} 管理的子物料）。
  */
 public final class MaterialService {
     private static final int MAX_TAGS = 8;
     private static final int MAX_TAG_LENGTH = 20;
+    /** 物料名称上限；文件夹导入按「目录名-文件名」拼接名称时也按此截断。 */
+    public static final int MAX_NAME_LENGTH = 120;
+    /** 版本备注上限；文件夹导入把子目录写入备注时会按此截断，避免深层目录导致整项失败。 */
+    public static final int MAX_NOTE_LENGTH = 200;
 
     private final MaterialRepository materials;
     private final MaterialVersionRepository versions;
@@ -47,8 +52,15 @@ public final class MaterialService {
     private final PlatformFileIntake intake;
     private final ShareRepository shares;
     private final FrameworkServices framework;
+    private final StoredFileWriter writer;
     /** 每物料一把锁，防并发上传拿到相同版本号。 */
     private final Map<String, Object> versionLocks = new ConcurrentHashMap<>();
+    /**
+     * 子物料级联清理。装配阶段由 bootstrap 注入（{@link MaterialItemService} 需要本服务做归属与可见性判定，
+     * 直接构造会形成循环依赖，故用接口倒置依赖方向）。
+     */
+    private MaterialItemCascade itemCascade = materialId -> {
+    };
 
     public MaterialService(MaterialRepository materials, MaterialVersionRepository versions,
                            CategoryRepository categories, MaterialFileStorage storage,
@@ -60,6 +72,14 @@ public final class MaterialService {
         this.intake = intake;
         this.shares = shares;
         this.framework = framework;
+        this.writer = new StoredFileWriter(storage);
+    }
+
+    /** 装配阶段注入子物料级联清理；未注入时父物料删除不影响子物料（仅单测场景）。 */
+    public void attachItemCascade(MaterialItemCascade cascade) {
+        if (cascade != null) {
+            this.itemCascade = cascade;
+        }
     }
 
     // ---------- 查询 ----------
@@ -126,15 +146,22 @@ public final class MaterialService {
 
     // ---------- 创建与更新 ----------
 
+    /**
+     * 从平台上传创建物料。command.fileId 为空时创建不带主文件的组合物料，
+     * 文件改由子物料承载（如「明信片」父物料下挂原图/设计稿/成图三个子物料）。
+     */
     public MaterialDetail create(String ownerId, CreateMaterialCommand command) {
+        if (command.fileId() == null || command.fileId().isBlank()) {
+            return createContainer(ownerId, command);
+        }
         String filename = sanitizeFilename(command.filename());
         PluginStoredFile platform = intake.require(command.fileId());
         String id = Ids.newId();
         long now = System.currentTimeMillis();
         String ownerName = resolveUserName(ownerId);
         VisibilityAssignment visibility = resolveVisibilityForUser(ownerId, command.visibility(), command.deptIds());
-        StoredPayload payload = storePayload(storage.objectKey(id, 1), platform, MaterialType.extOf(filename));
-        String coverKey = storeCover(id, 1, MaterialType.extOf(filename), payload.objectKey());
+        StoredFileWriter.StoredPayload payload = writer.write(storage.objectKey(id, 1), platform, MaterialType.extOf(filename));
+        String coverKey = writer.writeCover(storage.coverObjectKey(id, 1), MaterialType.extOf(filename), payload.objectKey());
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, 1), id, 1,
                 payload.objectKey(), filename, MaterialType.extOf(filename), payload.size(),
                 payload.contentType(), null, ownerId, ownerName, now, coverKey);
@@ -142,7 +169,26 @@ public final class MaterialService {
         Material material = new Material(id, displayName(command.name(), filename), MaterialType.extOf(filename),
                 MaterialType.fromFilename(filename), blankToNull(command.categoryId()), normalizeTags(command.tags()),
                 ownerId, ownerName, visibility.value(), visibility.deptIds(), visibility.deptNames(),
-                1, payload.size(), payload.contentType(), Material.STATUS_ACTIVE, now, now);
+                1, payload.size(), payload.contentType(), Material.STATUS_ACTIVE, 0, null, now, now);
+        materials.save(material);
+        return toDetail(material);
+    }
+
+    /** 创建组合物料：无主文件、无主版本链，等待后续上传子物料。 */
+    private MaterialDetail createContainer(String ownerId, CreateMaterialCommand command) {
+        String name = command.name() == null ? "" : command.name().trim();
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("组合物料需要填写名称");
+        }
+        if (name.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("名称不能超过 " + MAX_NAME_LENGTH + " 字");
+        }
+        String id = Ids.newId();
+        long now = System.currentTimeMillis();
+        VisibilityAssignment visibility = resolveVisibilityForUser(ownerId, command.visibility(), command.deptIds());
+        Material material = new Material(id, name, "", MaterialType.OTHER, blankToNull(command.categoryId()),
+                normalizeTags(command.tags()), ownerId, resolveUserName(ownerId), visibility.value(),
+                visibility.deptIds(), visibility.deptNames(), 0, 0L, null, Material.STATUS_ACTIVE, 0, null, now, now);
         materials.save(material);
         return toDetail(material);
     }
@@ -160,8 +206,8 @@ public final class MaterialService {
 
     private MaterialDetail applyMeta(Material material, UpdateMaterialCommand command, boolean userPath, String actorId) {
         String name = command.name() == null || command.name().isBlank() ? material.name() : command.name().trim();
-        if (name.length() > 120) {
-            throw new IllegalArgumentException("名称不能超过 120 字");
+        if (name.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("名称不能超过 " + MAX_NAME_LENGTH + " 字");
         }
         Material updated = material.withMeta(name, blankToNull(command.categoryId()),
                 normalizeTags(command.tags()), System.currentTimeMillis());
@@ -198,8 +244,8 @@ public final class MaterialService {
         int next = material.currentVersion() + 1;
         long now = System.currentTimeMillis();
         String ext = MaterialType.extOf(filename);
-        StoredPayload payload = storePayload(storage.objectKey(id, next), platform, ext);
-        String coverKey = storeCover(id, next, ext, payload.objectKey());
+        StoredFileWriter.StoredPayload payload = writer.write(storage.objectKey(id, next), platform, ext);
+        String coverKey = writer.writeCover(storage.coverObjectKey(id, next), ext, payload.objectKey());
         MaterialVersion version = new MaterialVersion(MaterialVersion.idOf(id, next), id, next,
                 payload.objectKey(), filename, ext, payload.size(), payload.contentType(),
                 normalizeNote(command.note()), actorId, resolveUserName(actorId), now, coverKey);
@@ -455,6 +501,23 @@ public final class MaterialService {
         return updated;
     }
 
+    /** 子物料数量变更后刷新父物料统计（子物料用例调用），列表页因此无需反查子物料集合。 */
+    public Material applyItemCount(Material material, int itemCount) {
+        Material updated = material.withItemCount(itemCount, System.currentTimeMillis());
+        materials.save(updated);
+        return updated;
+    }
+
+    /**
+     * 设置/清空组合物料的预览主文件指针（子物料用例调用，入参已由子物料侧校验归属）。
+     * 指针只存子物料 id，预览时取其当前版本，因此子物料升级后父物料预览自动跟随。
+     */
+    public Material applyPreviewItem(Material material, String previewItemId) {
+        Material updated = material.withPreviewItem(previewItemId, System.currentTimeMillis());
+        materials.save(updated);
+        return updated;
+    }
+
     /** 批量辅助（管理端复用）：分类存在性校验，返回归一化后的 id（null 表示移出分类）。 */
     public String requireCategoryOrNull(String categoryId) {
         String normalized = blankToNull(categoryId);
@@ -467,7 +530,11 @@ public final class MaterialService {
         return normalized;
     }
 
+    /** 主文件版本解析：组合物料只能走「预览主文件」（子物料侧解析），这里明确拒掉避免出现「版本 v0 不存在」的费解提示。 */
     public MaterialVersion resolveVersion(Material material, Integer versionNumber) {
+        if (!material.mainFilePresent()) {
+            throw new NotFoundException("组合物料没有主文件，请在子物料中指定预览主文件或直接预览具体子物料");
+        }
         int target = versionNumber == null ? material.currentVersion() : versionNumber;
         return versions.find(material.id(), target)
                 .orElseThrow(() -> new NotFoundException("版本 v" + target + " 不存在"));
@@ -492,7 +559,8 @@ public final class MaterialService {
             if (hasCoverKey(latest)) {
                 return latest;
             }
-            String coverKey = storeCover(latest.materialId(), latest.version(), latest.ext(), latest.objectKey());
+            String coverKey = writer.writeCover(storage.coverObjectKey(latest.materialId(), latest.version()),
+                    latest.ext(), latest.objectKey());
             if (coverKey == null) {
                 return latest;
             }
@@ -503,23 +571,16 @@ public final class MaterialService {
     }
 
     public byte[] readBytes(MaterialVersion version) {
-        PluginStoredFile stored = storage.getOrNull(version.objectKey());
-        if (stored == null || stored.inputStream() == null) {
-            throw new NotFoundException("文件对象缺失，可能已被清理");
-        }
-        try (InputStream input = stored.inputStream()) {
-            return input.readAllBytes();
-        }
-        catch (Exception e) {
-            throw new IllegalStateException("读取文件失败：" + e.getMessage(), e);
-        }
+        return writer.readBytes(version.objectKey());
     }
 
     public String resolveVersionFilename(Material material, MaterialVersion version) {
         return version.originalName() != null ? version.originalName() : material.name();
     }
 
+    /** 父物料删除：先级联清理子物料（含其版本与文件），再清主版本、分享与物料文档。 */
     void deleteCascade(Material material) {
+        itemCascade.deleteByMaterial(material.id());
         for (MaterialVersion version : versions.listByMaterial(material.id())) {
             versions.delete(version.id());
             deleteStored(version);
@@ -544,56 +605,6 @@ public final class MaterialService {
     }
 
     // ---------- 内部工具 ----------
-
-    private record StoredPayload(String objectKey, long size, String contentType) {
-    }
-
-    /** 平台文件复制进插件命名空间；长度未知时落内存（宿主平台上传本身有大小限制）。 */
-    private StoredPayload storePayload(String objectKey, PluginStoredFile platform, String ext) {
-        String contentType = platform.contentType() != null && !platform.contentType().isBlank()
-                ? platform.contentType() : MaterialType.mimeOf(ext);
-        try {
-            Long length = platform.contentLength();
-            if (length != null && length >= 0) {
-                try (InputStream input = platform.inputStream()) {
-                    storage.put(objectKey, input, length, contentType);
-                }
-                return new StoredPayload(objectKey, length, contentType);
-            }
-            byte[] bytes;
-            try (InputStream input = platform.inputStream()) {
-                bytes = input.readAllBytes();
-            }
-            storage.put(objectKey, new ByteArrayInputStream(bytes), bytes.length, contentType);
-            return new StoredPayload(objectKey, bytes.length, contentType);
-        }
-        catch (Exception e) {
-            throw new IllegalStateException("文件落库失败：" + e.getMessage(), e);
-        }
-    }
-
-    /** 从已落库原图生成 JPEG 缩略图；不可栅格化或解码失败时返回 null，不影响原文件。 */
-    private String storeCover(String materialId, int version, String ext, String sourceObjectKey) {
-        if (!CoverImageSupport.rasterizable(ext)) {
-            return null;
-        }
-        PluginStoredFile stored = storage.getOrNull(sourceObjectKey);
-        if (stored == null || stored.inputStream() == null) {
-            return null;
-        }
-        try (InputStream input = stored.inputStream()) {
-            byte[] jpeg = CoverImageSupport.thumbnailJpeg(input);
-            if (jpeg == null || jpeg.length == 0) {
-                return null;
-            }
-            String coverKey = storage.coverObjectKey(materialId, version);
-            storage.put(coverKey, new ByteArrayInputStream(jpeg), jpeg.length, CoverImageSupport.COVER_CONTENT_TYPE);
-            return coverKey;
-        }
-        catch (Exception e) {
-            return null;
-        }
-    }
 
     private void deleteStored(MaterialVersion version) {
         storage.deleteQuietly(version.objectKey());
@@ -642,7 +653,8 @@ public final class MaterialService {
         return cleaned;
     }
 
-    private static String displayName(String name, String filename) {
+    /** 名称留空时取文件名去扩展名；子物料用例共用。 */
+    static String displayName(String name, String filename) {
         if (name != null && !name.isBlank()) {
             return name.trim();
         }
@@ -654,13 +666,14 @@ public final class MaterialService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private static String normalizeNote(String note) {
+    /** 版本备注归一化（空转 null，超上限拒绝）；子物料用例共用。 */
+    static String normalizeNote(String note) {
         if (note == null || note.isBlank()) {
             return null;
         }
         String trimmed = note.trim();
-        if (trimmed.length() > 200) {
-            throw new IllegalArgumentException("版本备注不能超过 200 字");
+        if (trimmed.length() > MAX_NOTE_LENGTH) {
+            throw new IllegalArgumentException("版本备注不能超过 " + MAX_NOTE_LENGTH + " 字");
         }
         return trimmed;
     }
@@ -681,7 +694,8 @@ public final class MaterialService {
         return normalized;
     }
 
-    private String resolveUserName(String ownerId) {
+    /** 上传人显示名；SPI 异常或用户不存在时返回 null。子物料用例共用。 */
+    String resolveUserName(String ownerId) {
         try {
             Optional<PluginUserProfile> profile = framework.users().findById(Long.parseLong(ownerId));
             return profile.map(user -> user.nickname() != null && !user.nickname().isBlank()

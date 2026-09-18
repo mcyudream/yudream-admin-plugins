@@ -24,7 +24,7 @@ public record ProjectProgressProjectRes(
     public record StatusRes(String code, String label, boolean terminal, int sort) {
     }
 
-    public record MinecraftPolicyRes(boolean enabled, String serverId, int requiredOnlineMinutes,
+    public record MinecraftPolicyRes(boolean enabled, String serverId, String subServer, int requiredOnlineMinutes,
                                      boolean includeAfk, boolean autoCheckInEnabled) {
     }
 }

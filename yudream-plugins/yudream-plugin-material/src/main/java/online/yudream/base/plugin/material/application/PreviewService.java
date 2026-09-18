@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import online.yudream.base.plugin.material.application.dto.PreviewInfo;
 import online.yudream.base.plugin.material.domain.Material;
+import online.yudream.base.plugin.material.domain.MaterialItem;
+import online.yudream.base.plugin.material.domain.MaterialItemVersion;
 import online.yudream.base.plugin.material.domain.MaterialVersion;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -34,6 +36,12 @@ public final class PreviewService {
                 version.objectKey(), displayName(material, version), version.contentType(), version.size())));
     }
 
+    /** 子物料预览：与父物料走同一平台能力，只是 displayName 取子物料名。 */
+    public PreviewInfo previewItem(MaterialItem item, MaterialItemVersion version, PluginHttpRequest request) {
+        return map(filePreview.preview(pluginCode, new PluginPreviewFile(
+                version.objectKey(), displayName(item, version), version.contentType(), version.size())));
+    }
+
     /** 签发当前版本的平台签名公开地址（/api/public/preview/file/...），前端用 sdk.files.assetUrl 解析。 */
     public String signedFilePath(Material material, MaterialVersion version) {
         return filePreview.signedFileUrl(pluginCode, version.objectKey(), displayName(material, version));
@@ -44,11 +52,22 @@ public final class PreviewService {
         if (version == null) {
             return null;
         }
-        String key = version.coverObjectKey();
-        if (key == null || key.isBlank()) {
+        return signedCoverPath(version.coverObjectKey());
+    }
+
+    /** 签发子物料版本的库页缩略图；组合物料在库页用首个图片子物料的封面作代表。 */
+    public String signedItemCoverPath(MaterialItemVersion version) {
+        if (version == null) {
             return null;
         }
-        return filePreview.signedFileUrl(pluginCode, key, "cover.jpg");
+        return signedCoverPath(version.coverObjectKey());
+    }
+
+    private String signedCoverPath(String coverObjectKey) {
+        if (coverObjectKey == null || coverObjectKey.isBlank()) {
+            return null;
+        }
+        return filePreview.signedFileUrl(pluginCode, coverObjectKey, "cover.jpg");
     }
 
     /** 分享页预览：文件地址走分享 token 端点（自带凭证的绝对地址），决策委托平台 previewExternal。 */
@@ -75,6 +94,10 @@ public final class PreviewService {
 
     private static String displayName(Material material, MaterialVersion version) {
         return version.originalName() != null ? version.originalName() : material.name();
+    }
+
+    private static String displayName(MaterialItem item, MaterialItemVersion version) {
+        return version.originalName() != null ? version.originalName() : item.name();
     }
 
     /** 回源地址未配置时从请求头推导（反向代理场景取 X-Forwarded-Proto + Host）。 */

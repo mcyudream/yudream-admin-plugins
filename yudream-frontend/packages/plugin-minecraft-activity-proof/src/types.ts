@@ -69,12 +69,24 @@ export interface ActivityProofTemplate {
   updatedAt: TimeValue
 }
 
+/** 一台下游子服；只有群组服代理条目才有，单机服为空数组。 */
+export interface ActivityProofSubServer {
+  name: string
+  address: string
+  online: number
+  sensor: boolean
+  defaultServer: boolean
+  sort: number
+}
+
 export interface ActivityProofServer {
   id: string
   name: string
   enabled: boolean
   currentSeasonName: string
   currentSeasonStartedAt: TimeValue
+  /** 该服务器的下游子服；界面据此决定要不要显示子服选择。 */
+  subServers: ActivityProofSubServer[]
 }
 
 export interface ActivityProofMapping {
@@ -95,6 +107,8 @@ export interface ActivityBinding {
   type: ActivityBindingType
   serverId: string
   serverName: string
+  /** 空表示整服口径（不限子服）；仅在群组服下才可能有值。 */
+  subServer: string
   minOnlineMinutes: number
   includeAfk: boolean
   autoJoin: boolean
@@ -143,6 +157,8 @@ export interface ActivityFormOption {
 export interface ActivityBindingForm {
   type: ActivityBindingType
   serverId: string
+  /** 空表示整服口径（不限子服）。 */
+  subServer: string
   minOnlineMinutes: number
   includeAfk: boolean
   autoJoin: boolean

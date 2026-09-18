@@ -22,10 +22,10 @@
         <!-- 插件间 provided 依赖在此统一锁定 provider 版本；消费方禁止用 ${project.version} 与自身版本锁步 -->
         <yudream.plugin.yudream-skin.version>1.4.0</yudream.plugin.yudream-skin.version>
         <yudream.plugin.wallet.version>1.1.5</yudream.plugin.wallet.version>
-        <yudream.plugin.minecraft-server.version>1.5.7</yudream.plugin.minecraft-server.version>
+        <yudream.plugin.minecraft-server.version>1.6.0</yudream.plugin.minecraft-server.version>
         <yudream.plugin.ymcl-adapter.version>0.8.0</yudream.plugin.ymcl-adapter.version>
         <yudream.plugin.authlib-injector.version>1.1.5</yudream.plugin.authlib-injector.version>
-        <yudream.plugin.launcher-adapter.version>0.6.0</yudream.plugin.launcher-adapter.version>
+        <yudream.plugin.launcher-adapter.version>0.7.0</yudream.plugin.launcher-adapter.version>
         <yudream.plugin.student-info.version>1.1.2</yudream.plugin.student-info.version>
         <yudream.plugin.mc-wiki.version>2.0.3</yudream.plugin.mc-wiki.version>
         <yudream.plugin.questionbank.version>1.2.1</yudream.plugin.questionbank.version>

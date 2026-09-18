@@ -340,7 +340,8 @@ public final class QuestionBankAdminController {
         return HttpSupport.guard(() -> {
             SettingsRequest body = json.read(request.body(), SettingsRequest.class);
             settingsService.update(body.practiceEnabled(), body.aiProviderCode(), body.aiModelCode(),
-                    body.qqGroups(), body.qqDefaultGroup(), body.qqAnswerSeconds(), body.qqAiGrading());
+                    body.qqGroups(), body.qqDefaultGroup(), body.qqAnswerSeconds(), body.qqAiGrading(),
+                    body.qqCommandWindowEnabled(), body.qqCommandWindows());
             return PluginHttpResponse.ok(settingsService.settingsView());
         });
     }

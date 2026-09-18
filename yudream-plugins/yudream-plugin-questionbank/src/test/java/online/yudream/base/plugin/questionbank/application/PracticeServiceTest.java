@@ -130,7 +130,7 @@ class PracticeServiceTest {
     @Test
     void practiceDisabledBlocksFreePracticeButNotPaperAttempt() {
         addSingle("java", null);
-        settingsService.update(false, null, null, null, null, null, null);
+        settingsService.update(false, null, null, null, null, null, null, null, null);
         assertFalse(settingsService.practiceEnabled());
         assertThrows(IllegalStateException.class, () -> practiceService.createSession("100",
                 new PracticeFilter(null, List.of("java"), List.of(), List.of(), 1)));
@@ -203,7 +203,7 @@ class PracticeServiceTest {
     @Test
     void metaReportsPracticeEnabled() {
         assertEquals(Boolean.TRUE, practiceService.meta().get("practiceEnabled"));
-        settingsService.update(false, null, null, null, null, null, null);
+        settingsService.update(false, null, null, null, null, null, null, null, null);
         assertEquals(Boolean.FALSE, practiceService.meta().get("practiceEnabled"));
     }
 
@@ -282,7 +282,7 @@ class PracticeServiceTest {
 
     @Test
     void attemptRuleBypassesPracticeGateAndResultQueryRespectsOwnership() {
-        settingsService.update(false, null, null, null, null, null, null);
+        settingsService.update(false, null, null, null, null, null, null, null, null);
         addSingle("act", null);
         DefaultQuestionBankApi api = new DefaultQuestionBankApi(practiceService, categoryService);
         QuestionBankApi.QuestionBankAttempt attempt = api.attempt("100",

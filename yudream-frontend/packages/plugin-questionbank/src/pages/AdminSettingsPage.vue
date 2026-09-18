@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
-import type { QqQuizGroup } from '../types'
-import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, useFaToast } from '@yudream/components'
+import type { QqCommandWindow, QqQuizGroup } from '../types'
+import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, YdTimePicker, useFaToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import CategorySelect from '../components/CategorySelect.vue'
 
@@ -19,6 +19,28 @@ const qqDefaultGroup = ref('')
 const qqAnswerSeconds = ref('60')
 const qqAiGrading = ref(true)
 
+// ---------- 群指令开放时间 ----------
+// 每行就是时间选择器的 [开始, 结束]；未选全的行不提交，避免把半截时间段写进设置。
+const qqCommandWindowEnabled = ref(false)
+const qqCommandWindowRows = ref<(string | undefined)[][]>([])
+
+function normalizeWindows(rows: (string | undefined)[][]): QqCommandWindow[] {
+  return rows
+    .map(row => ({ start: String(row?.[0] ?? '').trim(), end: String(row?.[1] ?? '').trim() }))
+    .filter(row => row.start && row.end)
+}
+
+function addQqCommandWindow() {
+  qqCommandWindowRows.value = [...qqCommandWindowRows.value, [undefined, undefined]]
+}
+
+function removeQqCommandWindow(index: number) {
+  qqCommandWindowRows.value = qqCommandWindowRows.value.filter((_, item) => item !== index)
+}
+
+const qqCommandWindowPreview = computed(() => normalizeWindows(qqCommandWindowRows.value)
+  .map(row => `${row.start}-${row.end}`).join('、'))
+
 function normalizeGroups(groups: QqQuizGroup[]) {
   return groups
     .map(group => ({ name: group.name.trim(), categoryId: group.categoryId || undefined,
@@ -33,6 +55,8 @@ const dirty = computed(() => model.settings !== null
     || qqDefaultGroup.value !== (model.settings.qqDefaultGroup ?? '')
     || Number(qqAnswerSeconds.value) !== model.settings.qqAnswerSeconds
     || qqAiGrading.value !== model.settings.qqAiGrading
+    || qqCommandWindowEnabled.value !== model.settings.qqCommandWindowEnabled
+    || JSON.stringify(normalizeWindows(qqCommandWindowRows.value)) !== JSON.stringify(model.settings.qqCommandWindows ?? [])
     || JSON.stringify(normalizeGroups(qqGroups.value)) !== JSON.stringify(normalizeGroups(model.settings.qqGroups ?? []))))
 
 /** 供应商选项：平台默认 + 平台已配置供应商；当前已保存但列表中不存在的编码保留展示，避免误清空。 */
@@ -76,6 +100,9 @@ onMounted(async () => {
     qqDefaultGroup.value = model.settings.qqDefaultGroup ?? ''
     qqAnswerSeconds.value = String(model.settings.qqAnswerSeconds || 60)
     qqAiGrading.value = model.settings.qqAiGrading
+    qqCommandWindowEnabled.value = model.settings.qqCommandWindowEnabled ?? false
+    qqCommandWindowRows.value = (model.settings.qqCommandWindows ?? [])
+      .map(window => [window.start, window.end] as (string | undefined)[])
   }
 })
 
@@ -107,6 +134,12 @@ function save() {
     toast.warning('抢答限时需为 10-600 秒的整数')
     return
   }
+  const halfFilledWindow = qqCommandWindowRows.value
+    .some(row => Boolean(row?.[0]) !== Boolean(row?.[1]))
+  if (halfFilledWindow) {
+    toast.warning('开放时间的开始与结束都要选择，或者整行删掉')
+    return
+  }
   void model.saveSettings({
     practiceEnabled: practiceEnabled.value,
     aiProviderCode: aiProviderCode.value,
@@ -115,6 +148,8 @@ function save() {
     qqDefaultGroup: qqDefaultGroup.value || null,
     qqAnswerSeconds: seconds,
     qqAiGrading: qqAiGrading.value,
+    qqCommandWindowEnabled: qqCommandWindowEnabled.value,
+    qqCommandWindows: normalizeWindows(qqCommandWindowRows.value),
   })
 }
 </script>
@@ -155,7 +190,7 @@ function save() {
           </p>
         </div>
       </FaCard>
-      <FaCard title="QQ 群抽题" description="群内发送「抽题」或「抽题 <分组名>」发起限时抢答；客观题自动判分，简答题可用上方配置的 AI 模型判分">
+      <FaCard title="QQ 群抽题" description="群内发送 /抽题 或 /抽题 <分组名> 发起限时抢答；客观题自动判分，简答题可用上方配置的 AI 模型判分">
         <div class="qb-form">
           <div class="qb-form-row">
             <span class="qb-form-label">默认分组</span>
@@ -190,7 +225,37 @@ function save() {
                 <FaButton size="sm" variant="outline" @click="addQqGroup"><FaIcon name="i-ri:add-line" />添加分组</FaButton>
               </div>
               <p class="qb-muted text-sm">
-                分组 = 一个指令名字 + 抽题范围（分类/标签，可都留空表示全库）。群内发送「抽题 分组名」即按该范围抽一道题。
+                分组 = 一个指令名字 + 抽题范围（分类/标签，可都留空表示全库）。群内发送 /抽题 分组名 即按该范围抽一道题。
+              </p>
+            </div>
+          </div>
+        </div>
+      </FaCard>
+      <FaCard title="群指令开放时间" description="限制群内 /抽题、/抢答榜 的可用时段；不在时段内发送指令时，群内会收到「现在不在开放时间，开放时间为 …」">
+        <div class="qb-form">
+          <div class="qb-form-row">
+            <span class="qb-form-label">限制调用时间</span>
+            <div class="flex items-center gap-3">
+              <FaSwitch v-model="qqCommandWindowEnabled" :disabled="model.settingsSaving" />
+              <FaTag :variant="qqCommandWindowEnabled ? 'default' : 'outline'">{{ qqCommandWindowEnabled ? '已开启' : '已关闭' }}</FaTag>
+            </div>
+          </div>
+          <div class="qb-form-row items-start">
+            <span class="qb-form-label pt-2">开放时间段</span>
+            <div class="flex flex-1 flex-col gap-2">
+              <div v-for="(row, index) in qqCommandWindowRows" :key="index" class="flex flex-wrap items-center gap-2 rounded-md border p-2">
+                <YdTimePicker v-model="qqCommandWindowRows[index]" range format="HH:mm" class="min-w-56" />
+                <FaButton size="sm" variant="ghost" @click="removeQqCommandWindow(index)"><FaIcon name="i-ri:close-line" /></FaButton>
+              </div>
+              <div>
+                <FaButton size="sm" variant="outline" @click="addQqCommandWindow"><FaIcon name="i-ri:add-line" />添加时间段</FaButton>
+              </div>
+              <p class="qb-muted text-sm">
+                可以配置多段（例如 12:00-13:30、19:00-21:00）；开始时间晚于结束时间表示跨零点，例如 22:00-02:00 表示当天 22:00 到次日 02:00。
+                留空则不限制——开关打开但没有时间段时同样不限制，避免漏填把群指令整个锁死。已经发出的题目照常作答，不受关闭时刻影响。
+              </p>
+              <p v-if="qqCommandWindowEnabled && !qqCommandWindowPreview" class="qb-muted text-sm">
+                当前没有有效时间段，群指令不会被限制。
               </p>
             </div>
           </div>

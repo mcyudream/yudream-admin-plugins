@@ -9,7 +9,13 @@ import online.yudream.base.plugin.material.infrastructure.CategoryRepository;
 import online.yudream.base.plugin.material.infrastructure.Ids;
 import online.yudream.base.plugin.material.infrastructure.MaterialRepository;
 
-/** 物料分类维护：删除时若有物料引用则拒绝。 */
+/**
+ * 物料分类维护：删除时若有物料引用则拒绝。
+ *
+ * <p>分类是全库共享的一套分类表，因此「新增」与「重命名/排序/删除」的开放程度不同：
+ * 新增（{@link #create} / {@link #findOrCreateByName}）对任何能使用物料库的人开放，
+ * 让上传者在选择分类时能就地补一个；重命名/排序/删除仍只走管理端 {@code MANAGE_PERMISSION}。
+ */
 public final class CategoryService {
     private final CategoryRepository categories;
     private final MaterialRepository materials;
@@ -41,15 +47,24 @@ public final class CategoryService {
         return new CategoryView(category.id(), category.name(), category.sort(), 0L, category.createdAt());
     }
 
-    /** 按名称查找分类（忽略大小写），不存在则以追加排序自动创建——文件夹导入等场景使用。 */
+    /**
+     * 按名称查找分类（忽略大小写），不存在则以追加排序自动创建——文件夹导入、上传时快捷新增分类等场景使用。
+     * 命中已有分类时返回带**真实物料数**的视图，避免调用方拿去展示时显示成 0。
+     */
     public CategoryView findOrCreateByName(String name) {
         String trimmed = normalize(name);
         return categories.listAll().stream()
                 .filter(category -> category.name().equalsIgnoreCase(trimmed))
                 .findFirst()
                 .map(category -> new CategoryView(category.id(), category.name(), category.sort(),
-                        0L, category.createdAt()))
+                        countMaterials(category.id()), category.createdAt()))
                 .orElseGet(() -> create(trimmed, nextSort()));
+    }
+
+    private long countMaterials(String categoryId) {
+        return materials.scanAll().stream()
+                .filter(material -> categoryId.equals(material.categoryId()))
+                .count();
     }
 
     private int nextSort() {
@@ -61,13 +76,13 @@ public final class CategoryService {
                 .orElseThrow(() -> new NotFoundException("分类不存在"));
         MaterialCategory updated = new MaterialCategory(existing.id(), normalize(name), sort, existing.createdAt());
         categories.save(updated);
-        long count = materials.scanAll().stream().filter(m -> id.equals(m.categoryId())).count();
-        return new CategoryView(updated.id(), updated.name(), updated.sort(), count, updated.createdAt());
+        return new CategoryView(updated.id(), updated.name(), updated.sort(),
+                countMaterials(updated.id()), updated.createdAt());
     }
 
     public void delete(String id) {
         categories.findById(id).orElseThrow(() -> new NotFoundException("分类不存在"));
-        long count = materials.scanAll().stream().filter(m -> id.equals(m.categoryId())).count();
+        long count = countMaterials(id);
         if (count > 0) {
             throw new IllegalStateException("该分类下还有 " + count + " 个物料，请先移出后再删除");
         }

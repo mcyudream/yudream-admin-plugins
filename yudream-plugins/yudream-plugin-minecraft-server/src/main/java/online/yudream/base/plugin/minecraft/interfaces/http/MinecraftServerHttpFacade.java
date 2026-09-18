@@ -8,6 +8,7 @@ import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSn
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonBindingRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerSaveRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerTopologyRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 
@@ -178,6 +179,38 @@ public class MinecraftServerHttpFacade {
         MinecraftPlayerSnapshotRequest body = JsonSupport.read(request.body(), MinecraftPlayerSnapshotRequest.class);
         int onlinePlayers = appService.reconcilePlayerSnapshot(reportServerId(request), assembler.toCmd(body));
         return PluginHttpResponse.ok(Map.of("onlinePlayers", onlinePlayers));
+    }
+
+    /**
+     * Stores a topology bound to the server id in the path.
+     *
+     * <p>This is the endpoint a bridge uses when its config already carries an Admin server id.
+     */
+    public PluginHttpResponse reportTopology(PluginHttpRequest request) {
+        MinecraftServerTopologyRequest body = JsonSupport.read(request.body(), MinecraftServerTopologyRequest.class);
+        return PluginHttpResponse.ok(assembler.toRes(appService.recordTopology(reportServerId(request), assembler.toCmd(body))));
+    }
+
+    /**
+     * Stores a topology the bridge reported without a server id, matching the proxy's own addresses
+     * against the configured endpoints instead.
+     *
+     * <p>Answering 404 rather than accepting an unattached report is deliberate: the bridge logs the
+     * body, so an operator sees which address failed to match instead of silently collecting data
+     * that never shows up anywhere.
+     */
+    public PluginHttpResponse reportTopologyByAddress(PluginHttpRequest request) {
+        MinecraftServerTopologyRequest body = JsonSupport.read(request.body(), MinecraftServerTopologyRequest.class);
+        return appService.recordTopologyByAddress(body.addresses(), assembler.toCmd(body))
+                .<PluginHttpResponse>map(topology -> PluginHttpResponse.ok(assembler.toRes(topology)))
+                .orElseGet(() -> PluginHttpResponse.json(404, Map.of("message",
+                        "没有服务器匹配上报的地址 " + (body.addresses() == null ? "[]" : body.addresses())
+                                + "；请确认代理地址与该服务器的线路地址一致。")));
+    }
+
+    /** 一键解析群组服：返回已挂在该服务器上的子服表，或说明为什么还没有。 */
+    public PluginHttpResponse resolveTopology(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(appService.resolveTopology(pathSegment(request.path(), 2))));
     }
 
     private String userId(PluginHttpRequest request) {

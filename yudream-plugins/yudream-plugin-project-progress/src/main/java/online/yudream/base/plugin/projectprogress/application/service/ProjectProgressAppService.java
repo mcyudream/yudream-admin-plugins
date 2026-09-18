@@ -24,6 +24,7 @@ import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectProgre
 import online.yudream.base.plugin.projectprogress.domain.aggregate.ProjectWorkDetail;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectAcceptanceResult;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectAssignmentMode;
+import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInReviewStatus;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInType;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectProgressEventType;
 import online.yudream.base.plugin.projectprogress.domain.repo.ProjectProgressRepository;
@@ -339,7 +340,8 @@ public class ProjectProgressAppService {
         long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
         long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
         ensureNoMinecraftCheckInInPeriod(project, userId, periodStart, periodEnd);
-        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, periodStart, periodEnd);
+        long windowStart = minecraftWindowStart(assigneeSince(detail, userId), periodStart);
+        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, windowStart, periodEnd);
         ProjectCheckInRecord saved = repository.saveCheckIn(ProjectCheckInRecord.create(project.id(), detail.id(), userId,
                 ProjectCheckInType.MINECRAFT_ONLINE, "Minecraft 在线时长自动打卡", List.of(), null, evidence));
         event(project.id(), detail.id(), userId, ProjectProgressEventType.MINECRAFT_CHECK_IN_CREATED, "Minecraft 在线时长打卡已生成", Map.of("userId", userId));
@@ -352,7 +354,8 @@ public class ProjectProgressAppService {
         long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
         long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
         ensureNoMinecraftCheckInInPeriod(project, userId, periodStart, periodEnd);
-        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, periodStart, periodEnd);
+        long windowStart = minecraftWindowStart(earliestAssigneeSince(project.id(), userId), periodStart);
+        ProjectMinecraftEvidence evidence = minecraft.requireEvidence(project.minecraftPolicy(), userId, windowStart, periodEnd);
         ProjectCheckInRecord saved = repository.saveCheckIn(ProjectCheckInRecord.create(project.id(), "", userId,
                 ProjectCheckInType.MINECRAFT_ONLINE, "Minecraft 在线时长自动打卡", List.of(), null, evidence));
         event(project.id(), "", userId, ProjectProgressEventType.MINECRAFT_CHECK_IN_CREATED, "Minecraft 在线时长打卡已生成", Map.of("userId", userId));
@@ -480,14 +483,84 @@ public class ProjectProgressAppService {
     private boolean hasProjectCheckInInCurrentPeriod(ProjectProgressProject project, String userId) {
         long periodStart = currentCheckInPeriodStart(project.minCheckInIntervalMinutes());
         long periodEnd = currentCheckInPeriodEnd(project.minCheckInIntervalMinutes());
-        return allProjectCheckIns(project.id()).stream().anyMatch(record -> record.type() == ProjectCheckInType.MINECRAFT_ONLINE
-                && userId.equals(record.userId()) && record.createdAt() >= periodStart && record.createdAt() < periodEnd);
+        return allProjectCheckIns(project.id()).stream()
+                .anyMatch(record -> countsAsCheckInInPeriod(record, userId, periodStart, periodEnd));
     }
 
     private void ensureNoMinecraftCheckInInPeriod(ProjectProgressProject project, String userId, long periodStart, long periodEnd) {
-        if (allProjectCheckIns(project.id()).stream().anyMatch(record -> record.type() == ProjectCheckInType.MINECRAFT_ONLINE
-                && userId.equals(record.userId()) && record.createdAt() >= periodStart && record.createdAt() < periodEnd)) {
-            throw new IllegalArgumentException("Minecraft check-in has already been submitted for this period");
+        if (allProjectCheckIns(project.id()).stream()
+                .anyMatch(record -> countsAsCheckInInPeriod(record, userId, periodStart, periodEnd))) {
+            throw new IllegalArgumentException("本打卡周期内已提交过 Minecraft 在线时长打卡，不能重复提交");
+        }
+    }
+
+    /**
+     * 这条记录是否算作「该用户在本打卡周期内已经打过卡」。
+     *
+     * <p>被驳回的记录不算：驳回的含义就是这次证据不成立、需要重新打。若把它算作已打卡，该用户在本
+     * 周期内既不能手动补打、自动打卡与提醒也会跳过，只能等到下一个周期——驳回反而锁死了打卡。
+     * 需要「这次打卡彻底不存在」时用删除，删除后本判定同样成立。
+     */
+    private boolean countsAsCheckInInPeriod(ProjectCheckInRecord record, String userId, long periodStart, long periodEnd) {
+        return record.type() == ProjectCheckInType.MINECRAFT_ONLINE
+                && userId.equals(record.userId())
+                && record.reviewStatus() != ProjectCheckInReviewStatus.REJECTED
+                && record.createdAt() >= periodStart
+                && record.createdAt() < periodEnd;
+    }
+
+    /**
+     * Minecraft 时长证据的统计起点。
+     *
+     * <p>取「该玩家接取任务的时刻」与打卡周期起点的较晚者：玩家接取任务之前在那台服务器上的在线时长
+     * 不该算进这次任务。接取时刻未知时（老细节没有这个字段，或该玩家不是任何任务的负责人）退回周期
+     * 起点，与改造前一致——缺这个信息不该让打卡失败。
+     */
+    private long minecraftWindowStart(long assignedAt, long periodStart) {
+        return assignedAt <= 0 ? periodStart : Math.max(periodStart, assignedAt);
+    }
+
+    /** 该玩家在本项目上第一次接取任务的时刻；没有任何接取记录时返回 0。 */
+    private long earliestAssigneeSince(String projectId, String userId) {
+        long earliest = 0L;
+        for (ProjectWorkDetail detail : allDetails(projectId)) {
+            long since = assigneeSince(detail, userId);
+            if (since > 0 && (earliest == 0L || since < earliest)) {
+                earliest = since;
+            }
+        }
+        return earliest;
+    }
+
+    /**
+     * 该玩家接取某个工作细节的时刻；0 表示无从得知。
+     *
+     * <p>以细节上记录的时刻为准。老细节（该字段落库之前创建的）没有记录，退回事件流水里该用户最早
+     * 认领该细节的那条事件——那是当时唯一被记下来的时间。两者都没有就返回 0，调用方退回打卡周期
+     * 起点：旧数据不该因为缺这个信息而让打卡失败。
+     */
+    private long assigneeSince(ProjectWorkDetail detail, String userId) {
+        long recorded = detail.assigneeSinceOf(userId);
+        if (recorded > 0) {
+            return recorded;
+        }
+        long earliest = 0L;
+        int page = 1;
+        while (true) {
+            List<ProjectProgressEvent> batch = repository.listDetailEvents(detail.id(), page, SCAN_PAGE_SIZE);
+            for (ProjectProgressEvent event : batch) {
+                if (event.type() != ProjectProgressEventType.DETAIL_CLAIMED
+                        || !userId.equals(event.operatorUserId())) {
+                    continue;
+                }
+                if (earliest == 0L || event.createdAt() < earliest) {
+                    earliest = event.createdAt();
+                }
+            }
+            if (batch.size() < SCAN_PAGE_SIZE) {
+                return earliest;
+            }
+            page++;
         }
     }
 
@@ -609,7 +682,7 @@ public class ProjectProgressAppService {
         if (policy == null) {
             return ProjectMinecraftPolicy.disabled();
         }
-        return new ProjectMinecraftPolicy(Boolean.TRUE.equals(policy.enabled()), policy.serverId(),
+        return new ProjectMinecraftPolicy(Boolean.TRUE.equals(policy.enabled()), policy.serverId(), policy.subServer(),
                 intValue(policy.requiredOnlineMinutes(), 0), Boolean.TRUE.equals(policy.includeAfk()),
                 Boolean.TRUE.equals(policy.autoCheckInEnabled()));
     }
@@ -634,7 +707,11 @@ public class ProjectProgressAppService {
 
     private ProjectMinecraftServerOptionDTO toMinecraftServerOptionDTO(PluginMinecraftServer server) {
         return new ProjectMinecraftServerOptionDTO(server.id(), server.name(), server.enabled(),
-                server.currentSeasonId(), server.currentSeasonName());
+                server.currentSeasonId(), server.currentSeasonName(),
+                server.subServers().stream()
+                        .map(sub -> new ProjectMinecraftServerOptionDTO.ProjectMinecraftSubServerDTO(
+                                sub.name(), sub.address(), sub.online(), sub.sensor(), sub.defaultServer(), sub.sort()))
+                        .toList());
     }
 
     private List<String> emptyToMembers(List<String> candidates, ProjectProgressProject project) {

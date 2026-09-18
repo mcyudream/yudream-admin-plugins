@@ -4,7 +4,7 @@
 
 ## 1. 目标与范围
 
-用户可上传电子物料（PPT/Excel/PSD/图片/视频/音频/PDF/Office 文档/文本等），在线预览（kkFileView 由宿主平台能力统一提供）、下载、删除、更新（每次更新产生新版本，可回溯/回滚）、生成公开分享外链；管理员可跨用户管理全部物料、维护分类。预览引擎配置已上移为宿主平台能力（平台能力 > 文件预览，部署/运行双闸门），插件自身不含预览设置。
+用户可上传电子物料（PPT/Excel/PSD/图片/视频/音频/PDF/Office 文档/文本等），在线预览（kkFileView 由宿主平台能力统一提供）、下载、删除、更新（每次更新产生新版本，可回溯/回滚）、生成公开分享外链；一张物料既可以是**单文件物料**，也可以是不带主文件的**组合物料**——下挂任意多个**子物料**，每个子物料有自己独立的版本链（例如「明信片」下挂原图 png、设计稿 psd、成图 png；「品牌 Logo」下挂不透明背景 jpg 与透明背景 png）。组合物料可从子物料中指定一个**预览主文件**，父物料的在线预览与下载跟随它的当前版本（1.10.0）。管理员可跨用户管理全部物料与子物料、维护分类。上传或编辑物料时，可在分类选择弹窗里**就地新增分类**，不必先跳到管理页建好再回来（同名分类直接复用并选中，1.11.0）——分类是全库共享的一张表，所以「新增」对任何能使用物料库的人开放，改名/排序/删除仍限管理权限。预览引擎配置已上移为宿主平台能力（平台能力 > 文件预览，部署/运行双闸门），插件自身不含预览设置。
 
 不在本期范围：格式级在线编辑（Office/PSD 协同编辑、文本在线编辑）、全文检索。
 
@@ -15,8 +15,8 @@
    签名公开端点由宿主提供（HMAC-SHA256 短时效 token，默认 30 分钟，凭据从 `YUDREAM_CREDENTIAL_KEY` 派生；token 绑定 pluginCode+objectKey+过期时间），Range 分段流式输出，不再内存缓冲整文件。文件名放在路径最后一段（含扩展名），保证 kkFileView 按扩展名识别类型。
 2. **配置在宿主平台能力**：kkFileView 服务地址（baseUrl）、回源基址（callbackBaseUrl）、officePreviewType、token 时效、预览大小上限随「平台能力 > 文件预览」能力模块入库，管理入口即平台能力页（权限 `platform:capability:*`），**不写配置文件**；部署侧另有环境闸门 `PLATFORM_FILE_PREVIEW_ENABLED` 控制能力是否出现。插件不再持有预览设置（§9 演进第 1 条已落地）。
 3. **上传走宿主桥**：插件 HTTP 层 body 只有 String（无 multipart），故前端先用 `sdk.files.uploadImage`（通用任意文件）上传到宿主 `/api/files/upload`，拿到 `fileId` 后调用插件 `POST /me/materials {fileId, ...}`，后端用 `framework().platformFile(fileId)` 读流并复制进插件 `files()` 命名空间。不进度条（宿主 SDK 无进度回调，与现有插件一致），上传中态用 spinner。
-4. **文件存储**：`context.files()`（S3/RustFS）。objectKey 不可变：`materials/{materialId}/v{n}/file`，原始文件名只存元数据。光栅图额外写入 `materials/{materialId}/v{n}/cover.jpg`（最长边约 400px 的 JPEG）供库页缩略图，避免浏览器并发拉取原图。删除版本/物料时同步删对象与封面。
-5. **文档存储**（`context.documents()`，Mongo）：四个集合（§3）。规避宿主两个已知坑：`_id` 字典序升序（物料 id 用**倒置毫秒时间戳**保证「字典序=最新在前」）；`findByField` 有先分页后过滤的回归，**只用 findAll 200/页扫描 + 内存过滤**。宿主 save 会覆写 `id` 字段，文档内不使用 `id` 承载业务字段。
+4. **文件存储**：`context.files()`（S3/RustFS）。objectKey 不可变：主文件 `materials/{materialId}/v{n}/file`、子物料 `materials/{materialId}/items/{itemId}/v{n}/file`，原始文件名只存元数据。光栅图额外写入同级 `cover.jpg`（最长边约 400px 的 JPEG）供库页缩略图，避免浏览器并发拉取原图。删除版本/物料时同步删对象与封面。
+5. **文档存储**（`context.documents()`，Mongo）：六个集合（§3）。规避宿主两个已知坑：`_id` 字典序升序（物料 id 用**倒置毫秒时间戳**保证「字典序=最新在前」）；`findByField` 有先分页后过滤的回归，**只用 findAll 200/页扫描 + 内存过滤**。宿主 save 会覆写 `id` 字段，文档内不使用 `id` 承载业务字段。
 6. **版本并发**：每物料一把 striped lock 内完成「读 currentVersion → 写新 version 文档 → 更新物料指针」，防并发上传拿到相同版本号。回滚只是移动 `currentVersion` 指针，不动对象。
 7. **权限模型**：`plugin:material:view`（用户端 /me/** 的读操作）、`plugin:material:manage`（/admin/** 全部）。/me 归属只取 `principal.userId()`，无管理员越权分支；管理员在用户端同样只能看自己的。`/public/share/**` 无权限注解，仅靠存储型分享凭证；签名文件端点由宿主暴露，不在插件内。
 8. **分享外链**：token 即文档 id（18 字节 SecureRandom → 24 位 base64url，约 144 bit 熵），点查无需扫表；是**存储型凭证**——撤销=删文档，expiresAt=0 表示永久，过期由服务端在每次解析时判定。分享始终解析物料的**当前版本**（回滚/新版本自动跟随），归档不吊销已发链接（软隐藏非安全边界，与签名 token 一致），删除物料时级联删除全部分享。分享页 `/public/share/{token}` 由插件端点直接输出 HTML（无需宿主前端路由），kkFileView 预览把分享文件流的绝对地址交给平台 `previewExternal` 组装 iframe 地址，回源 `/public/share/{token}/file/{filename}`。
@@ -34,8 +34,10 @@
 | tags | string[] | ≤8 个，每个 ≤20 字 |
 | ownerId | string | 拥有者 userId（String 承载 Long） |
 | ownerName | string | 冗余显示名 |
-| currentVersion | int | 当前版本号 |
+| currentVersion | int | 当前版本号；`0` 表示组合物料（无主文件，`mainFilePresent()` 为 false） |
 | size / contentType | long / string | 当前版本大小与 MIME |
+| itemCount | int | 子物料数量（冗余统计，只由 `MaterialItemService` 在子物料增删时维护） |
+| previewItemId | string\|null | 组合物料的**预览主文件**指针：所指定的子物料 id。父物料的在线预览、下载与库页封面都取该子物料的**当前版本**（不存版本号，子物料升级自动同步）；未指定时回退第一个子物料，所指子物料被删除时自动清空 |
 | status | string | ACTIVE / ARCHIVED（归档：用户端列表默认隐藏） |
 | visibility | string | PRIVATE（仅自己）/ DEPT（仅部门）/ PUBLIC（全站成员），缺省 PRIVATE |
 | deptIds | string[] | visibility=DEPT 时显式选择的可见部门 id（1.6.0 起由用户/管理员选择；更早版本为保存时属主部门快照） |
@@ -56,6 +58,28 @@
 ### material_categories
 `{ id, name, sort, createdAt }`。删除时若有物料引用则拒绝（返回引用数量）。
 
+### material_items（子物料）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | string | `{materialId}:{sort补齐}`，同一父物料下 sort 递增 |
+| materialId | string | 所属父物料（组合物料） |
+| name | string | 子物料名（默认文件名去扩展名，≤60 字） |
+| sort | int | 排列序号，上传顺序 |
+| ext / type / size / contentType | | 跟随当前版本 |
+| currentVersion | int | 该子物料自己的版本号（独立编号，从 1 开始） |
+| createdAt / updatedAt | long | epoch millis |
+
+### material_item_versions
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | string | `{itemId}#{版本号补零6位}` |
+| itemId / materialId / version | string / string / int | |
+| objectKey | string | `materials/{materialId}/items/{itemId}/v{n}/file` |
+| coverObjectKey | string|null | 同级覆盖 `cover.jpg` |
+| originalName / size / contentType | | 该版本元数据 |
+| note | string|null | 版本备注（文件夹导入组合物料时记录来源子目录） |
+| uploaderId / uploaderName / createdAt | | |
+
 ### material_shares
 `{ id(=token), materialId, createdById, createdByName, note, expiresAt, createdAt }`。id 即分享 token（24 位 base64url 随机串）；expiresAt=0 表示永久。物料删除时级联删除。
 
@@ -66,7 +90,7 @@
 |---|---|
 | GET /me/materials?keyword&type&categoryId&status&tag&page&size | 分页列表（tag 为精确匹配，忽略大小写；含归档过滤） |
 | POST /me/materials `{fileId, filename, name?, categoryId?, tags?, visibility?, deptIds?}` | 从宿主上传落库为物料 v1（visibility=DEPT 时 deptIds 必填且须全部 ∈ 自己加入的部门） |
-| POST /me/materials/import-folder `{items[], folderName, categoryId?, tags?, visibility?, deptIds?}` | 文件夹导入批量落库（≤200 个；分类用文件夹名，中间层子文件夹名追加为标签） |
+| POST /me/materials/import-folder `{mode?, name?, categoryId?, categoryName?, tags?, visibility?, deptIds?, items[{fileId, filename, name?, tags?}]}` | 文件夹导入批量落库（≤200 个）：`mode=FILES`（缺省）每个文件一个单文件物料，`mode=BUNDLE` 整批合并为一个组合物料（≤50 个子物料）。分类用根文件夹名；item.tags 为文件所在的中间子文件夹名（由外到内），两种形态都用它把目录名拼进物料名/子物料名（`-` 连接），FILES 下另并入物料标签，BUNDLE 下写进子物料 v1 备注；显式 name 优先、不加目录前缀 |
 | GET /me/materials/{id} | 详情（含当前版本、分类名） |
 | PUT /me/materials/{id} `{name, categoryId, tags, visibility?, deptIds?}` | 改元数据（DEPT 校验同创建） |
 | DELETE /me/materials/{id} | 删除物料+全部版本+对象 |
@@ -74,12 +98,24 @@
 | POST /me/materials/{id}/versions `{fileId, filename, note?}` | 上传新版本 |
 | POST /me/materials/{id}/restore `{version}` | 回滚到指定版本 |
 | DELETE /me/materials/{id}/versions/{version} | 删除非当前版本（同时删对象） |
-| GET /me/materials/{id}/download?version= | 附件下载（Content-Disposition） |
-| GET /me/materials/{id}/preview?version= | 预览信息（§5） |
+| GET /me/materials/{id}/download?version= | 附件下载（Content-Disposition）。组合物料按预览主文件（未指定时第一个子物料）取文件，version 指该子物料的版本 |
+| GET /me/materials/{id}/preview?version= | 预览信息（§5）。组合物料同上按预览主文件取文件；一个子物料都没有时返回「请先新增子物料或指定预览主文件」 |
 | POST /me/materials/{id}/shares `{expiresInHours?, note?}` | 创建分享外链（expiresInHours 缺省=永久，1..8760） |
 | GET /me/materials/{id}/shares | 该物料的分享列表（按创建时间倒序） |
 | DELETE /me/materials/{id}/shares/{shareId} | 撤销分享（删凭证文档，立即失效） |
+| GET /me/materials/{id}/items | 子物料列表（按 sort 升序；准入完全跟随父物料可见性） |
+| POST /me/materials/{id}/items `{fileId, filename, name?}` | 新增子物料（首个版本 v1；名称缺省取文件名去扩展名，≤50 个） |
+| PUT /me/materials/{id}/items/{itemId} `{name}` | 重命名子物料 |
+| DELETE /me/materials/{id}/items/{itemId} | 删除子物料（含其全部版本与文件对象） |
+| GET /me/materials/{id}/items/{itemId}/versions | 该子物料的版本列表（倒序，独立编号） |
+| POST /me/materials/{id}/items/{itemId}/versions `{fileId, filename, note?}` | 子物料上传新版本（不影响其他子物料） |
+| POST /me/materials/{id}/items/{itemId}/restore `{version}` | 子物料回滚到指定版本 |
+| DELETE /me/materials/{id}/items/{itemId}/versions/{version} | 删除子物料的非当前版本（同时删对象） |
+| GET /me/materials/{id}/items/{itemId}/download?version= | 子物料附件下载 |
+| GET /me/materials/{id}/items/{itemId}/preview?version= | 子物料预览信息（§5） |
+| PUT /me/materials/{id}/preview-item `{itemId}` | 指定/取消组合物料的预览主文件（itemId 必须是本物料的子物料，留空=取消指定并回退第一个子物料）；返回 `{previewItemId}` |
 | GET /me/categories | 分类列表（选择器用） |
+| POST /me/categories `{name}` | **选择分类时就地新增分类**（按名称忽略大小写复用，存在则原样返回已有分类，不会重复建）；返回 CategoryView。任何持有 view 权限的人可调，分类的改名/删除仍需 manage |
 | GET /me/departments | 当前用户**自己加入的部门**选项（DEPT 可见范围选择器用；普通用户不暴露全量部门树） |
 | GET /me/tags | 标签云（自己未归档物料的标签计数，次数降序，最多 100 个） |
 | GET /me/covers?ids=a,b,c | 批量签发图片物料**缩略图**（≤60 个 id，返回 `{id, url}`；url 指向 `cover.jpg` 的平台签名公开路径。首次访问时为旧数据补生成缩略图；无封面/非图片/越权/已删除的 id 静默跳过，不回退签发原图） |
@@ -88,7 +124,7 @@
 | 方法/路径 | 说明 |
 |---|---|
 | GET /admin/materials?keyword&type&categoryId&owner&status&page&size | 跨用户分页列表 |
-| GET /admin/materials/{id} / GET .../versions / GET .../download / GET .../preview | 详情/版本/下载/预览（同样走签名链） |
+| GET /admin/materials/{id} / GET .../versions / GET .../download / GET .../preview | 详情/版本/下载/预览（同样走签名链；组合物料与用户端一致按预览主文件取文件） |
 | PUT /admin/materials/{id} `{name?, categoryId?, tags?, visibility?, deptIds?}` | 编辑任意物料元数据（DEPT 校验：deptIds 须存在于全量部门树） |
 | POST /admin/materials/{id}/versions `{fileId, filename, note?}` | 代传新版本（uploader 记为操作者） |
 | POST/GET /admin/materials/{id}/shares；DELETE .../shares/{shareId} | 代管分享外链（createdBy 记为操作者） |
@@ -99,7 +135,11 @@
 | PUT /admin/materials/batch/status `{ids, status}` | 批量归档/恢复 |
 | POST /admin/materials/batch/delete `{ids}` | 批量删除（POST 带 body 避开 DELETE body 兼容性；复用级联删除） |
 | GET /admin/departments?keyword= | 全量部门树拍平选项（管理端 DEPT 选择器用，label 带父级路径） |
-| GET/POST /admin/categories；PUT/DELETE /admin/categories/{id} | 分类维护 |
+| GET/POST /admin/categories；PUT/DELETE /admin/categories/{id} | 分类维护（改名/排序/删除仅此通道；新增与用户端 `POST /me/categories` 等价，但走 create 不做同名复用） |
+| GET /admin/materials/{id}/items（及 `/items/{itemId}/versions`、`/download`、`/preview`） | 跨用户查看子物料及其版本 / 下载 / 预览 |
+| POST /admin/materials/{id}/items `{fileId, filename, name?}`；PUT/DELETE /admin/materials/{id}/items/{itemId} | 代新增 / 重命名 / 删除子物料 |
+| POST /admin/materials/{id}/items/{itemId}/versions `{fileId, filename, note?}`；POST .../restore `{version}`；DELETE .../versions/{version} | 代传子物料新版本 / 代回滚 / 代删历史版本（父物料**主文件**的回滚与删除仍仅属主） |
+| PUT /admin/materials/{id}/preview-item `{itemId}` | 代指定/取消组合物料的预览主文件（不校验归属，itemId 留空=取消指定） |
 
 批量端点统一返回 `{total, succeeded, failures:[{id, name, message}]}`，单项失败不中断整批。
 
@@ -126,10 +166,10 @@
 
 | 路由 | 组件 | 权限 | 说明 |
 |---|---|---|---|
-| /platform/plugins/material | material/Library | view | 物料库：头部搜索/类型/上传 + 左侧分类导航/标签云/状态筛选 + 缩略图卡片网格（悬停操作层）+ 分页 + 上传/文件夹导入/编辑/分享弹窗；有 manage 权限者在他人卡片上也有 编辑/分享（走 /admin 通道） |
-| /platform/plugins/material/detail | material/Detail | view, hideInMenu | 详情：预览区（PreviewFrame）+ 版本列表 + 元数据编辑 + 分享弹窗 + 下载/回滚/删除；manage 权限者可代传新版本/代管分享，回滚/删版本仍仅属主 |
-| /platform/plugins/material/admin | material/Admin | manage | 跨用户物料表格（FaTable 勾选；行操作 预览/编辑/新版本/分享/下载/归档/删除；批量 移动分组/打标签(追加·覆盖)/归档/恢复/删除） |
-| /platform/plugins/material/admin/categories | material/Categories | manage | 分类表格维护 |
+| /platform/plugins/material | material/Library | view | 物料库：头部搜索/类型/上传 + 左侧分类导航/标签云/状态筛选 + 缩略图卡片网格（悬停操作层）+ 分页 + 上传/文件夹导入/编辑/分享弹窗（文件夹导入可选「逐个文件导入」或「导入为单个组合物料」，后者成功后可直接跳转该物料）；卡片对组合物料显示标识与子物料数量（已指定预览主文件时也开放下载入口）；有 manage 权限者在他人卡片上也有 编辑/分享（走 /admin 通道） |
+| /platform/plugins/material/detail | material/Detail | view, hideInMenu | 详情：预览区（PreviewFrame，预览目标可在主文件与各子物料之间切换，组合物料默认落在指定的预览主文件上）+ 版本列表 + 子物料区（`MaterialItemManager`：新增/重命名/删除子物料、行内「设为主文件/取消主文件」，以及选中子物料的独立版本链）+ 元数据编辑 + 分享弹窗 + 下载/回滚/删除；组合物料隐藏主文件版本区，但保留「下载预览主文件」入口，manage 权限者可代传新版本/代管分享，主文件回滚/删版本仍仅属主 |
+| /platform/plugins/material/admin | material/Admin | manage | 跨用户物料表格（FaTable 勾选；行操作 预览/编辑/新版本/子物料抽屉/分享/下载/归档/删除；批量 移动分组/打标签(追加·覆盖)/归档/恢复/删除）；「子物料」抽屉可代任意用户维护子物料及其版本 |
+| /platform/plugins/material/admin/categories | material/Categories | manage | 分类表格维护（改名/排序/删除；新增在用户端选择分类时也能做） |
 
 布局（用户特别要求重视）：库页为「头部工具区 + 左侧栏 + 卡片网格」三段式——FaPageHeader 内嵌搜索框/类型筛选/上传按钮；左侧栏（`material-sidebar`，200px sticky）含分类导航（带物料计数）、标签云（点击精确筛选、再点取消）、状态筛选；主区 `material-grid` 为 `repeat(auto-fill, minmax(180px, 1fr))` 缩略图卡片（正方形缩略区：图片物料显示 `/me/covers` 签发的 JPEG 缩略图，前端视口内最多同时加载 2 张；无封面或 SVG 等无法栅格化的格式显示类型图标 + 扩展名），悬停浮现 预览/下载/编辑/分享/删除 图标操作层，卡片下方显示名称与 类型/大小/当前版本；≤900px 侧栏收为顶部区块。详情页桌面左右分栏（`material-detail-layout` 3fr/2fr——左侧预览卡片含版本切换选择器，右侧版本历史表格含预览/下载/回滚/删除行操作），≤1100px 自动单列堆叠；预览容器最小高 420px、iframe 70vh，图片直读用棋盘格衬底。
 
@@ -148,6 +188,9 @@
 - 库页缩略图在上传时生成（最长边约 400px JPEG）；旧数据首次打开库页时补生成。SVG/ICO/AVIF 等 ImageIO 不稳定的格式不生成封面，前端显示类型图标。
 - 上传无真实进度条（宿主 SDK 限制）。
 - kkFileView 需能网络可达宿主（callbackBaseUrl）；容器部署时注意回源地址。
+- 组合物料本身不带文件：没有主文件版本链。**在线预览与下载**自 1.10.0 起按「预览主文件」（指定的子物料，未指定时第一个子物料）解析，因此可用；库页封面同样优先取预览主文件的缩略图。但组合物料仍**不签发分享链接**——分享页只渲染主文件版本并按其 ext/type 渲染，指向组合物料必然打不开，请分享具体子物料。父物料主文件版本的回滚/删除仍仅属主，管理端可代管的只有子物料。
+- 单个父物料最多 50 个子物料（`MaterialItemService.MAX_ITEMS`）；组合物料形态的文件夹导入单次也最多 50 个文件，超出请改用逐个文件导入。组合物料子物料集合是一次性全量读取的，不翻页。
+- 导入命名规则：文件位于嵌套子目录时，物料名（BUNDLE 下为子物料名）为「中间子目录 - 文件名」（`-` 连接，根文件夹名不计——它已是分类名/组合物料名），显式 name 优先且不加前缀。名称上限为物料 ≤120 字、子物料 ≤60 字；超上限时先丢最外层目录，再截断文件名部分，不会因目录过深让整项导入失败。
 
 ## 9. 平台化演进建议（向宿主 SPI 提交）
 

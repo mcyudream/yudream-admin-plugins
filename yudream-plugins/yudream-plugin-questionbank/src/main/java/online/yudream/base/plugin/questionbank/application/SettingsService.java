@@ -2,6 +2,7 @@ package online.yudream.base.plugin.questionbank.application;
 
 import java.util.HashMap;
 import java.util.Map;
+import online.yudream.base.plugin.questionbank.domain.CommandWindow;
 import online.yudream.base.plugin.questionbank.domain.DocValues;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
@@ -19,6 +20,8 @@ public final class SettingsService {
     private static final String KEY_QQ_DEFAULT_GROUP = "qqDefaultGroup";
     private static final String KEY_QQ_ANSWER_SECONDS = "qqAnswerSeconds";
     private static final String KEY_QQ_AI_GRADING = "qqAiGrading";
+    private static final String KEY_QQ_COMMAND_WINDOW_ENABLED = "qqCommandWindowEnabled";
+    private static final String KEY_QQ_COMMAND_WINDOWS = "qqCommandWindows";
     private static final int DEFAULT_QQ_ANSWER_SECONDS = 60;
 
     private final PluginDocumentStore documents;
@@ -75,6 +78,34 @@ public final class SettingsService {
                 .orElse(true);
     }
 
+    /** 是否限制群指令（抽题/抢答榜）的调用时间，默认关闭。 */
+    public boolean qqCommandWindowEnabled() {
+        return documents.findById(COLLECTION, DOC_ID)
+                .map(doc -> DocValues.bool(doc, KEY_QQ_COMMAND_WINDOW_ENABLED, false))
+                .orElse(false);
+    }
+
+    /**
+     * 群指令的开放时间段；空列表表示不限制。
+     *
+     * <p>开关打开但没有时间段时同样按不限制处理：开关本身表达不了「开放哪一段」，与其把群指令全部
+     * 拦下来（配置漏填就把功能锁死），不如照常放行。
+     */
+    public java.util.List<CommandWindow> qqCommandWindows() {
+        return documents.findById(COLLECTION, DOC_ID)
+                .map(doc -> CommandWindow.parseAll(DocValues.mapList(doc, KEY_QQ_COMMAND_WINDOWS)))
+                .orElse(java.util.List.of());
+    }
+
+    /** 现在是否在群指令开放时间内；未开启限制或没有时间段时恒为 true。 */
+    public boolean qqCommandWindowOpen(java.time.LocalTime now) {
+        if (!qqCommandWindowEnabled()) {
+            return true;
+        }
+        java.util.List<CommandWindow> windows = qqCommandWindows();
+        return windows.isEmpty() || CommandWindow.containsAny(windows, now);
+    }
+
     public Map<String, Object> settingsView() {
         Map<String, Object> view = new HashMap<>();
         view.put(KEY_PRACTICE_ENABLED, practiceEnabled());
@@ -84,13 +115,16 @@ public final class SettingsService {
         view.put(KEY_QQ_DEFAULT_GROUP, qqDefaultGroup());
         view.put(KEY_QQ_ANSWER_SECONDS, qqAnswerSeconds());
         view.put(KEY_QQ_AI_GRADING, qqAiGrading());
+        view.put(KEY_QQ_COMMAND_WINDOW_ENABLED, qqCommandWindowEnabled());
+        view.put(KEY_QQ_COMMAND_WINDOWS, qqCommandWindows().stream().map(CommandWindow::toMap).toList());
         return view;
     }
 
     /** 合并更新：null 字段保持不变；provider/model/defaultGroup 传空字符串表示清空。 */
     public void update(Boolean practiceEnabled, String aiProviderCode, String aiModelCode,
                        java.util.List<Map<String, Object>> qqGroups, String qqDefaultGroup,
-                       Integer qqAnswerSeconds, Boolean qqAiGrading) {
+                       Integer qqAnswerSeconds, Boolean qqAiGrading,
+                       Boolean qqCommandWindowEnabled, java.util.List<Map<String, Object>> qqCommandWindows) {
         Map<String, Object> doc = new HashMap<>(documents.findById(COLLECTION, DOC_ID).orElse(Map.of()));
         doc.remove("id");
         doc.remove("_id");
@@ -133,6 +167,16 @@ public final class SettingsService {
         }
         if (qqAiGrading != null) {
             doc.put(KEY_QQ_AI_GRADING, qqAiGrading);
+        }
+        if (qqCommandWindowEnabled != null) {
+            doc.put(KEY_QQ_COMMAND_WINDOW_ENABLED, qqCommandWindowEnabled);
+        }
+        if (qqCommandWindows != null) {
+            java.util.List<Map<String, Object>> normalized = new java.util.ArrayList<>();
+            for (CommandWindow window : CommandWindow.parseAll(qqCommandWindows)) {
+                normalized.add(window.toMap());
+            }
+            doc.put(KEY_QQ_COMMAND_WINDOWS, normalized);
         }
         documents.save(COLLECTION, DOC_ID, doc);
         if (practiceEnabled != null && practiceToggleListener != null) {

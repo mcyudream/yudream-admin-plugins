@@ -13,9 +13,36 @@ public record MinecraftServerDTO(
         SeasonDTO currentSeason,
         MinecraftServerStatusDTO status,
         MinecraftServerMapDTO map,
+        TopologyDTO topology,
         long createdAt,
         long updatedAt
 ) {
+
+    /**
+     * The proxy's reported downstream-server list. Absent for a server that is not a proxy, or a
+     * proxy whose bridge has not reported yet.
+     */
+    public record TopologyDTO(
+            String proxy,
+            String proxyVersion,
+            long reportedAt,
+            List<SubServerDTO> servers
+    ) {
+
+        public boolean reported() {
+            return reportedAt > 0;
+        }
+    }
+
+    public record SubServerDTO(
+            String name,
+            String address,
+            int online,
+            boolean sensor,
+            boolean defaultServer,
+            int sort
+    ) {
+    }
 
     public record EndpointDTO(
             String id,

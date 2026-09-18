@@ -21,7 +21,7 @@ public record ProjectProgressProjectSaveCmd(
     public record Status(String code, String label, Boolean terminal, Integer sort) {
     }
 
-    public record MinecraftPolicy(Boolean enabled, String serverId, Integer requiredOnlineMinutes,
+    public record MinecraftPolicy(Boolean enabled, String serverId, String subServer, Integer requiredOnlineMinutes,
                                   Boolean includeAfk, Boolean autoCheckInEnabled) {
     }
 }

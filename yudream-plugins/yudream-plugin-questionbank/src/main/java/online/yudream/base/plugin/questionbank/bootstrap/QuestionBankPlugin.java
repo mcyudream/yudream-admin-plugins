@@ -79,7 +79,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 })
 public final class QuestionBankPlugin implements YuDreamPlugin {
     public static final String CODE = "questionbank";
-    public static final String VERSION = "1.3.1";
+    public static final String VERSION = "1.4.0";
     public static final String VIEW_PERMISSION = "plugin:questionbank:view";
     public static final String COMPOSE_PERMISSION = "plugin:questionbank:compose";
     public static final String MANAGE_PERMISSION = "plugin:questionbank:manage";
@@ -165,7 +165,7 @@ public final class QuestionBankPlugin implements YuDreamPlugin {
 
     @online.yudream.base.plugin.spi.annotation.PluginCommand(
             code = "questionbank.random", command = "抽题", name = "题库抽题",
-            description = "随机抽一道题发起群内抢答；可用「抽题 <分组名>」指定分组（分组在题库设置中配置）")
+            description = "随机抽一道题发起群内抢答；可用 /抽题 <分组名> 指定分组（分组在题库设置中配置）")
     public void quizCommand(online.yudream.base.plugin.spi.system.command.PluginCommandContext command,
                             PluginContext context) {
         if (qqQuizService != null) {

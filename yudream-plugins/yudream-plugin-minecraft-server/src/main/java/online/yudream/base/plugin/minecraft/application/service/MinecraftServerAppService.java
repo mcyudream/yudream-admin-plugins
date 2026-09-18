@@ -6,10 +6,13 @@ import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftSubServer;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftSubServerActivity;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerSnapshotCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd;
+import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerTopologyCmd;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftEconomyRecordDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftSeasonOperationDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftPlayerActivityDTO;
@@ -18,6 +21,7 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServerTopology;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftEdition;
@@ -31,10 +35,13 @@ import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerSeason;
 import online.yudream.base.plugin.minecraft.domain.valobj.ModpackBinding;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerMap;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSubServer;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSubServerActivity;
 import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Optional;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 import online.yudream.base.plugin.minecraft.infrastructure.service.MinecraftStatusService;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -92,7 +99,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         int safePage = safePage(page);
         int safeSize = safeSize(size);
         List<MinecraftServerDTO> records = repository.list(safePage, safeSize, includeDisabled).stream()
-                .map(server -> assembler.toDTO(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
+                .map(server -> toDto(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
                 .map(dto -> includeDisabled ? dto : assembler.toUserDTO(dto))
                 .toList();
         return new MinecraftPageDTO<>(records, repository.count(includeDisabled));
@@ -100,14 +107,115 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public List<MinecraftServerDTO> listServers(boolean includeDisabled, boolean refreshStatus) {
         return allServers(includeDisabled).stream()
-                .map(server -> assembler.toDTO(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
+                .map(server -> toDto(server, refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null)))
                 .toList();
     }
 
     public MinecraftServerDTO detail(String serverId, boolean refreshStatus) {
         MinecraftServer server = requireServer(serverId);
         MinecraftServerStatus status = refreshStatus ? refreshStatus(server.id()) : repository.findStatus(server.id()).orElse(null);
-        return assembler.toDTO(server, status);
+        return toDto(server, status);
+    }
+
+    /** Builds the DTO with the server's reported proxy topology, which is absent for a non-proxy. */
+    private MinecraftServerDTO toDto(MinecraftServer server, MinecraftServerStatus status) {
+        return assembler.toDTO(server, status, repository.findTopology(server.id()).orElse(null));
+    }
+
+    /**
+     * Stores the downstream-server list reported by a bridge that targets this server explicitly.
+     *
+     * @throws IllegalArgumentException when the reported server id does not exist
+     */
+    public MinecraftServerDTO.TopologyDTO recordTopology(String serverId, MinecraftServerTopologyCmd cmd) {
+        return saveTopology(requireServer(serverId), cmd);
+    }
+
+    /**
+     * Stores a topology reported without a server id, by matching the proxy's own addresses against
+     * the configured endpoints. This is what removes the need to copy an Admin server id into the
+     * proxy's bridge config: the operator points the bridge at Admin and the entry attaches itself.
+     *
+     * @return the matched topology, or empty when no server claims any of the addresses
+     */
+    public Optional<MinecraftServerDTO.TopologyDTO> recordTopologyByAddress(List<String> addresses, MinecraftServerTopologyCmd cmd) {
+        return matchByAddress(addresses).map(server -> saveTopology(server, cmd));
+    }
+
+    /**
+     * Re-reads the topology already attached to a server.
+     *
+     * @throws IllegalArgumentException when the bridge has never reported one, with the reason a
+     *                                  proxy cannot be discovered from Admin alone
+     */
+    public MinecraftServerDTO.TopologyDTO resolveTopology(String serverId) {
+        MinecraftServer server = requireServer(serverId);
+        return repository.findTopology(server.id())
+                .filter(MinecraftServerTopology::reported)
+                .map(assembler::toDTO)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "该服务器还没有收到代理拓扑上报。代理的子服列表只能由代理自己上报，"
+                                + "无法从 Admin 侧探测：请在代理端安装桥接插件，并在其配置中填写 Admin 地址、API Key，"
+                                + "以及与本服务器线路一致的地址。"));
+    }
+
+    private MinecraftServerDTO.TopologyDTO saveTopology(MinecraftServer server, MinecraftServerTopologyCmd cmd) {
+        long reportedAt = cmd.reportedAt() == null || cmd.reportedAt() <= 0 ? System.currentTimeMillis() : cmd.reportedAt();
+        MinecraftServerTopology topology = new MinecraftServerTopology(
+                server.id(),
+                cmd.proxy(),
+                cmd.proxyVersion(),
+                reportedAt,
+                toSubServers(cmd.servers()));
+        return assembler.toDTO(repository.saveTopology(topology));
+    }
+
+    private List<MinecraftSubServer> toSubServers(List<MinecraftServerTopologyCmd.Server> servers) {
+        List<MinecraftSubServer> items = new java.util.ArrayList<>();
+        int sort = 0;
+        for (MinecraftServerTopologyCmd.Server server : servers) {
+            if (server == null || server.name() == null || server.name().isBlank()) {
+                continue;
+            }
+            items.add(new MinecraftSubServer(
+                    server.name(),
+                    server.address(),
+                    server.online() == null ? 0 : server.online(),
+                    Boolean.TRUE.equals(server.sensor()),
+                    Boolean.TRUE.equals(server.defaultServer()),
+                    sort++));
+        }
+        return items;
+    }
+
+    private Optional<MinecraftServer> matchByAddress(List<String> addresses) {
+        if (addresses == null || addresses.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> wanted = addresses.stream()
+                .filter(address -> address != null && !address.isBlank())
+                .map(MinecraftServerAppService::normalizeAddress)
+                .toList();
+        if (wanted.isEmpty()) {
+            return Optional.empty();
+        }
+        return allServers(true).stream()
+                .filter(server -> server.endpoints().stream()
+                        .anyMatch(endpoint -> wanted.contains(normalizeAddress(endpoint.address()))
+                                || wanted.contains(normalizeAddress(endpoint.host()))))
+                .findFirst();
+    }
+
+    /** Compares addresses case-insensitively and treats a missing port as the default one. */
+    private static String normalizeAddress(String value) {
+        String address = value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT);
+        if (address.isEmpty()) {
+            return "";
+        }
+        if (address.endsWith(":25565")) {
+            return address.substring(0, address.length() - ":25565".length());
+        }
+        return address;
     }
 
     public MinecraftServerDTO bindSeasonModpack(String serverId, String seasonId, MinecraftServerSaveCmd.ModpackBinding binding) {
@@ -236,7 +344,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     public MinecraftPageDTO<MinecraftServerDTO> archivedServers(int page, int size) {
         List<MinecraftServerDTO> records = allServers(true).stream().filter(server -> !server.enabled())
                 .skip((long) (safePage(page) - 1) * safeSize(size)).limit(safeSize(size))
-                .map(server -> assembler.toUserDTO(assembler.toDTO(server, repository.findStatus(server.id()).orElse(null)))).toList();
+                .map(server -> assembler.toUserDTO(toDto(server, repository.findStatus(server.id()).orElse(null)))).toList();
         long total = allServers(true).stream().filter(server -> !server.enabled()).count();
         return new MinecraftPageDTO<>(records, total);
     }
@@ -363,7 +471,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         requireServer(serverId);
         synchronized (playerActivityLock) {
             long eventAt = eventAt(cmd);
-            MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.playerName(), eventAt);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.JOIN, eventAt);
             return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
@@ -373,7 +481,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         requireServer(serverId);
         synchronized (playerActivityLock) {
             long eventAt = eventAt(cmd);
-            MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.playerName(), eventAt);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.QUIT, eventAt);
             return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
@@ -383,7 +491,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         requireServer(serverId);
         synchronized (playerActivityLock) {
             long eventAt = eventAt(cmd);
-            MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.playerName(), eventAt);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).startAfk(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_START, eventAt);
             return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
@@ -393,15 +501,31 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         requireServer(serverId);
         synchronized (playerActivityLock) {
             long eventAt = eventAt(cmd);
-            MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.playerName(), eventAt);
+            MinecraftPlayerActivity activity = activity(serverId, cmd).endAfk(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.AFK_END, eventAt);
             return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
     }
 
+    /**
+     * 按权威名册对账在线玩家。
+     *
+     * <p>分组形态下对账是<b>子服维度</b>的：只为本次上报真正列出的子服收尾，否则一份 paper 的
+     * 快照会把 fabric 上的人全部关掉。扁平形态保持改动前的整服语义。
+     *
+     * @return 本次上报的名册人数
+     */
     public int reconcilePlayerSnapshot(String serverId, MinecraftPlayerSnapshotCmd cmd) {
         requireServer(serverId);
         long observedAt = normalizeTimestamp(cmd.observedAt());
+        if (cmd.grouped()) {
+            return reconcileGroupedSnapshot(serverId, cmd, observedAt);
+        }
+        return reconcileFlatSnapshot(serverId, cmd, observedAt);
+    }
+
+    /** 扁平快照：没有子服维度，整台服务器的在线玩家都要在名册里，语义与改动前一致。 */
+    private int reconcileFlatSnapshot(String serverId, MinecraftPlayerSnapshotCmd cmd, long observedAt) {
         Map<String, MinecraftPlayerSnapshotCmd.Player> reported = cmd.players().stream()
                 .collect(Collectors.toMap(
                         player -> requireText(player.playerId(), "玩家 ID 不能为空"),
@@ -430,6 +554,69 @@ public class MinecraftServerAppService implements PluginMinecraftService {
             }
         }
         return cmd.players().size();
+    }
+
+    /**
+     * 分组快照：每个列出的子服独立对账。
+     *
+     * <p>一份只列出 paper 的上报不会碰 fabric 上的任何人；列出的子服即使名册为空也会把它上面
+     * 的人关掉，这正是“该子服现在没人”的表达方式。
+     */
+    private int reconcileGroupedSnapshot(String serverId, MinecraftPlayerSnapshotCmd cmd, long observedAt) {
+        Map<String, Map<String, MinecraftPlayerSnapshotCmd.Player>> reported = new LinkedHashMap<>();
+        for (MinecraftPlayerSnapshotCmd.Server server : cmd.servers()) {
+            Map<String, MinecraftPlayerSnapshotCmd.Player> roster = reported.computeIfAbsent(
+                    server.subServer(), key -> new LinkedHashMap<>());
+            for (MinecraftPlayerSnapshotCmd.Player player : server.players()) {
+                roster.putIfAbsent(requireText(player.playerId(), "玩家 ID 不能为空"), player);
+            }
+        }
+        synchronized (playerActivityLock) {
+            for (MinecraftPlayerActivity activity : allStoredPlayerActivities(serverId)) {
+                if (observedAt < activity.updatedAt()) {
+                    continue;
+                }
+                MinecraftPlayerActivity current = activity;
+                // 一次快照可能同时关掉多台子服上开着的区间，因此收尾事件按子服逐条写：
+                // 一条不分子服的收尾事件虽然也能参与任意子服的回放，但那样就分不清是谁被关了。
+                List<String> closedSubServers = new ArrayList<>();
+                for (Map.Entry<String, Map<String, MinecraftPlayerSnapshotCmd.Player>> entry : reported.entrySet()) {
+                    MinecraftSubServerActivity bucket = current.subServers().get(entry.getKey());
+                    if (bucket == null || !bucket.online()) {
+                        continue;
+                    }
+                    if (entry.getValue().containsKey(current.playerId())) {
+                        continue;
+                    }
+                    current = current.quit(entry.getKey(), current.playerName(), observedAt);
+                    closedSubServers.add(entry.getKey());
+                }
+                if (!closedSubServers.isEmpty()) {
+                    for (String subServer : closedSubServers) {
+                        repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
+                                serverId, activity.playerId(), activity.playerName(), subServer,
+                                MinecraftPlayerActivityEvent.Type.SERVER_SNAPSHOT, observedAt));
+                    }
+                    repository.savePlayerActivity(current);
+                }
+            }
+            for (Map.Entry<String, Map<String, MinecraftPlayerSnapshotCmd.Player>> entry : reported.entrySet()) {
+                for (MinecraftPlayerSnapshotCmd.Player player : entry.getValue().values()) {
+                    MinecraftPlayerActivity activity = repository.findPlayerActivity(serverId, player.playerId())
+                            .orElseGet(() -> MinecraftPlayerActivity.empty(
+                                    serverId, player.playerId(), player.playerName(), observedAt));
+                    MinecraftSubServerActivity bucket = activity.subServers().get(entry.getKey());
+                    if (bucket != null && bucket.online()) {
+                        continue;
+                    }
+                    repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
+                            serverId, player.playerId(), player.playerName(), entry.getKey(),
+                            MinecraftPlayerActivityEvent.Type.JOIN, observedAt));
+                    repository.savePlayerActivity(activity.join(entry.getKey(), player.playerName(), observedAt));
+                }
+            }
+        }
+        return reported.values().stream().mapToInt(Map::size).sum();
     }
 
     public MinecraftPageDTO<MinecraftPlayerActivityDTO> playerActivities(String serverId, int page, int size) {
@@ -481,20 +668,71 @@ public class MinecraftServerAppService implements PluginMinecraftService {
                 .toList();
     }
 
+    /**
+     * 玩家在各子服上的时长拆分。
+     *
+     * <p>新增的读取方法：{@link #minecraftPlayerActivities} 仍然返回跨子服合计，本方法返回明细，
+     * 既有消费方（周目继承、活动证明）的签名与语义不变。
+     */
+    @Override
+    public List<PluginMinecraftSubServerActivity> minecraftSubServerActivities(String serverId, String playerId) {
+        if (serverId == null || serverId.isBlank() || playerId == null || playerId.isBlank()) {
+            return List.of();
+        }
+        MinecraftPlayerActivity activity = repository.findPlayerActivity(serverId, playerId).orElse(null);
+        if (activity == null) {
+            return List.of();
+        }
+        long now = System.currentTimeMillis();
+        return activity.subServers().values().stream()
+                .map(bucket -> new PluginMinecraftSubServerActivity(
+                        activity.serverId(),
+                        activity.playerId(),
+                        bucket.name(),
+                        bucket.online(),
+                        bucket.afk(),
+                        bucket.onlineAt(now),
+                        bucket.afkAt(now),
+                        bucket.currentOnlineSince(),
+                        bucket.currentAfkSince(),
+                        bucket.lastJoinedAt(),
+                        bucket.lastQuitAt()))
+                .toList();
+    }
+
     @Override
     public Optional<PluginMinecraftOnlineWindow> minecraftOnlineWindow(String serverId, String playerId, long windowStart, long windowEnd) {
+        return minecraftOnlineWindow(serverId, playerId, "", windowStart, windowEnd);
+    }
+
+    /**
+     * 按子服限定的时间窗统计；{@code subServer} 为空表示整服。
+     *
+     * <p>群组服下同一个玩家的时间分散在多台子服上，整服口径会把它们加在一起；指定子服后只回放该
+     * 子服的事件。改造之前写入的事件没有子服维度，它们按「不限定」处理，因此仍会参与任意子服的
+     * 回放——按子服统计时真正的历史归因只能从改造之后算起。
+     */
+    @Override
+    public Optional<PluginMinecraftOnlineWindow> minecraftOnlineWindow(String serverId, String playerId, String subServer,
+                                                                      long windowStart, long windowEnd) {
         if (windowStart <= 0 || windowEnd <= windowStart) return Optional.empty();
         MinecraftPlayerActivity activity = repository.findPlayerActivity(serverId, playerId).orElse(null);
         if (activity == null) return Optional.empty();
         List<MinecraftPlayerActivityEvent> events = allPlayerActivityEvents(serverId, playerId);
         if (events.isEmpty()) return Optional.empty();
-        WindowStat stat = windowStat(events, windowStart, windowEnd);
+        WindowStat stat = windowStat(events, subServer, windowStart, windowEnd);
         return Optional.of(new PluginMinecraftOnlineWindow(serverId, playerId, activity.playerName(), windowStart, windowEnd,
                 stat.onlineMillis(), stat.afkMillis(), Math.max(0, stat.onlineMillis() - stat.afkMillis())));
     }
 
     @Override
     public List<PluginMinecraftActivePlayer> minecraftActivePlayers(String serverId, long windowStart, long windowEnd) {
+        return minecraftActivePlayers(serverId, "", windowStart, windowEnd);
+    }
+
+    @Override
+    public List<PluginMinecraftActivePlayer> minecraftActivePlayers(String serverId, String subServer,
+                                                                   long windowStart, long windowEnd) {
         if (windowStart <= 0 || windowEnd <= windowStart) return List.of();
         Map<String, List<MinecraftPlayerActivityEvent>> eventsByPlayer = new LinkedHashMap<>();
         for (MinecraftPlayerActivityEvent event : repository.allPlayerActivityEvents(serverId)) {
@@ -502,7 +740,7 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         }
         List<PluginMinecraftActivePlayer> result = new ArrayList<>();
         for (Map.Entry<String, List<MinecraftPlayerActivityEvent>> entry : eventsByPlayer.entrySet()) {
-            WindowStat stat = windowStat(entry.getValue(), windowStart, windowEnd);
+            WindowStat stat = windowStat(entry.getValue(), subServer, windowStart, windowEnd);
             if (stat.onlineMillis() <= 0 && stat.firstJoinAt() <= 0) {
                 continue;
             }
@@ -513,46 +751,126 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return result;
     }
 
+    /**
+     * 该服务器在 Admin 侧已知的子服列表，来自桥接上报的拓扑。
+     *
+     * <p>非代理端（单机服）没有拓扑，返回空列表；管理端据此决定要不要显示子服选择。为了让界面能
+     * 标出默认入口与传感器状态，这里连同 {@code sensor} / {@code defaultServer} 一起下发。
+     */
+    @Override
+    public List<PluginMinecraftSubServer> minecraftSubServers(String serverId) {
+        if (serverId == null || serverId.isBlank()) {
+            return List.of();
+        }
+        return repository.findTopology(serverId.trim())
+                .map(topology -> topology.servers().stream()
+                        .map(sub -> new PluginMinecraftSubServer(sub.name(), sub.address(), sub.online(),
+                                sub.sensor(), sub.defaultServer(), sub.sort()))
+                        .toList())
+                .orElseGet(List::of);
+    }
+
     private record WindowStat(long firstJoinAt, long onlineMillis, long afkMillis) {
     }
 
-    private WindowStat windowStat(List<MinecraftPlayerActivityEvent> events, long windowStart, long windowEnd) {
+    /**
+     * 回放事件流水，算出窗口内的在线与挂机时长。
+     *
+     * <p>两个容易算错的点，都在这里收口：
+     *
+     * <ul>
+     *   <li><b>尚未发生的时间不算已在线。</b>活动时段可能还在进行（{@code windowEnd} 在未来），而
+     *       此刻仍在线的人会留下一个没有收尾的事件。若把这段开放区间直接算到 {@code windowEnd}，
+     *       一个刚进服的人也会被记成「在线满整个活动周期」。因此回放的有效终点取
+     *       {@code min(windowEnd, 现在)}。</li>
+     *   <li><b>一个区间的归属由整段决定，而不是逐事件判断。</b>升级期间同一次会话的 JOIN 与 QUIT
+     *       可能一个没有子服字段（旧版写入丢掉了）、一个带子服名。只认开启事件的名字，会让这段
+     *       区间在具名子服下开不出也关不掉，最终被算到窗口末尾；只认收尾事件，又会把整段误记到
+     *       收尾那台子服。这里的规则是：优先用开启事件的名字，开启事件为空时退回收尾事件的名字；
+     *       两者都为空即无法归属——整服口径照常计入，具名子服一律不计入。</li>
+     * </ul>
+     *
+     * <p>{@code subServer} 为空表示整服口径，此时所有区间都计入，与他人为改动前的行为一致。
+     */
+    private WindowStat windowStat(List<MinecraftPlayerActivityEvent> events, String subServer, long windowStart, long windowEnd) {
         long onlineMillis = 0;
         long afkMillis = 0;
         long firstJoinAt = 0;
         Long onlineSince = null;
         Long afkSince = null;
+        // 当前区间的归属：开启事件的名字，为空时留待收尾事件补上。
+        String openSubServer = "";
+        long effectiveEnd = Math.min(windowEnd, System.currentTimeMillis());
         for (MinecraftPlayerActivityEvent event : events) {
             long at = event.occurredAt();
-            if (at > windowEnd) break;
+            if (at > effectiveEnd) break;
             switch (event.type()) {
                 case JOIN -> {
-                    if (onlineSince == null) onlineSince = at;
-                    if (firstJoinAt == 0 && at >= windowStart) firstJoinAt = at;
+                    if (onlineSince == null) {
+                        onlineSince = at;
+                        openSubServer = event.subServer();
+                    }
+                    // 别的子服的 JOIN 不能让玩家在这台子服上算作「窗口内上线过」。
+                    if (firstJoinAt == 0 && at >= windowStart
+                            && attributedTo(event.subServer(), "", subServer)) {
+                        firstJoinAt = at;
+                    }
                 }
                 case QUIT, SERVER_OFFLINE, SERVER_SNAPSHOT -> {
-                    onlineMillis += overlap(onlineSince, at, windowStart, windowEnd);
-                    afkMillis += overlap(afkSince, at, windowStart, windowEnd);
+                    if (attributedTo(openSubServer, event.subServer(), subServer)) {
+                        onlineMillis += overlap(onlineSince, at, windowStart, effectiveEnd);
+                        afkMillis += overlap(afkSince, at, windowStart, effectiveEnd);
+                    }
                     onlineSince = null;
                     afkSince = null;
+                    openSubServer = "";
                 }
                 case AFK_START -> {
-                    if (onlineSince == null) onlineSince = at;
+                    if (onlineSince == null) {
+                        onlineSince = at;
+                        openSubServer = event.subServer();
+                    }
                     if (afkSince == null) afkSince = at;
                 }
                 case AFK_END -> {
-                    afkMillis += overlap(afkSince, at, windowStart, windowEnd);
+                    if (attributedTo(openSubServer, event.subServer(), subServer)) {
+                        afkMillis += overlap(afkSince, at, windowStart, effectiveEnd);
+                    }
                     afkSince = null;
                 }
             }
         }
-        onlineMillis += overlap(onlineSince, windowEnd, windowStart, windowEnd);
-        afkMillis += overlap(afkSince, windowEnd, windowStart, windowEnd);
+        if (attributedTo(openSubServer, "", subServer)) {
+            onlineMillis += overlap(onlineSince, effectiveEnd, windowStart, effectiveEnd);
+            afkMillis += overlap(afkSince, effectiveEnd, windowStart, effectiveEnd);
+        }
         return new WindowStat(firstJoinAt, onlineMillis, afkMillis);
     }
 
+    /**
+     * 这段区间是否计入当前口径。
+     *
+     * @param openSubServer  开启事件带的子服名，可为空
+     * @param closeSubServer 收尾事件带的子服名，可为空
+     * @param filter         当前口径；为空表示整服
+     */
+    private static boolean attributedTo(String openSubServer, String closeSubServer, String filter) {
+        String target = filter == null ? "" : filter.trim();
+        if (target.isEmpty()) {
+            return true;
+        }
+        String opener = openSubServer == null ? "" : openSubServer.trim();
+        String attributed = !opener.isEmpty()
+                ? opener
+                : (closeSubServer == null ? "" : closeSubServer.trim());
+        // 无法归属（开启与收尾都没有子服名）的区间不计入任何具名子服：宁可少算，不可错记。
+        return target.equals(attributed);
+    }
+
     private void recordActivityEvent(String serverId, MinecraftPlayerEventCmd cmd, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
-        repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(serverId, cmd.playerId(), cmd.playerName(), type, occurredAt));
+        // 事件必须和时长桶带同一个子服，否则按子服回放时间窗时这条事件会落进错误的维度。
+        repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
+                serverId, cmd.playerId(), cmd.playerName(), cmd.subServer(), type, occurredAt));
     }
 
     private void recoverPlayersFromOfflineServer(String serverId, MinecraftServerStatus previousStatus, long detectedAt) {
@@ -576,7 +894,8 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     private void closeActivity(MinecraftPlayerActivity activity, MinecraftPlayerActivityEvent.Type type, long occurredAt) {
         repository.savePlayerActivityEvent(MinecraftPlayerActivityEvent.create(
                 activity.serverId(), activity.playerId(), activity.playerName(), type, occurredAt));
-        repository.savePlayerActivity(activity.quit(activity.playerName(), occurredAt));
+        // 整服级别的兜底：同时在多个子服上的玩家必须全部收尾，否则仍会被判定为在线。
+        repository.savePlayerActivity(activity.quitAll(activity.playerName(), occurredAt));
     }
 
     private List<MinecraftPlayerActivity> allStoredPlayerActivities(String serverId) {
@@ -619,7 +938,8 @@ public class MinecraftServerAppService implements PluginMinecraftService {
                 season == null ? null : season.name(),
                 season == null ? null : season.startedAt(),
                 dto.createdAt(),
-                dto.updatedAt()
+                dto.updatedAt(),
+                minecraftSubServers(dto.id())
         );
     }
 

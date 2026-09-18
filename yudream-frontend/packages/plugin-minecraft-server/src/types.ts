@@ -66,6 +66,27 @@ export interface MinecraftServerMap {
   externalUrl?: string
 }
 
+/** One downstream server behind a proxy, reported by the bridge running on that proxy. */
+export interface MinecraftSubServer {
+  name: string
+  address: string
+  online: number
+  sensor: boolean
+  defaultServer: boolean
+  sort: number
+}
+
+/** The proxy's reported server list. Absent for a server that is not a proxy. */
+export interface MinecraftTopology {
+  proxy: string
+  proxyVersion: string
+  reportedAt: TimeValue
+  reported: boolean
+  onlinePlayers: number
+  sensorCount: number
+  servers: MinecraftSubServer[]
+}
+
 export interface MinecraftServer {
   id: string
   name: string
@@ -77,6 +98,7 @@ export interface MinecraftServer {
   currentSeason?: MinecraftSeason
   status?: MinecraftServerStatus
   map?: MinecraftServerMap
+  topology?: MinecraftTopology
   createdAt: TimeValue
   updatedAt: TimeValue
 }
@@ -132,6 +154,43 @@ export interface EconomyRecord {
   createdAt: TimeValue
 }
 
+/**
+ * 玩家在单个子服上的时长明细。
+ *
+ * <p>`name` 为 `default` 表示这条记录没有子服维度（单机服，或未按子服上报的旧数据）。
+ */
+export interface PlayerSubServerActivity {
+  name: string
+  online: boolean
+  afk: boolean
+  onlineMillis: number
+  afkMillis: number
+  currentOnlineSince?: TimeValue
+  currentAfkSince?: TimeValue
+  lastJoinedAt?: TimeValue
+  lastQuitAt?: TimeValue
+}
+
+/**
+ * 界面直接渲染的子服时长行：在原始明细上带上展示名与已格式化的时长。
+ *
+ * 保留后端的全部字段，而不只是时长——子服行要能显示该子服自己的在线/挂机状态与进出服时间。
+ */
+export interface PlayerSubServerDetail {
+  name: string
+  label: string
+  online: boolean
+  afk: boolean
+  onlineMillis: number
+  afkMillis: number
+  duration: string
+  afkDuration: string
+  currentOnlineSince?: TimeValue
+  currentAfkSince?: TimeValue
+  lastJoinedAt?: TimeValue
+  lastQuitAt?: TimeValue
+}
+
 export interface PlayerActivity {
   serverId: string
   playerId: string
@@ -145,6 +204,8 @@ export interface PlayerActivity {
   lastJoinedAt?: TimeValue
   lastQuitAt?: TimeValue
   updatedAt: TimeValue
+  /** 按子服拆分的明细；顶层 total* 是这些明细之和。 */
+  subServers?: PlayerSubServerActivity[]
 }
 
 export interface ServerForm {

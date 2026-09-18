@@ -24,7 +24,7 @@ onMounted(() => model.loadQuizLeaderboard())
 </script>
 
 <template>
-  <FaPageHeader title="抢答排行榜" description="QQ 群内「抽题」抢答的累计答对榜；绑定系统账号后以昵称上榜，未绑定显示脱敏 QQ 号">
+  <FaPageHeader title="抢答排行榜" description="QQ 群内 /抽题 抢答的累计答对榜；绑定系统账号后以昵称上榜，未绑定显示脱敏 QQ 号">
     <FaButton variant="outline" :loading="model.quizLeaderboardLoading" @click="model.loadQuizLeaderboard()">
       <FaIcon name="i-ri:refresh-line" />刷新
     </FaButton>
@@ -38,7 +38,7 @@ onMounted(() => model.loadQuizLeaderboard())
       table-root-class="qb-table-scroll"
       table-class="qb-table-w560"
       border stripe
-      empty-text="还没有抢答成绩，去群里发送「抽题」开始抢答吧"
+      empty-text="还没有抢答成绩，去群里发送 /抽题 开始抢答吧"
     >
       <template #cell-rank="{ row }">{{ rankText(row.original.rank) }}</template>
       <template #cell-name="{ row }">

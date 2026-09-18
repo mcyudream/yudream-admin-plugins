@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.minecraft.domain.repo;
 
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
+import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServerTopology;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
@@ -52,4 +53,9 @@ public interface MinecraftServerRepository {
 
     /** All activity events of one server, ordered by occurredAt. */
     List<MinecraftPlayerActivityEvent> allPlayerActivityEvents(String serverId);
+
+    /** Replaces the proxy's reported downstream-server list. At most one topology per server. */
+    MinecraftServerTopology saveTopology(MinecraftServerTopology topology);
+
+    Optional<MinecraftServerTopology> findTopology(String serverId);
 }

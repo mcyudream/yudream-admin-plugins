@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { TableColumn } from '@yudream/components'
 import type { MaterialPluginModel } from '../composables/useMaterialPlugin'
-import type { VersionView } from '../types'
-import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaResponsiveTable, FaSelect, FaTag, useFaModal } from '@yudream/components'
+import type { MaterialItemView, VersionView } from '../types'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaSelect, useFaModal } from '@yudream/components'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import MaterialItemManager from '../components/MaterialItemManager.vue'
+import MaterialVersionsTable from '../components/MaterialVersionsTable.vue'
 import NewVersionModal from '../components/NewVersionModal.vue'
 import PreviewFrame from '../components/PreviewFrame.vue'
 import ShareModal from '../components/ShareModal.vue'
-import { formatSize, formatTime, visibilityLabel } from '../types'
+import { formatSize, visibilityLabel } from '../types'
 
 const props = defineProps<{ model: MaterialPluginModel }>()
 const model = props.model
@@ -20,37 +21,95 @@ const materialId = computed(() => String(route.query.id || ''))
 const newVersionOpen = ref(false)
 const shareOpen = ref(false)
 const saving = ref(false)
-/** 预览中的版本；空串表示当前版本 */
+/**
+ * 预览目标：'' 为父物料主文件（仅单文件物料有），否则为子物料 id。
+ * 与子物料管理区的 v-model:active-id 同源——在预览区切目标会同步选中版本区，反之亦然。
+ */
+const previewTarget = ref('')
+/** 预览版本；空串表示当前版本 */
 const previewVersion = ref('')
+
 /** 他人物料默认只读：可预览/下载；有管理权限者可代传新版本、代管分享（回滚/删版本仍仅属主） */
 const isOwner = computed(() => !!model.detail && model.isOwner(model.detail.material))
 /** 上传新版本/分享入口：属主走 /me，管理者走 /admin 代操作（命名避开 CI 的 canManage 数据集切换启发式——这里不切换数据集，只是对已可见物料开放管理操作） */
 const canOperateEntry = computed(() => isOwner.value || model.hasManage)
+/** 是否有主文件：false 即组合物料，父物料自身没有版本链；在线预览与下载改由「预览主文件」所指子物料承载 */
+const hasMainFile = computed(() => !!model.detail?.material.mainFilePresent)
+/** 组合物料指定的预览主文件（子物料 id）；空串表示未指定 */
+const previewItemId = computed(() => model.detail?.material.previewItemId || '')
+/** 预览主文件的子物料名，用于文案展示（指针失效或未指定时为空） */
+const designatedName = computed(() => model.items.find(item => item.id === previewItemId.value)?.name || '')
+const activeItem = computed(() => model.items.find(item => item.id === previewTarget.value) || null)
+/** 有可下载的内容：带主文件的物料下载当前主版本，组合物料下载预览主文件（未指定时第一个子物料） */
+const downloadable = computed(() => hasMainFile.value || model.items.length > 0)
+const downloadLabel = computed(() => hasMainFile.value ? '下载当前版本' : '下载预览主文件')
+
+const previewTargetOptions = computed(() => [
+  ...(hasMainFile.value ? [{ label: '主文件', value: '' }] : []),
+  ...model.items.map(item => ({
+    label: item.id === previewItemId.value ? `预览主文件：${item.name}` : `子物料：${item.name}`,
+    value: item.id,
+  })),
+])
 
 const previewVersionOptions = computed(() => {
-  const options = model.versions.map(version => ({
+  const list = previewTarget.value ? model.itemVersions : model.versions
+  return list.map(version => ({
     label: `v${version.version}${version.current ? '（当前）' : ''}`,
     value: String(version.version),
   }))
-  return options
 })
 
-const versionColumns: TableColumn<VersionView>[] = [
-  { id: 'version', header: '版本', width: 90 },
-  { accessorKey: 'originalName', header: '文件名', minWidth: 180 },
-  { id: 'size', header: '大小', width: 100 },
-  { accessorKey: 'note', header: '备注', minWidth: 140 },
-  { accessorKey: 'uploaderName', header: '上传者', width: 110 },
-  { accessorKey: 'createdAt', header: '上传时间', width: 170 },
-  { id: 'operation', header: '操作', width: 250 },
-]
+/** 预览区的类型/扩展名跟随目标，否则子物料的 PSD/PNG 会按父物料类型渲染。 */
+const previewType = computed(() => activeItem.value ? activeItem.value.type : model.detail?.material.type)
+const previewExt = computed(() => activeItem.value ? activeItem.value.ext : model.detail?.material.ext)
 
-watch(previewVersion, (value) => {
+const headerDescription = computed(() => {
+  const material = model.detail?.material
+  if (!material) {
+    return ''
+  }
+  const designated = model.items.find(item => item.id === previewItemId.value)
+  const parts = [
+    hasMainFile.value
+      ? `${material.typeLabel} · .${material.ext} · ${formatSize(material.size)} · 当前 v${material.currentVersion}`
+      : `组合物料 · ${model.items.length} 个子物料 · 各自独立版本${designated ? ` · 预览主文件：${designated.name}` : ' · 未指定预览主文件'}`,
+    `${visibilityLabel(material.visibility)}可见`,
+    `上传者 ${material.ownerName || '-'}`,
+  ]
+  return parts.join(' · ')
+})
+
+async function reloadPreview() {
   if (!materialId.value) {
     return
   }
-  void model.loadPreview(materialId.value, value ? Number(value) : undefined)
-})
+  const version = previewVersion.value ? Number(previewVersion.value) : undefined
+  if (previewTarget.value) {
+    await model.loadItemPreview(materialId.value, previewTarget.value, version)
+  }
+  else {
+    await model.loadPreview(materialId.value, version)
+  }
+}
+
+/**
+ * 同步 watcher：子组件先改 v-model 再 emit 版本号，异步 watcher 的刷新顺序无法保证，
+ * 会出现「点了 v2 却显示当前版本」的错配，故让两次赋值按调用顺序立即生效。
+ */
+watch(previewTarget, () => {
+  previewVersion.value = ''
+  void reloadPreview()
+}, { flush: 'sync' })
+
+watch(previewVersion, () => {
+  void reloadPreview()
+}, { flush: 'sync' })
+
+/** 子物料表格/版本区发来的预览请求：activeId 已由 v-model 同步，这里补上版本号。 */
+function onItemPreview(payload: { item: MaterialItemView, version: number }) {
+  previewVersion.value = String(payload.version)
+}
 
 async function submitNewVersion(payload: { fileId: string, filename: string, note: string }) {
   saving.value = true
@@ -66,6 +125,17 @@ async function submitNewVersion(payload: { fileId: string, filename: string, not
   }
   finally {
     saving.value = false
+  }
+}
+
+function previewMainVersion(row: VersionView) {
+  previewTarget.value = ''
+  previewVersion.value = String(row.version)
+}
+
+function downloadMainVersion(row: VersionView) {
+  if (model.detail) {
+    void model.downloadMine(model.detail.material, row.version)
   }
 }
 
@@ -91,85 +161,91 @@ onMounted(async () => {
     return
   }
   await model.loadDetail(materialId.value)
-  await model.loadPreview(materialId.value)
+  await model.loadItems(materialId.value)
+  // 组合物料没有主文件：默认预览指定的预览主文件，未指定时退到第一个子物料，避免预览区空白
+  if (!hasMainFile.value && model.items.length) {
+    const designated = previewItemId.value
+    previewTarget.value = designated && model.items.some(item => item.id === designated)
+      ? designated
+      : model.items[0].id
+  }
+  await reloadPreview()
 })
 </script>
 
 <template>
   <template v-if="model.detail">
-    <FaPageHeader :title="model.detail.material.name" :description="`${model.detail.material.typeLabel} · .${model.detail.material.ext} · ${formatSize(model.detail.material.size)} · 当前 v${model.detail.material.currentVersion} · ${visibilityLabel(model.detail.material.visibility)}可见 · 上传者 ${model.detail.material.ownerName || '-'}`">
+    <FaPageHeader :title="model.detail.material.name" :description="headerDescription">
       <FaButton variant="outline" @click="router.push('/platform/plugins/material')"><FaIcon name="i-ri:arrow-left-line" />返回物料库</FaButton>
-      <FaButton variant="outline" @click="model.downloadMine(model.detail.material)"><FaIcon name="i-ri:download-line" />下载当前版本</FaButton>
-      <FaButton v-if="canOperateEntry" variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
-      <FaButton v-if="canOperateEntry" @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
+      <FaButton v-if="downloadable" variant="outline" @click="model.downloadMine(model.detail.material)"><FaIcon name="i-ri:download-line" />{{ downloadLabel }}</FaButton>
+      <FaButton v-if="canOperateEntry && hasMainFile" variant="outline" @click="shareOpen = true"><FaIcon name="i-ri:share-forward-line" />分享</FaButton>
+      <FaButton v-if="canOperateEntry && hasMainFile" @click="newVersionOpen = true"><FaIcon name="i-ri:upload-cloud-2-line" />上传新版本</FaButton>
     </FaPageHeader>
     <FaPageMain>
       <div class="material-detail-layout">
         <FaCard class="material-preview-card">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <strong class="text-sm">在线预览</strong>
-            <FaSelect v-model="previewVersion" :options="previewVersionOptions" class="w-44" placeholder="当前版本" />
+            <div class="flex flex-wrap items-center gap-2">
+              <FaSelect v-if="previewTargetOptions.length > 1" v-model="previewTarget" :options="previewTargetOptions" class="w-52" />
+              <FaSelect v-model="previewVersion" :options="previewVersionOptions" class="w-40" placeholder="当前版本" />
+            </div>
           </div>
           <PreviewFrame
             :sdk="model.sdk"
             :info="model.preview"
             :loading="model.previewLoading"
-            :material-type="model.detail.material.type"
-            :ext="model.detail.material.ext"
+            :material-type="previewType"
+            :ext="previewExt"
           />
         </FaCard>
-        <FaCard>
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <strong class="text-sm">版本历史</strong>
-            <span class="text-xs text-secondary-foreground/70">共 {{ model.versions.length }} 个版本</span>
-          </div>
-          <FaResponsiveTable
-            :columns="versionColumns"
-            :data="model.versions"
-            row-key="version"
-            table-root-class="max-w-full overflow-x-auto rounded-lg"
-            table-class="min-w-[980px]"
-            border stripe
+        <FaCard v-if="hasMainFile">
+          <MaterialVersionsTable
+            :versions="model.versions"
+            :can-write="isOwner"
+            :can-upload="canOperateEntry"
+            @preview="previewMainVersion"
+            @download="downloadMainVersion"
+            @restore="confirmRestore"
+            @remove="confirmDeleteVersion"
+            @upload="newVersionOpen = true"
           >
-            <template #cell-version="{ row }">
-              <strong>v{{ row.original.version }}</strong>
-              <FaTag v-if="row.original.current" class="ml-2" variant="secondary">当前</FaTag>
+            <template #title>
+              <strong class="text-sm">主文件版本历史</strong>
+              <span class="material-item-versions-tag">只影响父物料主文件</span>
             </template>
-            <template #cell-originalName="{ row }">{{ row.original.originalName || '-' }}</template>
-            <template #cell-size="{ row }">{{ formatSize(row.original.size) }}</template>
-            <template #cell-note="{ row }">{{ row.original.note || '-' }}</template>
-            <template #cell-uploaderName="{ row }">{{ row.original.uploaderName || row.original.uploaderId }}</template>
-            <template #cell-createdAt="{ row }">{{ formatTime(row.original.createdAt) }}</template>
-            <template #cell-operation="{ row }">
-              <div class="flex-center gap-2">
-                <FaButton size="sm" variant="outline" @click="previewVersion = String(row.original.version)">预览</FaButton>
-                <FaButton size="sm" variant="outline" @click="model.downloadMine(model.detail!.material, row.original.version)">下载</FaButton>
-                <FaButton v-if="isOwner && !row.original.current" size="sm" variant="outline" @click="confirmRestore(row.original)">回滚到此</FaButton>
-                <FaButton v-if="isOwner && !row.original.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row.original)">删除</FaButton>
-              </div>
-            </template>
-            <template #card="{ row }">
-              <div class="flex flex-col gap-2 text-sm">
-                <div class="flex items-center justify-between gap-2">
-                  <strong>v{{ row.version }}</strong>
-                  <FaTag v-if="row.current" variant="secondary">当前</FaTag>
-                </div>
-                <div class="text-secondary-foreground/80">{{ row.originalName || '-' }} · {{ formatSize(row.size) }}</div>
-                <div v-if="row.note" class="text-secondary-foreground/80">备注：{{ row.note }}</div>
-                <div class="text-secondary-foreground/60">{{ row.uploaderName || row.uploaderId }} · {{ formatTime(row.createdAt) }}</div>
-                <div class="flex flex-wrap gap-2">
-                  <FaButton size="sm" variant="outline" @click="previewVersion = String(row.version)">预览</FaButton>
-                  <FaButton size="sm" variant="outline" @click="model.downloadMine(model.detail!.material, row.version)">下载</FaButton>
-                  <FaButton v-if="isOwner && !row.current" size="sm" variant="outline" @click="confirmRestore(row)">回滚到此</FaButton>
-                  <FaButton v-if="isOwner && !row.current" size="sm" variant="destructive" @click="confirmDeleteVersion(row)">删除</FaButton>
-                </div>
-              </div>
-            </template>
-          </FaResponsiveTable>
+          </MaterialVersionsTable>
+        </FaCard>
+        <FaCard v-else class="material-bundle-card">
+          <div class="flex flex-col gap-2">
+            <strong class="text-sm">组合物料</strong>
+            <p class="text-sm text-secondary-foreground/80">
+              这个物料本身不带文件，全部内容由下方子物料承载。子物料各自拥有独立的版本链，
+              升级其中一个（如「设计稿」）不会影响其他子物料（如「原图」「成图」）。
+            </p>
+            <p class="text-sm text-secondary-foreground/80">
+              父物料的在线预览与「{{ downloadLabel }}」使用<strong>预览主文件</strong>：
+              {{ designatedName ? `当前为「${designatedName}」` : '当前未指定，暂用第一个子物料' }}。
+              在下方子物料行点「设为主文件」即可改指定；主文件始终跟随该子物料的当前版本，子物料升级后自动同步。
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span class="material-hint">子物料的新增、上传新版本、回滚与删除都在下方「子物料」区完成；分享链接仍只支持带主文件的物料，暂不支持组合物料。</span>
+            </div>
+          </div>
         </FaCard>
       </div>
+      <FaCard class="material-detail-items">
+        <MaterialItemManager
+          v-model:active-id="previewTarget"
+          :model="model"
+          :material-id="materialId"
+          :readonly="!canOperateEntry"
+          :preview-item-id="previewItemId"
+          @preview="onItemPreview"
+        />
+      </FaCard>
     </FaPageMain>
-    <NewVersionModal v-model="newVersionOpen" :sdk="model.sdk" :saving="saving" @submit="submitNewVersion" />
+    <NewVersionModal v-if="hasMainFile" v-model="newVersionOpen" :sdk="model.sdk" :saving="saving" @submit="submitNewVersion" />
     <ShareModal v-model="shareOpen" :material="model.detail.material" :model="model" :admin="!isOwner" />
   </template>
   <template v-else>

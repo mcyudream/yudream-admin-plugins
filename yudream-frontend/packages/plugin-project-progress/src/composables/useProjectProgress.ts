@@ -63,6 +63,7 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     minecraftPolicy: {
       enabled: false,
       serverId: '',
+      subServer: '',
       requiredOnlineMinutes: 30,
       includeAfk: false,
       autoCheckInEnabled: false,
@@ -665,11 +666,14 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
   function exportCheckIns() {
     const project = selectedProject.value
     exportCsv(`${project?.name || 'project'}-check-ins.csv`, [
-      ['项目', '打卡人', '类型', '说明', '位置', 'MC 服务器', '有效在线分钟', '附件', '打卡时间'],
+      ['项目', '打卡人', '类型', '说明', '位置', 'MC 服务器', 'MC 口径', 'MC 统计起点', '有效在线分钟', 'MC 子服累计', '附件', '打卡时间'],
       ...checkIns.value.map(checkIn => [
         project?.name || '', userLabel(usersById.value[checkIn.userId]), checkIn.type, checkIn.summary,
         checkIn.location?.address || '', checkIn.minecraft ? serverLabel(checkIn.minecraft.serverId) : '',
+        checkIn.minecraft ? minecraftScopeLabel(checkIn.minecraft) : '',
+        minecraftWindowLabel(checkIn.minecraft),
         checkIn.minecraft ? String(minutes(checkIn.minecraft.effectiveOnlineMillis)) : '',
+        minecraftSubServerSummary(checkIn.minecraft),
         checkIn.files.map(file => file.filename).join('、'), formatTime(checkIn.createdAt),
       ]),
     ])
@@ -749,7 +753,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     projectForm.reworkStatusCode = project.reworkStatusCode || ''
     projectForm.minCheckInIntervalMinutes = project.minCheckInIntervalMinutes
     projectForm.allowedCheckInTypes = [...project.allowedCheckInTypes]
-    projectForm.minecraftPolicy = { ...project.minecraftPolicy }
+    // 后端整服口径返回 null，表单统一用空串表示「不限子服」。
+    projectForm.minecraftPolicy = { ...project.minecraftPolicy, subServer: project.minecraftPolicy.subServer || '' }
     projectForm.notificationConnectionId = project.notificationConnectionId == null ? null : String(project.notificationConnectionId)
     projectForm.notificationChannelId = project.notificationChannelId || ''
     projectForm.enabled = project.enabled
@@ -905,6 +910,68 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     return `${Math.floor(value / 60000)} 分钟`
   }
 
+  /** 累计时长的紧凑写法：不足 1 小时按分钟，否则按小时加分钟。 */
+  function durationLabel(value: number) {
+    const totalMinutes = Math.max(0, Math.floor(Number(value || 0) / 60000))
+    if (totalMinutes < 60) {
+      return `${totalMinutes} 分钟`
+    }
+    const hours = Math.floor(totalMinutes / 60)
+    const rest = totalMinutes % 60
+    return rest === 0 ? `${hours} 小时` : `${hours} 小时 ${rest} 分`
+  }
+
+  /**
+   * 这次打卡的「有效在线」是按哪台子服算的。
+   *
+   * 必须写出来：同一台代理上，整服口径会把该玩家在各子服上的时长相加，选某一台子服则只算那一台，
+   * 同一个数字含义完全不同。空值表示整服口径——旧记录（选项存在前留下的）与明确选择「整服」的
+   * 记录都是空值，两者在数据上无法区分，因此都按整服口径如实展示。
+   */
+  function minecraftScopeLabel(minecraft?: ProjectCheckIn['minecraft']) {
+    const subServer = String(minecraft?.subServer ?? '').trim()
+    return subServer ? `子服「${subServer}」` : '整服'
+  }
+
+  /**
+   * 这次判定的统计起点，形如 `9/14 20:10`；取不到时返回空串。
+   *
+   * 「有效在线」只统计该玩家**接取任务之后**的在线时长，所以窗口起点通常是接取任务的时刻；接取
+   * 时刻未知的老记录仍是打卡周期起点。不写出来，同一个数字看不出是从什么时候开始算的。
+   */
+  function minecraftWindowLabel(minecraft?: ProjectCheckIn['minecraft']) {
+    const start = Number(minecraft?.periodStart || 0)
+    if (!start) {
+      return ''
+    }
+    const date = new Date(start)
+    if (Number.isNaN(date.getTime())) {
+      return ''
+    }
+    const pad = (value: number) => String(value).padStart(2, '0')
+    return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+
+  /**
+   * 打卡证据里的子服累计明细，拼成一行展示文本。
+   *
+   * 与同一张证据的「有效在线」不是一个口径：那是打卡周期内的窗口值，这里是该玩家在各子服上的
+   * **全部历史累计**，两者不可相加，所以这行文案显式带「累计」二字。
+   *
+   * 没有明细时返回空串，界面据此隐藏整行：单机服与旧记录本就没有子服维度，宿主 mcserver 低于
+   * 1.7.0 时插件侧也会降级为空明细。
+   */
+  function minecraftSubServerSummary(minecraft?: ProjectCheckIn['minecraft']) {
+    const subServers = minecraft?.subServers ?? []
+    return subServers
+      .map((item) => {
+        const label = !item.name || item.name === 'default' ? '默认' : item.name
+        const afk = item.afkMillis > 0 ? `（挂机 ${durationLabel(item.afkMillis)}）` : ''
+        return `${label} ${durationLabel(item.onlineMillis)}${afk}`
+      })
+      .join(' · ')
+  }
+
   function formatFileSize(value: number) {
     if (!value) {
       return '-'
@@ -917,6 +984,25 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
 
   function projectName(projectId: string) {
     return projects.value.find(item => item.id === projectId)?.name || '未知项目'
+  }
+
+  /** 该服务器已知的下游子服；单机服为空数组，表单据此隐藏子服选择。 */
+  function subServersOf(serverId?: string | null) {
+    if (!serverId) {
+      return []
+    }
+    return minecraftServers.value.find(item => item.id === serverId)?.subServers || []
+  }
+
+  /**
+   * 换服务器时清掉已选子服。
+   *
+   * 子服名只在它所属的服务器内有意义（两台代理都可能有 fabric），换服后留着旧值会既误导操作者、
+   * 又会让打卡去查一个不属于该服的子服。
+   */
+  function changeMinecraftServer(serverId: string) {
+    projectForm.minecraftPolicy.serverId = serverId
+    projectForm.minecraftPolicy.subServer = ''
   }
 
   function serverLabel(serverId?: string | null) {
@@ -963,6 +1049,8 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     memberStats,
     departments,
     minecraftServers,
+    subServersOf,
+    changeMinecraftServer,
     notificationConnections,
     usersById,
     selectedProjectId,
@@ -1034,6 +1122,10 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
     projectMemberCount,
     formatTime,
     minutes,
+    durationLabel,
+    minecraftScopeLabel,
+    minecraftWindowLabel,
+    minecraftSubServerSummary,
     formatFileSize,
     projectName,
     serverLabel,
@@ -1058,6 +1150,7 @@ function defaultProjectForm(): ProjectForm {
     minecraftPolicy: {
       enabled: false,
       serverId: '',
+      subServer: '',
       requiredOnlineMinutes: 30,
       includeAfk: false,
       autoCheckInEnabled: false,

@@ -10,6 +10,7 @@ import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofTem
 import online.yudream.base.plugin.activityproof.application.cmd.ActivitySaveCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityTemplateMembersSaveCmd;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityBindingDTO;
+import online.yudream.base.plugin.activityproof.application.dto.ActivityProofSubServerDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityDeptOptionDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityFormOptionDTO;
@@ -54,6 +55,7 @@ import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftSubServerActivity;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -178,7 +180,11 @@ public class ActivityProofAppService {
     public List<ActivityProofServerDTO> servers() {
         return minecraftService().map(service -> service.minecraftServers(true).stream()
                         .map(server -> new ActivityProofServerDTO(server.id(), server.name(), server.enabled(),
-                                server.currentSeasonName(), server.currentSeasonStartedAt()))
+                                server.currentSeasonName(), server.currentSeasonStartedAt(),
+                                server.subServers().stream()
+                                        .map(sub -> new ActivityProofSubServerDTO(sub.name(), sub.address(),
+                                                sub.online(), sub.sensor(), sub.defaultServer(), sub.sort()))
+                                        .toList()))
                         .toList())
                 .orElse(List.of());
     }
@@ -320,7 +326,7 @@ public class ActivityProofAppService {
                 throw new IllegalArgumentException("未知核验方式：" + cmd.type());
             }
             if (type == ActivityBindingType.PLAYTIME) {
-                bindings.add(ActivityBinding.playtime(cmd.serverId(),
+                bindings.add(ActivityBinding.playtime(cmd.serverId(), cmd.subServer(),
                         cmd.minOnlineMinutes() == null ? 0 : cmd.minOnlineMinutes(),
                         Boolean.TRUE.equals(cmd.includeAfk()),
                         Boolean.TRUE.equals(cmd.autoJoin())));
@@ -453,7 +459,7 @@ public class ActivityProofAppService {
         for (ActivityBinding binding : autoJoinBindings) {
             List<PluginMinecraftActivePlayer> players;
             try {
-                players = minecraft.minecraftActivePlayers(binding.serverId(), activity.activityStart(), activity.activityEnd());
+                players = minecraft.minecraftActivePlayers(binding.serverId(), binding.subServer(), activity.activityStart(), activity.activityEnd());
             } catch (LinkageError e) {
                 // 宿主仍运行旧版 minecraft-server（接口缺少 minecraftActivePlayers）时是 Error 而非 RuntimeException
                 throw new IllegalArgumentException("Minecraft 服务器插件版本过低，无法同步上线玩家，请升级至 1.3.0 及以上后重试");
@@ -1045,7 +1051,8 @@ public class ActivityProofAppService {
         VerifyOutcome lastMiss = null;
         for (ResolvedPlayer player : players) {
             Optional<PluginMinecraftOnlineWindow> window = lookupOnlineWindow(
-                    service.get(), binding.serverId(), player, activity.activityStart(), activity.activityEnd());
+                    service.get(), binding.serverId(), binding.subServer(), player,
+                    activity.activityStart(), activity.activityEnd());
             if (window.isEmpty()) {
                 lastMiss = new VerifyOutcome(false, "未查询到玩家「" + player.display() + "」在活动时段的在线记录");
                 continue;
@@ -1053,13 +1060,78 @@ public class ActivityProofAppService {
             long effectiveMillis = binding.includeAfk() ? window.get().onlineMillis() : window.get().effectiveOnlineMillis();
             String metric = binding.includeAfk() ? "在线" : "有效在线";
             String displayName = hasText(window.get().playerName()) ? window.get().playerName() : player.display();
-            String note = "玩家「" + displayName + "」活动时段" + metric + " "
-                    + (effectiveMillis / 60_000L) + "/" + binding.minOnlineMinutes() + " 分钟";
+            // 绑定了子服时把子服写进说明：否则「42/60 分钟」看不出算的是哪台服。
+            String scope = binding.scopedToSubServer() ? "子服「" + binding.subServer() + "」" : "";
+            String note = "玩家「" + displayName + "」活动时段" + scope + metric + " "
+                    + (effectiveMillis / 60_000L) + "/" + binding.minOnlineMinutes() + " 分钟"
+                    + minecraftSubServerNote(service.get(), binding.serverId(), player);
             return new VerifyOutcome(effectiveMillis >= binding.minOnlineMinutes() * 60_000L, note);
         }
         return lastMiss != null
                 ? lastMiss
                 : new VerifyOutcome(false, "未查询到在活动时段的在线记录");
+    }
+
+    /**
+     * 该玩家在各子服上的累计时长，拼成核验说明的后缀，例如
+     * {@code （子服累计：fabric 1 小时 20 分 · paper 30 分钟）}。
+     *
+     * <p>这是**累计**值，与判定所用的活动时段窗口值不是同一口径，因此显式标注「累计」，只回答
+     * 「这些时间分布在哪儿」，不参与达标判断。
+     *
+     * <p>按 {@link #playerIdCandidates(String)} 逐个试，与 {@code minecraftOnlineWindow} 的查找方式
+     * 保持一致：同一份玩家记录在 Admin 里可能以带连字符或纯十六进制两种写法存在。
+     *
+     * <p>接口自 minecraft-server 1.6.0 起提供。宿主仍运行更早版本时调用抛 {@link LinkageError}
+     * 而不是 RuntimeException，此时返回空串让说明保持原样——附带信息缺失不该让核验失败。
+     */
+    private String minecraftSubServerNote(PluginMinecraftService service, String serverId, ResolvedPlayer player) {
+        if (player == null) {
+            return "";
+        }
+        for (String candidateId : playerIdCandidates(player.playerId())) {
+            List<PluginMinecraftSubServerActivity> subServers;
+            try {
+                subServers = service.minecraftSubServerActivities(serverId, candidateId);
+            } catch (LinkageError | RuntimeException e) {
+                return "";
+            }
+            String note = subServerNote(subServers);
+            if (!note.isEmpty()) {
+                return note;
+            }
+        }
+        return "";
+    }
+
+    private String subServerNote(List<PluginMinecraftSubServerActivity> subServers) {
+        if (subServers == null || subServers.isEmpty()) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        for (PluginMinecraftSubServerActivity subServer : subServers) {
+            if (subServer == null) {
+                continue;
+            }
+            String raw = subServer.subServer() == null ? "" : subServer.subServer().trim();
+            String name = raw.isEmpty() || "default".equals(raw) ? "默认" : raw;
+            String afk = subServer.totalAfkMillis() > 0
+                    ? "（挂机 " + durationText(subServer.totalAfkMillis()) + "）"
+                    : "";
+            parts.add(name + " " + durationText(subServer.totalOnlineMillis()) + afk);
+        }
+        return parts.isEmpty() ? "" : "（子服累计：" + String.join(" · ", parts) + "）";
+    }
+
+    /** 累计时长的紧凑写法：不足 1 小时按分钟，否则按小时加分钟。 */
+    private static String durationText(long millis) {
+        long totalMinutes = Math.max(millis, 0L) / 60_000L;
+        if (totalMinutes < 60L) {
+            return totalMinutes + " 分钟";
+        }
+        long hours = totalMinutes / 60L;
+        long rest = totalMinutes % 60L;
+        return rest == 0L ? hours + " 小时" : hours + " 小时 " + rest + " 分";
     }
 
     private VerifyOutcome verifyForm(Activity activity, ActivityBinding binding, String userId) {
@@ -1185,13 +1257,14 @@ public class ActivityProofAppService {
     }
 
     private Optional<PluginMinecraftOnlineWindow> lookupOnlineWindow(
-            PluginMinecraftService service, String serverId, ResolvedPlayer player, long windowStart, long windowEnd) {
+            PluginMinecraftService service, String serverId, String subServer, ResolvedPlayer player,
+            long windowStart, long windowEnd) {
         if (player == null) {
             return Optional.empty();
         }
         for (String candidateId : playerIdCandidates(player.playerId())) {
             Optional<PluginMinecraftOnlineWindow> window = service.minecraftOnlineWindow(
-                    serverId, candidateId, windowStart, windowEnd);
+                    serverId, candidateId, subServer, windowStart, windowEnd);
             if (window.isPresent()) {
                 return window;
             }
@@ -1665,6 +1738,7 @@ public class ActivityProofAppService {
                 binding.type().name(),
                 binding.serverId(),
                 serverName,
+                binding.subServer(),
                 binding.minOnlineMinutes(),
                 binding.includeAfk(),
                 binding.autoJoin(),
@@ -1681,9 +1755,11 @@ public class ActivityProofAppService {
         if (binding.isPlaytime()) {
             String metric = binding.includeAfk() ? "在线" : "有效在线";
             String server = hasText(serverName) ? "「" + serverName + "」" : "";
+            // 绑定了子服时必须写出来，否则操作者会以为算的是整服。
+            String scope = binding.scopedToSubServer() ? "的子服「" + binding.subServer() + "」" : "";
             return binding.minOnlineMinutes() <= 0
-                    ? "在服务器" + server + "活动时段内有" + metric + "记录"
-                    : "服务器" + server + "活动时段" + metric + " ≥ " + binding.minOnlineMinutes() + " 分钟";
+                    ? "在服务器" + server + scope + "活动时段内有" + metric + "记录"
+                    : "服务器" + server + scope + "活动时段" + metric + " ≥ " + binding.minOnlineMinutes() + " 分钟";
         }
         return "提交表单「" + (hasText(formName) ? formName : binding.formCode()) + "」";
     }

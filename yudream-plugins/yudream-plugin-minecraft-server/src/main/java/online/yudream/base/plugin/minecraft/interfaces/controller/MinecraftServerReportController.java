@@ -44,4 +44,18 @@ public class MinecraftServerReportController {
 
     @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/players/snapshot", permission = MinecraftServerPlugin.REPORT_PERMISSION)
     public PluginHttpResponse playerSnapshotLegacy(PluginHttpRequest request) { return http.playerSnapshot(request); }
+
+    /** Topology bound to an explicit server id, for a bridge whose config already carries one. */
+    @PluginHttpEndpoint(method = "POST", path = "/report/servers/{serverId}/topology", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse topology(PluginHttpRequest request) { return http.reportTopology(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/topology", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse topologyLegacy(PluginHttpRequest request) { return http.reportTopology(request); }
+
+    /**
+     * Topology matched by the proxy's own address, so the proxy does not have to know its Admin
+     * server id. This is what makes installing the bridge enough to resolve a group server.
+     */
+    @PluginHttpEndpoint(method = "POST", path = "/report/topology", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse topologyByAddress(PluginHttpRequest request) { return http.reportTopologyByAddress(request); }
 }

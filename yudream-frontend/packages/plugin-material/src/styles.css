@@ -49,6 +49,67 @@
   min-width: 0;
 }
 
+/* ---------- 详情页 / 管理端：子物料与版本 ---------- */
+
+/* 说明性文案块（组合物料提示、弹窗内联提示） */
+.material-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--secondary-foreground, #64748b);
+}
+
+.material-bundle-card {
+  min-width: 0;
+}
+
+/* 子物料管理区固定在两列布局下方，表格较宽时独占整行 */
+.material-detail-items {
+  margin-top: 16px;
+}
+
+.material-item-manager {
+  min-width: 0;
+}
+
+/* 选中子物料后在其下方展开的独立版本链 */
+.material-item-versions {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.material-item-versions-tag {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--secondary-foreground, #64748b);
+}
+
+.material-item-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 10px;
+  color: var(--secondary-foreground, #64748b);
+  text-align: center;
+}
+
+.material-item-empty-hint {
+  max-width: 560px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 管理端子物料抽屉：内容区纵向排布，表格可横向滚动 */
+.material-items-drawer {
+  width: 100%;
+  min-width: 0;
+}
+
 .material-preview {
   position: relative;
   width: 100%;
@@ -322,6 +383,14 @@
   position: absolute;
   top: 8px;
   left: 8px;
+  z-index: 2;
+}
+
+/* 组合物料角标：与「已归档」左右分列，避免互相遮盖 */
+.material-thumb-bundle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   z-index: 2;
 }
 

@@ -24,7 +24,7 @@ public class ProjectProgressAppAssembler {
                 project.memberUserIds(), project.statuses().stream().map(this::toDTO).toList(), project.defaultStatusCode(),
                 project.doneStatusCode(), project.reworkStatusCode(), project.minCheckInIntervalMinutes(),
                 project.allowedCheckInTypes().stream().map(Enum::name).toList(),
-                new ProjectProgressProjectDTO.MinecraftPolicyDTO(minecraft.enabled(), minecraft.serverId(),
+                new ProjectProgressProjectDTO.MinecraftPolicyDTO(minecraft.enabled(), minecraft.serverId(), minecraft.subServer(),
                         minecraft.requiredOnlineMinutes(), minecraft.includeAfk(), minecraft.autoCheckInEnabled()),
                 project.notificationConnectionId(), project.notificationChannelId(),
                 project.enabled(), project.createdAt(), project.updatedAt());
@@ -45,8 +45,12 @@ public class ProjectProgressAppAssembler {
                 record.type().name(), record.summary(), record.files().stream().map(this::toDTO).toList(),
                 location == null ? null : new ProjectCheckInDTO.LocationDTO(location.address(), location.latitude(), location.longitude()),
                 minecraft == null ? null : new ProjectCheckInDTO.MinecraftEvidenceDTO(minecraft.serverId(), minecraft.playerId(),
-                        minecraft.playerName(), minecraft.totalOnlineMillis(), minecraft.totalAfkMillis(), minecraft.effectiveOnlineMillis(),
-                        minecraft.periodStart(), minecraft.periodEnd()),
+                        minecraft.playerName(), minecraft.subServer(), minecraft.totalOnlineMillis(), minecraft.totalAfkMillis(), minecraft.effectiveOnlineMillis(),
+                        minecraft.periodStart(), minecraft.periodEnd(),
+                        minecraft.subServers().stream()
+                                .map(subServer -> new ProjectCheckInDTO.MinecraftSubServerDTO(
+                                        subServer.name(), subServer.onlineMillis(), subServer.afkMillis()))
+                                .toList()),
                 record.reviewStatus().name(), record.reviewedByUserId(), record.reviewedAt(),
                 record.createdAt());
     }
