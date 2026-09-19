@@ -1,9 +1,11 @@
 package online.yudream.base.plugin.questionbank.application;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import online.yudream.base.plugin.questionbank.domain.CommandWindow;
 import online.yudream.base.plugin.questionbank.domain.DocValues;
+import online.yudream.base.plugin.questionbank.domain.QuestionType;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
 /**
@@ -18,11 +20,21 @@ public final class SettingsService {
     private static final String KEY_AI_MODEL = "aiModelCode";
     private static final String KEY_QQ_GROUPS = "qqGroups";
     private static final String KEY_QQ_DEFAULT_GROUP = "qqDefaultGroup";
+    private static final String KEY_QQ_EXCLUDE_CATEGORIES = "qqExcludeCategoryIds";
+    private static final String KEY_QQ_EXCLUDE_TYPES = "qqExcludeTypes";
     private static final String KEY_QQ_ANSWER_SECONDS = "qqAnswerSeconds";
     private static final String KEY_QQ_AI_GRADING = "qqAiGrading";
     private static final String KEY_QQ_COMMAND_WINDOW_ENABLED = "qqCommandWindowEnabled";
     private static final String KEY_QQ_COMMAND_WINDOWS = "qqCommandWindows";
     private static final int DEFAULT_QQ_ANSWER_SECONDS = 60;
+
+    /**
+     * 群抽题排除项（分类 ID + 题型枚举名）的一次性提交载体。
+     *
+     * <p>字段为 null 表示该维度保持不变；空列表表示清空该维度的排除。
+     */
+    public record QqExclusions(java.util.List<String> categoryIds, java.util.List<String> types) {
+    }
 
     private final PluginDocumentStore documents;
     private java.util.function.Consumer<Boolean> practiceToggleListener;
@@ -62,6 +74,25 @@ public final class SettingsService {
     /** QQ 抽题默认分组名；未配置返回 null（表示全库抽题）。 */
     public String qqDefaultGroup() {
         return setting(KEY_QQ_DEFAULT_GROUP);
+    }
+
+    /**
+     * 群抽题全局排除的分类 ID：这些分类下的题目不会被抽到。
+     *
+     * <p>只作用于未显式指定分组名的抽题（裸 {@code /抽题} 与默认分组）。群内显式写分组名时按分组规则取池，
+     * 不再叠加排除——用户已经点名要那个范围。
+     */
+    public java.util.List<String> qqExcludeCategoryIds() {
+        return documents.findById(COLLECTION, DOC_ID)
+                .map(doc -> DocValues.stringList(doc, KEY_QQ_EXCLUDE_CATEGORIES))
+                .orElse(java.util.List.of());
+    }
+
+    /** 群抽题全局排除的题型（{@link QuestionType} 枚举名）；作用范围同 {@link #qqExcludeCategoryIds()}。 */
+    public java.util.List<String> qqExcludeTypes() {
+        return documents.findById(COLLECTION, DOC_ID)
+                .map(doc -> DocValues.stringList(doc, KEY_QQ_EXCLUDE_TYPES))
+                .orElse(java.util.List.of());
     }
 
     /** QQ 答题限时（秒），默认 60。 */
@@ -113,6 +144,8 @@ public final class SettingsService {
         view.put(KEY_AI_MODEL, aiModelCode());
         view.put(KEY_QQ_GROUPS, qqGroups());
         view.put(KEY_QQ_DEFAULT_GROUP, qqDefaultGroup());
+        view.put(KEY_QQ_EXCLUDE_CATEGORIES, qqExcludeCategoryIds());
+        view.put(KEY_QQ_EXCLUDE_TYPES, qqExcludeTypes());
         view.put(KEY_QQ_ANSWER_SECONDS, qqAnswerSeconds());
         view.put(KEY_QQ_AI_GRADING, qqAiGrading());
         view.put(KEY_QQ_COMMAND_WINDOW_ENABLED, qqCommandWindowEnabled());
@@ -123,6 +156,7 @@ public final class SettingsService {
     /** 合并更新：null 字段保持不变；provider/model/defaultGroup 传空字符串表示清空。 */
     public void update(Boolean practiceEnabled, String aiProviderCode, String aiModelCode,
                        java.util.List<Map<String, Object>> qqGroups, String qqDefaultGroup,
+                       QqExclusions qqExclusions,
                        Integer qqAnswerSeconds, Boolean qqAiGrading,
                        Boolean qqCommandWindowEnabled, java.util.List<Map<String, Object>> qqCommandWindows) {
         Map<String, Object> doc = new HashMap<>(documents.findById(COLLECTION, DOC_ID).orElse(Map.of()));
@@ -162,6 +196,35 @@ public final class SettingsService {
         if (qqDefaultGroup != null) {
             applyOptional(doc, KEY_QQ_DEFAULT_GROUP, qqDefaultGroup);
         }
+        if (qqExclusions != null) {
+            if (qqExclusions.categoryIds() != null) {
+                java.util.List<String> normalized = new java.util.ArrayList<>();
+                for (String categoryId : qqExclusions.categoryIds()) {
+                    if (categoryId == null || categoryId.isBlank()) {
+                        continue;
+                    }
+                    String value = categoryId.trim();
+                    if (!normalized.contains(value)) {
+                        normalized.add(value);
+                    }
+                }
+                doc.put(KEY_QQ_EXCLUDE_CATEGORIES, normalized);
+            }
+            if (qqExclusions.types() != null) {
+                java.util.List<String> normalized = new java.util.ArrayList<>();
+                for (String type : qqExclusions.types()) {
+                    if (type == null || type.isBlank()) {
+                        continue;
+                    }
+                    String value = type.trim().toUpperCase(Locale.ROOT);
+                    if (!isQuestionType(value) || normalized.contains(value)) {
+                        continue;
+                    }
+                    normalized.add(value);
+                }
+                doc.put(KEY_QQ_EXCLUDE_TYPES, normalized);
+            }
+        }
         if (qqAnswerSeconds != null) {
             doc.put(KEY_QQ_ANSWER_SECONDS, Math.max(10, Math.min(600, qqAnswerSeconds)));
         }
@@ -182,6 +245,16 @@ public final class SettingsService {
         if (practiceEnabled != null && practiceToggleListener != null) {
             practiceToggleListener.accept(practiceEnabled);
         }
+    }
+
+    /** 排除题型只接受 QuestionType 的枚举名：写错或未知的项直接丢弃，不影响其余设置。 */
+    private static boolean isQuestionType(String value) {
+        for (QuestionType type : QuestionType.values()) {
+            if (type.name().equals(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 空串视为清空；文档存储不接受 null 值，必须移除键。 */

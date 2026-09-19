@@ -73,14 +73,15 @@ public final class QqQuizService implements AutoCloseable {
             reply(command, context, "当前群正在抢答中，请先等这题结束～", RANK_BUTTONS);
             return;
         }
-        String groupName = command.arguments().isEmpty() ? settings.qqDefaultGroup() : String.join(" ", command.arguments()).trim();
-        List<Question> pool = poolFor(groupName);
+        boolean explicitGroup = !command.arguments().isEmpty();
+        String groupName = explicitGroup ? String.join(" ", command.arguments()).trim() : settings.qqDefaultGroup();
+        List<Question> pool = poolFor(groupName, explicitGroup);
         if (groupName != null && !groupName.isBlank() && pool == null) {
             reply(command, context, "未找到分组「" + groupName + "」，可用分组：" + groupNames());
             return;
         }
         if (pool == null || pool.isEmpty()) {
-            reply(command, context, "题库里暂时没有可抽的题目");
+            reply(command, context, emptyPoolMessage(explicitGroup));
             return;
         }
         Question question = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
@@ -90,6 +91,17 @@ public final class QqQuizService implements AutoCloseable {
         reply(command, context, "【抢答 · " + question.type().label() + "】（限时 " + seconds + " 秒）\n"
                 + questionText(question) + "\n\n直接回复答案即可抢答！", RANK_BUTTONS);
         scheduler.schedule(() -> timeout(channelKey, state, context), seconds, TimeUnit.SECONDS);
+    }
+
+    /** 空池提示：非显式分组时点明可能是全局排除的分类/题型导致。 */
+    private String emptyPoolMessage(boolean explicitGroup) {
+        int excludedCategories = settings.qqExcludeCategoryIds().size();
+        int excludedTypes = settings.qqExcludeTypes().size();
+        if (!explicitGroup && (excludedCategories > 0 || excludedTypes > 0)) {
+            return "题库里暂时没有可抽的题目（已按设置排除 " + excludedCategories + " 个分类、"
+                    + excludedTypes + " 种题型）";
+        }
+        return "题库里暂时没有可抽的题目";
     }
 
     /** `抢答榜` 指令入口：展示当前群聊的抢答排行榜（前 10 名）。 */
@@ -272,11 +284,18 @@ public final class QqQuizService implements AutoCloseable {
         return false;
     }
 
-    /** 分组抽题池：分组名 → 分类/标签规则；分组不存在返回 null；未配置分组返回全部启用题。 */
-    private List<Question> poolFor(String groupName) {
+    /**
+     * 分组抽题池：分组名 → 分类/标签规则；分组不存在返回 null；未配置分组返回全部启用题。
+     *
+     * <p>{@code explicit} 表示群内显式写了分组名。显式分组按分组规则取池，不再叠加全局排除分类（用户已经
+     * 点名要这个范围）；未显式指定时（裸 /抽题 或默认分组）按 {@code qqExcludeCategoryIds} 剔除。
+     */
+    private List<Question> poolFor(String groupName, boolean explicit) {
         List<Question> enabled = questions.listAll().stream().filter(Question::enabled).toList();
+        QuestionPool.Exclusions exclusions = explicit ? QuestionPool.Exclusions.NONE
+                : new QuestionPool.Exclusions(settings.qqExcludeCategoryIds(), settings.qqExcludeTypes());
         if (groupName == null || groupName.isBlank()) {
-            return enabled;
+            return QuestionPool.filter(enabled, null, List.of(), List.of(), List.of(), exclusions);
         }
         for (Map<String, Object> group : settings.qqGroups()) {
             Object name = group.get("name");
@@ -286,7 +305,7 @@ public final class QqQuizService implements AutoCloseable {
                 List<String> tags = group.get("tags") instanceof List<?> list
                         ? list.stream().map(String::valueOf).toList() : List.of();
                 return QuestionPool.filter(enabled,
-                        categoryId == null ? null : String.valueOf(categoryId), tags, List.of(), List.of());
+                        categoryId == null ? null : String.valueOf(categoryId), tags, List.of(), List.of(), exclusions);
             }
         }
         return null;

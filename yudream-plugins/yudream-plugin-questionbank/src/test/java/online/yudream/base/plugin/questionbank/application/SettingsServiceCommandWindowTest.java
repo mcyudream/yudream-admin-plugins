@@ -33,7 +33,7 @@ class SettingsServiceCommandWindowTest {
 
     @Test
     void enablingWithoutWindowsStaysUnrestricted() {
-        settings.update(null, null, null, null, null, null, null, true, List.of());
+        settings.update(null, null, null, null, null, null, null, null, true, List.of());
         assertTrue(settings.qqCommandWindowEnabled());
         assertEquals(List.of(), settings.qqCommandWindows());
         assertTrue(settings.qqCommandWindowOpen(OUTSIDE_WINDOW));
@@ -41,7 +41,7 @@ class SettingsServiceCommandWindowTest {
 
     @Test
     void openOnlyInsideTheConfiguredWindows() {
-        settings.update(null, null, null, null, null, null, null, true,
+        settings.update(null, null, null, null, null, null, null, null, true,
                 List.of(Map.of("start", "19:00", "end", "21:00")));
         assertEquals(1, settings.qqCommandWindows().size());
         assertTrue(settings.qqCommandWindowOpen(IN_WINDOW));
@@ -50,16 +50,16 @@ class SettingsServiceCommandWindowTest {
 
     @Test
     void switchingTheRestrictionOffIgnoresTheWindows() {
-        settings.update(null, null, null, null, null, null, null, true,
+        settings.update(null, null, null, null, null, null, null, null, true,
                 List.of(Map.of("start", "19:00", "end", "21:00")));
-        settings.update(null, null, null, null, null, null, null, false, null);
+        settings.update(null, null, null, null, null, null, null, null, false, null);
         assertFalse(settings.qqCommandWindowEnabled());
         assertTrue(settings.qqCommandWindowOpen(OUTSIDE_WINDOW));
     }
 
     @Test
     void invalidRowsAreDroppedOnSaveAndRead() {
-        settings.update(null, null, null, null, null, null, null, true, List.of(
+        settings.update(null, null, null, null, null, null, null, null, true, List.of(
                 Map.of("start", "19:00", "end", "21:00"),
                 Map.of("start", "08:00"),
                 Map.of("start", "21:00", "end", "21:00"),
@@ -70,7 +70,7 @@ class SettingsServiceCommandWindowTest {
 
     @Test
     void viewExposesTheFlagAndNormalizedWindows() {
-        settings.update(null, null, null, null, null, null, null, true,
+        settings.update(null, null, null, null, null, null, null, null, true,
                 List.of(Map.of("start", "7:30", "end", "8:00")));
         Map<String, Object> view = settings.settingsView();
         assertEquals(true, view.get("qqCommandWindowEnabled"));
@@ -79,9 +79,9 @@ class SettingsServiceCommandWindowTest {
 
     @Test
     void nullFieldsKeepTheExistingWindows() {
-        settings.update(null, null, null, null, null, null, null, true,
+        settings.update(null, null, null, null, null, null, null, null, true,
                 List.of(Map.of("start", "19:00", "end", "21:00")));
-        settings.update(false, null, null, null, null, null, null, null, null);
+        settings.update(false, null, null, null, null, null, null, null, null, null);
         assertEquals(1, settings.qqCommandWindows().size());
         assertFalse(settings.practiceEnabled());
     }
