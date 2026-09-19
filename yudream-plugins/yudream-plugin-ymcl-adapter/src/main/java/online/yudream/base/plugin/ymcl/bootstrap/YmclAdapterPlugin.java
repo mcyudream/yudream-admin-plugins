@@ -155,7 +155,7 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclSkinWardrobeCon
 public class YmclAdapterPlugin implements YuDreamPlugin {
 
     public static final String CODE = "ymcl-adapter";
-    public static final String VERSION = "0.6.1";
+    public static final String VERSION = "0.8.0";
 
     public static final String VIEW_PERMISSION = "plugin:ymcl-adapter:view";
     public static final String PUBLISH_PERMISSION = "plugin:ymcl-adapter:publish";
@@ -210,7 +210,10 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
         // 插件权限点自动合并更新；回调地址登记不带端口的回环地址，由宿主按
         // RFC 8252 放行任意回环端口（启动器每次登录监听动态端口）。插件停用/
         // 卸载时仅禁用登记，不删除配置，重新启用即恢复。
-        context.framework().oauth().ensurePublicClient(new PluginOAuthPublicClientSpec(
+        // 必须走 context.oauth()（插件作用域端口）：宿主按 pluginCode 绑定客户端
+        // 属主并放行幂等更新；framework().oauth() 无属主上下文，对既有登记会
+        // 直接抛「已存在，插件不能修改」并炸掉 onEnable。
+        context.oauth().ensurePublicClient(new PluginOAuthPublicClientSpec(
                 LAUNCHER_CLIENT_ID,
                 "YMCL 启动器",
                 List.of("http://127.0.0.1/auth/callback", "http://localhost/auth/callback"),
@@ -219,11 +222,11 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
 
     @Override
     public void onDisable(PluginContext context) {
-        context.framework().oauth().disableClient(LAUNCHER_CLIENT_ID);
+        context.oauth().disableClient(LAUNCHER_CLIENT_ID);
     }
 
     @Override
     public void onUnload(PluginContext context) {
-        context.framework().oauth().disableClient(LAUNCHER_CLIENT_ID);
+        context.oauth().disableClient(LAUNCHER_CLIENT_ID);
     }
 }

@@ -51,6 +51,16 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
+                                <!-- 皮肤站 API 类被 YmclSkinWardrobeController 的方法签名引用，
+                                     注解注册期 getDeclaredMethods 即需可见；未安装 yudream-skin
+                                     的宿主必须能从本 JAR 解析这些类型，否则 NCDFE 炸掉整个
+                                     onEnable。只收 api 包，服务实现与数据类不打进来。 -->
+                                <filter>
+                                    <artifact>online.yudream.plugins:yudream-plugin-yudream-skin</artifact>
+                                    <includes>
+                                        <include>online/yudream/base/plugin/skin/api/**</include>
+                                    </includes>
+                                </filter>
                             </filters>
                         </configuration>
                     </execution>
@@ -69,12 +79,12 @@
             <groupId>online.yudream.base</groupId>
             <artifactId>yudream-plugin-spi</artifactId>
         </dependency>
-        <!-- 皮肤衣柜（YAP §6.11）聚合 yudream-skin 的 SPI；provided = 运行时
-             由宿主注入，皮肤站未安装时端点降级 501（LinkageError 容错）。 -->
+        <!-- 皮肤衣柜（YAP §6.11）聚合 yudream-skin 的 SPI：服务实例运行时由宿主注入，
+             皮肤站未安装时端点降级 501；但 api 类型出现在 Controller 方法签名上，
+             必须随本 JAR 打包（shade 只收 skin/api 包），否则注册期 NCDFE。 -->
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-yudream-skin</artifactId>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
