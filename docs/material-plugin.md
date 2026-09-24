@@ -203,7 +203,7 @@
 
 ### 10.1 kkFileView 服务
 
-插件自身不含 kkFileView；镜像与部署由宿主仓统一管理（宿主仓 `docker/kkfileview/`：官方镜像同步脚本 + 源码自构建 Dockerfile；compose 已内置 `kkfileview` 服务，镜像发布到 `registry.yudream.online/yudream/yudreamadmin/kkfileview`）。运维细节见宿主文档 `docs/platform/file-preview.md`。
+插件自身不含 kkFileView；镜像与部署由宿主仓统一管理（宿主仓 `docker/kkfileview/`：官方镜像同步脚本 + 源码自构建 Dockerfile；compose 已内置 `kkfileview` 服务，镜像属转推的第三方镜像，发布在 Harbor 的 `library` 项目：`registry.yudream.online/library/kkfileview`；宿主应用镜像在 Harbor 的 `yda` 项目）。运维细节见宿主文档 `docs/platform/file-preview.md`。
 
 要求：
 - kkFileView 必须**网络可达宿主**——它按平台下发的签名 URL 回源拉文件。二者同机/同内网时直接填内网地址即可，不必走公网。
