@@ -2,6 +2,7 @@ package online.yudream.base.plugin.shop.infrastructure.repository;
 
 import online.yudream.base.plugin.shop.domain.aggregate.ShopOrder;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopOrderStatus;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
 import online.yudream.base.plugin.shop.infrastructure.support.DocumentSupport;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
@@ -81,18 +82,23 @@ public class ShopOrderRepository {
         document.put("productTitle", order.productTitle());
         document.put("productImage", order.productImage());
         document.put("productType", order.productType());
+        document.put("settlement", order.settlement() == null ? null : order.settlement().name());
         document.put("buyerId", order.buyerId());
         document.put("sellerId", order.sellerId());
         document.put("assetCode", order.assetCode());
         document.put("price", order.price() == null ? null : order.price().toPlainString());
         document.put("quantity", order.quantity());
         document.put("totalAmount", order.totalAmount() == null ? null : order.totalAmount().toPlainString());
+        document.put("variantId", order.variantId());
+        document.put("variantName", order.variantName());
         document.put("status", order.status().name());
         document.put("walletTransactionId", order.walletTransactionId());
         document.put("refundTransactionId", order.refundTransactionId());
         document.put("deliveryMessage", order.deliveryMessage());
         document.put("deliveryContent", order.deliveryContent());
         document.put("deliveryVoucher", order.deliveryVoucher());
+        document.put("deliveryProofs",
+                order.deliveryProofs() == null ? List.of() : new ArrayList<>(order.deliveryProofs()));
         document.put("verifiedAt", order.verifiedAt());
         document.put("createdAt", order.createdAt());
         document.put("paidAt", order.paidAt());
@@ -107,18 +113,23 @@ public class ShopOrderRepository {
                 stringValue(document.get("productTitle")),
                 stringValue(document.get("productImage")),
                 stringValue(document.get("productType")),
+                ShopSettlement.from(stringValue(document.get("settlement"))),
                 stringValue(document.get("buyerId")),
                 stringValue(document.get("sellerId")),
                 stringValue(document.get("assetCode")),
                 decimalValue(document.get("price")),
                 intValue(document.get("quantity"), 1),
                 decimalValue(document.get("totalAmount")),
+                stringValue(document.get("variantId")),
+                stringValue(document.get("variantName")),
                 parseStatus(document.get("status")),
                 stringValue(document.get("walletTransactionId")),
                 stringValue(document.get("refundTransactionId")),
                 stringValue(document.get("deliveryMessage")),
                 stringValue(document.get("deliveryContent")),
                 stringValue(document.get("deliveryVoucher")),
+                document.get("deliveryProofs") instanceof List<?> proofs
+                        ? proofs.stream().map(String::valueOf).toList() : List.of(),
                 boxedLongValue(document.get("verifiedAt")),
                 longValue(document.get("createdAt"), 0L),
                 longValue(document.get("paidAt"), 0L),

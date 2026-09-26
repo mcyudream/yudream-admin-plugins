@@ -1,5 +1,6 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TimeValue } from '../types'
+import { POINTS_REDEEM_TYPE } from '../types'
 
 export function errorMessage(error: unknown, fallback = '操作失败') {
   if (error && typeof error === 'object') {
@@ -75,6 +76,53 @@ export function displayUserName(user?: { nickname?: string, username?: string, i
   return user?.nickname || user?.username || (user?.id ? `用户 ${user.id}` : '未知用户')
 }
 
+/** 平台归属标记：官方（消耗式结算）商品与订单没有归属用户，统一记在该值下 */
+export const PLATFORM_OWNER_ID = 'system'
+
+/**
+ * 是否为官方投放：消耗式结算（BURN，如积分兑换）或归属平台。
+ * 这类商品/订单没有归属用户，展示为后台配置的官方展示名，也不会出现在任何人的「我的商品」「我的出售」里。
+ */
+export function isPlatformOwned(ownerId?: string | null, settlement?: string | null) {
+  return settlement === 'BURN' || !ownerId || ownerId === PLATFORM_OWNER_ID
+}
+
+type OwnerSource = {
+  platformOwned?: boolean | null
+  ownerLabel?: string | null
+  sellerLabel?: string | null
+  owner?: { nickname?: string, username?: string, id?: string } | null
+  seller?: { nickname?: string, username?: string, id?: string } | null
+  ownerId?: string | null
+  settlement?: string | null
+}
+
+/**
+ * 归属展示名：官方投放显示商店设置里的官方展示名（后台可改成任意名称，留空表示不显示该行，
+ * 调用方据此隐藏整行）；真实归属用户显示用户名。
+ */
+export function displayOwnerLabel(source?: OwnerSource | null) {
+  if (!source) {
+    return ''
+  }
+  const platform = source.platformOwned ?? isPlatformOwned(source.ownerId ?? source.seller?.id ?? null,
+    source.settlement)
+  if (!platform) {
+    return displayUserName(source.owner ?? source.seller)
+  }
+  return (source.ownerLabel ?? source.sellerLabel ?? '').trim()
+}
+
+/** 商品归属展示 */
+export function displayProductOwner(product?: OwnerSource | null) {
+  return displayOwnerLabel(product)
+}
+
+/** 订单卖家展示：消耗式订单没有卖家账号，显示配置的官方展示名 */
+export function displayOrderSeller(order?: OwnerSource | null) {
+  return displayOwnerLabel(order)
+}
+
 /** 权限判断与宿主 SPI 对齐：超管角色下发的是字面量 "*"，不展开具体权限码 */
 export function hasPermission(permissions: string[] | undefined | null, code: string) {
   if (!permissions?.length) {
@@ -101,7 +149,52 @@ export function orderStatusTag(status: string): { variant: 'default' | 'secondar
       return { variant: 'destructive', text: '发货失败' }
     case 'REFUNDED':
       return { variant: 'secondary', text: '已退款' }
+    case 'CANCELLED':
+      return { variant: 'secondary', text: '已取消' }
     default:
       return { variant: 'secondary', text: status || '未知' }
   }
+}
+
+/** 订单结算方式标签：SELLER 转给卖家 / BURN 消耗（扣积分、不给卖家） */
+export function settlementTag(settlement?: string | null): { variant: 'default' | 'secondary' | 'destructive' | 'outline', text: string } {
+  return settlement === 'BURN'
+    ? { variant: 'outline', text: '消耗' }
+    : { variant: 'secondary', text: '转给卖家' }
+}
+
+/** 结算方式说明，用于结算标签的悬浮提示 */
+export function settlementDescription(settlement?: string | null) {
+  return settlement === 'BURN'
+    ? '消耗式结算：支付时直接扣减买家资产，不转给卖家；取消或退款时原路退回买家。'
+    : '转账式结算：买家支付后货款经钱包转给卖家。'
+}
+
+/** 商品类型展示名：内置积分兑换类型即使缺少 typeDisplayName 也显示「积分兑换」 */
+export function productTypeLabel(type?: string | null, typeDisplayName?: string | null) {
+  if (typeDisplayName) {
+    return typeDisplayName
+  }
+  if (type === POINTS_REDEEM_TYPE) {
+    return '积分兑换'
+  }
+  return type || '未知类型'
+}
+
+export function isPointsRedeem(type?: string | null) {
+  return type === POINTS_REDEEM_TYPE
+}
+
+/** 每人限购文案：0 表示不限 */
+export function perUserLimitText(limit: number | string | null | undefined) {
+  const value = Number(limit)
+  return Number.isFinite(value) && value > 0 ? String(value) : '不限'
+}
+
+/** 订单是否已有发货凭证：文本与图片至少一项非空 */
+export function hasDeliveryProof(order?: { deliveryVoucher?: string | null, deliveryProofs?: string[] | null } | null) {
+  if (!order) {
+    return false
+  }
+  return !!order.deliveryVoucher?.trim() || (order.deliveryProofs?.length ?? 0) > 0
 }

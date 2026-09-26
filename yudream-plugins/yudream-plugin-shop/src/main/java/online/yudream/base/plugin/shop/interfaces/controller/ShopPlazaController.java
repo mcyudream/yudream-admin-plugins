@@ -26,7 +26,7 @@ public class ShopPlazaController {
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/plaza/currencies", permission = ShopPlugin.VIEW_PERMISSION)
-    public PluginHttpResponse currencies() {
-        return http.plazaCurrencies();
+    public PluginHttpResponse currencies(PluginHttpRequest request) {
+        return http.plazaCurrencies(request);
     }
 }

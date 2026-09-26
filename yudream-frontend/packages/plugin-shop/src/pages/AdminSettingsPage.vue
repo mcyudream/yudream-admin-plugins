@@ -2,10 +2,10 @@
 import type { ShopCurrency } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaAlert, FaButton, FaIcon, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, useFaToast } from '@yudream/components'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { FaAlert, FaButton, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, useFaToast } from '@yudream/components'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { createShopApi } from '../api/shop-api'
-import { errorMessage } from '../composables/utils'
+import { errorMessage, normalizeFileUrl } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -24,6 +24,8 @@ const form = reactive({
   publishAssetCode: '',
   publishMinBalance: 0,
   allowedAssetCodes: [] as string[],
+  platformOwnerName: '',
+  platformOwnerAvatar: '',
 })
 
 const currencyOptions = computed(() => [
@@ -38,6 +40,31 @@ const tradableOptions = computed(() => assetOptions.value.map(item => ({
   value: item.code,
 })))
 const thresholdEnabled = computed(() => !!form.publishAssetCode)
+// FaImageUpload 原地改数组、不触发 update:modelValue，用独立 ref 承接展示地址再 watch 回落库相对路径
+const avatarList = ref<string[]>([])
+const uploadingAvatar = ref(false)
+
+watch(avatarList, (list) => {
+  form.platformOwnerAvatar = normalizeFileUrl(list[0] || '')
+}, { deep: true })
+
+async function uploadAvatar(options: { file: File }) {
+  uploadingAvatar.value = true
+  try {
+    return await props.sdk.files.uploadImage(options.file, { module: 'shop', publicAccess: true })
+  }
+  catch (error) {
+    toast.warning(errorMessage(error, '头像上传失败'))
+    throw error
+  }
+  finally {
+    uploadingAvatar.value = false
+  }
+}
+
+function afterAvatarUpload(uploaded: { assetUrl?: string, url?: string }) {
+  return uploaded.assetUrl || uploaded.url || ''
+}
 
 async function load() {
   loading.value = true
@@ -49,6 +76,9 @@ async function load() {
     form.publishAssetCode = settings.publishAssetCode || ''
     form.publishMinBalance = Number(settings.publishMinBalance) || 0
     form.allowedAssetCodes = [...(settings.allowedAssetCodes ?? [])]
+    form.platformOwnerName = settings.platformOwnerName ?? ''
+    form.platformOwnerAvatar = settings.platformOwnerAvatar ?? ''
+    avatarList.value = form.platformOwnerAvatar ? [props.sdk.files.assetUrl(form.platformOwnerAvatar)] : []
   }
   catch (error) {
     toast.error(errorMessage(error, '加载商店设置失败'))
@@ -73,6 +103,8 @@ async function save() {
       publishAssetCode: thresholdEnabled.value ? form.publishAssetCode : '',
       publishMinBalance: thresholdEnabled.value ? form.publishMinBalance : 0,
       allowedAssetCodes: form.allowedAssetCodes,
+      platformOwnerName: form.platformOwnerName.trim(),
+      platformOwnerAvatar: form.platformOwnerAvatar.trim(),
     })
     toast.success('商店设置已保存')
     await load()
@@ -107,6 +139,34 @@ onMounted(() => { void load() })
           <p class="text-xs text-muted-foreground">
             关闭后普通用户无法发布、编辑或重新上架商品；已上架商品仍可被购买，管理员不受此开关限制。
           </p>
+        </div>
+
+        <div class="grid gap-3 rounded-lg border p-4">
+          <h3 class="text-base font-semibold">官方商品展示名</h3>
+          <label class="grid gap-2">
+            <span>官方归属展示名</span>
+            <FaInput v-model="form.platformOwnerName" placeholder="官方" :maxlength="20" />
+            <span class="text-xs text-muted-foreground">
+              积分兑换等官方商品的归属展示名（默认「官方」）：商品卡片、商品详情、订单与管理列表中显示该名称；
+              留空则不显示归属信息。
+            </span>
+          </label>
+          <div class="grid gap-2">
+            <span>官方头像</span>
+            <FaImageUpload
+              :model-value="avatarList"
+              :max="1"
+              :width="96"
+              :height="96"
+              :multiple="false"
+              :disabled="uploadingAvatar"
+              :http-request="uploadAvatar"
+              :after-upload="afterAvatarUpload"
+            />
+            <span class="text-xs text-muted-foreground">
+              显示在商品详情等位置的官方头像；不设置时用展示名首字占位。
+            </span>
+          </div>
         </div>
 
         <div class="grid gap-3 rounded-lg border p-4">

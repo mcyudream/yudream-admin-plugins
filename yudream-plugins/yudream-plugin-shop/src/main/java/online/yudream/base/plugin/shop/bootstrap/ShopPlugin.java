@@ -27,11 +27,11 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = ShopPlugin.CODE,
         name = "shop",
-        version = "1.1.0",
-        description = "商品广场、多图与 Markdown 详情、钱包支付购买，开放商品类型与自动发货扩展点。"
+        version = "1.2.0",
+        description = "玩家市场与积分商城分离呈现，多图与 Markdown 详情、钱包支付购买，开放商品类型与自动发货扩展点。"
 )
 @PluginPermissions({
-        @PluginPermission(code = ShopPlugin.VIEW_PERMISSION, name = "浏览商店", module = "平台插件", description = "浏览商品广场与商品详情"),
+        @PluginPermission(code = ShopPlugin.VIEW_PERMISSION, name = "浏览商店", module = "平台插件", description = "浏览玩家市场、积分商城与商品详情"),
         @PluginPermission(code = ShopPlugin.USE_PERMISSION, name = "购买商品", module = "平台插件", description = "使用钱包购买商品并查看自己的订单"),
         @PluginPermission(code = ShopPlugin.PUBLISH_PERMISSION, name = "上架商品", module = "平台插件", description = "发布与管理自己的商品，查看自己的出售订单"),
         @PluginPermission(code = ShopPlugin.MANAGE_PERMISSION, name = "管理商店", module = "平台插件", description = "跨用户管理商品与订单，强制上下架、删除、重新发货与退款")
@@ -46,11 +46,20 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                 @PluginRoute(
                         path = "/platform/plugins/shop",
                         name = "platform-plugin-shop",
-                        title = "商品广场",
+                        title = "玩家市场",
                         icon = "i-ri:store-2-line",
                         component = "shop/Plaza",
                         permission = ShopPlugin.VIEW_PERMISSION,
                         sort = 10
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/shop/exchange",
+                        name = "platform-plugin-shop-exchange",
+                        title = "积分商城",
+                        icon = "i-ri:gift-2-line",
+                        component = "shop/Exchange",
+                        permission = ShopPlugin.VIEW_PERMISSION,
+                        sort = 15
                 ),
                 @PluginRoute(
                         path = "/platform/plugins/shop/detail",
@@ -177,8 +186,8 @@ public class ShopPlugin implements YuDreamPlugin {
         context.exposeService(PluginShopService.class,
                 new PluginShopServiceImpl(catalogService, orderService, typeRegistry));
 
-        ShopWebAssembler assembler = new ShopWebAssembler(typeRegistry);
-        ShopCatalogFacade catalogFacade = new ShopCatalogFacade(catalogService, settingsService, typeRegistry,
+        ShopWebAssembler assembler = new ShopWebAssembler(typeRegistry, settingsService);
+        ShopCatalogFacade catalogFacade = new ShopCatalogFacade(catalogService, settingsService,
                 walletPort, assembler, context);
         ShopOrderFacade orderFacade = new ShopOrderFacade(orderService, assembler, context);
         context.registerHttpController(new ShopPlazaController(catalogFacade));

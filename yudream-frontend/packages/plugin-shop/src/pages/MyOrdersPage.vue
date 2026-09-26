@@ -7,7 +7,7 @@ import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTa
 import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
-import { displayUserName, errorMessage, formatAmount, formatTime, orderStatusTag } from '../composables/utils'
+import { displayOrderSeller, errorMessage, formatAmount, formatTime, hasDeliveryProof, orderStatusTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -72,6 +72,17 @@ function onVerified(updated: ShopOrder) {
   void load()
 }
 
+/** 买家取消订单后同步详情与列表 */
+function onCancelled(updated: ShopOrder) {
+  current.value = updated
+  void load()
+}
+
+/** 有发货凭证且未核验时才显示核验入口（凭证可能是文本或图片） */
+function canVerify(order: ShopOrder) {
+  return order.status === 'DELIVERING' && hasDeliveryProof(order) && !order.voucherVerified
+}
+
 onMounted(() => { void load() })
 </script>
 
@@ -94,7 +105,7 @@ onMounted(() => { void load() })
         column-visibility
         :columns="columns"
         :data="rows"
-        empty-text="还没有购买记录，去商品广场逛逛吧"
+        empty-text="还没有购买记录，去玩家市场逛逛吧"
       >
         <template #cell-product="{ row }">
           <div class="flex items-center gap-2">
@@ -109,6 +120,7 @@ onMounted(() => { void load() })
               <FaIcon name="i-ri:image-line" />
             </div>
             <span class="line-clamp-1 font-medium">{{ row.original.productTitle }}</span>
+            <span v-if="row.original.variantName" class="text-xs text-muted-foreground">{{ row.original.variantName }}</span>
           </div>
         </template>
         <template #cell-amount="{ row }">
@@ -117,7 +129,7 @@ onMounted(() => { void load() })
           <span class="text-xs text-muted-foreground"> ×{{ row.original.quantity }}</span>
         </template>
         <template #cell-seller="{ row }">
-          {{ displayUserName(row.original.seller) }}
+          {{ displayOrderSeller(row.original) }}
         </template>
         <template #cell-status="{ row }">
           <FaTag :variant="orderStatusTag(row.original.status).variant">
@@ -130,13 +142,15 @@ onMounted(() => { void load() })
         <template #cell-operation="{ row }">
           <div class="flex-center gap-2">
             <FaButton
-              v-if="row.original.status === 'DELIVERING' && row.original.deliveryVoucher && !row.original.voucherVerified"
+              v-if="canVerify(row.original)"
               size="sm"
               @click="openDetail(row.original)"
             >
               核验
             </FaButton>
-            <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
+            <FaButton size="sm" variant="outline" @click="openDetail(row.original)">
+              {{ row.original.cancellable ? '详情 / 取消' : '详情' }}
+            </FaButton>
           </div>
         </template>
       </FaTable>
@@ -156,8 +170,9 @@ onMounted(() => { void load() })
         :order="current"
         :loading="detailLoading"
         :show-content="true"
-        :verifyable="true"
+        :buyer-view="true"
         @verified="onVerified"
+        @cancelled="onCancelled"
       />
     </FaPageMain>
   </section>

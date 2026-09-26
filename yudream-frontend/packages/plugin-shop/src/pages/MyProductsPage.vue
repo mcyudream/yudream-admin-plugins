@@ -7,7 +7,7 @@ import { FaAlert, FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPaginat
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
-import { errorMessage, formatAmount, formatTime, productStatusTag } from '../composables/utils'
+import { errorMessage, formatAmount, formatTime, hasPermission, perUserLimitText, productStatusTag, productTypeLabel } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -26,6 +26,12 @@ const pager = reactive({ page: 1, size: 10, total: 0 })
 const filters = reactive({ keyword: '' })
 const qualification = ref<PublishQualification | null>(null)
 const publishBlocked = computed(() => !!qualification.value && !qualification.value.allowed)
+/**
+ * 管理账号只能投放官方积分商品，因此「发布商品」入口被禁用；
+ * 但历史遗留的玩家商品仍由本人维护，重新上架不应被上架开关/角色一起挡住。
+ */
+const isManager = computed(() => hasPermission(props.sdk.account?.permissions, 'plugin:shop:manage'))
+const shelfBlocked = computed(() => publishBlocked.value && !isManager.value)
 
 const columns: TableColumn<ShopProductSummary>[] = [
   { id: 'title', header: '商品', minWidth: 240, fixed: 'left' },
@@ -132,7 +138,7 @@ onMounted(() => {
     <FaPageMain>
       <FaAlert v-if="publishBlocked" title="当前无法上架商品" class="mb-4">
         <template #description>
-          {{ qualification?.reason || '管理员已关闭用户上架功能或积分门槛不足。' }}
+          {{ qualification?.reason || '管理员已关闭用户上架功能、积分门槛不足，或当前账号是管理员（只能投放官方积分商品）。' }}
         </template>
       </FaAlert>
       <FaTable
@@ -145,7 +151,7 @@ onMounted(() => {
         column-visibility
         :columns="columns"
         :data="rows"
-        empty-text="还没有上架过商品，点击右上角上架第一件商品"
+        :empty-text="publishBlocked ? '还没有商品' : '还没有上架过商品，点击右上角上架第一件商品'"
       >
         <template #toolbar>
           <FaSearchBar class="w-full">
@@ -177,7 +183,10 @@ onMounted(() => {
             </div>
             <div class="grid gap-0.5">
               <span class="line-clamp-1 font-medium">{{ row.original.title }}</span>
-              <span class="line-clamp-1 text-xs text-muted-foreground">{{ row.original.typeDisplayName || row.original.type }}</span>
+              <span class="line-clamp-1 text-xs text-muted-foreground">
+                {{ productTypeLabel(row.original.type, row.original.typeDisplayName) }}
+                <template v-if="Number(row.original.perUserLimit) > 0"> · 每人限购 {{ perUserLimitText(row.original.perUserLimit) }}</template>
+              </span>
             </div>
           </div>
         </template>
@@ -202,7 +211,7 @@ onMounted(() => {
             <FaButton
               size="sm"
               variant="outline"
-              :disabled="publishBlocked && row.original.status !== 'ON_SHELF'"
+              :disabled="shelfBlocked && row.original.status !== 'ON_SHELF'"
               :loading="actingId === row.original.id"
               @click="toggleShelf(row.original)"
             >
