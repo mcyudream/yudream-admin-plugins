@@ -151,7 +151,8 @@ package:plugins:
         - yudream-plugins/*/pom.xml
   before_script:
     # Tag builds run the release-selection validator, which reads plugin.yml from jars via unzip.
-    - if [ -n "$CI_COMMIT_TAG" ]; then apt-get update -qq && apt-get install -y -qq unzip; fi
+    # 镜像基底是 Ubuntu：默认 apt 源在国内 runner 上极慢，先切阿里云源再安装（秒级）。
+    - if [ -n "$CI_COMMIT_TAG" ]; then sed -i 's#http://archive.ubuntu.com#https://mirrors.aliyun.com#g; s#http://security.ubuntu.com#https://mirrors.aliyun.com#g' /etc/apt/sources.list && apt-get update -qq && apt-get install -y -qq unzip; fi
   script:
     - 'echo "Using Nexus Maven registry: $NEXUS_MAVEN_PUBLIC_URL"'
     - |
