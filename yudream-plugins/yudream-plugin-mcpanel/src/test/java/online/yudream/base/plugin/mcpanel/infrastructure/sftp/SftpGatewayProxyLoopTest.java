@@ -157,16 +157,18 @@ class SftpGatewayProxyLoopTest {
     }
 
     @Test
-    void ed25519OnlyNodeIsReachableThroughGateway() throws Exception {
-        // 复现真实节点条件：节点是 Go SSH 服务端，主机密钥只有 ssh-ed25519
-        // （网关 JVM 必须能协商 ed25519，否则拨号因算法无交集被拒）。
+    void nodeWithEd25519AndRsaHostKeysIsReachableThroughGateway() throws Exception {
+        // 节点 0.7.5+ 形态：Go SSH 服务端提供 Ed25519 + RSA 双主机密钥。网关客户端
+        // 已排除 ed25519 协商（规避插件 shade 的 I2P eddsa 与宿主全局 EdDSA provider
+        // 的跨 ClassLoader 冲突），此用例验证网关经 RSA 完成主机密钥验证并代理传输。
         SshServer edNode = SshServer.setUpDefaultServer();
         edNode.setHost("127.0.0.1");
         edNode.setPort(0);
         edNode.setPasswordAuthenticator((username, password, session) ->
                 NODE_USER.equals(username) && NODE_PASSWORD.equals(password));
         edNode.setKeyPairProvider(KeyPairProvider.wrap(
-                org.apache.sshd.common.config.keys.KeyUtils.generateKeyPair("ssh-ed25519", 256)));
+                org.apache.sshd.common.config.keys.KeyUtils.generateKeyPair("ssh-ed25519", 256),
+                rsaKeyPair()));
         edNode.setFileSystemFactory(new VirtualFileSystemFactory(nodeRoot));
         edNode.setSubsystemFactories(java.util.List.of(new SftpSubsystemFactory()));
         edNode.start();

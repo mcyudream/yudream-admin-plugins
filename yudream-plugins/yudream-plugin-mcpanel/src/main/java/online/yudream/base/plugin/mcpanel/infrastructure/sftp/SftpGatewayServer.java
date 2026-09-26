@@ -63,6 +63,13 @@ public final class SftpGatewayServer implements AutoCloseable {
             return thread;
         });
         SshClient client = SshClient.setUpDefaultClient();
+        // 拨号节点时排除 ed25519 主机密钥协商：插件 shade 的 I2P eddsa 与宿主全局
+        // 注册的 EdDSA provider 存在同名类跨 ClassLoader 冲突（key spec not
+        // recognised），解码节点 ed25519 公钥会失败；节点 0.7.5 起同时提供 RSA
+        // 主机密钥，走 JDK 原生 RSA 解码即无此问题。
+        client.setSignatureFactories(client.getSignatureFactories().stream()
+                .filter(factory -> !factory.getName().toLowerCase(java.util.Locale.ROOT).contains("ed25519"))
+                .toList());
         client.setServerKeyVerifier(new TofuServerKeyVerifier());
         client.start();
         SshServer ssh = SshServer.setUpDefaultServer();

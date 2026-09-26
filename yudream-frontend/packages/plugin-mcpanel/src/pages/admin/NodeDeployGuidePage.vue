@@ -21,7 +21,7 @@ const panelUrl = ref(window.location.origin)
 
 const safePanelUrl = computed(() => panelUrl.value.trim() || 'https://panel.example.com')
 
-const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.4'
+const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.5'
 
 const DATA_DIR = '/opt/mcpanel-node/data'
 
