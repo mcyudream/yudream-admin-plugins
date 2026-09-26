@@ -10,6 +10,7 @@ import online.yudream.base.plugin.wallet.api.PluginWalletTransferRequest;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * 钱包软依赖端口：钱包 API 类型的所有引用都隔离在本类中。
@@ -73,6 +74,23 @@ public class ShopWalletPort {
                     .orElse(false);
         } catch (RuntimeException | LinkageError ignored) {
             return false;
+        }
+    }
+
+    /**
+     * 资产小数位（交易手续费按它四舍五入）；钱包不可用或货币不存在返回 empty，由调用方决定回退口径。
+     */
+    public OptionalInt assetScale(String assetCode) {
+        if (assetCode == null || assetCode.isBlank() || !available()) {
+            return OptionalInt.empty();
+        }
+        try {
+            return service()
+                    .flatMap(wallet -> wallet.findAsset(assetCode.trim()))
+                    .map(asset -> OptionalInt.of(Math.max(asset.scale(), 0)))
+                    .orElse(OptionalInt.empty());
+        } catch (RuntimeException | LinkageError ignored) {
+            return OptionalInt.empty();
         }
     }
 

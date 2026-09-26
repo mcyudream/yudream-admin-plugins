@@ -8,7 +8,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
 import OrderVoucherModal from '../components/OrderVoucherModal.vue'
-import { displayOrderSeller, displayUserName, errorMessage, formatAmount, formatTime, orderStatusTag } from '../composables/utils'
+import { displayOrderSeller, displayUserName, errorMessage, formatAmount, formatTime, hasOrderTradeFee, orderSellerAmount, orderStatusTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -141,9 +141,12 @@ async function redeliver(order: ShopOrder) {
 }
 
 function confirmRefund(order: ShopOrder) {
+  const feeNotice = hasOrderTradeFee(order)
+    ? `其中手续费 ${formatAmount(order.feeAmount)} ${order.assetCode} 会从手续费收款方原路收回，`
+    : ''
   confirm.confirm({
     title: '订单退款',
-    content: `确认将 ${formatAmount(order.totalAmount)} ${order.assetCode} 从卖家钱包退回买家吗？退款后订单标记为已退款，不可撤销。`,
+    content: `确认将 ${formatAmount(order.totalAmount)} ${order.assetCode} 退回买家吗？${feeNotice}退款后订单标记为已退款，不可撤销。`,
     onConfirm: () => refund(order),
   })
 }
@@ -273,6 +276,9 @@ onMounted(() => { void load() })
           {{ formatAmount(row.original.totalAmount) }}
           <span class="text-xs text-muted-foreground">{{ row.original.assetCode }}</span>
           <span class="text-xs text-muted-foreground"> ×{{ row.original.quantity }}</span>
+          <div v-if="hasOrderTradeFee(row.original)" class="text-xs text-muted-foreground">
+            含手续费 {{ formatAmount(row.original.feeAmount) }}，卖家实收 {{ formatAmount(orderSellerAmount(row.original)) }}
+          </div>
         </template>
         <template #cell-buyer="{ row }">
           {{ displayUserName(row.original.buyer) }}

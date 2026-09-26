@@ -8,6 +8,9 @@ export const POINTS_REDEEM_TYPE = 'POINTS_REDEEM'
 /** 订单结算方式：SELLER 转给卖家 / BURN 消耗（扣买家资产、不产生收款方）。 */
 export type ShopSettlement = 'SELLER' | 'BURN'
 
+/** 玩家市场交易手续费的收款方式：BURN 销毁 / PLATFORM 转给指定平台用户。 */
+export type ShopTradeFeePayee = 'BURN' | 'PLATFORM'
+
 /** 单笔发货凭证最多可提交的图片数量，与后端 ShopOrder.MAX_DELIVERY_PROOFS 对齐。 */
 export const MAX_DELIVERY_PROOFS = 6
 
@@ -79,6 +82,10 @@ export interface ShopOrder {
   price: string | number
   quantity: number
   totalAmount: string | number
+  /** 玩家市场交易手续费（十进制字符串）：买家总支出仍为 totalAmount，没有手续费的订单为 0 */
+  feeAmount?: string | number | null
+  /** 卖家实收（= totalAmount − feeAmount）；旧订单与消耗类订单等于 totalAmount */
+  sellerAmount?: string | number | null
   /** 下单时选中的型号（商品无型号时为 null） */
   variantId?: string | null
   variantName?: string | null
@@ -179,6 +186,16 @@ export interface ShopSettings {
   platformOwnerName: string
   /** 官方归属头像（平台上传文件地址），null 表示不设置 */
   platformOwnerAvatar: string | null
+  /** 玩家市场交易手续费开关（官方积分兑换等消耗类商品不收费） */
+  tradeFeeEnabled: boolean
+  /** 手续费费率（成交额百分比，0~100 的十进制字符串） */
+  tradeFeeRate: string | number
+  /** 最低手续费（十进制字符串，0 表示不设下限） */
+  tradeFeeMinAmount: string | number
+  /** 手续费收款方式：销毁（默认，不需要额外账号）或转给指定平台用户 */
+  tradeFeePayee: ShopTradeFeePayee
+  /** 平台用户 ID（tradeFeePayee 为 PLATFORM 时必填） */
+  tradeFeePayeeUserId: string | null
   assetOptions: ShopCurrency[]
 }
 
@@ -189,6 +206,11 @@ export interface ShopSettingsPayload {
   platformOwnerName: string
   platformOwnerAvatar: string
   allowedAssetCodes: string[]
+  tradeFeeEnabled: boolean
+  tradeFeeRate: string
+  tradeFeeMinAmount: string
+  tradeFeePayee: ShopTradeFeePayee
+  tradeFeePayeeUserId: string
 }
 
 export interface PublishQualification {

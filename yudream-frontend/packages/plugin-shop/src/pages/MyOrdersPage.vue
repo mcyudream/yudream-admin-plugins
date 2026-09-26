@@ -7,7 +7,7 @@ import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTa
 import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
-import { displayOrderSeller, errorMessage, formatAmount, formatTime, hasDeliveryProof, orderStatusTag } from '../composables/utils'
+import { displayOrderSeller, errorMessage, formatAmount, formatTime, hasDeliveryProof, hasOrderTradeFee, orderStatusTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -127,6 +127,9 @@ onMounted(() => { void load() })
           {{ formatAmount(row.original.totalAmount) }}
           <span class="text-xs text-muted-foreground">{{ row.original.assetCode }}</span>
           <span class="text-xs text-muted-foreground"> ×{{ row.original.quantity }}</span>
+          <div v-if="hasOrderTradeFee(row.original)" class="text-xs text-muted-foreground">
+            含交易手续费 {{ formatAmount(row.original.feeAmount) }} {{ row.original.assetCode }}
+          </div>
         </template>
         <template #cell-seller="{ row }">
           {{ displayOrderSeller(row.original) }}
