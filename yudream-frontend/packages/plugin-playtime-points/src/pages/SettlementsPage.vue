@@ -6,7 +6,7 @@ import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSe
 import { onMounted } from 'vue'
 import { createPlaytimePointsApi } from '../api/playtime-points-api'
 import { useSettlements } from '../composables/useSettlements'
-import { formatDuration, formatTime } from '../composables/utils'
+import { formatDuration, formatTime, subDetails, weightLabel } from '../composables/utils'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 
@@ -20,6 +20,7 @@ const columns: TableColumn<SettlementRecord>[] = [
   { accessorKey: 'playerName', header: '玩家', width: 140 },
   { id: 'effective', header: '有效时长', width: 150 },
   { id: 'detail', header: '在线 / 挂机', width: 200 },
+  { id: 'subServers', header: '子服拆分', width: 260 },
   { id: 'weight', header: '权重', width: 90, align: 'center' },
   { id: 'points', header: '积分', width: 110, align: 'center' },
   { id: 'credited', header: '入账', width: 110, align: 'center' },
@@ -49,7 +50,7 @@ onMounted(() => {
       v-loading="loading"
       row-key="id"
       table-root-class="rounded-lg overflow-hidden"
-      table-class="ptp-table-w1240"
+      table-class="ptp-table-w1360"
       border
       stripe
       column-visibility
@@ -91,7 +92,17 @@ onMounted(() => {
       <template #cell-detail="{ row }">
         {{ formatDuration(row.original.onlineMillis) }} / {{ formatDuration(row.original.afkMillis) }}
       </template>
-      <template #cell-weight="{ row }">×{{ row.original.weight }}</template>
+      <template #cell-subServers="{ row }">
+        <div v-if="!subDetails(row.original).length" class="ptp-sub-empty">整服结算</div>
+        <div v-else class="ptp-sub-list">
+          <div v-for="sub in subDetails(row.original)" :key="sub.subServer" class="ptp-sub-item">
+            <span class="ptp-sub-name">{{ sub.subServer }}</span>
+            <span class="ptp-sub-meta">{{ sub.effectiveMinutes }} 分钟 × {{ sub.weight }}</span>
+            <span class="ptp-sub-points">{{ sub.enabled ? `+${sub.points}` : '停算' }}</span>
+          </div>
+        </div>
+      </template>
+      <template #cell-weight="{ row }">{{ weightLabel(row.original) }}</template>
       <template #cell-points="{ row }">{{ row.original.points }}</template>
       <template #cell-credited="{ row }">
         <FaTag :variant="Number(row.original.credited) > 0 ? 'default' : 'secondary'">

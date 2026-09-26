@@ -11,6 +11,7 @@ import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckI
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectCheckInReviewStatus;
 import online.yudream.base.plugin.projectprogress.domain.enumerate.ProjectProgressEventType;
 import online.yudream.base.plugin.projectprogress.domain.repo.ProjectProgressRepository;
+import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectAcceptedCheckIn;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectFileEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectLocationEvidence;
 import online.yudream.base.plugin.projectprogress.domain.valobj.ProjectMinecraftEvidence;
@@ -212,6 +213,97 @@ public class ProjectProgressDocumentRepository implements ProjectProgressReposit
                 .map(this::toEvent)
                 .sorted(Comparator.comparingLong(ProjectProgressEvent::createdAt))
                 .toList();
+    }
+
+    /**
+     * 验收通过打卡的读模型：细节维度的「最后一次验收通过」+ 该细节下的每条打卡记录。
+     *
+     * <p>先按细节算出最后一次通过时间（{@code >=} 下界在这一步之后判断），再逐条展开该细节的打卡记录，
+     * 最后统一按「验收通过时间、打卡记录 id」排序并切片分页——排序在分页之前完成，跨页拼接不会重不会漏。</p>
+     *
+     * <p>细节或项目文档已被删除（或引用已断）的验收记录直接跳过：契约要求返回能被消费方直接使用的
+     * 完整奖励项，缺项目名/细节标题的半条记录没有意义。</p>
+     *
+     * <p>被驳回的打卡记录（{@code ProjectCheckInReviewStatus.REJECTED}）不返回：驳回表示这次证据不成立、
+     * 不算这次打卡，与实时回调同口径。</p>
+     */
+    @Override
+    public List<ProjectAcceptedCheckIn> listAcceptedCheckIns(long sinceAcceptedAt, int page, int size) {
+        Map<String, ProjectAcceptanceRecord> latestAccepted = latestAcceptedByDetail();
+        if (latestAccepted.isEmpty()) {
+            return List.of();
+        }
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        List<ProjectAcceptedCheckIn> rows = new ArrayList<>();
+        for (Map.Entry<String, ProjectAcceptanceRecord> entry : latestAccepted.entrySet()) {
+            ProjectAcceptanceRecord accepted = entry.getValue();
+            if (accepted.createdAt() < sinceAcceptedAt) {
+                continue;
+            }
+            Optional<ProjectWorkDetail> detail = findDetail(entry.getKey());
+            if (detail.isEmpty()) {
+                continue;
+            }
+            Optional<ProjectProgressProject> project = findProject(detail.get().projectId());
+            if (project.isEmpty()) {
+                continue;
+            }
+            for (ProjectCheckInRecord checkIn : allCheckIns(entry.getKey())) {
+                // 驳回 = 这次证据不成立、不算这次打卡：既不参与拉取，也不参与实时回调（同口径）。
+                if (checkIn.reviewStatus() == ProjectCheckInReviewStatus.REJECTED) {
+                    continue;
+                }
+                rows.add(new ProjectAcceptedCheckIn(checkIn, detail.get(), project.get(), accepted.createdAt(),
+                        accepted.operatorUserId()));
+            }
+        }
+        rows.sort(Comparator.comparingLong(ProjectAcceptedCheckIn::acceptedAt)
+                .thenComparing(row -> row.checkIn().id()));
+        long offset = (long) (safePage - 1) * safeSize;
+        if (offset >= rows.size()) {
+            return List.of();
+        }
+        int from = (int) offset;
+        int to = (int) Math.min(rows.size(), offset + safeSize);
+        return List.copyOf(rows.subList(from, to));
+    }
+
+    /**
+     * 每个工作细节最后一次「验收通过」的记录。
+     *
+     * <p>先按细节算出最后一次通过时间，再由调用方判断是否满足下界：这样「最后一次」是对该细节全部验收轮次
+     * 定义的，与调用方的游标无关。</p>
+     *
+     * <p>同一时间戳出现多条通过记录时按 id 取较大的那条，保证结果稳定。</p>
+     */
+    private Map<String, ProjectAcceptanceRecord> latestAcceptedByDetail() {
+        Map<String, ProjectAcceptanceRecord> latest = new LinkedHashMap<>();
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> batch = documents.findAll(ACCEPTANCE, page, SCAN_PAGE_SIZE);
+            for (Map<String, Object> document : batch) {
+                ProjectAcceptanceRecord record = toAcceptance(document);
+                if (record.result() != ProjectAcceptanceResult.ACCEPTED) {
+                    continue;
+                }
+                ProjectAcceptanceRecord current = latest.get(record.detailId());
+                if (current == null || isLaterAcceptance(record, current)) {
+                    latest.put(record.detailId(), record);
+                }
+            }
+            if (batch.size() < SCAN_PAGE_SIZE) {
+                return latest;
+            }
+            page++;
+        }
+    }
+
+    private boolean isLaterAcceptance(ProjectAcceptanceRecord candidate, ProjectAcceptanceRecord current) {
+        if (candidate.createdAt() != current.createdAt()) {
+            return candidate.createdAt() > current.createdAt();
+        }
+        return candidate.id().compareTo(current.id()) > 0;
     }
 
     private List<ProjectWorkDetail> allDetails() {

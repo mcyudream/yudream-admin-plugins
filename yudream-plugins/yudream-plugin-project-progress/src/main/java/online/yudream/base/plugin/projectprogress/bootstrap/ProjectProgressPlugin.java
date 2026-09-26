@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @PluginSpec(
         code = ProjectProgressPlugin.CODE,
         name = "project-progress",
-        version = "1.4.0",
+        version = "1.6.0",
         description = "项目管理、进度监控、任务分配、打卡与验收插件，可选联动 Minecraft 在线时长。"
 )
 @PluginPermissions({
@@ -153,12 +153,13 @@ public class ProjectProgressPlugin implements YuDreamPlugin {
 
     @Override
     public void onEnable(PluginContext context) {
-        appService = new ProjectProgressAppService(
-                new ProjectProgressDocumentRepository(context.documents()),
-                context.files(),
-                context.framework(),
-                context
-        );
+        ProjectProgressDocumentRepository repository = new ProjectProgressDocumentRepository(context.documents());
+        appService = new ProjectProgressAppService(repository, context.files(), context.framework(), context);
+        // 打卡验收通过的只读契约：消费方（如积分发放）以 provided 依赖编译，
+        // 经 context.service("project-progress", PluginProjectProgressService.class) 获取。
+        context.exposeService(
+                online.yudream.base.plugin.projectprogress.api.PluginProjectProgressService.class,
+                appService.rewards());
         context.registerHttpController(new ProjectProgressController(new ProjectProgressHttpFacade(appService)));
         registerYmclContribution(context);
         context.registerAiTool(new PluginAiTool() {
