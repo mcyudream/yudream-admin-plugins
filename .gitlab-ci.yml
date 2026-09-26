@@ -151,8 +151,9 @@ package:plugins:
         - yudream-plugins/*/pom.xml
   before_script:
     # Tag builds run the release-selection validator, which reads plugin.yml from jars via unzip.
-    # 镜像基底是 Ubuntu：默认 apt 源在国内 runner 上极慢，先切阿里云源再安装（秒级）。
-    - if [ -n "$CI_COMMIT_TAG" ]; then sed -i 's#http://archive.ubuntu.com#https://mirrors.aliyun.com#g; s#http://security.ubuntu.com#https://mirrors.aliyun.com#g' /etc/apt/sources.list && apt-get update -qq && apt-get install -y -qq unzip; fi
+    # 镜像（Ubuntu 基底）无 unzip 且 apt 安装在国内 runner 上极慢：改用镜像必有的 JDK jar
+    # 工具生成最小 unzip 替身（校验脚本仅用 `unzip -p <jar> <entry>`，见 ci/unzip-shim.sh）。
+    - if [ -n "$CI_COMMIT_TAG" ]; then install -m 755 ci/unzip-shim.sh /usr/local/bin/unzip; fi
   script:
     - 'echo "Using Nexus Maven registry: $NEXUS_MAVEN_PUBLIC_URL"'
     - |
