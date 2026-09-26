@@ -3,6 +3,6 @@ displayName: 论坛
 description: 支持分类、标签、审核、互动与 YMCL 启动器浏览的社区论坛
 icon: i-ri:forum-line
 main: online.yudream.base.plugin.forum.bootstrap.ForumPlugin
-version: 1.0.1
+version: 1.0.2
 softdepend:
   - ymcl-adapter

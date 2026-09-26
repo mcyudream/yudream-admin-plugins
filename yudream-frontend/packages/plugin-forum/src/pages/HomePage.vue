@@ -4,7 +4,7 @@ import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaTa
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
 import PostCard from '../components/PostCard.vue'
-import type { Category, Post } from '../types'
+import type { Category, Post } from '../api/forum-api'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createForumApi(props.sdk)

@@ -23,6 +23,12 @@ public final class ModpackInspectStore {
     private ModpackInspectStore() {
     }
 
+    /** 生成一次性 token（multipart inspect 与分片 commit 共用同一形状）。 */
+    public static String newToken() {
+        return "mp-" + Long.toString(System.currentTimeMillis(), 36)
+                + "-" + Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 8);
+    }
+
     public static String put(String token, String format, ModpackService.ImportResult result) {
         long now = System.currentTimeMillis();
         if (STORE.size() >= MAX_ENTRIES) {

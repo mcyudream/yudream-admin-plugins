@@ -21,7 +21,7 @@ const panelUrl = ref(window.location.origin)
 
 const safePanelUrl = computed(() => panelUrl.value.trim() || 'https://panel.example.com')
 
-const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.2'
+const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.4'
 
 const DATA_DIR = '/opt/mcpanel-node/data'
 
@@ -74,6 +74,7 @@ const dockerRunCommand = [
   'docker run -d --name mcpanel-node \\',
   '  --restart unless-stopped \\',
   '  -v /var/run/docker.sock:/var/run/docker.sock \\',
+  '  -v /etc/hosts:/etc/hosts:ro \\',
   `  -v ${DATA_DIR}:/data \\`,
   `  -e MCNODE_DATA_HOST_ROOT=${DATA_DIR} \\`,
   '  -p 7443:7443 \\',
@@ -99,6 +100,8 @@ const composeFile = [
   '      - "2121-2136:2121-2136"',
   '    volumes:',
   '      - /var/run/docker.sock:/var/run/docker.sock',
+  '      # 只读挂载宿主 hosts：节点自身与创建的实例容器都继承宿主域名映射',
+  '      - /etc/hosts:/etc/hosts:ro',
   `      - ${DATA_DIR}:/data`,
   '    environment:',
   `      MCNODE_DATA_HOST_ROOT: ${DATA_DIR}`,
@@ -146,15 +149,16 @@ const composeUpCommand = [
         </div>
       </FaCard>
 
-      <FaCard title="方式一：二进制部署（systemd 托管）" description="单二进制直接跑在宿主机，systemd 负责开机自启与崩溃拉起">
-        <div class="mcp-form">
-          <CodeBlock label="① 安装二进制并准备数据目录" :code="binaryInstallCommand" />
-          <CodeBlock label="② 注册并试运行（粘贴 token）" :code="joinCommand" />
-          <CodeBlock label="③ 写入 systemd 服务单元" :code="systemdUnit" />
-          <CodeBlock label="④ 启动并设为开机自启" :code="systemdEnableCommand" />
-          <span class="mcp-form-hint">Windows 机器可用 <code class="mcp-inline-code">mcpanel-node-windows-amd64.exe</code> 以相同参数手动运行（不含 systemd 托管）。</span>
-        </div>
-      </FaCard>
+          <FaCard title="方式一：二进制部署（systemd 托管）" description="单二进制直接跑在宿主机，systemd 负责开机自启与崩溃拉起">
+            <div class="mcp-form">
+              <CodeBlock label="① 安装二进制并准备数据目录" :code="binaryInstallCommand" />
+              <CodeBlock label="② 注册并试运行（粘贴 token）" :code="joinCommand" />
+              <CodeBlock label="③ 写入 systemd 服务单元" :code="systemdUnit" />
+              <CodeBlock label="④ 启动并设为开机自启" :code="systemdEnableCommand" />
+              <span class="mcp-form-hint">Windows 机器可用 <code class="mcp-inline-code">mcpanel-node-windows-amd64.exe</code> 以相同参数手动运行（不含 systemd 托管）。</span>
+              <span class="mcp-form-hint">二进制直接跑在宿主机：节点自身与它创建的实例容器天然继承宿主 <code class="mcp-inline-code">/etc/hosts</code> 域名映射（节点 0.7.4+）。</span>
+            </div>
+          </FaCard>
 
       <FaCard title="方式二：Docker 单命令运行" description="镜像已托管在私有仓库；实例数据落在宿主机目录，升级只换镜像">
         <div class="mcp-form">
@@ -194,9 +198,14 @@ const composeUpCommand = [
               节点为每次「开通 SFTP」在 2121-2136 段内按实例哈希选端口监听（基点可用 <code class="mcp-inline-code">MCNODE_FTP_BASE_PORT</code> 调整）。二进制部署直接监听宿主网络无需处理；容器部署必须 <code class="mcp-inline-code">-p 2121-2136:2121-2136</code> 发布，并在防火墙/安全组放行、保证面板服务器可达——SFTP 网关认证通过后面板会回源拨该端口段，缺发布会表现为「登录成功后连接被断开」。
             </template>
           </FaAlert>
+          <FaAlert title="实例容器继承宿主 /etc/hosts（节点 0.7.4+）" variant="default">
+            <template #description>
+              节点会把它看到的 <code class="mcp-inline-code">/etc/hosts</code> 注入自己创建的实例容器（实例内域名解析与宿主一致）。容器部署需按上方模板只读挂载宿主 hosts（<code class="mcp-inline-code">-v /etc/hosts:/etc/hosts:ro</code>，节点自身也因此继承）；二进制部署天然生效。hosts 变更只对之后新创建的实例容器生效——已存在的实例需删除容器（数据不受影响）后从面板重新启动一次才会注入。注意 loopback（127.x / ::1）条目在实例容器内指向的是容器自身而非宿主。
+            </template>
+          </FaAlert>
           <FaAlert title="升级节点" variant="default">
             <template #description>
-              Docker 部署：<code class="mcp-inline-code">docker pull</code> 新版本镜像 → <code class="mcp-inline-code">docker rm -f mcpanel-node</code> → 按原命令重建，数据与凭据都在 /data，升级不影响已注册状态与实例。二进制部署：替换可执行文件后 <code class="mcp-inline-code">systemctl restart mcpanel-node</code>。节点版本需满足面板功能要求（回收站等能力需节点 0.4.0+；安装文件级明细需 0.5.0+；安装停滞自愈与自动重试需 0.5.1+；MR/CF 换源下载回退需 0.6.0+；大整合包安装（帧上限协商）需 0.6.1+；存量实例容器策略自动对齐（旧节点创建的容器升级后自动重建修复 EACCES 启动失败）需 0.6.3+；启动中状态、启动成功检测与启动阶段实时输出需 0.7.0+；实例数据目录权限自动修复（启动前自动放开节点侧写入与容器内非 root 用户的属主错位，根治模组写 config 报 EACCES 启动即崩）需 0.7.1+）。
+              Docker 部署：<code class="mcp-inline-code">docker pull</code> 新版本镜像 → <code class="mcp-inline-code">docker rm -f mcpanel-node</code> → 按原命令重建，数据与凭据都在 /data，升级不影响已注册状态与实例。二进制部署：替换可执行文件后 <code class="mcp-inline-code">systemctl restart mcpanel-node</code>。节点版本需满足面板功能要求（回收站等能力需节点 0.4.0+；安装文件级明细需 0.5.0+；安装停滞自愈与自动重试需 0.5.1+；MR/CF 换源下载回退需 0.6.0+；大整合包安装（帧上限协商）需 0.6.1+；存量实例容器策略自动对齐（旧节点创建的容器升级后自动重建修复 EACCES 启动失败）需 0.6.3+；启动中状态、启动成功检测与启动阶段实时输出需 0.7.0+；实例数据目录权限自动修复（启动前自动放开节点侧写入与容器内非 root 用户的属主错位，根治模组写 config 报 EACCES 启动即崩）需 0.7.1+；SFTP 网关标准 sftp subsystem 契约需 0.7.2+；实例 SFTP 目录钉死在实例数据目录（安全修复，此前客户端可见节点宿主机全部文件，强烈建议所有节点立即升级）需 0.7.3+；实例容器继承宿主 /etc/hosts（容器部署同时需按模板只读挂载 /etc/hosts）需 0.7.4+）。
             </template>
           </FaAlert>
           <FaAlert title="控制信道地址怎么填" variant="default">

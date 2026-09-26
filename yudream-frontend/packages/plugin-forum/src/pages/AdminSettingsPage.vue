@@ -19,7 +19,7 @@ const modelOptions = computed(() => {
   if (form.aiModelCode && !options.some(item => item.value === form.aiModelCode)) options.unshift({ label: `${form.aiModelCode}（平台已下线）`, value: form.aiModelCode })
   return [{ label: '使用宿主默认模型', value: '' }, ...options]
 })
-function onProviderChange(value?: string) { form.aiProviderCode = value || ''; if (form.aiModelCode && selectedProvider.value && !(selectedProvider.value.models ?? []).some(item => item.code === form.aiModelCode)) form.aiModelCode = '' }
+function onProviderChange(value?: unknown) { form.aiProviderCode = typeof value === 'string' ? value : ''; if (form.aiModelCode && selectedProvider.value && !(selectedProvider.value.models ?? []).some(item => item.code === form.aiModelCode)) form.aiModelCode = '' }
 async function load() {
   loading.value = true
   try {

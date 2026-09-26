@@ -1,7 +1,7 @@
 {
   "name": "@yudream/plugin-forum",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "files": ["dist"],
   "exports": { ".": "./src/index.ts", "./remote": "./dist/remoteEntry.js" },

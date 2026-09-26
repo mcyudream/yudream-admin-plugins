@@ -198,6 +198,24 @@ export function createMcPanelApi(sdk: YuDreamPluginSdk) {
       form.append('file', file)
       return sdk.http.request('admin/modpacks/inspect', { method: 'POST', data: form })
     },
+    /**
+     * 整合包分片上传（实例创建场景，大包避免整份 multipart 超时）：
+     * begin（浏览器预计算整文件 sha256）→ 4MiB 分片 → commit（面板校验后解析，返回 token 摘要）。
+     */
+    beginModpackUpload: (name: string, size: number, sha256: string) =>
+      sdk.http.post('admin/modpacks/upload-tasks', { name, size, sha256 }),
+    modpackUploadChunk: (taskId: string, offset: number, blob: Blob) => {
+      const form = new FormData()
+      form.append('data', blob)
+      return sdk.http.request(`admin/modpacks/upload-tasks/chunk${query({ taskId, offset })}`, {
+        method: 'POST',
+        data: form,
+      })
+    },
+    commitModpackUpload: (taskId: string) =>
+      sdk.http.post('admin/modpacks/upload-tasks/commit', { taskId }),
+    cancelModpackUpload: (taskId: string) =>
+      sdk.http.request(`admin/modpacks/upload-tasks${query({ taskId })}`, { method: 'DELETE' }),
     /** 创建实例后应用整合包（核心 + 全部文件 + overrides），进度经实例页安装进度条展示。 */
     applyModpack: (id: string, token: string) =>
       sdk.http.post(`admin/instances/${encodeURIComponent(id)}/modpack-apply`, { token }),
@@ -220,6 +238,11 @@ export function createMcPanelApi(sdk: YuDreamPluginSdk) {
       sdk.http.get(`admin/instances/${encodeURIComponent(id)}/authlib-injection`),
     applyAuthlibInjection: (id: string, enabled: boolean) =>
       sdk.http.post(`admin/instances/${encodeURIComponent(id)}/authlib-injection`, { enabled }),
+    /** 在线时长注入（实例粒度）：按制品矩阵匹配插件/模组放入实例目录。 */
+    playtimeInjection: (id: string) =>
+      sdk.http.get(`admin/instances/${encodeURIComponent(id)}/playtime-injection`),
+    applyPlaytimeInjection: (id: string, enabled: boolean) =>
+      sdk.http.post(`admin/instances/${encodeURIComponent(id)}/playtime-injection`, { enabled }),
     /** PROXY protocol（单端口入口配套）：状态 + 一键开关（只改配置文件里已存在的键，重启生效）。 */
     instanceProxyProtocol: (id: string) =>
       sdk.http.get(`admin/instances/${encodeURIComponent(id)}/proxy-protocol`),

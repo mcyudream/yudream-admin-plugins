@@ -36,7 +36,7 @@ import online.yudream.base.plugin.spi.permission.PluginPermissionItem;
 })
 public final class ForumPlugin implements YuDreamPlugin {
     public static final String CODE = "forum";
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.2";
     public static final String VIEW_PERMISSION = "plugin:forum:view";
     public static final String USE_PERMISSION = "plugin:forum:use";
     public static final String MANAGE_PERMISSION = "plugin:forum:manage";

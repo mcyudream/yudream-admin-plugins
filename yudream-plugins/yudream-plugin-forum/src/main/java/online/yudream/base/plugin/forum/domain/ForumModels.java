@@ -38,6 +38,8 @@ public final class ForumModels {
             Map<String,Object> d = new HashMap<>(); d.put("id", id); d.put("postId", postId); d.put("authorId", authorId); d.put("body", body == null ? "" : body); d.put("parentId", parentId == null ? "" : parentId); d.put("status", (status == null ? Status.PUBLISHED : status).name()); d.put("createdAt", createdAt); return d;
         }
     }
-    public static Moderation moderation(String raw) { try { return Moderation.valueOf(raw); } catch (Exception e) { return Moderation.INHERIT; } }
-    public static Status status(String raw) { try { return Status.valueOf(raw); } catch (Exception e) { return Status.DRAFT; } }
+    public static Moderation moderation(String raw) { try { return Moderation.valueOf(upper(raw)); } catch (Exception e) { return Moderation.INHERIT; } }
+    public static Status status(String raw) { try { return Status.valueOf(upper(raw)); } catch (Exception e) { return Status.DRAFT; } }
+    /** 请求侧状态值常为小写（前端 PostStatus 约定），统一大小写不敏感解析。 */
+    private static String upper(String raw) { return raw == null ? "" : raw.trim().toUpperCase(java.util.Locale.ROOT); }
 }

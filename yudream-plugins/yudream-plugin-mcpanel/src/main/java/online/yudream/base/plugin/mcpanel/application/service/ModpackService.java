@@ -121,6 +121,31 @@ public class ModpackService {
         return buildCurseforge(archive.index(), archive.indexName(), archive.overrideFiles());
     }
 
+    /**
+     * 识别结果 → 前端摘要（旧 multipart inspect 与分片上传 commit 共用同一形状，
+     * token 供 modpack-apply 取回识别结果）。
+     */
+    public static Map<String, Object> summarize(String token, String fileName, ImportResult result) {
+        String coreKind = result.coreChain().isEmpty() ? "" : result.coreChain().get(0);
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("token", token);
+        summary.put("fileName", fileName);
+        summary.put("name", result.name());
+        summary.put("mcVersion", result.mcVersion());
+        summary.put("loader", result.loader());
+        summary.put("loaderVersion", result.loaderVersion());
+        summary.put("fileCount", result.plan().size());
+        summary.put("overrideCount", result.overrides().size());
+        summary.put("skippedCount", result.skippedClientOnly().size());
+        summary.put("coreChain", result.coreChain());
+        summary.put("resolution", result.resolution());
+        summary.put("coreSupported", switch (coreKind) {
+            case "paper", "purpur", "fabric", "quilt" -> true;
+            default -> false; // forge/neoforge：服务端 installer 需交互执行，暂不支持自动开服
+        });
+        return summary;
+    }
+
     private Archive readArchive(byte[] zipBytes) {
         if (zipBytes == null || zipBytes.length == 0 || zipBytes.length > MAX_ZIP_BYTES) {
             throw McpanelBusinessException.invalid("整合包文件缺失或超过 64MB");

@@ -3,7 +3,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
-import type { Category } from '../types'
+import type { Category } from '../api/forum-api'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createForumApi(props.sdk)

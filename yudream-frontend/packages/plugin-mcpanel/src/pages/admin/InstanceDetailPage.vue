@@ -707,6 +707,48 @@ interface AuthlibInjectionView {
   apiRoot?: string
 }
 
+interface PlaytimeInjectionView {
+  supported?: boolean
+  reason?: string
+  enabled?: boolean
+  running?: boolean
+  dir?: string
+  matchedName?: string
+}
+
+const playtimeInjection = ref<PlaytimeInjectionView | null>(null)
+const playtimeBusy = ref(false)
+
+async function loadPlaytimeInjection() {
+  try {
+    playtimeInjection.value = await extra.playtimeInjection(instanceId.value) as PlaytimeInjectionView
+  }
+  catch {
+    // 无查看权限或端点不可达：卡片降级展示
+    playtimeInjection.value = null
+  }
+}
+
+async function togglePlaytimeInjection(enabled: boolean) {
+  if (playtimeBusy.value) {
+    return
+  }
+  playtimeBusy.value = true
+  try {
+    playtimeInjection.value = await extra.applyPlaytimeInjection(instanceId.value, enabled) as PlaytimeInjectionView
+    toast.success(enabled
+      ? `已开启在线时长注入：制品已放入 ${playtimeInjection.value?.dir || '插件/模组'} 目录，启动实例后生效`
+      : '已关闭在线时长注入：制品文件已从实例目录移除')
+  }
+  catch (error) {
+    toast.error(errorMessage(error, '切换在线时长注入失败'))
+    void loadPlaytimeInjection()
+  }
+  finally {
+    playtimeBusy.value = false
+  }
+}
+
 const authlibInjection = ref<AuthlibInjectionView | null>(null)
 const authlibBusy = ref(false)
 
@@ -1056,6 +1098,7 @@ async function bootstrapInstance() {
   void loadPlayers()
   void loadMetricsHistory()
   void loadAuthlibInjection()
+  void loadPlaytimeInjection()
   await pollOutput(true)
   if (epoch !== viewGeneration || disposed) return
   outputReady = true
@@ -1434,6 +1477,38 @@ onBeforeUnmount(() => {
           </div>
         </template>
         <p v-else class="text-sm text-muted-foreground">注入能力不可用（面板设置未配置或无查看权限）。</p>
+      </FaCard>
+      <FaCard id="inst-playtime" title="在线时长注入">
+        <template v-if="playtimeInjection">
+          <FaAlert v-if="!playtimeInjection.supported" variant="default" title="注入暂不可用">
+            <template #description>{{ playtimeInjection.reason }}</template>
+          </FaAlert>
+          <div v-else class="mcp-toolbar-row">
+            <FaButton
+              size="sm"
+              :variant="playtimeInjection.enabled ? 'outline' : 'default'"
+              :loading="playtimeBusy"
+              :disabled="!canManage || playtimeInjection.running"
+              @click="togglePlaytimeInjection(!playtimeInjection.enabled)"
+            >
+              {{ playtimeInjection.enabled ? '关闭注入' : '开启注入' }}
+            </FaButton>
+            <div class="min-w-0">
+              <p class="text-sm font-medium">
+                {{ playtimeInjection.enabled
+                  ? `已注入：制品在 ${playtimeInjection.dir}/ 目录，启动实例后生效`
+                  : '未注入' }}
+              </p>
+              <p class="truncate text-xs text-muted-foreground">
+                匹配制品：{{ playtimeInjection.matchedName || '-' }}
+              </p>
+              <p v-if="playtimeInjection.running" class="text-xs text-muted-foreground">
+                实例运行中：停止后才能切换注入。
+              </p>
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-sm text-muted-foreground">注入能力不可用（面板设置未配置制品矩阵或无查看权限）。</p>
       </FaCard>
       <FaCard id="inst-backup" title="备份">
         <div class="mcp-toolbar-row mb-3">

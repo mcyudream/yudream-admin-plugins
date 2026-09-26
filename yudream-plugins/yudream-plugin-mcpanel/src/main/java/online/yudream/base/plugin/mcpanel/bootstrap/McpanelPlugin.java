@@ -513,6 +513,10 @@ public class McpanelPlugin implements YuDreamPlugin {
             instanceService.attachEntryRoutes(entryRouteService);
             context.onDispose(entryRouteService::close);
             ModpackService modpackService = new ModpackService(settingsService, VERSION);
+            // 整合包分片上传暂存（实例创建场景）：大包不再整份 multipart 进宿主，避免请求超时。
+            var modpackUploadService = new online.yudream.base.plugin.mcpanel.application.service.ModpackUploadService(
+                    modpackService::inspect);
+            context.onDispose(modpackUploadService::close);
 
             context.registerHttpController(new McpanelAdminController(
                     new McpanelHttpFacade(nodeService, enrollService, framework.security())));
@@ -661,6 +665,36 @@ public class McpanelPlugin implements YuDreamPlugin {
                         }
                     },
                     auditRecorder);
+            // 在线时长注入（实例粒度）：按制品矩阵匹配插件/模组制品放入实例目录。
+            var playtimeInjectionService = new online.yudream.base.plugin.mcpanel.application.service.PlaytimeInjectionService(
+                    instanceRepository, settingsService, artifactStoreService,
+                    new online.yudream.base.plugin.mcpanel.application.service.PlaytimeInjectionService.InstanceFileOps() {
+                        @Override
+                        public void upload(String scopeKey, String instanceId, String path, byte[] data, String sha256Hex) {
+                            instanceService.upload(scopeKey, instanceId, path, data, sha256Hex);
+                        }
+
+                        @Override
+                        public void delete(String scopeKey, String instanceId, String path) {
+                            instanceService.files(scopeKey, instanceId, "delete", java.util.Map.of("path", path));
+                        }
+
+                        @Override
+                        public java.util.List<String> listNames(String scopeKey, String instanceId, String dir) {
+                            var result = instanceService.files(scopeKey, instanceId, "list",
+                                    java.util.Map.of("path", dir, "page", 1, "size", 200));
+                            Object entries = result.get("entries");
+                            if (!(entries instanceof java.util.List<?> list)) {
+                                return java.util.List.of();
+                            }
+                            return list.stream()
+                                    .filter(item -> item instanceof java.util.Map<?, ?> map
+                                            && Boolean.TRUE.equals(map.get("isDir")) == false)
+                                    .map(item -> String.valueOf(((java.util.Map<?, ?>) item).get("name")))
+                                    .toList();
+                        }
+                    },
+                    auditRecorder);
             // 实例计划任务的备份触发端口：与实例页手动备份共用同一 BackupCenter
             // （宿主 SPI 过旧时为 null，备份动作执行时报「无通道」而非影响其他任务类型）。
             final online.yudream.base.plugin.mcpanel.application.service.ScheduleService.BackupTrigger backupTrigger =
@@ -710,8 +744,10 @@ public class McpanelPlugin implements YuDreamPlugin {
                     coreDownloadService,
                     syncLinkService,
                     authlibInjectionService,
+                    playtimeInjectionService,
                     entryRouteService,
                     uploadTaskService,
+                    modpackUploadService,
                     framework.security()));
             context.onDispose(scheduleService::stop);
             context.onDispose(uploadTaskService::close);

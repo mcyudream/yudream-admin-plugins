@@ -33,8 +33,10 @@ public class McpanelOpsController {
     private final online.yudream.base.plugin.mcpanel.application.service.CoreDownloadService coreDownload;
     private final online.yudream.base.plugin.mcpanel.application.service.SyncLinkService syncLinks;
     private final online.yudream.base.plugin.mcpanel.application.service.AuthlibInjectionService authlibInjection;
+    private final online.yudream.base.plugin.mcpanel.application.service.PlaytimeInjectionService playtimeInjection;
     private final online.yudream.base.plugin.mcpanel.application.service.EntryRouteService entryRoutes;
     private final online.yudream.base.plugin.mcpanel.application.service.UploadTaskService uploadTasks;
+    private final online.yudream.base.plugin.mcpanel.application.service.ModpackUploadService modpackUploads;
     private final PluginSecurityService security;
 
     public McpanelOpsController(OverviewService overview, ScheduleService schedules,
@@ -48,8 +50,10 @@ public class McpanelOpsController {
                                 online.yudream.base.plugin.mcpanel.application.service.CoreDownloadService coreDownload,
                                 online.yudream.base.plugin.mcpanel.application.service.SyncLinkService syncLinks,
                                 online.yudream.base.plugin.mcpanel.application.service.AuthlibInjectionService authlibInjection,
+                                online.yudream.base.plugin.mcpanel.application.service.PlaytimeInjectionService playtimeInjection,
                                 online.yudream.base.plugin.mcpanel.application.service.EntryRouteService entryRoutes,
                                 online.yudream.base.plugin.mcpanel.application.service.UploadTaskService uploadTasks,
+                                online.yudream.base.plugin.mcpanel.application.service.ModpackUploadService modpackUploads,
                                 PluginSecurityService security) {
         this.overview = overview;
         this.schedules = schedules;
@@ -64,8 +68,10 @@ public class McpanelOpsController {
         this.coreDownload = coreDownload;
         this.syncLinks = syncLinks;
         this.authlibInjection = authlibInjection;
+        this.playtimeInjection = playtimeInjection;
         this.entryRoutes = entryRoutes;
         this.uploadTasks = uploadTasks;
+        this.modpackUploads = modpackUploads;
         this.security = security;
     }
 
@@ -293,6 +299,26 @@ public class McpanelOpsController {
         });
     }
 
+    /** 在线时长注入视图：制品矩阵可用性、匹配制品与当前注入状态（目录内存在固定名制品）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/admin/instances/{id}/playtime-injection", permission = McpanelPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse playtimeInjectionView(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.VIEW_PERMISSION,
+                () -> PluginHttpResponse.ok(playtimeInjection.view(scope(request), pathId(request))));
+    }
+
+    /** 切换在线时长注入（停机才可切换）：开启按制品矩阵下载放入插件/模组目录，关闭删除。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/instances/{id}/playtime-injection", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse playtimeInjectionApply(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            if (!McpanelJson.readMap(request.body()).node().hasNonNull("enabled")) {
+                throw new IllegalArgumentException("缺少 enabled 字段");
+            }
+            boolean enabled = McpanelJson.readMap(request.body()).node().get("enabled").asBoolean(false);
+            return PluginHttpResponse.ok(playtimeInjection.apply(HttpGuards.actorOf(request),
+                    scope(request), pathId(request), enabled));
+        });
+    }
+
     // ---------- 大文件分片上传（异步任务：浏览器分片直传面板，面板流式中转节点） ----------
 
     /** 上传任务列表（running + 5 分钟内终态）：重进文件页/详情页恢复进度显示。 */
@@ -436,28 +462,65 @@ public class McpanelOpsController {
             }
             online.yudream.base.plugin.mcpanel.application.service.ModpackService.ImportResult result =
                     modpacks.inspect(file.data());
-            String token = "mp-" + Long.toString(System.currentTimeMillis(), 36)
-                    + "-" + Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 8);
+            String token = online.yudream.base.plugin.mcpanel.application.service.ModpackInspectStore.newToken();
             online.yudream.base.plugin.mcpanel.application.service.ModpackInspectStore.put(token, file.filename(), result);
-            String coreKind = result.coreChain().isEmpty() ? "" : result.coreChain().get(0);
-            Map<String, Object> summary = new LinkedHashMap<>();
-            summary.put("token", token);
-            summary.put("fileName", file.filename());
-            summary.put("name", result.name());
-            summary.put("mcVersion", result.mcVersion());
-            summary.put("loader", result.loader());
-            summary.put("loaderVersion", result.loaderVersion());
-            summary.put("fileCount", result.plan().size());
-            summary.put("overrideCount", result.overrides().size());
-            summary.put("skippedCount", result.skippedClientOnly().size());
-            summary.put("coreChain", result.coreChain());
-            summary.put("resolution", result.resolution());
-            summary.put("coreSupported", switch (coreKind) {
-                case "paper", "purpur", "fabric", "quilt" -> true;
-                default -> false; // forge/neoforge：服务端 installer 需交互执行，暂不支持自动开服
-            });
-            return PluginHttpResponse.ok(summary);
+            return PluginHttpResponse.ok(
+                    online.yudream.base.plugin.mcpanel.application.service.ModpackService.summarize(token, file.filename(), result));
         });
+    }
+
+    // ---------- 整合包分片上传（实例创建场景：实例尚不存在，走面板侧暂存缓冲） ----------
+
+    /** 建立分片上传任务：浏览器先流式算整文件 sha256，再按 ~4MiB 分片直传。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/modpacks/upload-tasks", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse modpackUploadBegin(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            McpanelJson.MapReader body = McpanelJson.readMap(request.body());
+            String size = body.string("size");
+            return PluginHttpResponse.ok(modpackUploads.begin(
+                    body.string("name"),
+                    size == null || size.isBlank() ? 0L : Long.parseLong(size.trim()),
+                    body.string("sha256")));
+        });
+    }
+
+    /** 接收一个分片（顺序到达，offset=已收字节）。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/modpacks/upload-tasks/chunk", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse modpackUploadChunk(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            online.yudream.base.plugin.spi.http.PluginHttpPart data = request.parts().get("data");
+            if (data == null) {
+                for (online.yudream.base.plugin.spi.http.PluginHttpPart part : request.parts().values()) {
+                    if (part.isFile()) {
+                        data = part;
+                        break;
+                    }
+                }
+            }
+            if (data == null) {
+                throw new IllegalArgumentException("缺少分片内容（data）");
+            }
+            return PluginHttpResponse.ok(modpackUploads.chunk(
+                    q(request, "taskId"),
+                    longQ(request, "offset", -1L),
+                    data.data()));
+        });
+    }
+
+    /** 完成上传：校验 size+sha256 后同步解析，返回与旧 inspect 相同的摘要（含 token）。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/modpacks/upload-tasks/commit", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse modpackUploadCommit(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            McpanelJson.MapReader body = McpanelJson.readMap(request.body());
+            return PluginHttpResponse.ok(modpackUploads.commit(body.string("taskId")));
+        });
+    }
+
+    /** 取消/放弃上传：释放面板侧缓冲。 */
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/modpacks/upload-tasks", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse modpackUploadCancel(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION,
+                () -> PluginHttpResponse.ok(modpackUploads.cancel(q(request, "taskId"))));
     }
 
     /** 创建实例后应用整合包：核心（统一 server.jar）+ 全部文件计划一次 install.run + overrides 逐个写入。 */

@@ -1,5 +1,5 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "compilerOptions": { "strict": true, "skipLibCheck": true, "moduleResolution": "Bundler", "allowJs": false, "types": ["vite/client"] },
-  "include": ["src/**/*.{ts,vue}", "vite.config.ts"]
+  "compilerOptions": { "strict": true, "skipLibCheck": true, "moduleResolution": "Bundler", "module": "ESNext", "target": "ES2022", "allowJs": false },
+  "include": ["src/**/*.ts", "src/**/*.vue"]
 }

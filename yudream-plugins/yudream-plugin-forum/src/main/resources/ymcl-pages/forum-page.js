@@ -34,7 +34,9 @@ export default function (ctx) {
   async function load() {
     loading.value = true; error.value = false
     try {
-      const envelope = await host.dataFetch(provider, view === 'post' ? 'post' : view === 'profile' ? 'profile' : 'home', view === 'home' ? { sort: sort.value } : {})
+      // 桥接契约：query 是 URL 查询串（Option<String>），传对象会被 Tauri 拒绝。
+      const query = view === 'home' ? 'sort=' + encodeURIComponent(sort.value) : ''
+      const envelope = await host.dataFetch(provider, view === 'post' ? 'post' : view === 'profile' ? 'profile' : 'home', query)
       records.value = Array.isArray(envelope?.records) ? envelope.records : []
       selected.value = records.value[0] || null
     } catch (_) { error.value = true; records.value = [] } finally { loading.value = false }

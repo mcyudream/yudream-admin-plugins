@@ -337,8 +337,9 @@ function openArtifactEdit(index: number) {
   artifactOpen.value = true
 }
 
+// FaTable 的行模型按 data 数组引用缓存，必须整组替换而非原地增删，否则表格不刷新
 function removeArtifact(index: number) {
-  artifacts.value.splice(index, 1)
+  artifacts.value = artifacts.value.filter((_, i) => i !== index)
 }
 
 async function captureArtifactJar(options: FileUploadRequestOptions) {
@@ -395,10 +396,10 @@ function applyArtifact() {
     sha256: artifactForm.source === 'file' ? (artifactForm.file?.sha256 ?? '') : '',
   }
   if (artifactEditingIndex.value === null) {
-    artifacts.value.push(artifact)
+    artifacts.value = [...artifacts.value, artifact]
   }
   else {
-    artifacts.value.splice(artifactEditingIndex.value, 1, artifact)
+    artifacts.value = artifacts.value.map((row, i) => (i === artifactEditingIndex.value ? artifact : row))
   }
 }
 

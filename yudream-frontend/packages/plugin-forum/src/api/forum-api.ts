@@ -20,7 +20,7 @@ export interface ForumApi {
   adminCategories(): Promise<{ records: Category[] }>
   settings(): Promise<Record<string, unknown>>
   saveSettings(payload: Record<string, unknown>): Promise<Record<string, unknown>>
-  audit(page?: number): Promise<Page<Record<string, string | number>>>
+  audit(page?: number, size?: number): Promise<Page<Record<string, string | number>>>
   createCategory(payload: Record<string, unknown>): Promise<Category>
   updateCategory(id: string, payload: Record<string, unknown>): Promise<Category>
   deleteCategory(id: string): Promise<{ deleted: boolean }>
@@ -43,7 +43,7 @@ export function createForumApi(sdk: YuDreamPluginSdk): ForumApi {
     interact: (id, type) => sdk.http.post(`/me/posts/${encodeURIComponent(id)}/${type}`, {}),
     settings: () => sdk.http.get('/admin/settings'),
     saveSettings: payload => sdk.http.request('/admin/settings', { method: 'PUT', data: payload }),
-    audit: (page = 1) => sdk.http.get(`/admin/audit${query({ page, size: 20 })}`),
+    audit: (page = 1, size = 20) => sdk.http.get(`/admin/audit${query({ page, size })}`),
     adminCategories: () => sdk.http.get('/admin/categories'),
     createCategory: payload => sdk.http.post('/admin/categories', payload),
     updateCategory: (id, payload) => sdk.http.request(`/admin/categories/${encodeURIComponent(id)}`, { method: 'PUT', data: payload }),

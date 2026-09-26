@@ -223,8 +223,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     void loadBridgeSettings(server.id)
   }
 
+  // FaTable 的行模型按 data 数组引用做缓存，必须整组替换而非 push/splice，否则表格不刷新
   function addEndpoint() {
-    serverForm.endpoints.push(blankEndpoint(serverForm.endpoints.length * 10))
+    serverForm.endpoints = [...serverForm.endpoints, blankEndpoint(serverForm.endpoints.length * 10)]
   }
 
   function removeEndpoint(index: number) {
@@ -232,7 +233,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       toast.warning('至少保留一条线路')
       return
     }
-    serverForm.endpoints.splice(index, 1)
+    serverForm.endpoints = serverForm.endpoints.filter((_, i) => i !== index)
   }
 
   async function saveServer() {
@@ -461,15 +462,15 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   }
 
   function addRule() {
-    seasonForm.rules.push({ assetPattern: '*', minAmount: '', maxAmount: '', inheritRate: '0.5' })
+    seasonForm.rules = [...seasonForm.rules, { assetPattern: '*', minAmount: '', maxAmount: '', inheritRate: '0.5' }]
   }
 
   function removeRule(index: number) {
-    seasonForm.rules.splice(index, 1)
+    seasonForm.rules = seasonForm.rules.filter((_, i) => i !== index)
   }
 
   function resetRules() {
-    seasonForm.rules.splice(0, seasonForm.rules.length, ...defaultRules())
+    seasonForm.rules = defaultRules()
   }
 
   function formatAmount(value?: number | string) {

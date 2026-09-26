@@ -409,23 +409,35 @@ public class YmclExternalAuthController {
         return htmlWithLauncherRedirect(status, message, null);
     }
 
-    /** 结果页：正文之外尝试经 ymcl:// 深链把已运行的启动器拉回前台；
-     * 浏览器/系统无法处理深链时正文仍可见，不影响手动切回。 */
+    /** 结果页：正文之外尝试经 ymcl:// 深链把已运行的启动器拉回前台。自动跳转
+     * 之外保留按钮兜底（部分浏览器拦截无用户手势的外部协议导航）；深链不可用时
+     * 正文仍可见，不影响手动切回。 */
     private static PluginHttpResponse htmlWithLauncherRedirect(
             int status, String message, String deepLinkPath) {
         String escaped = message
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
-        String script = deepLinkPath == null ? ""
-                : "<script>location.replace(\"ymcl://auth/external/" + deepLinkPath + "\")</script>";
+        String script = "";
+        String button = "";
+        if (deepLinkPath != null) {
+            String deepLink = "ymcl://auth/external/" + deepLinkPath;
+            String escapedLink = deepLink.replace("'", "\\'");
+            button = "<p style=\"margin:1.25rem 0 0\">"
+                    + "<button onclick=\"location.replace('" + escapedLink + "')\" "
+                    + "style=\"font:inherit;padding:.5rem 1.25rem;border:0;border-radius:.5rem;"
+                    + "background:#34d399;color:#064e3b;cursor:pointer\">返回启动器</button></p>";
+            script = "<script>setTimeout(function(){location.replace('"
+                    + escapedLink + "')},600)</script>";
+        }
         String html = "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                 + "<title>YMCL 第三方登录</title></head><body style=\"font-family:system-ui,sans-serif;"
                 + "display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"
                 + "background:#0f172a;color:#e2e8f0\"><main style=\"max-width:28rem;padding:2rem;text-align:center\">"
                 + "<h1 style=\"font-size:1.25rem;margin:0 0 1rem\">YMCL 启动器</h1>"
-                + "<p style=\"margin:0;line-height:1.6\">" + escaped + "</p></main>" + script + "</body></html>";
+                + "<p style=\"margin:0;line-height:1.6\">" + escaped + "</p>" + button
+                + "</main>" + script + "</body></html>";
         return new PluginHttpResponse(status, Map.of(), "text/html; charset=utf-8", html, false);
     }
 }

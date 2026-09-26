@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Post } from '../types'
+import type { Post } from '../api/forum-api'
 import { FaAvatar, FaButton, FaIcon, FaTag, FaTooltip } from '@yudream/components'
 const props = defineProps<{ post: Post; categoryName?: string; compact?: boolean }>()
 const emit = defineEmits<{ open: []; like: []; bookmark: []; profile: [] }>()
@@ -10,7 +10,7 @@ const timeLabel = () => props.post.publishedAt ? new Date(Number(props.post.publ
   <article class="forum-post-card">
     <div class="forum-post-card__author">
       <button class="forum-avatar-button" type="button" @click="emit('profile')" :title="`查看 ${authorLabel()} 的资料`">
-        <FaAvatar :alt="authorLabel()">{{ authorLabel().slice(0, 1).toUpperCase() }}</FaAvatar>
+        <FaAvatar src="" :alt="authorLabel()">{{ authorLabel().slice(0, 1).toUpperCase() }}</FaAvatar>
       </button>
       <div class="forum-post-card__author-text">
         <button type="button" class="forum-post-card__author-name" @click="emit('profile')">{{ authorLabel() }}</button>

@@ -2,13 +2,14 @@
 import type { FileItem, FileUploadRequestOptions, TableColumn, YdTablePickerQuery, YdTablePickerResult } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../../types'
-import { FaAlert, FaButton, FaDescriptions, FaFileUpload, FaIcon, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTabs, FaTag, FaTextarea, YdTablePicker, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaDescriptions, FaFileUpload, FaIcon, FaInput, FaPageHeader, FaPageMain, FaProgress, FaSelect, FaSwitch, FaTabs, FaTag, FaTextarea, YdTablePicker, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { errorMessage } from '../../composables/utils'
 import { encodeUtf8ToBase64 } from '../../utils/fileContent'
+import { sha256HexOfFile } from '../../utils/sha256'
 
 /**
  * 引导式创建：节点 / 核心类型 / MC 版本 / 运行镜像 / 资源。
@@ -51,7 +52,25 @@ const jarFile = ref<File | null>(null)
 const jarFileList = ref<FileItem[]>([])
 const modpackFile = ref<File | null>(null)
 const modpackFileList = ref<FileItem[]>([])
-const modpackInspecting = ref(false)
+/** 整合包分片上传状态机：hashing（本地 sha256）→ uploading（4MiB 分片）→ parsing（面板解析）。 */
+const modpackUpload = reactive({
+  active: false,
+  phase: 'hashing' as 'hashing' | 'uploading' | 'parsing',
+  uploaded: 0,
+  size: 0,
+})
+const modpackAbort = ref(false)
+const modpackPercent = computed(() => modpackUpload.size > 0
+  ? Math.min(100, Math.round((modpackUpload.uploaded / modpackUpload.size) * 100))
+  : 0)
+const MODPACK_PHASE_LABEL: Record<string, string> = {
+  hashing: '正在校验文件（sha256）…',
+  uploading: '正在上传整合包…',
+  parsing: '正在解析整合包（CurseForge 整合包需逐项目解析文件名，请勿关闭页面）…',
+}
+function modpackMb(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+}
 const modpackInfo = ref<{
   token?: string
   name?: string
@@ -377,7 +396,12 @@ watch(jarFileList, (list) => {
   }
 })
 watch(modpackFileList, (list) => {
-  if (!list.length && !modpackInspecting.value) {
+  if (!list.length) {
+    if (modpackUpload.active) {
+      // 上传中移除文件：通知分片循环中止（循环内会调用面板取消接口）。
+      modpackAbort.value = true
+      return
+    }
     modpackFile.value = null
     modpackInfo.value = null
   }
@@ -441,27 +465,75 @@ function checkModpack(file: File): boolean {
   return true
 }
 
-/** 上传解析（mrpack 立即返回；CF manifest 需外呼 cfwidget，可能数十秒） */
+/**
+ * 上传解析（分片直传 + 进度）：本地流式 sha256 → 4MiB 分片 → 面板校验后解析。
+ * CF manifest 需外呼 cfwidget，解析阶段可能数十秒。
+ */
 async function captureModpack(options: FileUploadRequestOptions) {
   const file = options.file
   modpackFile.value = file
   modpackInfo.value = null
-  modpackInspecting.value = true
+  modpackAbort.value = false
+  modpackUpload.active = true
+  modpackUpload.phase = 'hashing'
+  modpackUpload.uploaded = 0
+  modpackUpload.size = file.size
   formError.value = ''
+  let taskId = ''
   try {
-    const result = await extra.inspectModpack(file) as NonNullable<typeof modpackInfo.value>
+    const sha256 = await sha256HexOfFile(file, (read, total) => {
+      if (modpackUpload.phase === 'hashing') {
+        modpackUpload.uploaded = read
+        modpackUpload.size = total
+      }
+    })
+    if (modpackAbort.value) {
+      throw new Error('__aborted__')
+    }
+    modpackUpload.phase = 'uploading'
+    modpackUpload.uploaded = 0
+    modpackUpload.size = file.size
+    const begin = await extra.beginModpackUpload(file.name, file.size, sha256) as { taskId?: string }
+    taskId = String(begin?.taskId ?? '')
+    if (!taskId) {
+      throw new Error('上传任务创建失败')
+    }
+    const chunkSize = 4 * 1024 * 1024
+    for (let offset = 0; offset < file.size; offset += chunkSize) {
+      if (modpackAbort.value) {
+        await extra.cancelModpackUpload(taskId).catch(() => {})
+        throw new Error('__aborted__')
+      }
+      const blob = file.slice(offset, Math.min(offset + chunkSize, file.size))
+      await extra.modpackUploadChunk(taskId, offset, blob)
+      modpackUpload.uploaded = Math.min(offset + chunkSize, file.size)
+    }
+    modpackUpload.phase = 'parsing'
+    const result = await extra.commitModpackUpload(taskId) as NonNullable<typeof modpackInfo.value>
     modpackInfo.value = result
+    taskId = ''
   }
   catch (error) {
+    if (taskId) {
+      await extra.cancelModpackUpload(taskId).catch(() => {})
+    }
     modpackInfo.value = null
     modpackFile.value = null
     modpackFileList.value = []
-    formError.value = errorMessage(error, '整合包解析失败')
+    if (!modpackAbort.value && (error as Error)?.message !== '__aborted__') {
+      formError.value = errorMessage(error, '整合包解析失败')
+    }
   }
   finally {
-    modpackInspecting.value = false
+    modpackAbort.value = false
+    modpackUpload.active = false
   }
   return { name: file.name }
+}
+
+/** 上传中主动取消（进度条上的取消按钮）。 */
+async function cancelModpackUploadAction() {
+  modpackAbort.value = true
 }
 
 function goStep(index: number) {
@@ -911,10 +983,21 @@ onMounted(() => {
                     description="Modrinth .mrpack 或 CurseForge 导出 zip；上传后自动解析（CurseForge 需联网解析文件名，可能需要约一分钟）"
                   />
                 </div>
-                <p v-if="modpackInspecting" class="flex items-center gap-2 text-xs text-muted-foreground">
-                  <FaIcon name="i-ri:loader-4-line" class="animate-spin" />
-                  正在解析整合包（CurseForge 整合包需逐项目解析文件名，请勿关闭页面）…
-                </p>
+                <div v-if="modpackUpload.active" class="grid gap-2 rounded-lg border p-3 text-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span class="flex items-center gap-1">
+                      <FaIcon name="i-ri:loader-4-line" class="animate-spin" />
+                      {{ MODPACK_PHASE_LABEL[modpackUpload.phase] }}
+                    </span>
+                    <span v-if="modpackUpload.phase !== 'parsing'">
+                      {{ modpackPercent }}%（{{ modpackMb(modpackUpload.uploaded) }} / {{ modpackMb(modpackUpload.size) }}）
+                    </span>
+                  </div>
+                  <FaProgress v-if="modpackUpload.phase !== 'parsing'" :model-value="modpackPercent" />
+                  <div class="flex justify-end">
+                    <FaButton size="sm" variant="outline" @click="cancelModpackUploadAction">取消</FaButton>
+                  </div>
+                </div>
                 <div v-else-if="modpackInfo" class="grid gap-2 rounded-lg border p-3 text-sm">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="font-medium">{{ modpackInfo.name || '整合包' }}</span>
