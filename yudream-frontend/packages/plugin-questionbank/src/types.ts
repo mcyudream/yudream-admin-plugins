@@ -165,6 +165,10 @@ export interface PluginSettings {
   aiModelCode?: string | null
   qqGroups: QqQuizGroup[]
   qqDefaultGroup?: string | null
+  /** 群抽题全局排除的分类 ID：这些分类的题不会被抽到（显式指定分组名时不受限）。 */
+  qqExcludeCategoryIds: string[]
+  /** 群抽题全局排除的题型（SINGLE/MULTIPLE/TRUE_FALSE/FILL/SHORT），作用范围同排除分类。 */
+  qqExcludeTypes: string[]
   qqAnswerSeconds: number
   qqAiGrading: boolean
   /** 是否限制群指令（抽题/抢答榜）的调用时间。 */
