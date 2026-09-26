@@ -195,12 +195,70 @@ assert "compatibility" not in descriptor["plugin"]
 assert "dependencies" not in descriptor["plugin"]
 PY
 
-# Real checked-in plugin store.json files must stay valid JSON objects before
-# packaging; fixtures above only exercise the parser library itself.
+# Real checked-in plugin store.json files must stay valid before packaging;
+# fixtures above only exercise the parser library itself.
 real_store_count=0
 while IFS= read -r store_path; do
   [ -n "$store_path" ] || continue
   real_store_count=$((real_store_count + 1))
+  # 市场同规元数据校验（category 白名单、SPDX license、tags、字段白名单）：
+  # 这些字段市场在 publish 阶段才 400（forum 的 category=community /
+  # license=AGPL-3.0 漏网案例），这里提前在 validate 拦下。不用
+  # plugin_store_store_json_metadata：它按目录摘要语义禁多行 releaseNotes，
+  # 比宿主市场更严。
+  "$PLUGIN_STORE_PYTHON" - "$store_path" <<'PY' || fail "invalid store.json metadata: $store_path"
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    store = json.load(handle)
+if not isinstance(store, dict):
+    raise SystemExit("store.json must be an object")
+
+def fail(message):
+    raise SystemExit(f"{path}: {message}")
+
+# 与宿主 PluginMarketPublicationEditRequest/AppService 同规。
+MARKET_CATEGORIES = {
+    "AI 与对话", "支付与钱包", "Minecraft", "消息与社区", "数据与看板", "主题与皮肤", "效率工具", "其他",
+}
+SPDX_LICENSES = {
+    "Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "EPL-2.0",
+    "GPL-2.0-only", "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later",
+    "LGPL-2.1-only", "LGPL-2.1-or-later", "LGPL-3.0-only", "LGPL-3.0-or-later",
+    "AGPL-3.0-only", "AGPL-3.0-or-later", "Unlicense", "CC0-1.0",
+}
+unknown = set(store) - {"icon", "screenshots", "compatibility", "dependencies", "license", "source", "releaseNotes", "category", "tags"}
+if unknown:
+    fail("contains unsupported field(s): " + ", ".join(sorted(unknown)))
+category = store.get("category")
+if category is not None and (not isinstance(category, str) or category not in MARKET_CATEGORIES):
+    fail(f"category must be one of: {'、'.join(sorted(MARKET_CATEGORIES))}")
+license_id = store.get("license")
+if license_id is not None and (not isinstance(license_id, str) or license_id not in SPDX_LICENSES):
+    fail("license must be a supported SPDX identifier")
+tags = store.get("tags")
+if tags is not None:
+    if not isinstance(tags, list) or not tags:
+        fail("tags must be a non-empty array of strings")
+    seen = set()
+    for tag in tags:
+        if not isinstance(tag, str) or not tag.strip():
+            fail("tags must be non-empty strings")
+        normalized = tag.strip().lower()
+        if len(normalized) > 24 or any(ord(char) < 32 or ord(char) == 127 for char in normalized):
+            fail(f"tag too long or contains control characters: {tag!r}")
+        if normalized in seen:
+            fail(f"duplicate tag: {tag!r}")
+        seen.add(normalized)
+notes = store.get("releaseNotes") or ""
+if len(notes) > 4096:
+    fail(f"releaseNotes is {len(notes)} chars, host market limit is 4096")
+ctrl = sorted({c for c in notes if ord(c) < 32 and c not in "\n\t"})
+if ctrl:
+    fail(f"releaseNotes contains ISO control characters: {[hex(ord(c)) for c in ctrl]}")
+PY
   "$PLUGIN_STORE_PYTHON" - "$store_path" <<'PY' || fail "invalid store.json (must be a valid JSON object with in-limit releaseNotes): $store_path"
 import json
 import sys

@@ -1,6 +1,6 @@
 {
-  "license": "AGPL-3.0",
-  "category": "community",
+  "license": "AGPL-3.0-only",
+  "category": "消息与社区",
   "tags": ["forum", "community", "markdown", "ymcl"],
   "releaseNotes": "1.0.1：\n- 修复：调整帖子筛选、论坛设置和发帖表单中的选择框宽度与响应式布局，避免窄屏或窄容器下与相邻控件重叠。\n\n1.0.0：\n- 新增论坛基础能力：分类、标签、Markdown 发帖、审核、评论、点赞、收藏、精华、置顶、公开用户资料页，并接入 YMCL 启动器页面。"
 }
