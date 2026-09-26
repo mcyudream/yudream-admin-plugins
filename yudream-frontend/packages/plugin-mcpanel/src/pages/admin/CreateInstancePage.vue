@@ -71,6 +71,57 @@ const MODPACK_PHASE_LABEL: Record<string, string> = {
 function modpackMb(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
+/** ZIP 导入 / 自备核心 JAR 的大文件分片上传状态（创建成功后经实例分片通道直传）。 */
+const bigUpload = reactive({
+  active: false,
+  phase: 'hashing' as 'hashing' | 'uploading',
+  label: '上传文件',
+  uploaded: 0,
+  size: 0,
+})
+const bigUploadPercent = computed(() => bigUpload.size > 0
+  ? Math.min(100, Math.round((bigUpload.uploaded / bigUpload.size) * 100))
+  : 0)
+const BIG_PHASE_LABEL: Record<'hashing' | 'uploading', string> = {
+  hashing: '正在校验文件（sha256）…',
+  uploading: '正在上传…',
+}
+function bigMb(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+}
+/** 实例维度大文件分片直传：本地流式 sha256 → begin → 4MiB 分片 → commit。 */
+async function uploadBigToInstance(id: string, file: File, path: string, label: string) {
+  bigUpload.active = true
+  bigUpload.phase = 'hashing'
+  bigUpload.label = label
+  bigUpload.uploaded = 0
+  bigUpload.size = file.size
+  try {
+    const sha256 = await sha256HexOfFile(file, (read, total) => {
+      if (bigUpload.phase === 'hashing') {
+        bigUpload.uploaded = read
+        bigUpload.size = total
+      }
+    })
+    bigUpload.phase = 'uploading'
+    bigUpload.uploaded = 0
+    bigUpload.size = file.size
+    const begin = await extra.beginUploadTask(id, path, file.size, sha256, file.name) as { taskId?: string }
+    const taskId = String(begin?.taskId ?? '')
+    if (!taskId) {
+      throw new Error('上传任务创建失败')
+    }
+    const chunkSize = 4 * 1024 * 1024
+    for (let offset = 0; offset < file.size; offset += chunkSize) {
+      await extra.uploadTaskChunk(id, taskId, offset, file.slice(offset, Math.min(offset + chunkSize, file.size)))
+      bigUpload.uploaded = Math.min(offset + chunkSize, file.size)
+    }
+    await extra.commitUploadTask(id, taskId)
+  }
+  finally {
+    bigUpload.active = false
+  }
+}
 const modpackInfo = ref<{
   token?: string
   name?: string
@@ -688,8 +739,8 @@ async function submit() {
     const created = await extra.createInstance(buildPayload()) as { id?: string }
     const id = String(created?.id ?? '')
     if (id && form.mode === 'jar' && jarFile.value) {
-      importProgress.value = `上传核心 ${jarFile.value.name} → server.jar…`
-      await extra.uploadFile(id, 'server.jar', jarFile.value)
+      // 分片直传（含进度），避免大核心整份 multipart 撞请求超时
+      await uploadBigToInstance(id, jarFile.value, 'server.jar', '上传核心')
     }
     if (id && form.mode === 'modpack' && modpackInfo.value?.token) {
       importProgress.value = `正在下发整合包「${modpackInfo.value?.name ?? ''}」（核心 + ${modpackInfo.value?.fileCount ?? 0} 文件）…`
@@ -703,8 +754,8 @@ async function submit() {
       }
     }
     if (id && form.mode === 'zip' && zipFile.value) {
-      importProgress.value = '上传服务端 ZIP…'
-      await extra.uploadFile(id, zipFile.value.name, zipFile.value)
+      // 分片直传（含进度），避免大 zip 整份 multipart 撞请求超时
+      await uploadBigToInstance(id, zipFile.value, zipFile.value.name, '上传服务端 ZIP')
       importProgress.value = '解压到实例数据根目录…'
       try {
         await extra.unzipFile(id, zipFile.value.name, '')
@@ -1203,6 +1254,16 @@ onMounted(() => {
           {{ formError }}
   </template>
         </FaAlert>
+        <div v-if="bigUpload.active" class="mb-2 grid gap-2 rounded-lg border p-3 text-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span class="flex items-center gap-1">
+              <FaIcon name="i-ri:loader-4-line" class="animate-spin" />
+              {{ bigUpload.label }}：{{ BIG_PHASE_LABEL[bigUpload.phase] }}
+            </span>
+            <span>{{ bigUploadPercent }}%（{{ bigMb(bigUpload.uploaded) }} / {{ bigMb(bigUpload.size) }}）</span>
+          </div>
+          <FaProgress :model-value="bigUploadPercent" />
+        </div>
         <p v-if="importProgress" class="text-xs text-muted-foreground">
           {{ importProgress }}
         </p>
