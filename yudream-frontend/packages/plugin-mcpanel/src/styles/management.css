@@ -1,0 +1,438 @@
+/**
+ * mcpanel 管理列表样式：筛选工具栏（表格/卡片视图共用）、表格操作列、
+ * 卡片视图、实时资源条、功能入口、详情状态与 stat 块。
+ * 颜色与作用域契约见 base.css 头部说明。
+ */
+
+/* ---------- 共用筛选工具栏（视图切换不消失） ---------- */
+
+.mcp-list-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mcp-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  width: 100%;
+}
+
+/* 无修饰符的旧用法（关键词 + 状态 + 操作组）保持三轨 */
+@media (min-width: 640px) {
+  .mcp-filter-grid:not([class*='--']) {
+    grid-template-columns: minmax(220px, 1fr) 200px auto;
+  }
+}
+
+/* --2：关键词 + 状态 + 操作组；--3：再增加一个下拉 */
+@media (min-width: 720px) {
+  .mcp-filter-grid--2 {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) auto;
+  }
+
+  .mcp-filter-grid--3 {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 180px) minmax(160px, 210px) auto;
+  }
+}
+
+.mcp-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 719.9px) {
+  .mcp-filter-actions {
+    justify-content: flex-start;
+  }
+}
+
+.mcp-search-input {
+  width: 100%;
+  max-width: 280px;
+  min-height: 36px;
+}
+
+.mcp-search-select {
+  width: 100%;
+  max-width: 200px;
+  min-height: 36px;
+}
+
+/* 静默轮询状态：更新时间 / 最近一次刷新失败的行内提示（不弹 toast） */
+.mcp-refresh-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-variant-numeric: tabular-nums;
+}
+
+.mcp-refresh-meta.is-error {
+  color: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+/* ---------- 表格操作列 ---------- */
+
+.mcp-op-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 表格内嵌图标的下载锚点 */
+.mcp-op-link {
+  display: inline-flex;
+}
+
+/* ---------- 卡片视图（节点 / 实例 / 监控节点卡共用） ---------- */
+
+.mcp-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .mcp-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+  .mcp-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1700px) {
+  .mcp-card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.mcp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 12px;
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--foreground, 0.145 0 0));
+  transition: border-color 0.15s ease;
+}
+
+.mcp-card:hover {
+  border-color: color-mix(in oklab, oklch(var(--primary, 0.205 0 0)) 45%, oklch(var(--border, 0.922 0 0)));
+}
+
+.mcp-card.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.mcp-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mcp-card-title {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-weight: 650;
+  font-size: 14px;
+  color: oklch(var(--primary, 0.205 0 0));
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-card-title:hover {
+  text-decoration: underline;
+}
+
+.mcp-card-sub {
+  min-width: 0;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+/* 卡片底部操作区：上边框切分，主操作靠左、危险操作靠右 */
+.mcp-card-ops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-card-ops .mcp-spacer {
+  margin-left: auto;
+}
+
+/* ---------- 实时资源条（实例详情 / 节点详情顶部） ---------- */
+
+.mcp-live-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px 20px;
+  padding: 12px 16px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 12px;
+  background: oklch(var(--card, 1 0 0));
+}
+
+.mcp-live-strip .mcp-metric {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+
+/* ---------- 详情 stat 块（节点详情实时资源） ---------- */
+
+.mcp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--muted, 0.97 0 0));
+}
+
+.mcp-stat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-stat-head strong {
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 详情页状态行与实时流状态 ---------- */
+
+.mcp-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--card, 1 0 0));
+}
+
+.mcp-stream-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  background: oklch(var(--muted, 0.97 0 0));
+}
+
+.mcp-stream-state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-stream-state.is-open::before {
+  background: oklch(var(--primary, 0.205 0 0));
+}
+
+.mcp-stream-state.is-error {
+  border-color: color-mix(in oklab, oklch(var(--destructive, 0.577 0.245 27.325)) 40%, transparent);
+  color: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+.mcp-stream-state.is-error::before {
+  background: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+.mcp-stream-state.is-connecting::before {
+  animation: mcp-spin 1s linear infinite;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid oklch(var(--muted-foreground, 0.556 0 0));
+  border-top-color: transparent;
+  width: 8px;
+  height: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcp-stream-state.is-connecting::before {
+    animation: none;
+  }
+}
+
+/* ---------- 功能入口网格（实例详情业务入口） ---------- */
+
+.mcp-fn-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .mcp-fn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1100px) {
+  .mcp-fn-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.mcp-fn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 104px;
+  padding: 14px 16px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 12px;
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--foreground, 0.145 0 0));
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.mcp-fn-card:hover {
+  border-color: color-mix(in oklab, oklch(var(--primary, 0.205 0 0)) 45%, oklch(var(--border, 0.922 0 0)));
+}
+
+.mcp-fn-title {
+  font-weight: 650;
+  font-size: 14px;
+}
+
+.mcp-fn-desc {
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  line-height: 1.5;
+}
+
+.mcp-fn-link {
+  margin-top: auto;
+  font-size: 12px;
+  color: oklch(var(--primary, 0.205 0 0));
+}
+
+/* ---------- 已上传制品信息面板 / 页头实例标题 ---------- */
+
+.mcp-artifact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--muted, 0.97 0 0));
+}
+
+/* 注册凭据签发弹窗内的操作步骤列表 */
+.mcp-step-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+.mcp-step-list .mcp-inline-code {
+  max-width: 100%;
+}
+
+.mcp-instance-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 16px;
+}
+
+.mcp-instance-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ---------- 面板标签（Templates 等页内切换） ---------- */
+
+.mcp-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.mcp-panel-tab {
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 999px;
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mcp-panel-tab.is-active {
+  border-color: oklch(var(--primary, 0.205 0 0));
+  background: color-mix(in oklab, oklch(var(--primary, 0.205 0 0)) 12%, transparent);
+  color: oklch(var(--primary, 0.205 0 0));
+  font-weight: 600;
+}
+
+/* 审计页删除按钮图标（危险色） */
+.mcp-audit-del { color: oklch(var(--destructive, 0.577 0.215 27)); }
+
+/* 审计页对象可读名称 */
+.mcp-audit-target-name { font-weight: 600; color: oklch(var(--foreground, 0.145 0 0)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }

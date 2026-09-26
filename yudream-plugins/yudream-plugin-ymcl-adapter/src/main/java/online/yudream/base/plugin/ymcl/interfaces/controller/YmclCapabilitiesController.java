@@ -34,14 +34,18 @@ public class YmclCapabilitiesController {
     private final Supplier<String> configuredOrigin;
     /** 皮肤站插件是否可用（懒求值），决定是否宣告 skins 能力（YAP §6.11）。 */
     private final Supplier<Boolean> skinFaceAvailable;
+    /** P2P 直连是否可用（mcpanel 已装且面板已开 P2P；懒求值），决定是否宣告 p2p 能力。 */
+    private final Supplier<Boolean> p2pAvailable;
 
     public YmclCapabilitiesController(String pluginCode, String adapterVersion, PluginDocumentStore documents,
-            Supplier<String> siteName, Supplier<String> configuredOrigin, Supplier<Boolean> skinFaceAvailable) {
+            Supplier<String> siteName, Supplier<String> configuredOrigin, Supplier<Boolean> skinFaceAvailable,
+            Supplier<Boolean> p2pAvailable) {
         this.adapterVersion = adapterVersion;
         this.documents = documents;
         this.siteName = siteName;
         this.configuredOrigin = configuredOrigin;
         this.skinFaceAvailable = skinFaceAvailable;
+        this.p2pAvailable = p2pAvailable;
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/v1/capabilities", wrapResult = false)
@@ -73,6 +77,7 @@ public class YmclCapabilitiesController {
         auth.put("registration", registrationSection(origin));
 
         List<String> capabilities = new ArrayList<>();
+        boolean payloadP2p = false;
         // 主题下发（YAP §6.9）：管理员配置了 ThemeProfile（/v1/chrome/theme）
         // 时宣告 theme 能力；主题本身随 manifest.theme 传递。
         if (!documents.findById(DOMAIN_CONFIG_COLLECTION, THEME_CONFIG_DOC).isEmpty()) {
@@ -87,8 +92,24 @@ public class YmclCapabilitiesController {
         // 插件发布，无条件宣告；启动器据此启用启动前更新检查与发布控制台，
         // 未托管实例的更新检查在启动器侧优雅跳过（无 .pack-state.json 即 no-op）。
         capabilities.add("mip");
+        // P2P 直连（启动器无感接入实例）：mcpanel 已装且面板已开 P2P 时才宣告；
+        // 未宣告时启动器走普通公网连接，p2p 端点自身也统一降级 501。
+        boolean p2pReady = false;
+        try {
+            p2pReady = Boolean.TRUE.equals(p2pAvailable.get());
+        }
+        catch (RuntimeException | LinkageError ignored) {
+            p2pReady = false;
+        }
+        if (p2pReady) {
+            capabilities.add("p2p");
+            payloadP2p = true;
+        }
 
         Map<String, Object> payload = new LinkedHashMap<>();
+        if (payloadP2p) {
+            payload.put("p2p", Map.of("session_url", origin + "/api/plugins/ymcl-adapter/v1/p2p/session"));
+        }
         payload.put("protocol_version", 1);
         payload.put("adapter_version", adapterVersion);
         payload.put("domain", domain);

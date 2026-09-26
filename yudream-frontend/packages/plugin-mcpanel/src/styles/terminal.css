@@ -1,0 +1,490 @@
+/* Terminal workbench: light chrome + intentionally dark output surface. */
+.mcp-wt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 8px;
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+.mcp-wt-head,
+.mcp-wt-top,
+.mcp-wt-panels,
+.mcp-wt-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-wt-head {
+  min-height: 40px;
+  background: oklch(var(--card, 1 0 0));
+}
+
+.mcp-wt-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mcp-wt-identity strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.mcp-wt-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 11px;
+}
+
+.mcp-wt-connection i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-wt-connection.is-connected i {
+  background: oklch(0.72 0.16 145);
+}
+
+.mcp-wt-top {
+  justify-content: space-between;
+  background: oklch(var(--muted, 0.97 0 0) / 0.35);
+}
+
+.mcp-wt-filter,
+.mcp-wt-toolbar-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mcp-wt-filter {
+  flex: 1 1 360px;
+}
+
+.mcp-wt-filter > :first-child {
+  flex: 1;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.mcp-wt-panels {
+  gap: 4px;
+  padding: 4px 10px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 11px;
+}
+
+.mcp-wt-panels > span {
+  margin-left: auto;
+}
+
+.mcp-wt-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 560px;
+}
+
+.mcp-wt-body.has-left.has-right {
+  grid-template-columns: 220px minmax(0, 1fr) 210px;
+}
+
+.mcp-wt-body.has-left:not(.has-right) {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.mcp-wt-body.has-right:not(.has-left) {
+  grid-template-columns: minmax(0, 1fr) 210px;
+}
+
+.mcp-wt-left,
+.mcp-wt-right {
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  overflow: auto;
+  background: oklch(var(--muted, 0.97 0 0) / 0.45);
+  font-size: 12px;
+}
+
+.mcp-wt-left {
+  border-right: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-wt-right {
+  border-left: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-wt-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mcp-wt-screen {
+  flex: 1;
+  min-height: 420px;
+  max-height: 700px;
+  overflow: auto;
+  padding: 8px 0;
+  background: #0b0f14;
+  color: #c9d1d9;
+  font: 12px/1.6 ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+.mcp-wt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 280px;
+  color: #6e7b8a;
+}
+
+.mcp-wt-line {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 8px;
+  padding: 1px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 2px solid transparent;
+}
+
+.mcp-wt-line:hover {
+  background: rgb(255 255 255 / 0.035);
+}
+
+.mcp-wt-meta {
+  display: flex;
+  gap: 6px;
+  color: #55627a;
+  user-select: none;
+}
+
+.mcp-wt-text {
+  min-width: 0;
+}
+
+.mcp-wt-ts {
+  white-space: nowrap;
+}
+
+.mcp-wt-lv {
+  min-width: 34px;
+  color: #8b9bb0;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mcp-wt-line.is-error { border-left-color: #ff7b72; color: #ff7b72; }
+.mcp-wt-line.is-warn { border-left-color: #e3b341; color: #e3b341; }
+.mcp-wt-line.is-cmd { color: #79c0ff; }
+.mcp-wt-line.is-muted { color: #6e7b8a; }
+
+.mcp-wt-inputwrap {
+  position: relative;
+}
+
+.mcp-wt-inputbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-top: 1px solid #263141;
+  background: #0f151d;
+}
+
+.mcp-wt-inputbar .fa-icon,
+.mcp-wt-inputbar [data-slot='icon'] {
+  color: #8b9bb0;
+}
+
+/* 深色输入条上的 FaInput：组件默认继承浅色主题的深色前景字色，
+   在 #0f151d 底上不可读，这里整体改写为深色控件语义。 */
+.mcp-wt-inputbar [data-slot='input-group'] {
+  border-color: #263141;
+  background: rgb(255 255 255 / 0.045);
+  box-shadow: none;
+}
+
+.mcp-wt-inputbar [data-slot='input-group-control'] {
+  color: #e6edf3;
+  caret-color: #79c0ff;
+}
+
+.mcp-wt-inputbar [data-slot='input-group-control']::placeholder {
+  color: #55627a;
+}
+
+.mcp-wt-inputbar [data-slot='input-group']:has(> [data-slot='input-group-control']:focus-visible) {
+  border-color: #79c0ff;
+  box-shadow: 0 0 0 3px rgb(121 192 255 / 0.22);
+}
+
+.mcp-wt-inputbar [data-slot='input-group-control']:disabled {
+  color: #55627a;
+}
+
+.mcp-wt-hint {
+  padding: 7px 10px;
+  border-top: 1px solid oklch(var(--border, 0.922 0 0));
+  color: oklch(0.55 0.12 80);
+  background: oklch(0.96 0.045 90);
+  font-size: 12px;
+}
+
+.mcp-wt-status {
+  border: 0;
+  border-top: 1px solid oklch(var(--border, 0.922 0 0));
+  background: oklch(var(--card, 1 0 0));
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 11px;
+}
+
+.mcp-wt-status > span {
+  white-space: nowrap;
+}
+
+.mcp-term-jump {
+  position: absolute;
+  right: 14px;
+  bottom: 74px;
+  z-index: 3;
+}
+
+.mcp-term-suggest {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(100% + 4px);
+  z-index: 4;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid #263141;
+  border-radius: 8px;
+  background: #111a25;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.32);
+}
+
+.mcp-term-suggest-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #e6edf3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcp-term-suggest-row.is-active,
+.mcp-term-suggest-row:hover {
+  background: #1a2634;
+}
+
+.mcp-term-suggest-row small {
+  color: #8b9bb0;
+}
+
+.mcp-wt-left .mcp-fbp,
+.mcp-wt-right .mcp-wt-list {
+  max-height: none;
+}
+
+/* ---------- 侧栏面板（文件 / 玩家 / 命令） ---------- */
+
+.mcp-wt-pane-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+.mcp-wt-right .mcp-wt-pane-title + .mcp-wt-pane-title,
+.mcp-wt-right .mcp-wt-list + .mcp-wt-pane-title,
+.mcp-wt-right .mcp-term-players + .mcp-wt-pane-title {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-wt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mcp-wt-cmd {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: oklch(var(--foreground, 0.145 0 0));
+  font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  text-align: left;
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.mcp-wt-cmd:hover {
+  border-color: oklch(var(--border, 0.922 0 0));
+  background: oklch(var(--accent, 0.97 0 0));
+}
+
+.mcp-wt-cmd.is-hist {
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+/* NodeTerminalPage 用 FaButton 渲染命令行：压平按钮外观，保持与原生 button 一致 */
+.mcp-wt-right button.mcp-wt-cmd {
+  justify-content: flex-start;
+  height: auto;
+  white-space: normal;
+}
+
+.mcp-wt-muted {
+  display: block;
+  padding: 4px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-term-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+ .mcp-term-player {
+  padding: 2px 8px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 999px;
+  background: oklch(var(--card, 1 0 0));
+  font-size: 12px;
+  line-height: 1.6;
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+button.mcp-term-player.is-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+button.mcp-term-player.is-clickable:hover {
+  border-color: oklch(var(--primary, 0.55 0.2 260));
+  color: oklch(var(--primary, 0.55 0.2 260));
+}
+
+.mcp-tps-tag.is-good {
+  color: oklch(0.72 0.17 155);
+}
+
+.mcp-tps-tag.is-warn {
+  color: oklch(0.75 0.15 85);
+}
+
+.mcp-tps-tag.is-bad {
+  color: oklch(0.65 0.2 25);
+}
+
+.mcp-wt-btn {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px dashed oklch(var(--border, 0.922 0 0));
+  border-radius: 6px;
+  background: transparent;
+  color: oklch(var(--primary, 0.205 0 0));
+  font-size: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mcp-wt-btn:hover {
+  background: oklch(var(--accent, 0.97 0 0));
+}
+
+.mcp-wt-mt {
+  margin-top: 8px;
+}
+
+/* 终端上方的历史输出提示条 */
+.mcp-wt-history-tag {
+  padding: 5px 10px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+  background: oklch(var(--muted, 0.97 0 0) / 0.6);
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 11px;
+}
+
+/* 实例详情底部：基本信息 + 备份双卡栅格 */
+.mcp-wt-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .mcp-wt-lower {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+
+@media (max-width: 1000px) {
+  .mcp-wt-body,
+  .mcp-wt-body.has-left,
+  .mcp-wt-body.has-right,
+  .mcp-wt-body.has-left.has-right {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .mcp-wt-left,
+  .mcp-wt-right {
+    order: 1;
+    max-height: 260px;
+    border: 0;
+    border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+  }
+
+  .mcp-wt-center { order: 2; min-height: 0; }
+  .mcp-wt-right { order: 3; border-top: 1px solid oklch(var(--border, 0.922 0 0)); }
+  .mcp-wt-screen { min-height: 340px; max-height: none; }
+  .mcp-wt-line { grid-template-columns: 1fr; gap: 2px; }
+  .mcp-wt-meta { font-size: 10px; }
+  .mcp-wt-panels > span { display: none; }
+}

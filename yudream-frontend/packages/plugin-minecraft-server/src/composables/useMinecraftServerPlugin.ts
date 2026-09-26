@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { EconomyRecord, InheritanceRule, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, ModpackBinding, PlayerActivity, PlayerSubServerDetail, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
+import type { EconomyRecord, InheritanceRule, MinecraftBridgeSettings, MinecraftEndpoint, MinecraftServer, MinecraftStatusSnapshot, MessagingConnectionOption, MessagingGroupOption, ModpackBinding, PlayerActivity, PlayerSubServerDetail, SeasonForm, SeasonOperation, ServerForm, TimeValue } from '../types'
 import { subServerBreakdown as breakdownOf, hasSubServerDimension, isDefaultSubServer, subServerLabel } from '../utils/subServer'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
@@ -31,6 +31,22 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   const recordsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const operationsPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const playerActivitiesPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
+  // 群服互联：绑定群聊的选择器状态 + 转发开关表单
+  const bridgeSettings = ref<MinecraftBridgeSettings | null>(null)
+  const bridgeConnections = ref<MessagingConnectionOption[]>([])
+  const bridgeGroups = ref<MessagingGroupOption[]>([])
+  const bridgeSaving = ref(false)
+  const bridgeForm = reactive({
+    enabled: false,
+    connectionId: '',
+    channelId: '',
+    channelName: '',
+    forwardChat: true,
+    forwardJoinQuit: true,
+    forwardDeath: true,
+    forwardAdvancement: true,
+    forwardToGame: true,
+  })
 
   const serverForm = reactive<ServerForm>({
     id: '',
@@ -204,6 +220,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       ...season,
       modpackBinding: season.modpackBinding ? { ...season.modpackBinding } : { type: 'NONE' },
     }))
+    void loadBridgeSettings(server.id)
   }
 
   function addEndpoint() {
@@ -728,6 +745,91 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  // ---------------------------------------------------------------- 群服互联
+
+  async function ensureBridgeConnections() {
+    if (bridgeConnections.value.length) return
+    try {
+      bridgeConnections.value = await api.messagingConnections()
+    }
+    catch {
+      bridgeConnections.value = []
+    }
+  }
+
+  async function loadBridgeGroups(connectionId: string) {
+    if (!connectionId) {
+      bridgeGroups.value = []
+      return
+    }
+    try {
+      bridgeGroups.value = await api.messagingGroups(connectionId)
+    }
+    catch {
+      bridgeGroups.value = []
+    }
+  }
+
+  async function loadBridgeSettings(serverId: string) {
+    if (!serverId) return
+    try {
+      const settings = await api.bridgeSettings(serverId)
+      bridgeSettings.value = settings
+      Object.assign(bridgeForm, {
+        enabled: settings.enabled,
+        connectionId: settings.connectionId,
+        channelId: settings.channelId,
+        channelName: settings.channelName,
+        forwardChat: settings.forwardChat,
+        forwardJoinQuit: settings.forwardJoinQuit,
+        forwardDeath: settings.forwardDeath,
+        forwardAdvancement: settings.forwardAdvancement,
+        forwardToGame: settings.forwardToGame,
+      })
+      await ensureBridgeConnections()
+      await loadBridgeGroups(settings.connectionId)
+    }
+    catch (error) {
+      bridgeSettings.value = null
+      toast.error(error instanceof Error ? error.message : '读取群服互联设置失败')
+    }
+  }
+
+  async function saveBridgeSettings() {
+    const serverId = serverForm.id
+    if (!serverId) {
+      toast.error('请先保存服务器，再配置群服互联')
+      return
+    }
+    if (bridgeForm.enabled && (!bridgeForm.connectionId || !bridgeForm.channelId)) {
+      toast.warning('启用群服互联前请选择消息连接与群聊')
+      return
+    }
+    bridgeSaving.value = true
+    try {
+      const saved = await api.saveBridgeSettings(serverId, { ...bridgeForm })
+      bridgeSettings.value = saved
+      toast.success('群服互联设置已保存')
+    }
+    catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存群服互联设置失败')
+    }
+    finally {
+      bridgeSaving.value = false
+    }
+  }
+
+  function onBridgeConnectionChange(connectionId: string) {
+    bridgeForm.channelId = ''
+    bridgeForm.channelName = ''
+    void loadBridgeGroups(connectionId)
+  }
+
+  function onBridgeGroupChange(channelId: string) {
+    const group = bridgeGroups.value.find(item => item.id === channelId)
+    bridgeForm.channelName = group?.name || ''
+  }
+
   return reactive({
     loading,
     saving,
@@ -774,6 +876,15 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     downloadMap,
     refreshStatus,
     resolveTopology,
+    bridgeSettings,
+    bridgeConnections,
+    bridgeGroups,
+    bridgeSaving,
+    bridgeForm,
+    loadBridgeSettings,
+    saveBridgeSettings,
+    onBridgeConnectionChange,
+    onBridgeGroupChange,
     copyServerId,
     previewSeason,
     openSeason,

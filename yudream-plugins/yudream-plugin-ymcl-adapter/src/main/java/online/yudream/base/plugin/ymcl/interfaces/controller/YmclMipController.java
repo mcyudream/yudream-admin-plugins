@@ -2,6 +2,7 @@ package online.yudream.base.plugin.ymcl.interfaces.controller;
 
 import online.yudream.base.plugin.ymcl.application.service.YmclContributionAggregator;
 import online.yudream.base.plugin.ymcl.application.service.YmclEventBus;
+import online.yudream.base.plugin.ymcl.application.service.YmclP2pLink;
 import online.yudream.base.plugin.ymcl.api.YmclContributionProvider;
 import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.ymcl.interfaces.support.PathSegments;
@@ -32,11 +33,14 @@ public class YmclMipController {
     private final YmclContributionAggregator aggregator;
     private final PluginDocumentStore documents;
     private final YmclEventBus eventBus;
+    private final YmclP2pLink p2p;
 
-    public YmclMipController(YmclContributionAggregator aggregator, PluginDocumentStore documents, YmclEventBus eventBus) {
+    public YmclMipController(YmclContributionAggregator aggregator, PluginDocumentStore documents,
+                             YmclEventBus eventBus, YmclP2pLink p2p) {
         this.aggregator = aggregator;
         this.documents = documents;
         this.eventBus = eventBus;
+        this.p2p = p2p;
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/mip/api/servers",
@@ -73,7 +77,47 @@ public class YmclMipController {
                 view.put("binding", bindingView);
             }
         }
+        annotateP2pInstance(p2p, view);
         servers.add(view);
+    }
+
+    /**
+     * 标注可直连实例（YAP §6.12）：把服务器对外地址交给面板反查（「这条域名由哪台实例提供」），
+     * 命中且该实例已开 P2P 时写入 {@code p2pInstanceId}——启动器进服时会静默改走回环隧道，
+     * 玩家侧看不到任何变化。未装 mcpanel、地址无匹配、实例未开 P2P 时**不写这个字段**，
+     * 服务器保持原有的公网地址语义。
+     */
+    static void annotateP2pInstance(YmclP2pLink p2p, Map<String, Object> view) {
+        if (p2p == null || view.containsKey("p2pInstanceId")) {
+            return;
+        }
+        for (String address : addresses(view)) {
+            Optional<String> instanceId = p2p.instanceForAddress(address);
+            if (instanceId.isPresent()) {
+                view.put("p2pInstanceId", instanceId.get());
+                return;
+            }
+        }
+    }
+
+    /** 服务器对外地址候选（主地址 + 各线路地址），逐个反查直到命中。 */
+    private static List<String> addresses(Map<String, Object> view) {
+        List<String> addresses = new ArrayList<>();
+        addAddress(addresses, view.get("mcAddress"));
+        if (view.get("endpoints") instanceof List<?> endpoints) {
+            for (Object endpoint : endpoints) {
+                if (endpoint instanceof Map<?, ?> line) {
+                    addAddress(addresses, line.get("address"));
+                }
+            }
+        }
+        return addresses;
+    }
+
+    private static void addAddress(List<String> addresses, Object value) {
+        if (value instanceof String address && !address.isBlank()) {
+            addresses.add(address);
+        }
     }
 
     /**

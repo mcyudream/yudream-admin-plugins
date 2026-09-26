@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.ymcl.api;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,11 +14,21 @@ public record YmclDataContext(
         int page,
         int pageSize,
         Long userId,
-        Map<String, String> query) {
+        Map<String, String> query,
+        List<String> permissions) {
 
-    /** 兼容旧三参构造：无查询参数。消费方只调访问器，新增组件二进制兼容。 */
+    public YmclDataContext {
+        permissions = permissions == null ? List.of() : List.copyOf(permissions);
+    }
+
+    /** 兼容旧三参构造：无查询参数与权限集合。 */
     public YmclDataContext(int page, int pageSize, Long userId) {
-        this(page, pageSize, userId, Map.of());
+        this(page, pageSize, userId, Map.of(), List.of());
+    }
+
+    /** 兼容旧四参构造：无权限集合。 */
+    public YmclDataContext(int page, int pageSize, Long userId, Map<String, String> query) {
+        this(page, pageSize, userId, query, List.of());
     }
 
     /** 读查询参数首值，缺失或空白返回 null。 */

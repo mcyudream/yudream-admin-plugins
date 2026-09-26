@@ -34,7 +34,8 @@ public class YmclDataController {
                 intParam(request, "page", 1),
                 intParam(request, "pageSize", 20),
                 principal == null ? null : principal.userId(),
-                flattenQuery(request));
+                flattenQuery(request),
+                principal == null ? java.util.List.of() : principal.permissions());
 
         return aggregator.findProvider(providerCode, sourceCode)
                 .map(provider -> PluginHttpResponse.rawJson(200, provider.fetchData(sourceCode, context)))

@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.minecraft.bootstrap;
 
+import online.yudream.base.plugin.minecraft.application.service.MinecraftBridgeService;
 import online.yudream.base.plugin.minecraft.application.service.MinecraftServerAppService;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftPlayerActivityDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
@@ -25,6 +26,7 @@ import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.theme.PluginThemeBlockProvider;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
+import online.yudream.base.plugin.spi.system.messaging.PluginInteractionFilter;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageRequest;
 import online.yudream.base.plugin.spi.system.ai.PluginAiTool;
@@ -44,7 +46,7 @@ import java.util.Set;
 @PluginSpec(
         code = MinecraftServerPlugin.CODE,
         name = "minecraft-server",
-        version = "1.6.0",
+        version = "1.7.0",
         description = "管理 Minecraft 服务器列表、多线地址、在线状态与周目展示。"
 )
 @PluginPermissions({
@@ -140,21 +142,27 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
     @Override
     public void onEnable(PluginContext context) {
         MinecraftStatusService statusService = new MinecraftStatusService();
-        appService = new MinecraftServerAppService(
-                new MinecraftServerDocumentRepository(context.documents()),
-                statusService,
-                context
-        );
+        MinecraftServerDocumentRepository repository = new MinecraftServerDocumentRepository(context.documents());
+        appService = new MinecraftServerAppService(repository, statusService, context);
+        // 群服互联：出站=玩家事件回调后格式化转发；入站=订阅宿主消息总线写入拉取队列
+        MinecraftBridgeService bridgeService = new MinecraftBridgeService(repository, context.framework(),
+                serverId -> appService.onlinePlayerActivities(serverId).stream()
+                        .map(MinecraftPlayerActivityDTO::playerName)
+                        .filter(name -> name != null && !name.isBlank())
+                        .distinct()
+                        .toList());
+        appService.setBridgeListener(bridgeService);
         MinecraftStatusScheduler statusScheduler = new MinecraftStatusScheduler(appService);
         statusScheduler.start();
         context.onDispose(statusScheduler);
         context.exposeService(PluginMinecraftService.class, appService);
         context.registerExtension(PluginThemeBlockProvider.class, new ServerListThemeBlockProvider(appService));
         registerYmclContribution(context, appService);
-        MinecraftServerHttpFacade http = new MinecraftServerHttpFacade(appService);
+        MinecraftServerHttpFacade http = new MinecraftServerHttpFacade(appService, bridgeService);
         context.registerHttpController(new MinecraftServerUserController(http));
         context.registerHttpController(new MinecraftServerAdminController(http));
         context.registerHttpController(new MinecraftServerReportController(http));
+        registerBridgeMessageListener(context, bridgeService);
         context.registerAiTool(new PluginAiTool() {
             @Override public PluginAiToolDescriptor descriptor() { return new PluginAiToolDescriptor("minecraft.server.status", "查询服务器状态", "查询已启用 Minecraft 服务器的简介、地址与在线状态", VIEW_PERMISSION, PluginAiToolRisk.READ, false, java.util.Set.of("MENTION", "RANDOM"), Map.of()); }
             @Override public PluginAiToolResult execute(online.yudream.base.plugin.spi.system.ai.PluginAiExecutionContext execution, PluginAiToolCall call) {
@@ -416,5 +424,22 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
         } catch (LinkageError ignored) {
             // ymcl-adapter 未安装，降级即可
         }
+    }
+
+    /**
+     * 群服互联入站：订阅宿主消息总线的群消息事件。只观察不消费，命中绑定群聊的
+     * 普通文本消息进入各服务器的拉取队列；未配置任何绑定时时钟开销仅为一次过滤。
+     */
+    private void registerBridgeMessageListener(PluginContext context, MinecraftBridgeService bridgeService) {
+        AutoCloseable registration = context.interactions().onMessage(
+                new PluginInteractionFilter(Set.of("message_receive"), null, null, null),
+                bridgeService::onGroupMessage);
+        context.onDispose(() -> {
+            try {
+                registration.close();
+            } catch (Exception ignored) {
+                // 宿主在插件禁用时会自行清理注册，这里的兜底关闭失败可忽略
+            }
+        });
     }
 }

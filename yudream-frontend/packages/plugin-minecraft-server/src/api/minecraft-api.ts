@@ -1,4 +1,4 @@
-import type { EconomyRecord, MinecraftServer, MinecraftStatusSnapshot, MinecraftTopology, PageResult, PlayerActivity, SeasonOperation } from '../types'
+import type { EconomyRecord, MinecraftBridgeSettings, MinecraftServer, MinecraftStatusSnapshot, MinecraftTopology, MessagingConnectionOption, MessagingGroupOption, PageResult, PlayerActivity, SeasonOperation } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 
 export function createMinecraftApi(sdk: YuDreamPluginSdk) {
@@ -38,5 +38,11 @@ export function createMinecraftApi(sdk: YuDreamPluginSdk) {
     playerActivities: (id: string, page = 1, size = 10) => sdk.http.get<PageResult<PlayerActivity>>(`/admin/servers/${serverPath(id)}/players${query({ page, size })}`),
     /** 一键解析群组服：读取代理已上报的子服表，未上报时后端会返回具体原因。 */
     resolveTopology: (id: string) => sdk.http.post<MinecraftTopology>(`/admin/servers/${serverPath(id)}/topology/resolve`),
+    /** 群服互联：读取/保存该服务器的桥接设置。 */
+    bridgeSettings: (id: string) => sdk.http.get<MinecraftBridgeSettings>(`/admin/servers/${serverPath(id)}/bridge`),
+    saveBridgeSettings: (id: string, data: Record<string, unknown>) => sdk.http.request<MinecraftBridgeSettings>(`/admin/servers/${serverPath(id)}/bridge`, { method: 'PUT', data }),
+    /** 群服互联：宿主消息连接与群聊选项（供绑定选择器使用）。 */
+    messagingConnections: () => sdk.http.get<MessagingConnectionOption[]>('/admin/options/connections'),
+    messagingGroups: (connectionId: string) => sdk.http.get<MessagingGroupOption[]>(`/admin/options/groups${query({ connectionId })}`),
   }
 }

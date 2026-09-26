@@ -248,3 +248,49 @@ export interface YmclEvent {
   type?: string
   [key: string]: unknown
 }
+
+/** 启动统计（YmclStatsController 管理端点，camelCase）。 */
+export interface StatsDayPoint {
+  day: string
+  total: number
+  users: number
+}
+
+export interface StatsScopeEntry {
+  refId: string
+  name: string
+  launches: number
+  lastLaunchAt?: number | null
+}
+
+export interface StatsCountEntry {
+  value: string
+  count: number
+}
+
+export interface StatsSummary {
+  totalLaunches: number
+  todayLaunches: number
+  totalUsers: number
+  todayActiveUsers: number
+  weekActiveUsers: number
+  days: StatsDayPoint[]
+  platforms: StatsCountEntry[]
+  launcherVersions: StatsCountEntry[]
+  topServers: StatsScopeEntry[]
+  topPacks: StatsScopeEntry[]
+  generatedAt?: number
+}
+
+export interface LaunchEventView {
+  id: string
+  userId?: string | null
+  username?: string | null
+  serverId?: string | null
+  packId?: string | null
+  packVersion?: string | null
+  quickPlay?: string | null
+  launcherVersion?: string | null
+  platform?: string | null
+  occurredAt?: number | null
+}

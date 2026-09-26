@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>online.yudream.plugins</groupId>
+        <artifactId>yudream-admin-plugins</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>yudream-plugin-mcpanel</artifactId>
+    <version>0.18.0</version>
+
+    <properties>
+        <!-- SFTP 网关：内嵌 SSH 服务端/客户端（纯 Java，随插件 shade 进 JAR） -->
+        <sshd.version>2.14.0</sshd.version>
+        <!-- 与根 pom jackson.version 对齐：BungeeCord(config.yml)/Velocity(velocity.toml) 结构化编辑 -->
+        <jackson.dataformat.version>2.20.0</jackson.dataformat.version>
+    </properties>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-mcpanel/dist</directory>
+                <targetPath>META-INF/yudream-plugin/frontend/mcpanel</targetPath>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.apache.sshd:sshd-core</include>
+                                    <include>org.apache.sshd:sshd-common</include>
+                                    <include>net.i2p.crypto:eddsa</include>
+                                    <include>org.slf4j:jcl-over-slf4j</include>
+                                    <include>com.fasterxml.jackson.dataformat:jackson-dataformat-yaml</include>
+                                    <include>com.fasterxml.jackson.dataformat:jackson-dataformat-toml</include>
+                                    <include>org.yaml:snakeyaml</include>
+                                </includes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>online.yudream.base</groupId>
+            <artifactId>yudream-plugin-spi</artifactId>
+            <!-- 版本由根 pom 的 yudream.plugin.spi.version 统一管理（2.33.0 已发布到 Nexus） -->
+        </dependency>
+        <!-- softdepend minecraft-server：联动契约（provided，版本由根 dependencyManagement 锁定） -->
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-minecraft-server</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- softdepend authlib-injector：验证服 API 根联动契约（provided，版本由根 dependencyManagement 锁定） -->
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-authlib-injector</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- softdepend ymcl-adapter：P2P 直连能力经它声明的 YmclP2pProvider 扩展点贡献给启动器
+             （provided：接口类由适配器 JAR 提供，不在本 JAR 内打包；版本由根 dependencyManagement 锁定） -->
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-ymcl-adapter</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- 代理/嵌套配置结构化编辑：YAML(BungeeCord config.yml) + TOML(Velocity velocity.toml)。
+             jackson-core/databind 由宿主运行时提供（同 jackson-databind 模式），dataformat 与 snakeyaml shade 进 JAR。 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+            <version>${jackson.dataformat.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-toml</artifactId>
+            <version>${jackson.dataformat.version}</version>
+        </dependency>
+        <!-- SFTP 网关：SSH 服务端（管理员桌面客户端接入）+ SSH 客户端（拨节点 ftp.open 端口）。
+             slf4j-api 不进 shade：宿主运行时提供（同 jackson 模式）。 -->
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-core</artifactId>
+            <version>${sshd.version}</version>
+        </dependency>
+        <!-- MINA sshd 2.14 的 Ed25519 支持只认该库（JDK 原生 Ed25519 无法注册/编码）：
+             节点 SFTP（Go 服务端）只提供 ssh-ed25519 主机密钥，缺库时网关拨号必因
+             算法无交集被拒。必须与 sshd 同批 shade。 -->
+        <dependency>
+            <groupId>net.i2p.crypto</groupId>
+            <artifactId>eddsa</artifactId>
+            <version>0.3.0</version>
+        </dependency>
+        <!-- 仅测试：端到端回路里用真实 SFTP subsystem 当节点替身 + SFTP 客户端校验代理 -->
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-sftp</artifactId>
+            <version>${sshd.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- 仅测试：本地回环 WSS 服务端替身，模拟节点控制信道 -->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.7</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -3,6 +3,8 @@ displayName: YMCL 适配器
 description: YMCL 启动器域适配协议（YAP）入口：capabilities、认证会话、manifest、数据信封、皮肤衣柜与整合包分发。
 icon: i-ri:gamepad-line
 main: online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin
-version: 0.8.0
+version: 0.10.0
 softdepend:
   - yudream-skin
+  # P2P 直连（玩家侧无感的实例直连）不走依赖：具备该能力的插件经 YmclP2pProvider
+  # 扩展点贡献，适配器只聚合——依赖方向必须是「业务插件 → 适配器」，否则成环。

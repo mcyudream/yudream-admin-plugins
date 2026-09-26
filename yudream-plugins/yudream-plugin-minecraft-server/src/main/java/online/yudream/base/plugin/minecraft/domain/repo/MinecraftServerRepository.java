@@ -5,6 +5,7 @@ import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServerTopo
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftSeasonOperation;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActivityEvent;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftServerStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftStatusSnapshot;
 
@@ -58,4 +59,9 @@ public interface MinecraftServerRepository {
     MinecraftServerTopology saveTopology(MinecraftServerTopology topology);
 
     Optional<MinecraftServerTopology> findTopology(String serverId);
+
+    /** 群服互联设置：每台服务器一份，文档 id 即 serverId。 */
+    MinecraftBridgeSettings saveBridgeSettings(MinecraftBridgeSettings settings);
+
+    Optional<MinecraftBridgeSettings> findBridgeSettings(String serverId);
 }

@@ -15,6 +15,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 import java.util.List;
 import online.yudream.base.plugin.ymcl.application.service.YmclContributionAggregator;
 import online.yudream.base.plugin.ymcl.application.service.YmclEventBus;
+import online.yudream.base.plugin.ymcl.application.service.YmclStatsService;
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclActionController;
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclBundlesController;
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclChromeHomeController;
@@ -28,6 +29,7 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclCapabilitiesCon
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclManifestController;
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclSessionController;
 import online.yudream.base.plugin.ymcl.interfaces.controller.YmclSkinWardrobeController;
+import online.yudream.base.plugin.ymcl.interfaces.controller.YmclStatsController;
 
 /**
  * YMCL 适配器插件（YAP — YMCL Adapter Protocol v1）。
@@ -115,6 +117,15 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclSkinWardrobeCon
                         sort = 30
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/ymcl-adapter/admin/stats",
+                        name = "platform-plugin-ymcl-adapter-admin-stats",
+                        title = "启动统计",
+                        icon = "i-ri:bar-chart-2-line",
+                        component = "ymcl-adapter/Stats",
+                        permission = YmclAdapterPlugin.PUBLISH_PERMISSION,
+                        sort = 35
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/ymcl-adapter/admin/chrome-home",
                         name = "platform-plugin-ymcl-adapter-admin-chrome-home",
                         title = "首页布局",
@@ -155,7 +166,7 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclSkinWardrobeCon
 public class YmclAdapterPlugin implements YuDreamPlugin {
 
     public static final String CODE = "ymcl-adapter";
-    public static final String VERSION = "0.8.0";
+    public static final String VERSION = "0.10.0";
 
     public static final String VIEW_PERMISSION = "plugin:ymcl-adapter:view";
     public static final String PUBLISH_PERMISSION = "plugin:ymcl-adapter:publish";
@@ -174,6 +185,9 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
         context.onDispose(eventBus::stopHeartbeat);
         PluginDocumentStore documents = context.documents();
         PluginFileStore files = context.files();
+        // P2P 聚合层：能力宣告、会话端点与「服务器 → 实例」反查共用同一引用。
+        // 只聚合 YmclP2pProvider 扩展点，不依赖任何业务插件（避免插件依赖环）。
+        var p2pLink = online.yudream.base.plugin.ymcl.application.service.YmclP2pLink.forContext(context);
 
         YmclCapabilitiesController capabilitiesController = new YmclCapabilitiesController(
                 context.pluginCode(), VERSION, documents,
@@ -190,18 +204,26 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
                     } catch (LinkageError error) {
                         return false;
                     }
-                });
+                },
+                // P2P 直连（启动器无感接入实例）：有提供方且面板已开 P2P 才宣告 p2p。
+                // 探测永不抛：无提供方 / 类不可达 / 扩展点查询异常都视为不可用，
+                // 绝不能让可选能力探测拖垮适配器启用。
+                p2pLink::available);
         context.registerHttpController(capabilitiesController);
         context.registerHttpController(
                 new YmclSessionController(context.framework().users(), documents));
+        context.registerHttpController(
+                new online.yudream.base.plugin.ymcl.interfaces.controller.YmclP2pController(p2pLink));
         context.registerHttpController(new YmclManifestController(aggregator, documents));
         context.registerHttpController(new YmclDataController(aggregator));
         context.registerHttpController(new YmclActionController(aggregator));
         context.registerHttpController(new YmclChromeHomeController(documents, eventBus, aggregator));
         context.registerHttpController(new YmclCustomPagesController(documents, eventBus, aggregator));
         context.registerHttpController(new YmclEventsController(eventBus));
-        context.registerHttpController(new YmclMipController(aggregator, documents, eventBus));
+        context.registerHttpController(new YmclMipController(aggregator, documents, eventBus, p2pLink));
         context.registerHttpController(new YmclMipPacksController(files, documents, eventBus));
+        context.registerHttpController(new YmclStatsController(new YmclStatsService(
+                documents, context.framework().users(), aggregator)));
         context.registerHttpController(new YmclBundlesController(files, documents, aggregator));
         context.registerHttpController(new YmclSkinWardrobeController(context, capabilitiesController));
         context.registerHttpController(new YmclExternalAuthController(documents, capabilitiesController));

@@ -1,9 +1,10 @@
-import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivityProofServer, ActivityQuizCategoryOption, ActivitySaveForm, QuizSubjectiveMode, TimeValue } from '../types'
+import type { Activity, ActivityBindingForm, ActivityDeptOption, ActivityFormOption, ActivityParamForm, ActivityProofServer, ActivityQuizCategoryOption, ActivitySaveForm, QuizSubjectiveMode, TimeValue } from '../types'
 import type { ActivitySavePayload } from '../api/activity-proof-api'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useFaToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
+import { paramKey, validateFormula } from './formula'
 import { dateRangeToEpochs, errorMessage, normalizeFileUrl, normalizeMarkdownFileUrls, resolveFileUrl, resolveMarkdownFileUrls, toDateText } from './utils'
 
 export function useActivityEdit(sdk: YuDreamPluginSdk) {
@@ -171,6 +172,16 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       includeAfk: binding.includeAfk,
       autoJoin: binding.autoJoin,
       formCode: binding.formCode || '',
+      params: (binding.params || []).map(param => ({
+        type: param.type,
+        serverId: param.serverId || '',
+        subServer: param.subServer || '',
+        includeAfk: param.includeAfk ?? false,
+        formCode: param.formCode || '',
+      })),
+      expression: binding.expression || '',
+      minScore: binding.minScore ?? 0,
+      maxScore: binding.maxScore ?? 0,
     }))
   }
 
@@ -221,9 +232,13 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     }
   }
 
-  function addBinding(type: 'PLAYTIME' | 'FORM' | 'QUIZ') {
+  function addBinding(type: 'PLAYTIME' | 'FORM' | 'QUIZ' | 'ADVANCED') {
     if (type === 'QUIZ' && form.bindings.some(binding => binding.type === 'QUIZ')) {
       toast.warning('答题核验方式至多添加一个')
+      return
+    }
+    if (type === 'ADVANCED' && form.bindings.some(binding => binding.type === 'ADVANCED')) {
+      toast.warning('高级自定义核验方式至多添加一个')
       return
     }
     form.bindings.push({
@@ -234,7 +249,38 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       includeAfk: false,
       autoJoin: false,
       formCode: '',
+      params: [],
+      expression: '',
+      minScore: 0,
+      maxScore: 0,
     })
+  }
+
+  /** 新增高级自定义计分参数；变量名按添加顺序自动分配（a、b、c…），上限 8 个。 */
+  function addAdvancedParam(binding: ActivityBindingForm, type: 'PLAYTIME' | 'FORM' | 'QUIZ') {
+    if (binding.params.length >= 8) {
+      toast.warning('计分参数最多 8 个')
+      return
+    }
+    binding.params.push({
+      type,
+      serverId: '',
+      subServer: '',
+      includeAfk: false,
+      formCode: '',
+    })
+  }
+
+  function removeAdvancedParam(binding: ActivityBindingForm, index: number) {
+    binding.params.splice(index, 1)
+  }
+
+  function changeAdvancedParamType(param: ActivityParamForm, type: string) {
+    param.type = (type === 'PLAYTIME' || type === 'FORM' || type === 'QUIZ') ? type : 'PLAYTIME'
+    param.serverId = ''
+    param.subServer = ''
+    param.formCode = ''
+    param.includeAfk = false
   }
 
   /** 该服务器已知的下游子服；单机服为空数组，界面据此隐藏子服选择。 */
@@ -248,9 +294,9 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
    * 子服名只在它所属的服务器内有意义（两台代理都可能有 fabric），换服后留着旧值会既误导
    * 操作者、又会让核验去查一个不属于该服的子服。
    */
-  function changeServer(binding: ActivityBindingForm, serverId: string) {
-    binding.serverId = serverId
-    binding.subServer = ''
+  function changeServer(target: { serverId: string; subServer: string }, serverId: string) {
+    target.serverId = serverId
+    target.subServer = ''
   }
 
   function removeBinding(index: number) {
@@ -271,6 +317,41 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
       if (binding.type === 'FORM' && !binding.formCode) {
         return '表单绑定需要选择表单'
       }
+      if (binding.type === 'ADVANCED') {
+        const message = validateAdvancedBinding(binding)
+        if (message) {
+          return message
+        }
+      }
+    }
+    return ''
+  }
+
+  /** 高级自定义计分的完整校验：参数来源齐全、公式语法与变量合法、达标区间有效。 */
+  function validateAdvancedBinding(binding: ActivityBindingForm) {
+    if (!binding.params.length) {
+      return '高级自定义计分至少添加一个计分参数'
+    }
+    for (let index = 0; index < binding.params.length; index++) {
+      const param = binding.params[index]
+      const key = paramKey(index)
+      if (param.type === 'PLAYTIME' && !param.serverId) {
+        return `计分参数 ${key} 需要选择服务器`
+      }
+      if (param.type === 'FORM' && !param.formCode) {
+        return `计分参数 ${key} 需要选择表单`
+      }
+    }
+    const keys = binding.params.map((_, index) => paramKey(index))
+    const formulaCheck = validateFormula(binding.expression, keys)
+    if (!formulaCheck.ok) {
+      return formulaCheck.message
+    }
+    if (!Number.isFinite(binding.minScore) || binding.minScore < 0) {
+      return '请填写不小于 0 的达标分数线'
+    }
+    if (binding.maxScore > 0 && binding.maxScore < binding.minScore) {
+      return '达标分数上限不能低于下限'
     }
     return ''
   }
@@ -296,6 +377,21 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
         }
         if (binding.type === 'QUIZ') {
           return { type: 'QUIZ' }
+        }
+        if (binding.type === 'ADVANCED') {
+          return {
+            type: 'ADVANCED',
+            params: binding.params.map(param => ({
+              type: param.type,
+              serverId: param.serverId || undefined,
+              subServer: param.subServer || undefined,
+              includeAfk: param.includeAfk,
+              formCode: param.formCode || undefined,
+            })),
+            expression: binding.expression.trim(),
+            minScore: binding.minScore,
+            maxScore: binding.maxScore > 0 ? binding.maxScore : undefined,
+          }
         }
         return { type: 'FORM', formCode: binding.formCode }
       }),
@@ -351,6 +447,9 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
     uploadCover,
     addBinding,
     removeBinding,
+    addAdvancedParam,
+    removeAdvancedParam,
+    changeAdvancedParamType,
     save,
     quizAvailable,
     quizSaving,
@@ -360,4 +459,4 @@ export function useActivityEdit(sdk: YuDreamPluginSdk) {
   }
 }
 
-export type { ActivityBindingForm }
+export type { ActivityBindingForm, ActivityParamForm }

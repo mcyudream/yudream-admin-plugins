@@ -232,3 +232,31 @@ export interface PageResult<T> {
 }
 
 export type TimeValue = number | string | number[] | Date | null | undefined
+
+/** 群服互联设置：一台服务器与一个 QQ 群聊的双向转发配置。 */
+export interface MinecraftBridgeSettings {
+  serverId: string
+  enabled: boolean
+  connectionId: string
+  channelId: string
+  channelName: string
+  forwardChat: boolean
+  forwardJoinQuit: boolean
+  forwardDeath: boolean
+  forwardAdvancement: boolean
+  forwardToGame: boolean
+  /** 后端已选定消息连接与群聊时为 true，此时才允许启用。 */
+  configured: boolean
+  updatedAt: number
+}
+
+export interface MessagingConnectionOption {
+  id: string
+  name: string
+  platform?: string
+}
+
+export interface MessagingGroupOption {
+  id: string
+  name: string
+}

@@ -57,4 +57,21 @@ public interface PluginMinecraftService {
                                                                     long windowStart, long windowEnd) {
         return minecraftActivePlayers(serverId, windowStart, windowEnd);
     }
+
+    /**
+     * mcpanel 面板回传实例运行状态（设计稿 §5.7）：面板在实例状态变化时调用，
+     * 提供方据此在公开服务器列表展示实时在线情况。
+     *
+     * <p>迟到旧帧不覆盖新帧（按 {@code atMs} 单调）；子服不存在时抛
+     * {@link IllegalArgumentException}，面板将其计为回传失败（不影响实例本身）。
+     * 旧版本提供方混跑时默认拒绝（返回 false），消费方按降级处理。</p>
+     */
+    default boolean notifyPanelInstanceState(String serverId, String instanceId, String panelState, long atMs) {
+        return false;
+    }
+
+    /** 面板回传的实例状态；从未回传时为空。 */
+    default Optional<PluginMinecraftPanelState> minecraftPanelState(String serverId) {
+        return Optional.empty();
+    }
 }

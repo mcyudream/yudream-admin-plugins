@@ -836,3 +836,123 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+/* FaPageMain 内容区是普通块级容器，不提供子区块垂直间距，多区块页面需自行堆叠 */
+.ymcl-stats-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ymcl-stats-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1100px) {
+  .ymcl-stats-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+.ymcl-stats-metric {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.ymcl-stats-metric__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--primary, #3b82f6);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary, #3b82f6) 10%, transparent);
+}
+
+.ymcl-stats-metric__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ymcl-stats-metric__value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.ymcl-stats-metric__label {
+  color: var(--muted-foreground, #6b7280);
+  font-size: 12px;
+}
+
+.ymcl-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .ymcl-stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ymcl-stats-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 170px;
+  padding-top: 6px;
+}
+
+.ymcl-stats-chart__bar {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  cursor: default;
+}
+
+.ymcl-stats-chart__bar-value {
+  color: var(--muted-foreground, #6b7280);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.ymcl-stats-chart__bar-fill {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--primary, #3b82f6) 65%, transparent);
+  transition: background 0.15s ease;
+}
+
+.ymcl-stats-chart__bar:hover .ymcl-stats-chart__bar-fill {
+  background: var(--primary, #3b82f6);
+}
+
+.ymcl-stats-chart__bar-day {
+  color: var(--muted-foreground, #6b7280);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ymcl-stats-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

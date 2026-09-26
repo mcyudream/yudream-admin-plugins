@@ -1,0 +1,271 @@
+/**
+ * mcpanel 基础样式：页面节奏、排版、表单原语、状态与趋势图（全插件共用）。
+ *
+ * 颜色契约（已核实宿主 @yudream/themes 与运行时注入实现）：
+ * - shadcn 组 token（--background/--foreground/--card/--popover/--primary/
+ *   --secondary/--muted/--muted-foreground/--accent/--destructive/--border/
+ *   --input/--ring）均为 oklch 通道三元组字符串，用户自定义主色也会被宿主
+ *   转成通道值写入，因此写法固定为 oklch(var(--token, <通道 fallback>))；
+ *   禁止二次包裹（oklch(oklch(...)) 会整体失效）。
+ * - --g-* 组 token 是完整 oklch() 字符串，禁止再包 oklch()。
+ * - 主题外固定色仅允许出现在 .mcp-wt-screen 深色屏与警告条内。
+ *
+ * 作用域契约：选择器全部挂在 mcp-* 根类下；is-* 状态只作为 mcp 根的
+ * 后代或复合类出现，禁止定义全局裸类名。
+ *
+ * 设计约定：圆角 6（小控件）/ 10（面板）/ 12（卡片）；间距 4/8/12/16/24；
+ * 面板只用边框区分层级，不叠加阴影；阴影仅用于悬浮层（下拉/角标）。
+ */
+
+/* ---------- 页面节奏 ---------- */
+
+.mcp-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.mcp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* 纵向自由列（未单独成类的简单纵排容器） */
+.mcp-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mcp-spacer {
+  margin-left: auto;
+}
+
+.mcp-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 36px;
+}
+
+.mcp-page-gap {
+  margin-top: 16px;
+}
+
+.mcp-mt-4 {
+  margin-top: 16px;
+}
+
+/* ---------- 排版 ---------- */
+
+.mcp-muted {
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.mcp-w-full {
+  width: 100%;
+}
+
+.mcp-status-meta {
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-variant-numeric: tabular-nums;
+}
+
+.mcp-link {
+  color: oklch(var(--primary, 0.205 0 0));
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-inline-code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: oklch(var(--muted, 0.97 0 0));
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 可复制命令块（教程页 CodeBlock 组件）：横向滚动保命令完整性，不换行截断 */
+.mcp-code-block {
+  min-width: 0;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--muted, 0.97 0 0));
+  overflow: hidden;
+}
+
+.mcp-code-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+}
+
+.mcp-code-block-label {
+  min-width: 0;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-code-block-body {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre;
+  user-select: all;
+}
+
+/* ---------- 空态 / 分隔 ---------- */
+
+.mcp-empty-hint {
+  padding: 24px 20px;
+  font-size: 13px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  border: 1px dashed oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  text-align: center;
+}
+
+.mcp-divider {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  background: oklch(var(--border, 0.922 0 0));
+}
+
+/* ---------- 表单原语（插件自绘表单统一节奏） ---------- */
+
+.mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.mcp-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 14px;
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+.mcp-form-label {
+  font-weight: 600;
+  color: oklch(var(--foreground, 0.145 0 0));
+}
+
+.mcp-form-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.mcp-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .mcp-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mcp-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ---------- 指标块与趋势图（卡片 / 详情 / 监控共用） ---------- */
+
+.mcp-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mcp-metric-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-metric-head strong {
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mcp-trend {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.mcp-trend-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.mcp-trend-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 11px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  border: 1px dashed oklch(var(--border, 0.922 0 0));
+  border-radius: 6px;
+}
+
+/* ---------- 旋转动画（作用域限定在 mcp 根内，不泄漏全局） ---------- */
+
+@keyframes mcp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* DirTreePanel 等组件在 mcp 根内挂 is-spinning；.mcp-spin 为显式工具类 */
+[class*='mcp-'] .is-spinning,
+.mcp-spin {
+  animation: mcp-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*='mcp-'] .is-spinning,
+  .mcp-spin {
+    animation: none;
+  }
+}

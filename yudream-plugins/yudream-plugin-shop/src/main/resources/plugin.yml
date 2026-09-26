@@ -1,0 +1,8 @@
+name: shop
+displayName: 商店
+description: 商品广场、多图与 Markdown 详情、钱包支付购买，开放商品类型与自动发货扩展点。
+icon: i-ri:store-2-line
+main: online.yudream.base.plugin.shop.bootstrap.ShopPlugin
+version: 1.1.0
+softdepend:
+  - yudream-wallet

@@ -1,8 +1,12 @@
 package online.yudream.base.plugin.minecraft.interfaces.http;
 
+import online.yudream.base.plugin.minecraft.application.service.MinecraftBridgeListener;
+import online.yudream.base.plugin.minecraft.application.service.MinecraftBridgeService;
 import online.yudream.base.plugin.minecraft.application.service.MinecraftServerAppService;
 import online.yudream.base.plugin.minecraft.interfaces.support.JsonSupport;
 import online.yudream.base.plugin.minecraft.interfaces.assembler.MinecraftServerWebAssembler;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftBridgeSettingsSaveRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftGameEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSnapshotRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonBindingRequest;
@@ -24,10 +28,12 @@ import java.util.Map;
 public class MinecraftServerHttpFacade {
 
     private final MinecraftServerAppService appService;
+    private final MinecraftBridgeService bridge;
     private final MinecraftServerWebAssembler assembler = new MinecraftServerWebAssembler();
 
-    public MinecraftServerHttpFacade(MinecraftServerAppService appService) {
+    public MinecraftServerHttpFacade(MinecraftServerAppService appService, MinecraftBridgeService bridge) {
         this.appService = appService;
+        this.bridge = bridge;
     }
 
     public PluginHttpResponse userList(PluginHttpRequest request) {
@@ -213,6 +219,56 @@ public class MinecraftServerHttpFacade {
         return PluginHttpResponse.ok(assembler.toRes(appService.resolveTopology(pathSegment(request.path(), 2))));
     }
 
+    // ---------------------------------------------------------------- 群服互联
+
+    public PluginHttpResponse bridgeSettings(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(assembler.toRes(bridge.settings(pathSegment(request.path(), 2))));
+    }
+
+    public PluginHttpResponse saveBridgeSettings(PluginHttpRequest request) {
+        MinecraftBridgeSettingsSaveRequest body = JsonSupport.read(request.body(), MinecraftBridgeSettingsSaveRequest.class);
+        return PluginHttpResponse.ok(assembler.toRes(bridge.saveSettings(assembler.toCmd(pathSegment(request.path(), 2), body))));
+    }
+
+    public PluginHttpResponse bridgeConnectionOptions() {
+        return PluginHttpResponse.ok(bridge.connectionOptions());
+    }
+
+    public PluginHttpResponse bridgeGroupOptions(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(bridge.groupOptions(stringQuery(request, "connectionId")));
+    }
+
+    public PluginHttpResponse gameChat(PluginHttpRequest request) { return gameEvent(request, MinecraftBridgeListener.GameEventKind.CHAT); }
+
+    public PluginHttpResponse gameDeath(PluginHttpRequest request) { return gameEvent(request, MinecraftBridgeListener.GameEventKind.DEATH); }
+
+    public PluginHttpResponse gameAdvancement(PluginHttpRequest request) { return gameEvent(request, MinecraftBridgeListener.GameEventKind.ADVANCEMENT); }
+
+    private PluginHttpResponse gameEvent(PluginHttpRequest request, MinecraftBridgeListener.GameEventKind kind) {
+        MinecraftGameEventRequest body = JsonSupport.read(request.body(), MinecraftGameEventRequest.class);
+        appService.recordGameEvent(reportServerId(request), assembler.toCmd(body), kind);
+        return PluginHttpResponse.ok(Map.of("accepted", true));
+    }
+
+    /** MC 端桥接轮询群消息：afterSeq 之后的增量 + 当前游标。 */
+    public PluginHttpResponse chatInbound(PluginHttpRequest request) {
+        Long after = longQuery(request, "after");
+        var batch = bridge.drainInbound(reportServerId(request), after == null ? 0L : after, Math.min(Math.max(intQuery(request, "limit", 50), 1), 100));
+        java.util.List<Map<String, Object>> messages = new java.util.ArrayList<>();
+        for (var message : batch.messages()) {
+            Map<String, Object> view = new java.util.LinkedHashMap<>();
+            view.put("seq", message.seq());
+            view.put("sender", message.sender());
+            view.put("content", message.content());
+            view.put("at", message.at());
+            messages.add(view);
+        }
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("latest", batch.latest());
+        response.put("messages", messages);
+        return PluginHttpResponse.ok(response);
+    }
+
     private String userId(PluginHttpRequest request) {
         Long userId = request.principal().userId();
         if (userId == null) {
@@ -224,6 +280,11 @@ public class MinecraftServerHttpFacade {
     private boolean boolQuery(PluginHttpRequest request, String key, boolean defaultValue) {
         java.util.List<String> values = request.query().get(key);
         return values == null || values.isEmpty() ? defaultValue : Boolean.parseBoolean(values.get(0));
+    }
+
+    private String stringQuery(PluginHttpRequest request, String key) {
+        java.util.List<String> values = request.query().get(key);
+        return values == null || values.isEmpty() ? "" : values.get(0).trim();
     }
 
     private int page(PluginHttpRequest request) {

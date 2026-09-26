@@ -62,4 +62,19 @@ public class MinecraftServerAdminController {
     /** 一键解析群组服：读取代理已上报的子服表；尚未上报时返回可操作的原因。 */
     @PluginHttpEndpoint(method = "POST", path = "/admin/servers/{serverId}/topology/resolve", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse resolveTopology(PluginHttpRequest request) { return http.resolveTopology(request); }
+
+    // ---------------------------------------------------------------- 群服互联
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/servers/{serverId}/bridge", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse bridgeSettings(PluginHttpRequest request) { return http.bridgeSettings(request); }
+
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/servers/{serverId}/bridge", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveBridgeSettings(PluginHttpRequest request) { return http.saveBridgeSettings(request); }
+
+    /** 可用消息连接（宿主消息 SPI 已启用的连接），供群服互联选群下拉使用。 */
+    @PluginHttpEndpoint(method = "GET", path = "/admin/options/connections", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse bridgeConnectionOptions(PluginHttpRequest request) { return http.bridgeConnectionOptions(); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/options/groups", permission = MinecraftServerPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse bridgeGroupOptions(PluginHttpRequest request) { return http.bridgeGroupOptions(request); }
 }

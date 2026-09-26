@@ -3,12 +3,14 @@ package online.yudream.base.plugin.minecraft.application.service;
 import online.yudream.base.plugin.minecraft.application.assembler.MinecraftServerAppAssembler;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
+import online.yudream.base.plugin.minecraft.api.PluginMinecraftPanelState;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftPlayerActivity;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftService;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftSubServer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftSubServerActivity;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
+import online.yudream.base.plugin.minecraft.application.cmd.MinecraftGameEventCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerSnapshotCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftServerSaveCmd;
@@ -82,6 +84,10 @@ public class MinecraftServerAppService implements PluginMinecraftService {
     private final PluginFileStore files;
     private final MinecraftServerAppAssembler assembler = new MinecraftServerAppAssembler();
     private final Object playerActivityLock = new Object();
+    /** mcpanel 回传的实例状态（内存态实时数据：面板会随状态变化重发，提供方重启即回中性）。 */
+    private final Map<String, PluginMinecraftPanelState> panelStates = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 群服互联转发回调；未装配（如单测）时不回调。 */
+    private volatile MinecraftBridgeListener bridgeListener;
 
     public MinecraftServerAppService(MinecraftServerRepository repository, MinecraftStatusService statusService, PluginContext pluginContext) {
         this(repository, statusService, pluginContext, pluginContext.files());
@@ -469,22 +475,61 @@ public class MinecraftServerAppService implements PluginMinecraftService {
 
     public MinecraftPlayerActivityDTO recordJoin(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
+        MinecraftPlayerActivityDTO result;
+        long eventAt;
         synchronized (playerActivityLock) {
-            long eventAt = eventAt(cmd);
+            eventAt = eventAt(cmd);
             MinecraftPlayerActivity activity = activity(serverId, cmd).join(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.JOIN, eventAt);
-            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+            result = assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
+        notifyPresence(serverId, true, cmd, eventAt);
+        return result;
     }
 
     public MinecraftPlayerActivityDTO recordQuit(String serverId, MinecraftPlayerEventCmd cmd) {
         requireServer(serverId);
+        MinecraftPlayerActivityDTO result;
+        long eventAt;
         synchronized (playerActivityLock) {
-            long eventAt = eventAt(cmd);
+            eventAt = eventAt(cmd);
             MinecraftPlayerActivity activity = activity(serverId, cmd).quit(cmd.subServer(), cmd.playerName(), eventAt);
             recordActivityEvent(serverId, cmd, MinecraftPlayerActivityEvent.Type.QUIT, eventAt);
-            return assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
+            result = assembler.toDTO(repository.savePlayerActivity(activity), System.currentTimeMillis());
         }
+        notifyPresence(serverId, false, cmd, eventAt);
+        return result;
+    }
+
+    private void notifyPresence(String serverId, boolean join, MinecraftPlayerEventCmd cmd, long eventAt) {
+        MinecraftBridgeListener listener = bridgeListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.onPresence(serverId, join, cmd.playerId(), cmd.playerName(), eventAt);
+        } catch (RuntimeException e) {
+            // 群服互联转发失败不影响上报主流程
+        }
+    }
+
+    /** 群服互联：聊天、死亡、成就等游戏内事件，不参与活动统计，只转发。 */
+    public void recordGameEvent(String serverId, MinecraftGameEventCmd cmd, MinecraftBridgeListener.GameEventKind kind) {
+        requireServer(serverId);
+        MinecraftBridgeListener listener = bridgeListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.onGameEvent(serverId, kind, cmd.playerName(), cmd.content(), normalizeTimestamp(cmd.eventAt()));
+        } catch (RuntimeException e) {
+            // 转发失败不影响上报响应
+        }
+    }
+
+    /** 装配群服互联桥接服务；传入 null 即关闭转发回调。 */
+    public void setBridgeListener(MinecraftBridgeListener listener) {
+        this.bridgeListener = listener;
     }
 
     public MinecraftPlayerActivityDTO recordAfkStart(String serverId, MinecraftPlayerEventCmd cmd) {
@@ -666,6 +711,45 @@ public class MinecraftServerAppService implements PluginMinecraftService {
         return playerActivities(serverId, page, size).records().stream()
                 .map(this::toPluginActivity)
                 .toList();
+    }
+
+    /** mcpanel 回传：迟到旧帧不覆盖新帧；未知子服抛 IllegalArgumentException 交面板计失败。 */
+    @Override
+    public boolean notifyPanelInstanceState(String serverId, String instanceId, String panelState, long atMs) {
+        if (serverId == null || serverId.isBlank() || instanceId == null || instanceId.isBlank()
+                || panelState == null || panelState.isBlank()) {
+            throw new IllegalArgumentException("面板状态回传参数不完整");
+        }
+        requireServer(serverId);
+        panelStates.compute(serverId, (key, existing) ->
+                existing != null && existing.updatedAt() > atMs ? existing
+                        : new PluginMinecraftPanelState(instanceId, panelState, atMs));
+        return true;
+    }
+
+    @Override
+    public Optional<PluginMinecraftPanelState> minecraftPanelState(String serverId) {
+        if (serverId == null || serverId.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(panelStates.get(serverId));
+    }
+
+    /** 主题列表展示位：回传新鲜（<5 分钟）且 running 时视为面板在线；其余派生文本。 */
+    public Map<String, Object> panelView(String serverId) {
+        PluginMinecraftPanelState state = panelStates.get(serverId);
+        if (state == null) {
+            return Map.of();
+        }
+        boolean fresh = System.currentTimeMillis() - state.updatedAt() < 5L * 60 * 1000;
+        boolean panelOnline = fresh && "running".equalsIgnoreCase(state.state());
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("online", panelOnline);
+        view.put("state", state.state());
+        view.put("instanceId", state.instanceId());
+        view.put("updatedAt", state.updatedAt());
+        view.put("stale", !fresh);
+        return view;
     }
 
     /**

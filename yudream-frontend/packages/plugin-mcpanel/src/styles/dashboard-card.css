@@ -1,0 +1,87 @@
+/**
+ * 首页仪表卡片体（宿主首页卡片）：统计块与快捷入口。
+ * 宿主已渲染卡片标题栏与外框，这里只负责卡片体；
+ * 卡片根是宿主卡片的 flex 子项，占满用 stretch，禁写 width/height:100%。
+ */
+
+.mcp-dash-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  margin: 2px 16px 16px;
+  overflow: hidden;
+}
+
+.mcp-dash-card__state {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 13px;
+}
+
+.mcp-dash-card__state.is-error {
+  color: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+.mcp-dash-card__stats {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mcp-dash-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid oklch(var(--border, 0.923 0.006 264.531));
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.mcp-dash-card__stat span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 12px;
+}
+
+.mcp-dash-card__stat strong {
+  overflow: hidden;
+  color: oklch(var(--foreground, 0.13 0.014 260));
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.mcp-dash-card__desc {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  margin: 0;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mcp-dash-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}

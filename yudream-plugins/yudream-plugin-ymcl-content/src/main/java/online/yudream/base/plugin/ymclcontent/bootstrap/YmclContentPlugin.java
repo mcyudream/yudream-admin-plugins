@@ -7,7 +7,10 @@ import online.yudream.base.plugin.spi.annotation.PluginRoute;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
+import online.yudream.base.plugin.ymclcontent.application.service.ContentDistributionService;
 import online.yudream.base.plugin.ymclcontent.application.service.UpdatePlatformService;
+import online.yudream.base.plugin.ymclcontent.interfaces.controller.ContentAdminController;
+import online.yudream.base.plugin.ymclcontent.interfaces.controller.ContentPublicController;
 import online.yudream.base.plugin.ymclcontent.interfaces.controller.UpdateAdminController;
 import online.yudream.base.plugin.ymclcontent.interfaces.controller.UpdatePublicController;
 
@@ -17,13 +20,14 @@ import java.util.Map;
  * YMCL 启动器自有更新平台插件。
  *
  * 更新：/api/plugins/ymcl-content/v1/update/**
+ * 内容分发：/api/plugins/ymcl-content/v1/content/** 与 /v1/catalog
  * 独立于 ymcl-adapter / YAP，也独立于 Axolotl 的 update.axlmc.org。
  */
 @PluginSpec(
         code = YmclContentPlugin.CODE,
         name = "ymcl-content",
         version = YmclContentPlugin.VERSION,
-        description = "YMCL 启动器自有更新平台：发包/清单/下载（独立公开端点）。"
+        description = "YMCL 启动器自有更新平台：发包/清单/下载与内容分发（独立公开端点）。"
 )
 @PluginPermissions({
         @PluginPermission(
@@ -48,13 +52,22 @@ import java.util.Map;
                         component = "ymcl-content/Releases",
                         permission = YmclContentPlugin.MANAGE_PERMISSION,
                         sort = 10
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/ymcl-content/content",
+                        name = "platform-plugin-ymcl-content-content",
+                        title = "内容分发",
+                        icon = "i-ri:macbook-line",
+                        component = "ymcl-content/Content",
+                        permission = YmclContentPlugin.MANAGE_PERMISSION,
+                        sort = 11
                 )
         }
 )
 public class YmclContentPlugin implements YuDreamPlugin {
 
     public static final String CODE = "ymcl-content";
-    public static final String VERSION = "2.1.0";
+    public static final String VERSION = "2.2.0";
 
     public static final String MANAGE_PERMISSION = "plugin:ymcl-content:manage";
 
@@ -68,6 +81,9 @@ public class YmclContentPlugin implements YuDreamPlugin {
         UpdatePlatformService updates = new UpdatePlatformService(context.documents(), context.files());
         context.registerHttpController(new UpdatePublicController(updates));
         context.registerHttpController(new UpdateAdminController(updates));
+        ContentDistributionService content = new ContentDistributionService(context.documents());
+        context.registerHttpController(new ContentPublicController(content));
+        context.registerHttpController(new ContentAdminController(content));
     }
 
     private static void removeLegacyCatalog(PluginContext context) {

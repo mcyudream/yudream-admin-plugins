@@ -101,7 +101,20 @@ export interface ActivityProofMapping {
 
 export type ActivityStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED'
 
-export type ActivityBindingType = 'PLAYTIME' | 'FORM' | 'QUIZ'
+export type ActivityBindingType = 'PLAYTIME' | 'FORM' | 'QUIZ' | 'ADVANCED'
+
+/** 高级自定义计分参数的展示视图：key 是计算式里的变量名（a、b、c…）。 */
+export interface ActivityBindingParamView {
+  key: string
+  label: string
+  type: 'PLAYTIME' | 'FORM' | 'QUIZ'
+  serverId: string
+  serverName: string
+  subServer: string
+  includeAfk: boolean
+  formCode: string
+  formName: string
+}
 
 export interface ActivityBinding {
   type: ActivityBindingType
@@ -114,6 +127,10 @@ export interface ActivityBinding {
   autoJoin: boolean
   formCode: string
   formName: string
+  params: ActivityBindingParamView[]
+  expression: string
+  minScore: number
+  maxScore: number | null
   requirementText: string
 }
 
@@ -154,6 +171,16 @@ export interface ActivityFormOption {
   publishedAt: TimeValue
 }
 
+/** 高级自定义计分参数的表单态：只声明取值来源，变量名（key）由后端按添加顺序分配。 */
+export interface ActivityParamForm {
+  type: 'PLAYTIME' | 'FORM' | 'QUIZ'
+  serverId: string
+  /** 空表示整服口径（不限子服）。 */
+  subServer: string
+  includeAfk: boolean
+  formCode: string
+}
+
 export interface ActivityBindingForm {
   type: ActivityBindingType
   serverId: string
@@ -163,6 +190,12 @@ export interface ActivityBindingForm {
   includeAfk: boolean
   autoJoin: boolean
   formCode: string
+  params: ActivityParamForm[]
+  expression: string
+  /** 达标分数线；必填，0 表示达到 0 分即通过。 */
+  minScore: number
+  /** 达标分数上限；0 表示不设上限（与 minOnlineMinutes 的「0 表示不限」口径一致）。 */
+  maxScore: number
 }
 
 export interface ActivitySaveForm {
@@ -183,6 +216,14 @@ export interface UserRequirement {
   text: string
   formCode: string
   formName: string
+}
+
+/** 参数映射表行：变量名 → 参数含义 → 取值来源，供书写计算式时对照。 */
+export interface AdvancedParamMapRow {
+  key: string
+  label: string
+  type: string
+  source: string
 }
 
 export interface UserActivity {

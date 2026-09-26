@@ -1,0 +1,21 @@
+/**
+ * mcpanel 样式入口：按领域拆分，顺序即层叠优先级（后者可覆盖前者）。
+ *
+ * - base.css        页面节奏 / 排版 / 表单原语 / 状态与趋势图（全插件共用）
+ * - dashboard-card.css 首页仪表卡片体（统计块 / 快捷入口）
+ * - management.css  管理列表（筛选工具栏 / 卡片视图 / 表格操作 / 详情 stat）
+ * - files.css       文件域（目录树 / 双栏工作区 / 迷你文件浏览器 / 磁盘条）
+ * - terminal.css    终端（外围 chrome 走主题 token，仅 .mcp-wt-screen 深色）
+ * - editor.css      文件编辑器工作区（目录侧栏 / 标签 / 行号窗格 / 保存栏）
+ * - editor-modal.css 弹窗形态覆盖（FaModal 内三栏工作区的尺寸与高度链）
+ *
+ * 契约：全部选择器挂在 mcp-* 根类下；is-* 状态只作为 mcp 根的后代/复合出现；
+ * 颜色统一 oklch(var(--token, <通道 fallback>))，见 base.css 头部说明。
+ */
+@import './styles/base.css';
+@import './styles/dashboard-card.css';
+@import './styles/management.css';
+@import './styles/files.css';
+@import './styles/terminal.css';
+@import './styles/editor.css';
+@import './styles/editor-modal.css';

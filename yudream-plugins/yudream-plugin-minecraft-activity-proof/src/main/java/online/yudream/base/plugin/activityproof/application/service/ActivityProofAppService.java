@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.activityproof.application.service;
 
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityBindingCmd;
+import online.yudream.base.plugin.activityproof.application.cmd.ActivityParamCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityParticipantAddCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofExportCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofMappingSaveCmd;
@@ -10,6 +11,7 @@ import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofTem
 import online.yudream.base.plugin.activityproof.application.cmd.ActivitySaveCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityTemplateMembersSaveCmd;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityBindingDTO;
+import online.yudream.base.plugin.activityproof.application.dto.ActivityBindingParamDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityProofSubServerDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityDTO;
 import online.yudream.base.plugin.activityproof.application.dto.ActivityDeptOptionDTO;
@@ -50,6 +52,8 @@ import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSo
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
 import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBinding;
+import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBindingParam;
+import online.yudream.base.plugin.activityproof.domain.valobj.ScoreFormula;
 import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDependencyServices;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftActivePlayer;
 import online.yudream.base.plugin.minecraft.api.PluginMinecraftOnlineWindow;
@@ -335,11 +339,72 @@ public class ActivityProofAppService {
                     throw new IllegalArgumentException("答题核验方式至多添加一个");
                 }
                 bindings.add(ActivityBinding.quiz());
+            } else if (type == ActivityBindingType.ADVANCED) {
+                if (bindings.stream().anyMatch(ActivityBinding::isAdvanced)) {
+                    throw new IllegalArgumentException("高级自定义核验方式至多添加一个");
+                }
+                bindings.add(toAdvancedBinding(cmd));
             } else {
                 bindings.add(ActivityBinding.form(cmd.formCode(), formName(cmd.formCode())));
             }
         }
         return bindings;
+    }
+
+    /**
+     * 组装高级自定义计分绑定：变量名（a、b、c…）按参数添加顺序在服务端分配，
+     * 前端只需声明每个参数的取值来源；展示名缺省时按来源自动生成，保证映射表可读。
+     */
+    private ActivityBinding toAdvancedBinding(ActivityBindingCmd cmd) {
+        List<ActivityParamCmd> paramCmds = cmd.params() == null ? List.of() : cmd.params();
+        if (paramCmds.isEmpty()) {
+            throw new IllegalArgumentException("高级自定义计分至少需要一个计分参数");
+        }
+        if (paramCmds.size() > ActivityBinding.MAX_PARAMS) {
+            throw new IllegalArgumentException("计分参数最多 " + ActivityBinding.MAX_PARAMS + " 个");
+        }
+        List<ActivityBindingParam> params = new ArrayList<>();
+        for (ActivityParamCmd paramCmd : paramCmds) {
+            if (paramCmd == null) {
+                continue;
+            }
+            ActivityBindingType paramType = ActivityBindingType.of(paramCmd.type());
+            if (paramType == null || paramType == ActivityBindingType.ADVANCED) {
+                throw new IllegalArgumentException("未知的计分参数类型：" + paramCmd.type());
+            }
+            String key = String.valueOf((char) ('a' + params.size()));
+            params.add(new ActivityBindingParam(
+                    key,
+                    advancedParamLabel(paramType, paramCmd),
+                    paramType,
+                    paramCmd.serverId(),
+                    paramCmd.subServer(),
+                    Boolean.TRUE.equals(paramCmd.includeAfk()),
+                    paramCmd.formCode(),
+                    formName(paramCmd.formCode())
+            ));
+        }
+        return ActivityBinding.advanced(params, cmd.expression(),
+                cmd.minScore() == null ? 0 : cmd.minScore(),
+                cmd.maxScore());
+    }
+
+    /** 参数缺省展示名：让映射表不需要管理员再手填就能看懂每个变量是什么。 */
+    private String advancedParamLabel(ActivityBindingType type, ActivityParamCmd cmd) {
+        if (hasText(cmd.label())) {
+            return cmd.label().trim();
+        }
+        return switch (type) {
+            case PLAYTIME -> {
+                String scope = hasText(cmd.subServer()) ? "的子服「" + cmd.subServer().trim() + "」" : "";
+                yield serverName(cmd.serverId()) + scope + "活动时段在线时长（分钟）";
+            }
+            case QUIZ -> "活动答题得分（答对题数）";
+            default -> {
+                String formLabel = formName(cmd.formCode());
+                yield (hasText(formLabel) ? "表单「" + formLabel + "」" : "表单") + "是否提交（1/0）";
+            }
+        };
     }
 
     private String formName(String formCode) {
@@ -1030,6 +1095,7 @@ public class ActivityProofAppService {
                 case PLAYTIME -> verifyPlaytime(activity, binding, participation.userId());
                 case FORM -> verifyForm(activity, binding, participation.userId());
                 case QUIZ -> verifyQuiz(activity, participation.userId());
+                case ADVANCED -> verifyAdvanced(activity, binding, participation.userId());
             };
             if (outcome.passed()) {
                 return participation.withVerification(VerifyStatus.PASSED, outcome.note());
@@ -1170,6 +1236,134 @@ public class ActivityProofAppService {
         return attempt.passed()
                 ? new VerifyOutcome(true, "活动答题达标（答对 ≥ " + config.passCorrect() + " 题）")
                 : new VerifyOutcome(false, "活动答题未达标（需答对至少 " + config.passCorrect() + " 题）");
+    }
+
+    /**
+     * 高级自定义计分：逐个解析参数取值 → 代入计算式求综合分 → 按达标区间判定。
+     *
+     * <p>参数说明写进核验说明（每个变量的取值），管理员核对分数来源时不需要再查原始数据。
+     * 「数据缺失」分两类：没有在线记录、未参与答题这类按 0 计入并照常算分；插件未启用、
+     * 答题待审核这类给不出确定分数的直接判不通过并说明原因，避免算出一个误导性的总分。
+     */
+    private VerifyOutcome verifyAdvanced(Activity activity, ActivityBinding binding, String userId) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        List<String> details = new ArrayList<>();
+        for (ActivityBindingParam param : binding.params()) {
+            ParamValue paramValue = advancedParamValue(activity, param, userId);
+            if (paramValue.unknown() != null) {
+                return new VerifyOutcome(false, "参数「" + param.label() + "」暂无法计分：" + paramValue.unknown());
+            }
+            values.put(param.key(), paramValue.value());
+            details.add(param.key() + "=" + advancedValueText(param, paramValue.value()));
+        }
+        ScoreFormula formula;
+        try {
+            formula = ScoreFormula.parse(binding.expression(),
+                    binding.params().stream().map(ActivityBindingParam::key).collect(Collectors.toCollection(LinkedHashSet::new)));
+        } catch (IllegalArgumentException e) {
+            return new VerifyOutcome(false, "计分公式无效：" + e.getMessage());
+        }
+        double score;
+        try {
+            score = formula.evaluate(values);
+        } catch (ArithmeticException e) {
+            return new VerifyOutcome(false, e.getMessage());
+        }
+        Double maxScore = binding.maxScore();
+        boolean passed = score >= binding.minScore() && (maxScore == null || score <= maxScore);
+        String interval = "≥ " + scoreText(binding.minScore())
+                + (maxScore == null ? "" : " 且 ≤ " + scoreText(maxScore));
+        String note = "综合得分 " + scoreText(score) + "（" + String.join("；", details)
+                + "），达标线 " + interval + (passed ? "，已达标" : "，未达标");
+        return new VerifyOutcome(passed, note);
+    }
+
+    /** 单个计分参数的取值；{@code unknown} 非空表示当前给不出确定分数，附带原因。 */
+    private record ParamValue(double value, String unknown) {
+    }
+
+    private ParamValue advancedParamValue(Activity activity, ActivityBindingParam param, String userId) {
+        return switch (param.type()) {
+            case PLAYTIME -> advancedPlaytimeValue(activity, param, userId);
+            case FORM -> advancedFormValue(activity, param, userId);
+            case QUIZ -> advancedQuizValue(activity, userId);
+            default -> new ParamValue(0, "不支持的参数类型");
+        };
+    }
+
+    /** 时长参数取活动时段在线分钟数；没有玩家映射或没有在线记录都按 0 分钟计。 */
+    private ParamValue advancedPlaytimeValue(Activity activity, ActivityBindingParam param, String userId) {
+        Optional<PluginMinecraftService> service = minecraftService();
+        if (service.isEmpty()) {
+            return new ParamValue(0, "Minecraft 服务器插件未启用");
+        }
+        List<ResolvedPlayer> players = resolvePlayers(param.serverId(), userId);
+        if (players.isEmpty()) {
+            return new ParamValue(0, null);
+        }
+        for (ResolvedPlayer player : players) {
+            Optional<PluginMinecraftOnlineWindow> window = lookupOnlineWindow(
+                    service.get(), param.serverId(), param.subServer(), player,
+                    activity.activityStart(), activity.activityEnd());
+            if (window.isPresent()) {
+                long millis = param.includeAfk() ? window.get().onlineMillis() : window.get().effectiveOnlineMillis();
+                return new ParamValue(millis / 60_000.0, null);
+            }
+        }
+        return new ParamValue(0, null);
+    }
+
+    /** 表单参数取活动周期内是否提交：已提交记 1，未提交记 0。 */
+    private ParamValue advancedFormValue(Activity activity, ActivityBindingParam param, String userId) {
+        PluginFormService forms = formService();
+        if (forms == null || !forms.enabled()) {
+            return new ParamValue(0, "动态表单能力未启用");
+        }
+        Long submitterId = parseUserId(userId);
+        if (submitterId == null) {
+            return new ParamValue(0, "用户身份无效");
+        }
+        long from = activity.signupStart() > 0 ? activity.signupStart() : activity.activityStart();
+        try {
+            boolean submitted = forms.submittedBy(param.formCode(), submitterId, from, activity.activityEnd());
+            return new ParamValue(submitted ? 1 : 0, null);
+        } catch (RuntimeException e) {
+            return new ParamValue(0, "查询表单提交记录失败：" + e.getMessage());
+        }
+    }
+
+    /** 答题参数取答对题数；答题环节未开启、判分未出或待审核时无法计分。 */
+    private ParamValue advancedQuizValue(Activity activity, String userId) {
+        ActivityQuizService.QuizScore score = quizService.quizScore(activity, userId);
+        if (!score.enabled()) {
+            return new ParamValue(0, "活动未开启答题环节");
+        }
+        if (!score.attempted()) {
+            return new ParamValue(0, null);
+        }
+        if (score.pendingReview()) {
+            return new ParamValue(0, "答题待人工/AI 审核，暂无分数");
+        }
+        if (!score.finished()) {
+            return new ParamValue(0, "答题尚未完成判分");
+        }
+        return new ParamValue(score.correctCount(), null);
+    }
+
+    /** 核验说明里参数取值的展示口径：与参数默认名中的单位保持一致。 */
+    private String advancedValueText(ActivityBindingParam param, double value) {
+        return switch (param.type()) {
+            case PLAYTIME -> (long) value + " 分钟";
+            case FORM -> value >= 0.5 ? "1（已提交）" : "0（未提交）";
+            case QUIZ -> (long) value + " 题";
+            default -> scoreText(value);
+        };
+    }
+
+    /** 分数展示：整数不带小数位，其余保留两位小数。 */
+    private static String scoreText(double value) {
+        String text = String.format(Locale.ROOT, "%.2f", value);
+        return text.endsWith(".00") ? text.substring(0, text.length() - 3) : text;
     }
 
     private record VerifyOutcome(boolean passed, String note) {
@@ -1734,6 +1928,20 @@ public class ActivityProofAppService {
         String formName = binding.isForm()
                 ? firstText(binding.formName(), formName(binding.formCode()), binding.formCode())
                 : "";
+        List<ActivityBindingParamDTO> params = binding.params().stream()
+                .map(param -> new ActivityBindingParamDTO(
+                        param.key(),
+                        param.label(),
+                        param.type().name(),
+                        param.serverId(),
+                        param.isPlaytime() ? serverName(param.serverId()) : "",
+                        param.subServer(),
+                        param.includeAfk(),
+                        param.formCode(),
+                        param.isForm()
+                                ? firstText(param.formName(), formName(param.formCode()), param.formCode())
+                                : ""))
+                .toList();
         return new ActivityBindingDTO(
                 binding.type().name(),
                 binding.serverId(),
@@ -1744,6 +1952,10 @@ public class ActivityProofAppService {
                 binding.autoJoin(),
                 binding.formCode(),
                 formName,
+                params,
+                binding.expression(),
+                binding.minScore(),
+                binding.maxScore(),
                 requirementText(binding, serverName, formName)
         );
     }
@@ -1751,6 +1963,16 @@ public class ActivityProofAppService {
     private String requirementText(ActivityBinding binding, String serverName, String formName) {
         if (binding.isQuiz()) {
             return "完成活动答题并达标";
+        }
+        if (binding.isAdvanced()) {
+            // 把变量映射写全：达标条件面向参与者展示，只给公式不给映射会看不懂每个字母是什么
+            String mapping = binding.params().stream()
+                    .map(param -> param.key() + " = " + param.label())
+                    .collect(Collectors.joining("；"));
+            String interval = binding.maxScore() == null
+                    ? "≥ " + scoreText(binding.minScore())
+                    : scoreText(binding.minScore()) + " ~ " + scoreText(binding.maxScore());
+            return "自定义计分达标：" + binding.expression() + " " + interval + "（" + mapping + "）";
         }
         if (binding.isPlaytime()) {
             String metric = binding.includeAfk() ? "在线" : "有效在线";

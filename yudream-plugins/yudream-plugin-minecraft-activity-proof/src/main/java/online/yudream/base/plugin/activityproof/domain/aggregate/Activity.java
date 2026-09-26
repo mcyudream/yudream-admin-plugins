@@ -4,6 +4,7 @@ import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityBinding
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityDeptMode;
 import online.yudream.base.plugin.activityproof.domain.enumerate.ActivityStatus;
 import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBinding;
+import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBindingParam;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,7 +55,10 @@ public record Activity(
         }
         // 紧凑构造器内字段尚未赋值，必须基于参数判断，不能调用读取字段的实例方法
         boolean playtimeBound = bindings.stream().anyMatch(binding -> binding.type() == ActivityBindingType.PLAYTIME);
-        if (playtimeBound && (activityStart <= 0 || activityEnd <= activityStart)) {
+        // 高级自定义里含时长参数时同样按活动时间窗取在线时长，没有窗口就算不出分
+        boolean advancedPlaytimeBound = bindings.stream().anyMatch(binding -> binding.type() == ActivityBindingType.ADVANCED
+                && binding.params().stream().anyMatch(ActivityBindingParam::isPlaytime));
+        if ((playtimeBound || advancedPlaytimeBound) && (activityStart <= 0 || activityEnd <= activityStart)) {
             throw new IllegalArgumentException("绑定时长检测的活动必须配置有效的活动起止时间");
         }
     }

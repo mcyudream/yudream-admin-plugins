@@ -39,6 +39,26 @@
   flex-wrap: wrap;
 }
 
+.ymcl-filter-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ymcl-filter-bar > :first-child {
+  min-width: 200px;
+}
+
+.ymcl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+}
+
 .ymcl-markdown {
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--muted-foreground, #6b7280) 40%, transparent);

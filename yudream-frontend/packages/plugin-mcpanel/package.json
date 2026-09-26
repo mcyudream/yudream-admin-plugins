@@ -1,0 +1,32 @@
+{
+  "name": "@yudream/plugin-mcpanel",
+  "version": "0.13.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./remote": "./dist/remoteEntry.js"
+  },
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0",
+    "test": "node --test src/composables/*.test.ts src/utils/*.test.ts"
+  },
+  "dependencies": {
+    "@yudream/components": "catalog:",
+    "@yudream/dataviz": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

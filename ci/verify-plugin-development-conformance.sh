@@ -64,10 +64,24 @@ report_matches \
   'hasPermission\([^)]*MANAGE_PERMISSION' \
   yudream-plugins -g '*HttpFacade.java'
 
+# src/pages/admin/** is the admin surface layer (repo rule): the canManage scan
+# below exempts that directory and code review owns its route/permission wiring.
+# The only automated check here is path-based: pages under src/pages/admin must
+# not contain user-side /me or /my API path literals.
 report_matches \
   "personal frontend flows must not switch datasets based on management permission" \
   'v-if="[^"]*canManage|canManage\.value[[:space:]]*\?[[:space:]]*load|if[[:space:]]*\(canManage\.value\)' \
-  yudream-frontend/packages -g '*.ts' -g '*.vue'
+  yudream-frontend/packages -g '*.ts' -g '*.vue' -g '!**/src/pages/admin/**'
+
+admin_page_dirs=$(find yudream-frontend/packages -type d -path '*/src/pages/admin' 2>/dev/null || true)
+for admin_dir in $admin_page_dirs; do
+  me_hits=$(rg -n --no-messages "['\"\`]/?(me|my)/" "$admin_dir" -g '*.vue' -g '*.ts' 2>/dev/null || true)
+  if [ -n "$me_hits" ]; then
+    echo "[verify-plugin-development-conformance] admin pages must not call /me or /my user-side APIs" >&2
+    echo "$me_hits" >&2
+    failed=1
+  fi
+done
 
 report_matches \
   "personal API paths must use /me instead of /my" \

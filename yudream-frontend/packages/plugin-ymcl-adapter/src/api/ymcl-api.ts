@@ -5,6 +5,7 @@ import type {
   CustomPageDoc,
   DomainConfig,
   HomeConfig,
+  LaunchEventView,
   ManifestPayload,
   NavigationConfig,
   NavigationConfigItem,
@@ -14,6 +15,7 @@ import type {
   PackVersionSummary,
   ServerBinding,
   ServerView,
+  StatsSummary,
   ThemeConfigView,
   ThemeProfile,
 } from '../types'
@@ -121,6 +123,10 @@ export function createYmclApi(sdk: YuDreamPluginSdk) {
     saveBinding: (serverId: string, binding: { packId: string, channel: string, pinnedVersion: string | null, updatePolicy: string }) =>
       rawPut<ServerBinding>(`/mip/api/servers/${encodeURIComponent(serverId)}/binding`, binding),
     bundles: () => sdk.http.get<{ bundles: BundleDoc[] }>('/v1/admin/bundles'),
+    statsSummary: (days = 14) =>
+      sdk.http.get<StatsSummary>(`/v1/admin/stats/summary?days=${days}`),
+    statsLaunches: (limit = 20) =>
+      sdk.http.get<{ launches: LaunchEventView[], total: number }>(`/v1/admin/stats/launches?limit=${limit}`),
     uploadBundle: (bundleId: string, version: string, zip: File) =>
       new Promise<{ saved: boolean, sha256: string, size: number }>((resolve, reject) => {
         const reader = new FileReader()

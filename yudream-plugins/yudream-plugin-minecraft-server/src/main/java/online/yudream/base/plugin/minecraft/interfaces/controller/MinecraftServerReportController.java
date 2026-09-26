@@ -58,4 +58,22 @@ public class MinecraftServerReportController {
      */
     @PluginHttpEndpoint(method = "POST", path = "/report/topology", permission = MinecraftServerPlugin.REPORT_PERMISSION)
     public PluginHttpResponse topologyByAddress(PluginHttpRequest request) { return http.reportTopologyByAddress(request); }
+
+    // ---------------------------------------------------------------- 群服互联
+
+    /** 游戏内聊天上报：命中群服互联配置时转发到绑定的群聊。 */
+    @PluginHttpEndpoint(method = "POST", path = "/report/servers/{serverId}/events/chat", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameChat(PluginHttpRequest request) { return http.gameChat(request); }
+
+    /** 玩家死亡消息上报。 */
+    @PluginHttpEndpoint(method = "POST", path = "/report/servers/{serverId}/events/death", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameDeath(PluginHttpRequest request) { return http.gameDeath(request); }
+
+    /** 玩家成就（进度）达成上报。 */
+    @PluginHttpEndpoint(method = "POST", path = "/report/servers/{serverId}/events/advancement", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameAdvancement(PluginHttpRequest request) { return http.gameAdvancement(request); }
+
+    /** 群消息增量拉取：MC 端桥接按 after 游标轮询并游戏内广播。 */
+    @PluginHttpEndpoint(method = "GET", path = "/report/servers/{serverId}/chat/inbound", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse chatInbound(PluginHttpRequest request) { return http.chatInbound(request); }
 }

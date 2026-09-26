@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.activityproof.application.cmd;
 
+import java.util.List;
+
 public record ActivityBindingCmd(
         String type,
         String serverId,
@@ -7,6 +9,10 @@ public record ActivityBindingCmd(
         Integer minOnlineMinutes,
         Boolean includeAfk,
         Boolean autoJoin,
-        String formCode
+        String formCode,
+        List<ActivityParamCmd> params,
+        String expression,
+        Double minScore,
+        Double maxScore
 ) {
 }

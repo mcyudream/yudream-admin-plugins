@@ -1,0 +1,10 @@
+name: playtime-points
+displayName: 在线时长积分
+description: 按服务器权重把玩家的有效在线时长（扣除挂机）结算为钱包积分，玩家每次退出服务器后自动结算一次。
+icon: i-ri:coins-line
+main: online.yudream.base.plugin.playtimepoints.bootstrap.PlaytimePointsPlugin
+version: 1.0.1
+softdepend:
+  - minecraft-server
+  - yudream-wallet
+  - yudream-skin

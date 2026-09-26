@@ -80,6 +80,45 @@ public final class ActivityQuizService {
                 .orElse(List.of());
     }
 
+    /**
+     * 答题得分快照：供高级自定义计分的「答题得分」参数读取，取答对题数作为分数。
+     * {@code scored()} 为 true 表示当前能给出确定分数（已作答、判分完成且不在人工/AI 审核中）。
+     */
+    public record QuizScore(boolean enabled, boolean attempted, boolean finished, boolean pendingReview,
+                            int correctCount, int totalCount) {
+
+        public boolean scored() {
+            return enabled && attempted && finished && !pendingReview;
+        }
+    }
+
+    /**
+     * 拉取用户在本活动答题环节的得分；与达标核验一致先同步题库侧最新判分，
+     * 避免用户答完未回到活动页导致分数滞后。答题环节未开启时返回 {@code enabled=false}。
+     */
+    public QuizScore quizScore(Activity activity, String userId) {
+        ActivityQuizConfig config = repository.quizConfig(activity.id()).orElse(null);
+        if (config == null || !config.enabled()) {
+            return new QuizScore(false, false, false, false, 0, 0);
+        }
+        ActivityQuizAttempt attempt = repository.quizAttempt(activity.id(), userId).orElse(null);
+        if (attempt == null) {
+            return new QuizScore(true, false, false, false, 0, 0);
+        }
+        attempt = syncQuizResult(activity, config, attempt, userId);
+        String sessionId = attempt.sessionId();
+        if (sessionId.isBlank()) {
+            return new QuizScore(true, true, false, false, 0, 0);
+        }
+        Optional<QuestionBankApi.QuestionBankResult> result = questionBankApi.get()
+                .flatMap(api -> safeResult(api, userId, sessionId));
+        if (result.isEmpty() || !result.get().finished()) {
+            return new QuizScore(true, true, false, false, 0, 0);
+        }
+        QuestionBankApi.QuestionBankResult score = result.get();
+        return new QuizScore(true, true, true, score.pendingReview(), score.correctCount(), score.totalCount());
+    }
+
     // ---------------------------------------------------------------- user
 
     public ActivityQuizViewDTO quizView(String activityId, String userId) {

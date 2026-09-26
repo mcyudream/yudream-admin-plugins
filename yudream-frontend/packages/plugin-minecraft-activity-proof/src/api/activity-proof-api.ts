@@ -45,6 +45,14 @@ export interface ActivityQuery {
   size?: number
 }
 
+export interface ActivityBindingParamPayload {
+  type: string
+  serverId?: string
+  subServer?: string
+  includeAfk?: boolean
+  formCode?: string
+}
+
 export interface ActivityBindingPayload {
   type: string
   serverId?: string
@@ -52,6 +60,11 @@ export interface ActivityBindingPayload {
   includeAfk?: boolean
   autoJoin?: boolean
   formCode?: string
+  /** 高级自定义计分：参数来源列表（变量名由后端按顺序分配）。 */
+  params?: ActivityBindingParamPayload[]
+  expression?: string
+  minScore?: number
+  maxScore?: number
 }
 
 export interface ActivitySavePayload {

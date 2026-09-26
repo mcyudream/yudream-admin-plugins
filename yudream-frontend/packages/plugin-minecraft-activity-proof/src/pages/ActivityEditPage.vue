@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ActivityBindingForm, ActivityParamForm } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { FaButton, FaCheckbox, FaCheckboxGroup, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, YdRangePicker } from '@yudream/components'
@@ -6,6 +7,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import { useActivityEdit } from '../composables/useActivityEdit'
+import { paramKey, validateFormula } from '../composables/formula'
 import { normalizeFileUrl } from '../composables/utils'
 
 const props = defineProps<{
@@ -88,6 +90,7 @@ const quizSubjectiveOptions = [
 ]
 
 const hasQuizBinding = computed(() => form.bindings.some(binding => binding.type === 'QUIZ'))
+const hasAdvancedBinding = computed(() => form.bindings.some(binding => binding.type === 'ADVANCED'))
 
 function bindingTag(type: string) {
   if (type === 'PLAYTIME') {
@@ -96,7 +99,77 @@ function bindingTag(type: string) {
   if (type === 'QUIZ') {
     return { variant: 'secondary' as const, text: '答题达标' }
   }
+  if (type === 'ADVANCED') {
+    return { variant: 'secondary' as const, text: '高级自定义计分' }
+  }
   return { variant: 'outline' as const, text: '表单提交' }
+}
+
+const advancedParamTypeOptions = [
+  { label: '服务器在线时长', value: 'PLAYTIME' },
+  { label: '答题得分', value: 'QUIZ' },
+  { label: '表单提交', value: 'FORM' },
+]
+
+function serverLabel(serverId: string) {
+  return servers.value.find(item => item.id === serverId)?.name || ''
+}
+
+function formLabel(formCode: string) {
+  return formOptions.value.find(item => item.code === formCode)?.name || ''
+}
+
+/** 参数含义（自动生成，用于参数映射表格与管理端文案对齐）。 */
+function advancedParamMeaning(param: ActivityParamForm) {
+  if (param.type === 'PLAYTIME') {
+    const server = serverLabel(param.serverId)
+    const scope = param.subServer ? `的子服「${param.subServer}」` : ''
+    return `${server || '未选择服务器'}${scope}活动时段在线时长（分钟）`
+  }
+  if (param.type === 'QUIZ') {
+    return '活动答题得分（答对题数）'
+  }
+  const name = formLabel(param.formCode)
+  return `表单「${name || '未选择表单'}」是否提交（1/0）`
+}
+
+/** 参数映射表：变量名 → 含义，供书写计算式时对照。 */
+function advancedParamRows(binding: ActivityBindingForm) {
+  return binding.params.map((param, index) => ({
+    key: paramKey(index),
+    meaning: advancedParamMeaning(param),
+  }))
+}
+
+/** 公式实时校验：错误时给出可直接展示的原因，正确时提示已引用的变量。 */
+function advancedFormulaState(binding: ActivityBindingForm) {
+  const keys = binding.params.map((_, index) => paramKey(index))
+  const check = validateFormula(binding.expression, keys)
+  if (check.ok) {
+    const used = new Set((binding.expression.match(/[a-zA-Z]/g) || []).map(char => char.toLowerCase()))
+    const referenced = keys.filter(key => used.has(key))
+    return {
+      ok: true,
+      message: referenced.length
+        ? `公式语法正确，引用参数：${referenced.join('、')}`
+        : '公式语法正确（尚未引用任何参数变量）',
+    }
+  }
+  return { ok: false, message: check.message }
+}
+
+/** 含答题得分参数但答题环节未开启时给出预警，与「答题」核验方式的提示口径一致。 */
+function advancedQuizWarning(binding: ActivityBindingForm) {
+  if (!binding.params.some(param => param.type === 'QUIZ')) {
+    return ''
+  }
+  if (!isEdit.value) {
+    return '含答题得分参数的活动需先保存，并在下方「答题环节」开启答题，否则该参数始终无法计分。'
+  }
+  if (!quizForm.enabled) {
+    return '当前答题环节未开启，请在下方「答题环节」开启并保存，否则答题得分参数始终无法计分。'
+  }
+  return ''
 }
 
 async function coverUpload(options: { file: File }) {
@@ -223,6 +296,9 @@ async function save() {
                   <FaButton size="sm" variant="outline" type="button" :disabled="!quizReady || hasQuizBinding" @click="model.addBinding('QUIZ')">
                     <FaIcon name="i-ri:questionnaire-line" />添加答题
                   </FaButton>
+                  <FaButton size="sm" variant="outline" type="button" :disabled="hasAdvancedBinding" @click="model.addBinding('ADVANCED')">
+                    <FaIcon name="i-ri:function-line" />添加高级自定义
+                  </FaButton>
                 </div>
               </div>
               <p class="text-sm text-muted-foreground">
@@ -275,12 +351,138 @@ async function save() {
                     </label>
                     <span class="text-xs text-muted-foreground">用户在活动时段内提交该表单即通过核验。</span>
                   </template>
-                  <template v-else>
+                  <template v-else-if="binding.type === 'QUIZ'">
                     <span class="text-xs text-muted-foreground">
                       用户在活动详情完成答题并达标即通过核验；抽题数量、达标题数等规则在下方「答题环节」中配置（需先保存活动）。
                     </span>
                     <span v-if="isEdit && !quizForm.enabled" class="text-xs text-amber-600">
                       当前答题环节未开启，请在下方「答题环节」开启并保存，否则该核验方式始终不通过。
+                    </span>
+                  </template>
+                  <template v-else>
+                    <p class="text-sm text-muted-foreground">
+                      把服务器在线时长、答题得分、表单提交等数据加为计分参数，再按参数映射表书写带权重的计算公式；
+                      参与者的综合得分达到达标分数线（且不超过可选上限）即通过该核验方式。
+                    </p>
+                    <div class="grid gap-2">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span>计分参数 <em class="required-mark">*</em></span>
+                        <div class="flex flex-wrap gap-2">
+                          <FaButton size="sm" variant="outline" type="button" :disabled="!minecraftReady" @click="model.addAdvancedParam(binding, 'PLAYTIME')">
+                            <FaIcon name="i-ri:timer-line" />服务器在线时长
+                          </FaButton>
+                          <FaButton size="sm" variant="outline" type="button" :disabled="!quizReady" @click="model.addAdvancedParam(binding, 'QUIZ')">
+                            <FaIcon name="i-ri:questionnaire-line" />答题得分
+                          </FaButton>
+                          <FaButton size="sm" variant="outline" type="button" :disabled="!formReady" @click="model.addAdvancedParam(binding, 'FORM')">
+                            <FaIcon name="i-ri:file-list-3-line" />表单提交
+                          </FaButton>
+                        </div>
+                      </div>
+                      <template v-if="binding.params.length">
+                        <div class="grid gap-2 rounded-md border p-2">
+                          <div class="hidden md:grid md:grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_2.5rem] md:gap-2 text-xs text-muted-foreground">
+                            <span>变量</span>
+                            <span>参数类型</span>
+                            <span>取值来源</span>
+                            <span />
+                          </div>
+                          <div
+                            v-for="(param, paramIndex) in binding.params"
+                            :key="paramIndex"
+                            class="grid gap-2 border-t pt-2 first:border-t-0 first:pt-0 md:grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_2.5rem] md:items-start md:gap-2"
+                          >
+                            <span class="inline-flex h-6 w-9 items-center justify-center rounded bg-muted font-mono text-sm font-semibold">
+                              {{ paramKey(paramIndex) }}
+                            </span>
+                            <FaSelect
+                              :model-value="param.type"
+                              :options="advancedParamTypeOptions"
+                              @update:model-value="value => model.changeAdvancedParamType(param, String(value || ''))"
+                            />
+                            <div class="grid gap-2 md:grid-cols-2">
+                              <template v-if="param.type === 'PLAYTIME'">
+                                <FaSelect
+                                  :model-value="param.serverId"
+                                  :options="serverSelectOptions"
+                                  placeholder="选择服务器"
+                                  @update:model-value="value => model.changeServer(param, String(value || ''))"
+                                />
+                                <FaSelect
+                                  v-if="model.subServersOf(param.serverId).length"
+                                  v-model="param.subServer"
+                                  :options="subServerOptions(param.serverId)"
+                                  placeholder="整服（不限子服）"
+                                />
+                                <FaCheckbox v-model="param.includeAfk" class="md:col-span-2">
+                                  挂机时间也计入（在线口径）
+                                </FaCheckbox>
+                              </template>
+                              <FaSelect
+                                v-else-if="param.type === 'FORM'"
+                                v-model="param.formCode"
+                                class="md:col-span-2"
+                                :options="formSelectOptions"
+                                placeholder="选择已发布的表单"
+                              />
+                              <span v-else class="text-sm text-muted-foreground md:col-span-2">
+                                取本活动答题环节的答对题数（答对题数在「答题环节」配置）。
+                              </span>
+                            </div>
+                            <FaButton size="sm" variant="destructive" type="button" @click="model.removeAdvancedParam(binding, paramIndex)">
+                              <FaIcon name="i-ri:delete-bin-line" />
+                            </FaButton>
+                          </div>
+                        </div>
+                        <div class="grid gap-2 rounded-md border bg-muted/40 p-3">
+                          <span class="text-sm font-medium">参数映射表（公式中直接使用「变量」列的字母）</span>
+                          <div class="grid gap-1 font-mono text-sm">
+                            <div
+                              v-for="row in advancedParamRows(binding)"
+                              :key="row.key"
+                              class="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2"
+                            >
+                              <span class="font-semibold">{{ row.key }}</span>
+                              <span class="break-all font-sans text-muted-foreground">{{ row.meaning }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                      <p v-else class="text-sm text-muted-foreground">
+                        还没有计分参数，请先点击上方按钮添加，例如添加两台服务器的在线时长和答题得分。
+                      </p>
+                    </div>
+                    <label class="grid gap-2">
+                      <span>计分公式 <em class="required-mark">*</em></span>
+                      <FaInput
+                        v-model="binding.expression"
+                        placeholder="如：0.5*a/30 + 0.5*b/30 + c*0.2"
+                      />
+                      <span :class="advancedFormulaState(binding).ok ? 'text-xs text-muted-foreground' : 'text-xs text-red-600'">
+                        {{ advancedFormulaState(binding).message }}
+                      </span>
+                      <span class="text-xs text-muted-foreground">
+                        支持 + - * / ( )、数字与参数变量；示例表示服务器时长除以 30 折算后各占 50%，答题每答对一题加 0.2 分。
+                      </span>
+                    </label>
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label class="grid gap-2">
+                        <span>达标分数线 <em class="required-mark">*</em></span>
+                        <FaNumberField v-model="binding.minScore" :min="0" placeholder="综合得分达到该分数线即通过" />
+                      </label>
+                      <label class="grid gap-2">
+                        <span>分数上限（可选）</span>
+                        <FaNumberField v-model="binding.maxScore" :min="0" placeholder="0 表示不设上限" />
+                      </label>
+                    </div>
+                    <span class="text-xs text-muted-foreground">
+                      核验时逐人计算综合得分，达到「分数线 ~ 上限」区间即通过；上限填 0 表示只按下限判定。
+                    </span>
+                    <span v-if="advancedQuizWarning(binding)" class="text-xs text-amber-600">
+                      {{ advancedQuizWarning(binding) }}
+                    </span>
+                    <span v-if="binding.params.some(param => param.type === 'PLAYTIME') && !form.activityRange?.length" class="text-xs text-amber-600">
+                      含服务器时长参数的活动需要配置活动时间，在线时长按活动时间窗统计。
                     </span>
                   </template>
                 </div>

@@ -505,6 +505,64 @@ class MinecraftServerAppServiceTest {
         assertTrue(service.minecraftSubServers(null).isEmpty());
     }
 
+    // -------------------------------------------------- mcpanel 面板状态回传
+
+    @Test
+    void panelStateRoundTripAndStaleFrameProtection() {
+        assertTrue(service.notifyPanelInstanceState("server-1", "inst-1", "running", BASE));
+        Optional<online.yudream.base.plugin.minecraft.api.PluginMinecraftPanelState> first =
+                service.minecraftPanelState("server-1");
+        assertTrue(first.isPresent());
+        assertEquals("inst-1", first.get().instanceId());
+        assertEquals("running", first.get().state());
+
+        // 迟到旧帧不覆盖新帧。
+        service.notifyPanelInstanceState("server-1", "inst-1", "exited", BASE - 5_000);
+        assertEquals("running", service.minecraftPanelState("server-1").orElseThrow().state());
+
+        // 新帧正常覆盖。
+        service.notifyPanelInstanceState("server-1", "inst-1", "stopped", BASE + 5_000);
+        assertEquals("stopped", service.minecraftPanelState("server-1").orElseThrow().state());
+    }
+
+    @Test
+    void panelStateRejectsUnknownServerAndIncompleteArgs() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.notifyPanelInstanceState("no-such-server", "inst-1", "running", BASE));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.notifyPanelInstanceState("server-1", "", "running", BASE));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.notifyPanelInstanceState("server-1", "inst-1", " ", BASE));
+        assertTrue(service.minecraftPanelState("no-such-server").isEmpty());
+        assertTrue(service.minecraftPanelState(null).isEmpty());
+    }
+
+    @Test
+    void panelViewMarksOnlineOnlyForFreshRunningState() {
+        // 先落一帧过期数据（空表接受任意时间戳），视图应标 stale 且不视为在线。
+        assertTrue(service.notifyPanelInstanceState("server-1", "inst-1", "running",
+                System.currentTimeMillis() - 10L * 60 * 1000));
+        Map<String, Object> stale = service.panelView("server-1");
+        assertEquals(Boolean.FALSE, stale.get("online"));
+        assertEquals(Boolean.TRUE, stale.get("stale"));
+
+        // 新鲜 running 帧：面板在线。
+        assertTrue(service.notifyPanelInstanceState("server-1", "inst-1", "running",
+                System.currentTimeMillis()));
+        Map<String, Object> view = service.panelView("server-1");
+        assertEquals(Boolean.TRUE, view.get("online"));
+        assertEquals(Boolean.FALSE, view.get("stale"));
+        assertEquals("inst-1", view.get("instanceId"));
+
+        // 非运行态。
+        assertTrue(service.notifyPanelInstanceState("server-1", "inst-1", "exited",
+                System.currentTimeMillis()));
+        assertEquals(Boolean.FALSE, service.panelView("server-1").get("online"));
+
+        // 无回传 → 空视图。
+        assertTrue(service.panelView("no-such-server").isEmpty());
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /** 让 mock 仓储记住写入的记录，便于断言跨事件累计的结果。 */

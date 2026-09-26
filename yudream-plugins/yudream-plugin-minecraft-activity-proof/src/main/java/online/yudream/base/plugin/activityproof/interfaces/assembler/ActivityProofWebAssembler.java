@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.activityproof.interfaces.assembler;
 
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityBindingCmd;
+import online.yudream.base.plugin.activityproof.application.cmd.ActivityParamCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityParticipantAddCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofExportCmd;
 import online.yudream.base.plugin.activityproof.application.cmd.ActivityProofMappingSaveCmd;
@@ -73,9 +74,14 @@ public class ActivityProofWebAssembler {
     }
 
     public ActivityBindingCmd toCmd(ActivityBindingRequest request) {
+        List<ActivityParamCmd> params = request.params() == null ? List.of() : request.params().stream()
+                .map(param -> new ActivityParamCmd(param.type(), param.label(), param.serverId(),
+                        param.subServer(), param.includeAfk(), param.formCode()))
+                .toList();
         return new ActivityBindingCmd(request.type(), request.serverId(), request.subServer(),
                 request.minOnlineMinutes(), request.includeAfk(),
-                request.autoJoin(), request.formCode());
+                request.autoJoin(), request.formCode(), params,
+                request.expression(), request.minScore(), request.maxScore());
     }
 
     public ActivityProofExportCmd toCmd(ActivityProofExportRequest request) {

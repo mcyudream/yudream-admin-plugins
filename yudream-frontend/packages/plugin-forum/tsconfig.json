@@ -1,0 +1,5 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": { "strict": true, "skipLibCheck": true, "moduleResolution": "Bundler", "allowJs": false, "types": ["vite/client"] },
+  "include": ["src/**/*.{ts,vue}", "vite.config.ts"]
+}

@@ -32,7 +32,8 @@ public class YmclActionController {
         PluginPrincipal principal = request.principal();
         YmclDataContext context = new YmclDataContext(1, 20,
                 principal == null ? null : principal.userId(),
-                YmclDataController.flattenQuery(request));
+                YmclDataController.flattenQuery(request),
+                principal == null ? java.util.List.of() : principal.permissions());
         Map<String, Object> params = parseParams(request.body());
         return aggregator.findActionProvider(providerCode)
                 .map(provider -> execute(provider, actionCode, params, context))

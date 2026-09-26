@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.activityproof.application.dto;
 
+import java.util.List;
+
 public record ActivityBindingDTO(
         String type,
         String serverId,
@@ -10,6 +12,10 @@ public record ActivityBindingDTO(
         boolean autoJoin,
         String formCode,
         String formName,
+        List<ActivityBindingParamDTO> params,
+        String expression,
+        double minScore,
+        Double maxScore,
         String requirementText
 ) {
 }

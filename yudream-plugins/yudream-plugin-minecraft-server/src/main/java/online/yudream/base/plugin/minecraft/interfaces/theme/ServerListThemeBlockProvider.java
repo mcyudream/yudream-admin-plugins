@@ -54,18 +54,24 @@ public final class ServerListThemeBlockProvider implements PluginThemeBlockProvi
         boolean online = status != null && "ONLINE".equalsIgnoreCase(status.status());
         int onlinePlayers = status == null ? 0 : status.onlinePlayers();
         int maxPlayers = status == null ? 0 : status.maxPlayers();
+        // mcpanel 回传（§5.7）：ping 快照缺失时用新鲜的面板实例状态兜底展示，
+        // 并始终附带 panel 明细供模板按需渲染；已有 ping 快照的语义不变。
+        Map<String, Object> panel = appService.panelView(server.id());
+        boolean panelOnline = Boolean.TRUE.equals(panel.get("online"));
+        boolean derivedOnline = online || (status == null && panelOnline);
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("name", server.name());
         view.put("icon", endpointStatus == null || endpointStatus.favicon() == null ? "" : endpointStatus.favicon());
         view.put("description", BriefText.ofMarkdown(server.descriptionMarkdown()));
         view.put("address", primary == null ? "" : primary.address());
-        view.put("online", online);
-        view.put("statusText", online ? "在线" : "离线");
+        view.put("online", derivedOnline);
+        view.put("statusText", derivedOnline ? "在线" : "离线");
         view.put("motd", endpointStatus == null || endpointStatus.motd() == null || endpointStatus.motd().isBlank()
                 ? "" : MinecraftStatusService.plainMotd(endpointStatus.motd()));
         view.put("playersText", maxPlayers > 0 ? onlinePlayers + "/" + maxPlayers : String.valueOf(onlinePlayers));
         view.put("latencyText", endpointStatus == null || endpointStatus.ping() == null
                 ? "" : endpointStatus.ping() + " ms");
+        view.put("panel", panel.isEmpty() ? null : panel);
         return view;
     }
 }

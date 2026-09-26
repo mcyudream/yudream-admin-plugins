@@ -1,0 +1,57 @@
+/* 宿主主题 token 是 oklch 通道值，编辑器不覆盖宿主主题。 */
+.mcp-editor-page { margin-top:16px; min-width:0; }
+.mced { position:relative; display:flex; min-width:0; width:100%; height:clamp(480px,calc(100dvh - 230px),1080px); overflow:hidden; border:1px solid oklch(var(--border,.92 0 0)); border-radius:12px; background:oklch(var(--card,1 0 0)); color:oklch(var(--foreground,.15 0 0)); }
+.mced.is-fill { height:100%; border:0; border-radius:0; }
+.mced-side { display:flex; flex-direction:column; flex:none; width:248px; min-width:0; min-height:0; border-right:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--muted,.97 0 0) / .5); }
+.mced-side .mcp-fbp { min-height:0; flex:1; }
+.mced-side .mcp-fbp-list { max-height:none; }
+.mced-side-head { display:none; align-items:center; justify-content:space-between; padding:6px 12px; border-bottom:1px solid oklch(var(--border,.92 0 0)); font-size:12px; font-weight:600; }
+.mced-main { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+.mced-toolbar { display:flex; align-items:center; min-height:44px; gap:4px; padding:0 8px; border-bottom:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--muted,.97 0 0) / .6); }
+.mced-side-toggle { display:none; flex:none; }
+.mced-tabs { display:flex; min-width:0; overflow-x:auto; align-self:stretch; gap:2px; scrollbar-width:thin; }
+.mced-tab { position:relative; display:flex; align-items:center; gap:6px; flex:none; max-width:220px; padding:0 10px; border-bottom:2px solid transparent; color:oklch(var(--muted-foreground,.55 0 0)); font-size:12px; }
+.mced-tab.is-active { color:oklch(var(--foreground,.15 0 0)); background:oklch(var(--card,1 0 0)); border-bottom-color:oklch(var(--primary,.55 .15 250)); }
+.mced-tab-select { display:flex; align-items:center; gap:6px; min-width:0; height:100%; padding:0; border:0; background:transparent; text-align:left; cursor:pointer; }
+.mced-tab-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mced-tab-dot { flex:none; width:6px; height:6px; border-radius:50%; background:oklch(var(--primary,.55 .15 250)); }
+.mced-tab-close { display:inline-flex; align-items:center; justify-content:center; flex:none; width:22px; height:22px; border:0; border-radius:4px; background:transparent; color:inherit; cursor:pointer; }
+.mced-tab-close:hover { color:oklch(var(--destructive,.6 .2 25)); background:oklch(var(--destructive,.6 .2 25) / .1); }
+.mced-tab-empty { align-self:center; padding:10px; font-size:12px; color:oklch(var(--muted-foreground,.55 0 0)); }
+.mced-body.is-empty { display:flex; flex:1; min-height:0; align-items:center; justify-content:center; padding:32px 20px; overflow:auto; color:oklch(var(--muted-foreground,.55 0 0)); }
+.mced-empty-title { color:oklch(var(--foreground,.15 0 0)); font-weight:600; }
+.mced-empty-hint { max-width:28rem; font-size:12px; line-height:1.7; }
+.mced-code { display:flex; flex-direction:column; flex:1; min-height:0; background:oklch(var(--background,1 0 0)); }
+.mced-code-scroll { position:relative; display:flex; flex:1; min-height:0; overflow:hidden; }
+.mced-gutter { flex:none; width:54px; padding-top:12px; overflow:hidden; border-right:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--muted,.97 0 0) / .6); color:oklch(var(--muted-foreground,.55 0 0)); font:13px/22px ui-monospace,monospace; text-align:right; user-select:none; }
+.mced-gutter span { display:block; padding-right:10px; height:22px; }
+.mced-frame { display:flex; flex:1; min-width:0; min-height:0; }
+.mced-frame .mced-area { display:flex; flex:1; min-width:0; min-height:0; height:100%; border:0; border-radius:0; box-shadow:none; background:transparent; }
+.mced-frame .mced-area [data-slot='input-group-control'] { display:block; width:100%; height:100%; min-height:0; box-sizing:border-box; padding:12px 16px; border:0; border-radius:0; background:transparent; color:oklch(var(--foreground,.15 0 0)); font:13px/22px ui-monospace,'Cascadia Code',monospace; resize:none; outline:none; overflow:auto; tab-size:2; }
+.mced-code:not(.is-wrapped) .mced-ta { white-space:pre; overflow-wrap:normal; }
+.mced-notice { display:flex; align-items:flex-start; gap:8px; padding:9px 14px; border-bottom:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--muted,.97 0 0)); color:oklch(var(--muted-foreground,.55 0 0)); font-size:12px; }
+.mced-sug { display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:5px 10px; border-top:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--card,1 0 0)); font-size:11px; color:oklch(var(--muted-foreground,.55 0 0)); }
+.mced-caret { display:flex; flex-wrap:wrap; gap:16px; padding:5px 14px; border-top:1px solid oklch(var(--border,.92 0 0)); color:oklch(var(--muted-foreground,.55 0 0)); font-size:11px; font-variant-numeric:tabular-nums; }
+.mced-savebar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid oklch(var(--border,.92 0 0)); background:oklch(var(--card,1 0 0)); font-size:12px; color:oklch(var(--muted-foreground,.55 0 0)); }
+.mced-path { max-width:32%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:oklch(var(--foreground,.15 0 0)); }
+.mced-meta { font-size:11px; }
+.mced-chip { font-size:11px; border-radius:5px; padding:2px 6px; white-space:nowrap; background:oklch(var(--muted,.97 0 0)); }
+.mced-chip.is-dirty { color:oklch(var(--primary,.55 .15 250)); background:oklch(var(--primary,.55 .15 250) / .1); }
+.mced-chip.is-convert { color:oklch(.55 .12 80); background:oklch(.55 .12 80 / .12); }
+.mced-encoding-btn { font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.mced-error-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; }
+.mced-chip.is-failed { color:oklch(var(--destructive,.6 .2 25)); }
+.mced-spacer { margin-left:auto; }
+.mced-wrap { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+.mced-savebar-note { padding:8px 14px; border-top:1px solid oklch(var(--destructive,.6 .2 25) / .2); color:oklch(var(--destructive,.6 .2 25)); background:oklch(var(--destructive,.6 .2 25) / .06); font-size:12px; overflow-wrap:anywhere; }
+.mced-spin { animation:mcp-spin 1s linear infinite; }
+@media (max-width:1023px) {
+  .mced { height:calc(100dvh - 210px); min-height:440px; }
+  .mced-side { display:none; position:absolute; inset:44px auto 0 0; z-index:10; width:min(300px,86%); background:oklch(var(--card,1 0 0)); box-shadow:12px 0 32px rgb(0 0 0 / .12); }
+  .mced.is-side-open .mced-side { display:flex; }
+  .mced-side-head,.mced-side-toggle { display:flex; }
+  .mced-path { max-width:100%; flex:1 1 100%; }
+  .mced-meta { display:none; }
+  .mced-savebar { padding:8px; gap:8px; }
+}
+@media (prefers-reduced-motion:reduce) { .mced-spin { animation:none; } }

@@ -26,7 +26,8 @@ import java.util.UUID;
  * YAP 第三方登录桥：把宿主 `/api/external-login/**` 聚合为启动器可轮询的
  * begin/poll 流。begin 生成 flow 并返回宿主 authorize URL；用户在浏览器完成
  * 第三方授权后，提供方回调应落在本插件 landing 端点（管理员将 provider 的
- * callback URL 配置为 `{origin}/api/plugins/ymcl-adapter/v1/auth/external/landing`），
+ * callback URL 配置为 `{origin}/api/plugins/ymcl-adapter/v1/auth/external/landing`，
+ * 该地址同时服务站点网页登录：state 不在 flow 库时 302 转交网页端回调页），
  * landing 调宿主 callback 换取会话后写入 flow，启动器 poll 即可完成登录。
  */
 public class YmclExternalAuthController {
@@ -61,14 +62,23 @@ public class YmclExternalAuthController {
                     if (node.path("enabled").asBoolean(true) == false) {
                         continue;
                     }
-                    String code = text(node, "code");
-                    if (code == null || code.isBlank()) {
-                        continue;
-                    }
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("code", code);
-                    item.put("name", text(node, "name") == null ? code : text(node, "name"));
-                    providers.add(item);
+            String code = text(node, "code");
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("code", code);
+            item.put("name", text(node, "name") == null ? code : text(node, "name"));
+            List<String> types = splitTypes(text(node, "supportedTypes"));
+            if (!types.isEmpty()) {
+                item.put("types", types);
+            }
+            // 插件 SPI 提供方（CAS/OIDC/OAuth2 等）自带图标；DB 提供方多为 null
+            String icon = text(node, "icon");
+            if (icon != null && !icon.isBlank()) {
+                item.put("icon", icon);
+            }
+            providers.add(item);
                 }
             }
             return PluginHttpResponse.rawJson(200, Map.of("providers", providers));
@@ -89,7 +99,12 @@ public class YmclExternalAuthController {
         }
         String type = firstQuery(request, "type");
         if (type == null || type.isBlank()) {
-            type = provider;
+            try {
+                type = defaultType(origin, provider);
+            } catch (Exception error) {
+                return badRequest(502, "authorize_failed",
+                        "确定登录方式失败：" + error.getMessage());
+            }
         }
         try {
             String authorizeUrl = origin + "/api/external-login/"
@@ -166,6 +181,23 @@ public class YmclExternalAuthController {
     }
 
     // ------------------------------------------------------------------
+    // GET /v1/auth/external/flow-owner?state= — 站点回调页的分流询问
+    // ------------------------------------------------------------------
+    /**
+     * 站点网页回调页处理回调前询问：该 state 是否由启动器发起（本插件 flow 库
+     * 持有）。命中则页面把浏览器转交本插件 landing；未命中或本插件未安装/未启用
+     * 时页面按原流程处理——宿主代码、站点配置与网页登录流程均零改动。
+     */
+    @PluginHttpEndpoint(method = "GET", path = "/v1/auth/external/flow-owner", wrapResult = false)
+    public PluginHttpResponse flowOwner(PluginHttpRequest request) {
+        String state = firstQuery(request, "state");
+        if (state == null || state.isBlank()) {
+            return badRequest(400, "invalid_state", "state is required");
+        }
+        return PluginHttpResponse.rawJson(200, Map.of("owned", findFlowIdByState(state) != null));
+    }
+
+    // ------------------------------------------------------------------
     // GET /v1/auth/external/landing — 第三方授权回跳落点
     // ------------------------------------------------------------------
     @PluginHttpEndpoint(method = "GET", path = "/v1/auth/external/landing", wrapResult = false)
@@ -200,7 +232,11 @@ public class YmclExternalAuthController {
             // 因此落盘时同步保存 state）。
             String flowId = findFlowIdByState(state);
             if (flowId == null) {
-                return html(404, "登录会话已过期，请回到启动器重新发起第三方登录。");
+                // 非启动器发起的回调（站点网页登录等）：state 不在本插件 flow
+                // 库，原样转交网页端回调页，由其完成浏览器侧会话建立。
+                // 管理员把 provider 的 callback URL 统一配到本 landing 即可，
+                // 网页端与启动器两条链路共用这一个回调地址。
+                return redirect(origin + "/external-login/callback" + queryString(request));
             }
             Map<String, Object> flow = documents.findById(FLOW_COLLECTION, flowId).orElse(null);
             if (flow == null) {
@@ -215,25 +251,36 @@ public class YmclExternalAuthController {
                         ? session.path("expires_in").asLong(86400)
                         : session.path("expiresIn").asLong(86400));
                 documents.save(FLOW_COLLECTION, flowId, flow);
-                return html(200, "第三方登录成功，可以回到启动器继续。");
+                // 深链回启动器：OS 把 ymcl:// 递给已运行的启动器并聚焦窗口；
+                // 无法处理时页面文案仍可见，用户手动切回即可。
+                return htmlWithLauncherRedirect(200,
+                        "第三方登录成功，正在返回启动器…", "landing?status=completed");
             }
             if ("BIND_REQUIRED".equalsIgnoreCase(outcome)) {
                 flow.put("status", "bind_required");
                 flow.put("claim_token", text(data, "bindingToken") == null ? text(data, "binding_token") : text(data, "bindingToken"));
                 flow.put("message", "该第三方账号尚未绑定域账号，请先在站点完成绑定后重试");
                 documents.save(FLOW_COLLECTION, flowId, flow);
-                return html(200, "该第三方账号尚未绑定域账号，请先在站点登录并绑定后再回到启动器重试。");
+                // 与站点网页端 BIND_REQUIRED 同一处理：带到登录页完成绑定。
+                String bindingToken = flow.getOrDefault("claim_token", "").toString();
+                return redirect(origin + "/login?externalLoginBindingToken="
+                        + URLEncoder.encode(bindingToken, StandardCharsets.UTF_8)
+                        + "&externalLoginProvider="
+                        + URLEncoder.encode(String.valueOf(flow.getOrDefault("provider", "")), StandardCharsets.UTF_8)
+                        + "&externalLoginType="
+                        + URLEncoder.encode(String.valueOf(flow.getOrDefault("type", "")), StandardCharsets.UTF_8));
             }
             if ("BOUND".equalsIgnoreCase(outcome)) {
                 flow.put("status", "error");
                 flow.put("message", "绑定已完成，请回到启动器重新发起登录");
                 documents.save(FLOW_COLLECTION, flowId, flow);
-                return html(200, "绑定已完成，请回到启动器重新发起第三方登录。");
+                return htmlWithLauncherRedirect(200,
+                        "绑定已完成，请回到启动器重新发起第三方登录。", "landing?status=bound");
             }
             flow.put("status", "error");
             flow.put("message", "第三方登录结果未知：" + outcome);
             documents.save(FLOW_COLLECTION, flowId, flow);
-            return html(502, "第三方登录结果未知：" + outcome);
+            return htmlWithLauncherRedirect(502, "第三方登录结果未知：" + outcome, null);
         } catch (Exception error) {
             return html(502, "第三方登录回调处理失败：" + error.getMessage());
         }
@@ -253,6 +300,45 @@ public class YmclExternalAuthController {
 
     // begin 需要把宿主返回的 state 与 flow 绑定；覆写 begin 里的保存逻辑。
     // 上面 begin 已保存 flow，这里在 begin 成功后由 landing 使用。
+
+    /**
+     * 宿主 authorize 路由的 {type} 是必填路径段，空缺时取该提供方
+     * supportedTypes 的第一项（与站点网页端按平台按钮传 type 等效）。
+     * 不能拿 provider code 充当 type：code 不在 supportedTypes 里会被
+     * 宿主以「该提供方未开放此登录方式」拒绝。
+     */
+    private String defaultType(String origin, String provider) throws Exception {
+        JsonNode data = getJson(origin + "/api/external-login/providers");
+        JsonNode list = data.path("data").isArray() ? data.get("data") : data.path("providers");
+        if (list.isArray()) {
+            for (JsonNode node : list) {
+                String code = text(node, "code");
+                if (code == null || code.isBlank()
+                        || !code.trim().equalsIgnoreCase(provider.trim())) {
+                    continue;
+                }
+                List<String> types = splitTypes(text(node, "supportedTypes"));
+                if (types.isEmpty()) {
+                    throw new IllegalStateException("该提供方未配置可用平台");
+                }
+                return types.getFirst();
+            }
+        }
+        throw new IllegalStateException("第三方登录提供方不存在或未启用");
+    }
+
+    private static List<String> splitTypes(String supportedTypes) {
+        List<String> types = new ArrayList<>();
+        if (supportedTypes == null || supportedTypes.isBlank()) {
+            return types;
+        }
+        for (String item : supportedTypes.split(",")) {
+            if (!item.isBlank()) {
+                types.add(item.trim());
+            }
+        }
+        return types;
+    }
 
     private static JsonNode getJson(String url) throws Exception {
         HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(url))
@@ -294,18 +380,52 @@ public class YmclExternalAuthController {
         return PluginHttpResponse.rawJson(status, payload);
     }
 
+    private static PluginHttpResponse redirect(String location) {
+        return new PluginHttpResponse(302, Map.of("Location", location),
+                "text/html; charset=utf-8", "", false);
+    }
+
+    /** 把回调携带的全部查询参数（code/state/type 及提供方附加项）原样重组。 */
+    private static String queryString(PluginHttpRequest request) {
+        StringBuilder qs = new StringBuilder();
+        request.query().forEach((name, values) -> {
+            if (values == null) {
+                return;
+            }
+            for (String value : values) {
+                if (qs.length() > 0) {
+                    qs.append('&');
+                }
+                qs.append(URLEncoder.encode(name, StandardCharsets.UTF_8));
+                if (value != null) {
+                    qs.append('=').append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+                }
+            }
+        });
+        return qs.isEmpty() ? "" : "?" + qs;
+    }
+
     private static PluginHttpResponse html(int status, String message) {
+        return htmlWithLauncherRedirect(status, message, null);
+    }
+
+    /** 结果页：正文之外尝试经 ymcl:// 深链把已运行的启动器拉回前台；
+     * 浏览器/系统无法处理深链时正文仍可见，不影响手动切回。 */
+    private static PluginHttpResponse htmlWithLauncherRedirect(
+            int status, String message, String deepLinkPath) {
         String escaped = message
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+        String script = deepLinkPath == null ? ""
+                : "<script>location.replace(\"ymcl://auth/external/" + deepLinkPath + "\")</script>";
         String html = "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                 + "<title>YMCL 第三方登录</title></head><body style=\"font-family:system-ui,sans-serif;"
                 + "display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"
                 + "background:#0f172a;color:#e2e8f0\"><main style=\"max-width:28rem;padding:2rem;text-align:center\">"
                 + "<h1 style=\"font-size:1.25rem;margin:0 0 1rem\">YMCL 启动器</h1>"
-                + "<p style=\"margin:0;line-height:1.6\">" + escaped + "</p></main></body></html>";
+                + "<p style=\"margin:0;line-height:1.6\">" + escaped + "</p></main>" + script + "</body></html>";
         return new PluginHttpResponse(status, Map.of(), "text/html; charset=utf-8", html, false);
     }
 }

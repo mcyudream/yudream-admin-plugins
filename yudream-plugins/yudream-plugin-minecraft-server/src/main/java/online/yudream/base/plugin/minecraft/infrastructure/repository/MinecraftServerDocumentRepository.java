@@ -8,6 +8,7 @@ import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftPlayerActi
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftEdition;
 import online.yudream.base.plugin.minecraft.domain.enumerate.MinecraftSeasonOperationStatus;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftEndpointStatus;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftInheritanceRule;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftSeasonAdjustment;
@@ -36,6 +37,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     private static final String PLAYER_ACTIVITIES = "player-activities";
     private static final String PLAYER_ACTIVITY_EVENTS = "player-activity-events";
     private static final String TOPOLOGIES = "server-topologies";
+    private static final String BRIDGE_SETTINGS = "bridge-settings";
 
     /**
      * 事件排序：先按发生时间，同一时刻把「收尾」排在「开启」之前。
@@ -261,6 +263,53 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
     @Override
     public Optional<MinecraftServerTopology> findTopology(String serverId) {
         return documents.findById(TOPOLOGIES, serverId).map(this::toTopology);
+    }
+
+    @Override
+    public MinecraftBridgeSettings saveBridgeSettings(MinecraftBridgeSettings settings) {
+        return toBridgeSettings(documents.save(BRIDGE_SETTINGS, settings.serverId(), bridgeSettingsDocument(settings)));
+    }
+
+    @Override
+    public Optional<MinecraftBridgeSettings> findBridgeSettings(String serverId) {
+        return documents.findById(BRIDGE_SETTINGS, serverId).map(this::toBridgeSettings);
+    }
+
+    private Map<String, Object> bridgeSettingsDocument(MinecraftBridgeSettings settings) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", settings.serverId());
+        document.put("serverId", settings.serverId());
+        document.put("enabled", settings.enabled());
+        document.put("connectionId", settings.connectionId());
+        document.put("channelId", settings.channelId());
+        document.put("channelName", settings.channelName());
+        document.put("forwardChat", settings.forwardChat());
+        document.put("forwardJoinQuit", settings.forwardJoinQuit());
+        document.put("forwardDeath", settings.forwardDeath());
+        document.put("forwardAdvancement", settings.forwardAdvancement());
+        document.put("forwardToGame", settings.forwardToGame());
+        document.put("updatedAt", settings.updatedAt());
+        return document;
+    }
+
+    private MinecraftBridgeSettings toBridgeSettings(Map<String, Object> document) {
+        String serverId = string(document, "serverId");
+        if (serverId == null || serverId.isBlank()) {
+            serverId = string(document, "id");
+        }
+        return new MinecraftBridgeSettings(
+                serverId,
+                Boolean.TRUE.equals(bool(document, "enabled", false)),
+                java.util.Objects.requireNonNullElse(string(document, "connectionId"), ""),
+                java.util.Objects.requireNonNullElse(string(document, "channelId"), ""),
+                java.util.Objects.requireNonNullElse(string(document, "channelName"), ""),
+                Boolean.TRUE.equals(bool(document, "forwardChat", false)),
+                Boolean.TRUE.equals(bool(document, "forwardJoinQuit", false)),
+                Boolean.TRUE.equals(bool(document, "forwardDeath", false)),
+                Boolean.TRUE.equals(bool(document, "forwardAdvancement", false)),
+                Boolean.TRUE.equals(bool(document, "forwardToGame", false)),
+                number(document, "updatedAt", 0L)
+        );
     }
 
     private List<Map<String, Object>> allPlayerActivityEventDocuments(String serverId) {        List<Map<String, Object>> result = new java.util.ArrayList<>();

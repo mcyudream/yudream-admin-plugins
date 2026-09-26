@@ -121,6 +121,29 @@ if search_tree 'online\.yudream\.base\.(domain|application|infra|interfaces|boot
   fail "plugin source must not import host core implementation packages directly"
 fi
 
+echo "[verify-plugin-maven-boundary] checking cross-plugin dependency scope"
+# 插件对插件的依赖一律 provided：运行时类解析走宿主 softdepend 委托（provider 自己的
+# ClassLoader 提供），绝不随消费方 JAR 打包。compile/runtime 级的插件依赖会让 dev-export
+# 把 provider 整包拷进消费方 target/plugin-dev/lib，叠加宿主「依赖优先于自身」的委托顺序，
+# 陈旧拷贝会遮蔽 provider 插件自己的类（mcpanel-0.15.0 化石事故的根因）。
+for pom_file in yudream-plugins/*/pom.xml; do
+  [ -f "$pom_file" ] || continue
+  if awk '
+    /<dependency>/ { in_dep=1; group=""; artifact=""; scope=""; next }
+    in_dep && /<groupId>/ { line=$0; sub(/^.*<groupId>/, "", line); sub(/<\/groupId>.*$/, "", line); group=line }
+    in_dep && /<artifactId>/ { line=$0; sub(/^.*<artifactId>/, "", line); sub(/<\/artifactId>.*$/, "", line); artifact=line }
+    in_dep && /<scope>/ { line=$0; sub(/^.*<scope>/, "", line); sub(/<\/scope>.*$/, "", line); scope=line }
+    /<\/dependency>/ {
+      if (group == "online.yudream.plugins" && artifact != "" && scope != "provided") exit 10
+      in_dep=0; group=""; artifact=""; scope=""
+    }
+  ' "$pom_file"; then
+    :
+  else
+    fail "cross-plugin dependencies must declare <scope>provided</scope>: $pom_file"
+  fi
+done
+
 echo "[verify-plugin-maven-boundary] checking module parents and SPI contract usage"
 # Two module shapes are supported side by side. A module that inherits the root pom takes its
 # contract versions from the root <dependencyManagement> and must not pin them again. A

@@ -1,0 +1,12 @@
+name: mcpanel
+displayName: MC 面板
+description: MCSM 对标 Minecraft 面板：实例终端/文件与 SFTP 单端口网关、节点终端与文件、应用市场与快速开始、监控、计划任务、配置与审计、Modrinth、Docker 镜像；终端支持 ANSI 着色、日志级别筛选、命令补全与在线玩家列表。
+icon: i-ri:remote-control-line
+main: online.yudream.base.plugin.mcpanel.bootstrap.McpanelPlugin
+softdepend:
+  - minecraft-server
+  - authlib-injector
+  # 可选：装了 ymcl-adapter 时把 P2P 直连能力贡献给它（YmclP2pProvider 扩展点）。
+  # 方向必须是「面板 → 适配器」：反向声明会让宿主判定依赖环并静默丢弃该能力。
+  - ymcl-adapter
+version: 0.18.0

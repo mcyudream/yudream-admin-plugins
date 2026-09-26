@@ -1,0 +1,300 @@
+/**
+ * mcpanel 文件域样式：文件管理双栏工作区、目录树、迷你文件浏览器（终端
+ * 侧栏内亦复用，走主题 token）、SFTP 面板、路径工具栏、磁盘信息条。
+ * 颜色与作用域契约见 base.css 头部说明。
+ */
+
+/* ---------- 文件管理双栏（<1280px 单栏，目录树隐藏，面包屑可导航） ---------- */
+
+.mcp-files-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+.mcp-files-side { min-width: 0; display: block; }
+@media (min-width: 1100px) { .mcp-files-split.is-side-open { grid-template-columns: 240px minmax(0, 1fr); } }
+.mcp-file-page { margin-top: 16px; }
+.mcp-file-location { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+.mcp-file-location nav { flex: 1; }
+.mcp-file-search { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.mcp-file-search > :first-child { flex: 1; max-width: 360px; }
+.mcp-file-name { justify-content: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.mcp-download-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; border: 1px solid oklch(var(--border, .92 0 0)); background: oklch(var(--muted, .97 0 0)); }
+.mcp-download-status > :nth-child(3) { flex: 1; min-width: 120px; }
+.mcp-download-status > span { overflow-wrap: anywhere; }
+
+.mcp-files-main {
+  min-width: 0;
+}
+
+/* SFTP 凭据面板网格（NodeFilesPage） */
+.mcp-ftp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 900px) {
+  .mcp-ftp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.mcp-ftp-box {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--muted, 0.97 0 0));
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* ---------- 文件路径工具栏 / 路径面包屑 ---------- */
+
+.mcp-file-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.mcp-file-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+/* 可复制 token / 哈希块 */
+.mcp-token-block {
+  display: block;
+  padding: 10px 12px;
+  border: 1px dashed oklch(var(--border, 0.922 0 0));
+  border-radius: 8px;
+  background: oklch(var(--muted, 0.97 0 0));
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  user-select: all;
+}
+
+/* ---------- 文件页磁盘 / 资源信息条 ---------- */
+
+.mcp-disk-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--muted, 0.97 0 0));
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-disk-strip .mcp-disk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+/* ---------- 目录树（文件管理左栏 / 编辑器侧栏共用） ---------- */
+
+.mcp-tree {
+  border: 1px solid oklch(var(--border, 0.922 0 0));
+  border-radius: 10px;
+  background: oklch(var(--card, 1 0 0));
+  overflow: hidden;
+}
+
+.mcp-tree-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-tree-msg {
+  padding: 14px 10px;
+  font-size: 12px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-tree-msg.is-error {
+  color: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+.mcp-tree-body {
+  max-height: 420px;
+  overflow: auto;
+  padding: 4px 0 6px;
+}
+
+.mcp-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcp-tree-row:hover {
+  background: oklch(var(--muted, 0.97 0 0));
+}
+
+.mcp-tree-row.is-active {
+  background: color-mix(in oklab, oklch(var(--primary, 0.205 0 0)) 12%, transparent);
+  color: oklch(var(--primary, 0.205 0 0));
+  font-weight: 600;
+}
+
+.mcp-tree-caret {
+  display: inline-flex;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.mcp-tree-folder {
+  color: oklch(var(--primary, 0.205 0 0));
+  flex-shrink: 0;
+}
+
+.mcp-tree-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 迷你文件浏览器（终端暗色屏侧栏内使用，chrome 走主题） ---------- */
+
+.mcp-fbp {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: 12.5px;
+}
+
+.mcp-fbp-filter {
+  padding: 4px 8px 6px;
+}
+
+.mcp-fbp-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px 4px;
+}
+
+.mcp-fbp-title {
+  font-weight: 600;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-fbp-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 3px;
+  padding: 2px 10px 8px;
+  border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  word-break: break-all;
+}
+
+.mcp-fbp-crumb {
+  color: oklch(var(--primary, 0.205 0 0));
+  cursor: pointer;
+}
+
+.mcp-fbp-crumb:hover {
+  text-decoration: underline;
+}
+
+.mcp-fbp-crumb.is-active {
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-weight: 600;
+}
+
+.mcp-fbp-sep {
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-fbp-msg {
+  padding: 14px 10px;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+}
+
+.mcp-fbp-msg.is-error {
+  color: oklch(var(--destructive, 0.577 0.245 27.325));
+}
+
+.mcp-fbp-list {
+  flex: 1;
+  min-height: 0;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.mcp-fbp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: oklch(var(--foreground, 0.145 0 0));
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcp-fbp-row:hover {
+  background: oklch(var(--muted, 0.97 0 0));
+}
+
+.mcp-fbp-icon {
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  flex-shrink: 0;
+}
+
+.mcp-fbp-icon.is-dir {
+  color: oklch(var(--primary, 0.205 0 0));
+}
+
+.mcp-fbp-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-fbp-size {
+  flex-shrink: 0;
+  color: oklch(var(--muted-foreground, 0.556 0 0));
+  font-size: 11px;
+}
+
+/* ---------- 文件域 agent 附加区 ----------
+ * 新增文件工作区/编辑器外围类写在本注释之后，避免与上方规则冲突；
+ * 编辑器（mcp-editor-*）新样式一律放 styles/editor.css。
+ */

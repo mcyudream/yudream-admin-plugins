@@ -51,13 +51,13 @@ public class AuthlibAppService implements PluginAuthService {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("serverName", "YuDream Authlib Injector");
         meta.put("implementationName", "YuDream Authlib Injector Plugin");
-        meta.put("implementationVersion", "1.0.0");
+        meta.put("implementationVersion", "1.3.0");
         meta.put("links", links(apiRoot));
         meta.put("feature.non_email_login", true);
         meta.put("feature.legacy_skin_api", false);
         meta.put("feature.no_mojang_namespace", false);
         meta.put("feature.enable_mojang_anti_features", false);
-        meta.put("feature.enable_profile_key", false);
+        meta.put("feature.enable_profile_key", true);
         meta.put("feature.username_check", false);
         body.put("meta", meta);
         body.put("skinDomains", skinDomains(textureBaseUrl));
@@ -85,6 +85,7 @@ public class AuthlibAppService implements PluginAuthService {
                 "GET /sessionserver/session/minecraft/hasJoined",
                 "GET /sessionserver/session/minecraft/profile/{uuid}",
                 "POST /api/profiles/minecraft",
+                "POST /minecraftservices/player/certificates",
                 "PUT /api/user/profile/{uuid}/{textureType}",
                 "DELETE /api/user/profile/{uuid}/{textureType}"
         ));
@@ -221,6 +222,18 @@ public class AuthlibAppService implements PluginAuthService {
         return skinService().findProfilesByNames(names).stream()
                 .map(this::profileSummary)
                 .toList();
+    }
+
+    /**
+     * 1.19+ 聊天签名密钥签发：游戏经 authlib-injector 反代，把
+     * POST {api_root}/minecraftservices/player/certificates 打到这里。
+     * Bearer 访问令牌确认会话有效后，为现生成的玩家密钥对出具站点签名
+     * （签名密钥即元数据 signaturePublickey，与材质属性签名同源）；
+     * 玩家私钥与服务端无关、不落库，证书 24 小时过期由客户端自动刷新。
+     */
+    public Object playerCertificates(String accessToken) {
+        validSession(accessToken, null);
+        return cryptoService.playerCertificateBody();
     }
 
     public void setTexture(String accessToken, String uuid, String textureType, TextureBindRequest request) {

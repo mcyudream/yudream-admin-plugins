@@ -1,0 +1,11 @@
+{
+  "name": "@yudream/plugin-forum",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "files": ["dist"],
+  "exports": { ".": "./src/index.ts", "./remote": "./dist/remoteEntry.js" },
+  "scripts": { "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0", "build": "vue-tsc -p tsconfig.json --noEmit && vite build" },
+  "dependencies": { "@yudream/components": "catalog:", "@yudream/plugin-sdk": "catalog:", "md-editor-v3": "^6.5.3", "vue": "catalog:", "vue-router": "catalog:" },
+  "devDependencies": { "@vitejs/plugin-vue": "catalog:", "@vue/tsconfig": "catalog:", "typescript": "catalog:", "vite": "catalog:", "vue-tsc": "catalog:" }
+}

@@ -17,6 +17,7 @@ import online.yudream.base.plugin.activityproof.domain.enumerate.ParticipationSt
 import online.yudream.base.plugin.activityproof.domain.enumerate.VerifyStatus;
 import online.yudream.base.plugin.activityproof.domain.repo.ActivityProofRepository;
 import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBinding;
+import online.yudream.base.plugin.activityproof.domain.valobj.ActivityBindingParam;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
 import java.util.ArrayList;
@@ -424,6 +425,29 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         document.put("autoJoin", binding.autoJoin());
         document.put("formCode", binding.formCode());
         document.put("formName", binding.formName());
+        if (binding.isAdvanced()) {
+            document.put("params", binding.params().stream().map(this::paramDocument).toList());
+            document.put("expression", binding.expression());
+            document.put("minScore", binding.minScore());
+            if (binding.maxScore() != null) {
+                document.put("maxScore", binding.maxScore());
+            }
+        }
+        return stripNulls(document);
+    }
+
+    private Map<String, Object> paramDocument(ActivityBindingParam param) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("key", param.key());
+        document.put("label", param.label());
+        document.put("type", param.type().name());
+        document.put("serverId", param.serverId());
+        if (!param.subServer().isEmpty()) {
+            document.put("subServer", param.subServer());
+        }
+        document.put("includeAfk", param.includeAfk());
+        document.put("formCode", param.formCode());
+        document.put("formName", param.formName());
         return stripNulls(document);
     }
 
@@ -633,6 +657,10 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
         if (type == null) {
             return null;
         }
+        // params 是后加的键：老文档没有它，读成空列表即可。
+        List<ActivityBindingParam> params = type == ActivityBindingType.ADVANCED
+                ? params(document.get("params"))
+                : List.of();
         return new ActivityBinding(
                 type,
                 string(document, "serverId"),
@@ -641,6 +669,33 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
                 (int) number(document, "minOnlineMinutes", 0),
                 bool(document.get("includeAfk")),
                 bool(document.get("autoJoin")),
+                string(document, "formCode"),
+                string(document, "formName"),
+                params,
+                string(document, "expression"),
+                decimal(document, "minScore", 0),
+                decimalObject(document, "maxScore")
+        );
+    }
+
+    private List<ActivityBindingParam> params(Object value) {
+        if (!(value instanceof List<?> rows)) {
+            return List.of();
+        }
+        return rows.stream()
+                .filter(row -> row instanceof Map<?, ?>)
+                .map(row -> toParam((Map<?, ?>) row))
+                .toList();
+    }
+
+    private ActivityBindingParam toParam(Map<?, ?> document) {
+        return new ActivityBindingParam(
+                string(document, "key"),
+                string(document, "label"),
+                ActivityBindingType.of(string(document, "type")),
+                string(document, "serverId"),
+                string(document, "subServer"),
+                bool(document.get("includeAfk")),
                 string(document, "formCode"),
                 string(document, "formName")
         );
@@ -750,5 +805,21 @@ public class ActivityProofDocumentRepository implements ActivityProofRepository 
             return number.intValue();
         }
         return value == null || String.valueOf(value).isBlank() ? defaultValue : Integer.parseInt(String.valueOf(value));
+    }
+
+    private double decimal(Map<?, ?> document, String key, double defaultValue) {
+        Object value = document.get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return value == null || String.valueOf(value).isBlank() ? defaultValue : Double.parseDouble(String.valueOf(value));
+    }
+
+    private Double decimalObject(Map<?, ?> document, String key) {
+        Object value = document.get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return value == null || String.valueOf(value).isBlank() ? null : Double.parseDouble(String.valueOf(value));
     }
 }

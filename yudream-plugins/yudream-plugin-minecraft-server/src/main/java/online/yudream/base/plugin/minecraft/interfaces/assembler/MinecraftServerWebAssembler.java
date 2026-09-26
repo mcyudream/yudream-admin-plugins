@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.minecraft.interfaces.assembler;
 
+import online.yudream.base.plugin.minecraft.application.cmd.MinecraftGameEventCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerEventCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftPlayerSnapshotCmd;
 import online.yudream.base.plugin.minecraft.application.cmd.MinecraftSeasonOpenCmd;
@@ -14,11 +15,15 @@ import online.yudream.base.plugin.minecraft.application.dto.MinecraftPlayerActiv
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftServerStatusDTO;
 import online.yudream.base.plugin.minecraft.application.dto.MinecraftStatusSnapshotDTO;
+import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftBridgeSettingsSaveRequest;
+import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftGameEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerEventRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftPlayerSnapshotRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftSeasonOpenRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerSaveRequest;
 import online.yudream.base.plugin.minecraft.interfaces.request.MinecraftServerTopologyRequest;
+import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftBridgeSettingsRes;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftEconomyRecordRes;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftEndpointStatusRes;
 import online.yudream.base.plugin.minecraft.interfaces.res.MinecraftInheritanceRuleRes;
@@ -62,6 +67,49 @@ public class MinecraftServerWebAssembler {
                 textOr(request.playerName(), request.name()),
                 request.eventAt(),
                 request.server()
+        );
+    }
+
+    public MinecraftGameEventCmd toCmd(MinecraftGameEventRequest request) {
+        return new MinecraftGameEventCmd(
+                textOr(request.playerId(), request.uuid()),
+                textOr(request.playerName(), request.name()),
+                request.eventAt(),
+                request.server(),
+                request.content()
+        );
+    }
+
+    public MinecraftBridgeSettings toCmd(String serverId, MinecraftBridgeSettingsSaveRequest request) {
+        return new MinecraftBridgeSettings(
+                serverId,
+                Boolean.TRUE.equals(request.enabled()),
+                request.connectionId(),
+                request.channelId(),
+                request.channelName(),
+                Boolean.TRUE.equals(request.forwardChat()),
+                Boolean.TRUE.equals(request.forwardJoinQuit()),
+                Boolean.TRUE.equals(request.forwardDeath()),
+                Boolean.TRUE.equals(request.forwardAdvancement()),
+                Boolean.TRUE.equals(request.forwardToGame()),
+                0L
+        );
+    }
+
+    public MinecraftBridgeSettingsRes toRes(MinecraftBridgeSettings settings) {
+        return new MinecraftBridgeSettingsRes(
+                settings.serverId(),
+                settings.enabled(),
+                settings.connectionId(),
+                settings.channelId(),
+                settings.channelName(),
+                settings.forwardChat(),
+                settings.forwardJoinQuit(),
+                settings.forwardDeath(),
+                settings.forwardAdvancement(),
+                settings.forwardToGame(),
+                settings.targetConfigured(),
+                settings.updatedAt()
         );
     }
 

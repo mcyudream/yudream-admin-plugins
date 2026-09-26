@@ -9,10 +9,12 @@ import NavigationPage from './pages/NavigationPage.vue'
 import OverviewPage from './pages/OverviewPage.vue'
 import PacksPage from './pages/PacksPage.vue'
 import ServersPage from './pages/ServersPage.vue'
+import StatsPage from './pages/StatsPage.vue'
 
 export const Overview = OverviewPage
 export const Packs = PacksPage
 export const Servers = ServersPage
+export const Stats = StatsPage
 export const ChromeHome = ChromeHomePage
 export const ChromeTheme = ChromeThemePage
 export const Navigation = NavigationPage
@@ -23,6 +25,7 @@ export const routes = {
   Overview,
   Packs,
   Servers,
+  Stats,
   ChromeHome,
   ChromeTheme,
   Navigation,
@@ -30,6 +33,7 @@ export const routes = {
   'ymcl-adapter/Overview': OverviewPage,
   'ymcl-adapter/Packs': PacksPage,
   'ymcl-adapter/Servers': ServersPage,
+  'ymcl-adapter/Stats': StatsPage,
   'ymcl-adapter/ChromeHome': ChromeHomePage,
   'ymcl-adapter/ChromeTheme': ChromeThemePage,
   'ymcl-adapter/Navigation': NavigationPage,
