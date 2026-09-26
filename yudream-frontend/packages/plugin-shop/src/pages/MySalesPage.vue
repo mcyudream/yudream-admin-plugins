@@ -3,11 +3,12 @@ import type { ShopOrder } from '../types'
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaIcon, FaModal, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTag, FaTextarea, useFaToast } from '@yudream/components'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTag, useFaToast } from '@yudream/components'
+import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
-import { displayUserName, errorMessage, formatAmount, formatTime, orderStatusTag } from '../composables/utils'
+import OrderVoucherModal from '../components/OrderVoucherModal.vue'
+import { displayUserName, errorMessage, formatAmount, formatTime, hasDeliveryProof, orderStatusTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -26,11 +27,6 @@ const current = ref<ShopOrder | null>(null)
 
 const voucherOpen = ref(false)
 const voucherOrder = ref<ShopOrder | null>(null)
-const voucherText = ref('')
-const submittingVoucher = ref(false)
-const voucherTitle = computed(() =>
-  voucherOrder.value?.deliveryVoucher ? '更新发货凭证' : '提交发货凭证',
-)
 
 const columns: TableColumn<ShopOrder>[] = [
   { id: 'product', header: '商品', minWidth: 220, fixed: 'left' },
@@ -77,37 +73,16 @@ async function openDetail(order: ShopOrder) {
 
 /** 已支付/发货中的订单可提交或更新发货凭证，提交后等待买家核验 */
 function openVoucher(order: ShopOrder) {
+  // /me/sales 列表项即为完整订单视图（含 deliveryVoucher 与 deliveryProofs），可直接用于回填
   voucherOrder.value = order
-  voucherText.value = order.deliveryVoucher || ''
   voucherOpen.value = true
 }
 
-async function submitVoucher() {
-  if (!voucherOrder.value) {
-    return
-  }
-  if (!voucherText.value.trim()) {
-    toast.warning('请填写发货凭证内容（如兑换码、游戏内交易截图说明等）')
-    return
-  }
-  if (submittingVoucher.value) {
-    return
-  }
-  submittingVoucher.value = true
-  try {
-    await api.submitVoucher(voucherOrder.value.id, voucherText.value.trim())
-    toast.success('发货凭证已提交，等待买家核验')
-    voucherOpen.value = false
-    await load()
-    if (detailOpen.value && current.value?.id === voucherOrder.value.id) {
-      await openDetail(voucherOrder.value)
-    }
-  }
-  catch (error) {
-    toast.error(errorMessage(error, '提交发货凭证失败'))
-  }
-  finally {
-    submittingVoucher.value = false
+/** 凭证提交成功后刷新列表，并在详情弹窗打开时同步刷新详情 */
+async function onVoucherSubmitted(updated: ShopOrder) {
+  await load()
+  if (detailOpen.value && current.value?.id === updated.id) {
+    current.value = updated
   }
 }
 
@@ -148,6 +123,7 @@ onMounted(() => { void load() })
               <FaIcon name="i-ri:image-line" />
             </div>
             <span class="line-clamp-1 font-medium">{{ row.original.productTitle }}</span>
+            <span v-if="row.original.variantName" class="text-xs text-muted-foreground">{{ row.original.variantName }}</span>
           </div>
         </template>
         <template #cell-amount="{ row }">
@@ -173,7 +149,7 @@ onMounted(() => { void load() })
               size="sm"
               @click="openVoucher(row.original)"
             >
-              {{ row.original.deliveryVoucher ? '更新凭证' : '发货凭证' }}
+              {{ hasDeliveryProof(row.original) ? '更新凭证' : '发货凭证' }}
             </FaButton>
             <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
           </div>
@@ -197,28 +173,12 @@ onMounted(() => { void load() })
         :show-content="false"
       />
 
-      <FaModal v-model="voucherOpen" :title="voucherTitle" class="sm:max-w-[520px]" @close="voucherOrder = null">
-        <div class="grid gap-3">
-          <div v-if="voucherOrder" class="shop-order-delivery-message">
-            <FaIcon name="i-ri:shopping-bag-3-line" />
-            <span>{{ voucherOrder.productTitle }} ×{{ voucherOrder.quantity }}（买家：{{ displayUserName(voucherOrder.buyer) }}）</span>
-          </div>
-          <FaTextarea
-            v-model="voucherText"
-            placeholder="填写发货凭证：如兑换码、卡密、游戏内交易记录说明等（500 字以内）"
-            :rows="5"
-          />
-          <p class="text-xs text-muted-foreground">
-            提交后订单进入「待买家核验」状态；买家确认凭证无误并核验后订单完成。有争议时管理员可在此前退款处理。
-          </p>
-        </div>
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <FaButton variant="outline" :disabled="submittingVoucher" @click="voucherOpen = false">取消</FaButton>
-            <FaButton :loading="submittingVoucher" @click="submitVoucher">提交凭证</FaButton>
-          </div>
-        </template>
-      </FaModal>
+      <OrderVoucherModal
+        v-model:open="voucherOpen"
+        :sdk="sdk"
+        :order="voucherOrder"
+        @submitted="onVoucherSubmitted"
+      />
     </FaPageMain>
   </section>
 </template>

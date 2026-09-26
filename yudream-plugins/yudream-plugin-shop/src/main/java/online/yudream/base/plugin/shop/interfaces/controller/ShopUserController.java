@@ -103,4 +103,9 @@ public class ShopUserController {
     public PluginHttpResponse verifyDelivery(PluginHttpRequest request) {
         return orders.verifyDelivery(request);
     }
+
+    @PluginHttpEndpoint(method = "POST", path = "/me/orders/{id}/cancel", permission = ShopPlugin.USE_PERMISSION)
+    public PluginHttpResponse cancelOrder(PluginHttpRequest request) {
+        return orders.cancelOrder(request);
+    }
 }

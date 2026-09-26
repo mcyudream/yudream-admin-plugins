@@ -4,6 +4,8 @@ import type { QqCommandWindow, QqQuizGroup } from '../types'
 import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, YdTimePicker, useFaToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import CategorySelect from '../components/CategorySelect.vue'
+import MultiSelect from '../components/MultiSelect.vue'
+import { QUESTION_TYPE_OPTIONS } from '../composables/utils'
 
 const props = defineProps<{ model: QuestionBankPluginModel }>()
 const model = props.model
@@ -16,8 +18,15 @@ const aiModelCode = ref('')
 // ---------- QQ 抽题 ----------
 const qqGroups = ref<QqQuizGroup[]>([])
 const qqDefaultGroup = ref('')
+// 全局排除项：这些分类/题型的题不会被抽到（仅对未显式指定分组名的 /抽题 生效）
+const qqExcludeCategoryIds = ref<string[]>([])
+const qqExcludeTypes = ref<string[]>([])
 const qqAnswerSeconds = ref('60')
 const qqAiGrading = ref(true)
+
+const excludeCategoryOptions = computed(() => model.adminCategories
+  .map(category => ({ label: category.name, value: category.id })))
+const excludeTypeOptions = QUESTION_TYPE_OPTIONS.map(item => ({ label: item.label, value: item.value }))
 
 // ---------- 群指令开放时间 ----------
 // 每行就是时间选择器的 [开始, 结束]；未选全的行不提交，避免把半截时间段写进设置。
@@ -53,6 +62,10 @@ const dirty = computed(() => model.settings !== null
     || aiProviderCode.value !== (model.settings.aiProviderCode ?? '')
     || aiModelCode.value !== (model.settings.aiModelCode ?? '')
     || qqDefaultGroup.value !== (model.settings.qqDefaultGroup ?? '')
+    || JSON.stringify([...qqExcludeCategoryIds.value].sort())
+      !== JSON.stringify([...(model.settings.qqExcludeCategoryIds ?? [])].sort())
+    || JSON.stringify([...qqExcludeTypes.value].sort())
+      !== JSON.stringify([...(model.settings.qqExcludeTypes ?? [])].sort())
     || Number(qqAnswerSeconds.value) !== model.settings.qqAnswerSeconds
     || qqAiGrading.value !== model.settings.qqAiGrading
     || qqCommandWindowEnabled.value !== model.settings.qqCommandWindowEnabled
@@ -98,6 +111,8 @@ onMounted(async () => {
       tags: [...(group.tags ?? [])],
     }))
     qqDefaultGroup.value = model.settings.qqDefaultGroup ?? ''
+    qqExcludeCategoryIds.value = [...(model.settings.qqExcludeCategoryIds ?? [])]
+    qqExcludeTypes.value = [...(model.settings.qqExcludeTypes ?? [])]
     qqAnswerSeconds.value = String(model.settings.qqAnswerSeconds || 60)
     qqAiGrading.value = model.settings.qqAiGrading
     qqCommandWindowEnabled.value = model.settings.qqCommandWindowEnabled ?? false
@@ -146,6 +161,8 @@ function save() {
     aiModelCode: aiModelCode.value,
     qqGroups: normalizeGroups(qqGroups.value),
     qqDefaultGroup: qqDefaultGroup.value || null,
+    qqExcludeCategoryIds: [...qqExcludeCategoryIds.value],
+    qqExcludeTypes: [...qqExcludeTypes.value],
     qqAnswerSeconds: seconds,
     qqAiGrading: qqAiGrading.value,
     qqCommandWindowEnabled: qqCommandWindowEnabled.value,
@@ -226,6 +243,24 @@ function save() {
               </div>
               <p class="qb-muted text-sm">
                 分组 = 一个指令名字 + 抽题范围（分类/标签，可都留空表示全库）。群内发送 /抽题 分组名 即按该范围抽一道题。
+              </p>
+            </div>
+          </div>
+          <div class="qb-form-row items-start">
+            <span class="qb-form-label pt-2">排除分类</span>
+            <div class="flex flex-1 flex-col gap-2">
+              <MultiSelect v-model="qqExcludeCategoryIds" :options="excludeCategoryOptions" placeholder="搜索并选择要排除的分类（可多选）" />
+              <p class="qb-muted text-sm">
+                可多选。这些分类的题不会被抽到，作用于群内裸 <code>/抽题</code>（含「默认分组」）；群内显式写分组名时不受限，那时按分组自己的范围取池。
+              </p>
+            </div>
+          </div>
+          <div class="qb-form-row items-start">
+            <span class="qb-form-label pt-2">排除题型</span>
+            <div class="flex flex-1 flex-col gap-2">
+              <MultiSelect v-model="qqExcludeTypes" :options="excludeTypeOptions" placeholder="搜索并选择要排除的题型（可多选）" />
+              <p class="qb-muted text-sm">
+                可多选。例：排除「简答题」后，群内抽题不会再抽到简答题；作用范围与「排除分类」一致。
               </p>
             </div>
           </div>

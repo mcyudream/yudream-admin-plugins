@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.shop.infrastructure.repository;
 
 import online.yudream.base.plugin.shop.domain.aggregate.ShopProduct;
+import online.yudream.base.plugin.shop.domain.aggregate.ShopVariant;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopProductStatus;
 import online.yudream.base.plugin.shop.infrastructure.support.DocumentSupport;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
@@ -63,10 +64,13 @@ public class ShopProductRepository {
         document.put("assetCode", product.assetCode());
         document.put("price", product.price() == null ? null : product.price().toPlainString());
         document.put("stock", product.stock());
+        document.put("perUserLimit", product.perUserLimit());
+        document.put("variants", variantDocuments(product.variants()));
         document.put("soldCount", product.soldCount());
         document.put("type", product.type());
         document.put("typeConfig", product.typeConfig() == null ? Map.of() : new LinkedHashMap<>(product.typeConfig()));
         document.put("status", product.status().name());
+        document.put("sortOrder", product.sortOrder());
         document.put("createdAt", product.createdAt());
         document.put("updatedAt", product.updatedAt());
         return document;
@@ -84,13 +88,54 @@ public class ShopProductRepository {
                 stringValue(document.get("assetCode")),
                 decimalValue(document.get("price")),
                 intValue(document.get("stock"), ShopProduct.UNLIMITED_STOCK),
+                intValue(document.get("perUserLimit"), ShopProduct.UNLIMITED_PER_USER),
+                toVariants(document.get("variants")),
                 longValue(document.get("soldCount"), 0L),
                 stringValue(document.get("type")),
                 document.get("typeConfig") instanceof Map<?, ?> config ? (Map<String, Object>) config : Map.of(),
                 parseStatus(document.get("status")),
                 longValue(document.get("createdAt"), 0L),
-                longValue(document.get("updatedAt"), 0L)
+                longValue(document.get("updatedAt"), 0L),
+                intValue(document.get("sortOrder"), ShopProduct.DEFAULT_SORT_ORDER)
         );
+    }
+
+    private List<Map<String, Object>> variantDocuments(List<ShopVariant> variants) {
+        if (variants == null || variants.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> documents = new ArrayList<>();
+        for (ShopVariant variant : variants) {
+            Map<String, Object> document = new LinkedHashMap<>();
+            document.put("id", variant.id());
+            document.put("name", variant.name());
+            document.put("price", variant.price() == null ? null : variant.price().toPlainString());
+            document.put("stock", variant.stock());
+            document.put("image", variant.image());
+            documents.add(DocumentSupport.stripNulls(document));
+        }
+        return documents;
+    }
+
+    private List<ShopVariant> toVariants(Object value) {
+        if (!(value instanceof List<?> rows)) {
+            return List.of();
+        }
+        List<ShopVariant> variants = new ArrayList<>();
+        for (Object row : rows) {
+            if (!(row instanceof Map<?, ?> variant)) {
+                continue;
+            }
+            try {
+                variants.add(new ShopVariant(stringValue(variant.get("id")), stringValue(variant.get("name")),
+                        decimalValue(variant.get("price")), intValue(variant.get("stock"), ShopVariant.UNLIMITED_STOCK),
+                        stringValue(variant.get("image"))));
+            }
+            catch (IllegalArgumentException ignored) {
+                // 脏型号数据（缺 id/名称或价格非法）直接跳过，不影响商品其余字段
+            }
+        }
+        return variants;
     }
 
     private ShopProductStatus parseStatus(Object value) {

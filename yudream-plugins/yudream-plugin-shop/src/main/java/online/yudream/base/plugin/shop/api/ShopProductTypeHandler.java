@@ -1,5 +1,7 @@
 package online.yudream.base.plugin.shop.api;
 
+import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
+
 import java.util.Map;
 
 /**
@@ -16,12 +18,14 @@ import java.util.Map;
  *   <li>支付前：{@link #validatePurchase(ShopPurchaseContext)} 做限购、资格等业务校验；</li>
  *   <li>支付成功后：{@link #deliver(ShopDeliveryContext)} 执行发货。</li>
  * </ul>
+ *
+ * <p>除此之外 {@link #settlement()} 决定支付时钱怎么走（转给卖家或消耗），在支付前读取一次并快照进订单。
  */
 public interface ShopProductTypeHandler {
 
     /**
      * 类型 code，全局唯一，建议大写下划线（如 {@code MC_COMMAND}）。
-     * 与内置类型 {@code GENERIC} 冲突的注册会被忽略。
+     * 与内置类型 {@code GENERIC} / {@code POINTS_REDEEM} 冲突的注册会被忽略。
      */
     String type();
 
@@ -31,6 +35,17 @@ public interface ShopProductTypeHandler {
     /** 类型说明，展示给上架者，用于说明 typeConfig 的填写方式与发货行为。 */
     default String description() {
         return "";
+    }
+
+    /**
+     * 该类型的钱怎么走。默认 {@link ShopSettlement#SELLER}：买家付款经钱包转给卖家（C2C 交易）。
+     *
+     * <p>返回 {@link ShopSettlement#BURN} 时改为消耗式结算：只从买家账户扣减商品计价资产、不产生收款方
+     * （积分兑换类商品）。两种方式的订单生命周期一致（支付→发货→核验），退款都原路退回买家账户，
+     * 且业务单号仍为 {@code shop:<订单号>}（退款为 {@code shop:refund:<订单号>}），保证钱包侧幂等与对账。
+     */
+    default ShopSettlement settlement() {
+        return ShopSettlement.SELLER;
     }
 
     /**

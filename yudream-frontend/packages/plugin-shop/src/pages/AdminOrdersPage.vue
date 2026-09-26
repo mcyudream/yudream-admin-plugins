@@ -4,10 +4,11 @@ import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
-import { displayUserName, errorMessage, formatAmount, formatTime, orderStatusTag } from '../composables/utils'
+import OrderVoucherModal from '../components/OrderVoucherModal.vue'
+import { displayOrderSeller, displayUserName, errorMessage, formatAmount, formatTime, orderStatusTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -27,6 +28,27 @@ const detailOpen = ref(false)
 const detailLoading = ref(false)
 const current = ref<ShopOrder | null>(null)
 
+const voucherOpen = ref(false)
+const voucherOrder = ref<ShopOrder | null>(null)
+const voucherLoadingId = ref('')
+
+const currentUserId = computed(() => String(props.sdk.account?.userId ?? ''))
+
+/** 管理端只能走 /me/** 操作自己的订单：仅当当前账号就是该订单卖家时才提供发货凭证入口 */
+function isOwnSale(order: ShopOrder) {
+  return !!currentUserId.value && order.seller?.id === currentUserId.value
+}
+
+/** 管理端页面本身受 manage 权限保护：管理员可为任意归属的订单代发货 */
+function canSubmitVoucher(order: ShopOrder) {
+  return order.status === 'PAID' || order.status === 'DELIVERING'
+}
+
+/** 代发货：订单没有自然人卖家（如迁移自积分商城、归属平台的订单）时走管理端发货端点 */
+function voucherIsAdmin(order: ShopOrder | null) {
+  return !!order && !isOwnSale(order)
+}
+
 const statusOptions = [
   { label: '全部状态', value: '' },
   { label: '已支付', value: 'PAID' },
@@ -34,6 +56,7 @@ const statusOptions = [
   { label: '已发货', value: 'DELIVERED' },
   { label: '发货失败', value: 'DELIVERY_FAILED' },
   { label: '已退款', value: 'REFUNDED' },
+  { label: '已取消', value: 'CANCELLED' },
 ]
 
 const columns: TableColumn<ShopOrder>[] = [
@@ -44,7 +67,7 @@ const columns: TableColumn<ShopOrder>[] = [
   { id: 'seller', header: '卖家', width: 120 },
   { id: 'status', header: '状态', width: 100 },
   { accessorKey: 'createdAt', header: '下单时间', width: 170 },
-  { id: 'operation', header: '操作', width: 230, align: 'center', fixed: 'right' },
+  { id: 'operation', header: '操作', width: 300, align: 'center', fixed: 'right' },
 ]
 
 async function load() {
@@ -140,6 +163,29 @@ async function refund(order: ShopOrder) {
   }
 }
 
+async function openVoucher(order: ShopOrder) {
+  voucherLoadingId.value = order.id
+  try {
+    // 列表项可能不携带凭证图片，先取管理端详情再提交，避免更新凭证时丢图
+    voucherOrder.value = await api.adminOrderDetail(order.id)
+  }
+  catch (error) {
+    toast.error(errorMessage(error, '加载订单详情失败，将按列表数据提交凭证'))
+    voucherOrder.value = order
+  }
+  finally {
+    voucherLoadingId.value = ''
+  }
+  voucherOpen.value = true
+}
+
+async function onVoucherSubmitted(updated: ShopOrder) {
+  await load()
+  if (detailOpen.value && current.value?.id === updated.id) {
+    current.value = updated
+  }
+}
+
 function canRedeliver(order: ShopOrder) {
   return ['PAID', 'DELIVERING', 'DELIVERY_FAILED'].includes(order.status)
 }
@@ -220,6 +266,7 @@ onMounted(() => { void load() })
               <FaIcon name="i-ri:image-line" />
             </div>
             <span class="line-clamp-1 font-medium">{{ row.original.productTitle }}</span>
+            <span v-if="row.original.variantName" class="text-xs text-muted-foreground">{{ row.original.variantName }}</span>
           </div>
         </template>
         <template #cell-amount="{ row }">
@@ -231,7 +278,7 @@ onMounted(() => { void load() })
           {{ displayUserName(row.original.buyer) }}
         </template>
         <template #cell-seller="{ row }">
-          {{ displayUserName(row.original.seller) }}
+          {{ displayOrderSeller(row.original) }}
         </template>
         <template #cell-status="{ row }">
           <FaTag :variant="orderStatusTag(row.original.status).variant">
@@ -244,6 +291,14 @@ onMounted(() => { void load() })
         <template #cell-operation="{ row }">
           <div class="flex-center gap-2">
             <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
+            <FaButton
+              v-if="canSubmitVoucher(row.original)"
+              size="sm"
+              :loading="voucherLoadingId === row.original.id"
+              @click="openVoucher(row.original)"
+            >
+              {{ isOwnSale(row.original) ? '发货凭证' : '代发货' }}
+            </FaButton>
             <FaButton
               v-if="canRedeliver(row.original)"
               size="sm"
@@ -281,6 +336,14 @@ onMounted(() => { void load() })
         :order="current"
         :loading="detailLoading"
         :show-content="true"
+      />
+
+      <OrderVoucherModal
+        v-model:open="voucherOpen"
+        :sdk="sdk"
+        :order="voucherOrder"
+        :admin="voucherIsAdmin(voucherOrder)"
+        @submitted="onVoucherSubmitted"
       />
     </FaPageMain>
   </section>

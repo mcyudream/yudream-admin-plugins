@@ -2,6 +2,18 @@
 
 export type TimeValue = string | number | number[] | null | undefined
 
+/** 内置商品类型：积分兑换。支付即扣积分（消耗）、需提交发货凭证、买家核验后完成。 */
+export const POINTS_REDEEM_TYPE = 'POINTS_REDEEM'
+
+/** 订单结算方式：SELLER 转给卖家 / BURN 消耗（扣买家资产、不产生收款方）。 */
+export type ShopSettlement = 'SELLER' | 'BURN'
+
+/** 单笔发货凭证最多可提交的图片数量，与后端 ShopOrder.MAX_DELIVERY_PROOFS 对齐。 */
+export const MAX_DELIVERY_PROOFS = 6
+
+/** 发货凭证文本最大长度，与后端 ShopOrder.MAX_VOUCHER_LENGTH 对齐。 */
+export const MAX_VOUCHER_LENGTH = 500
+
 export interface Page<T> {
   records: T[]
   total: number | string
@@ -26,8 +38,22 @@ export interface ShopProductSummary {
   price: string | number
   stock: number
   soldCount: number | string
+  /** 每人限购数量，0 表示不限；积分兑换类商品即「每人限兑」 */
+  perUserLimit: number
   type: string
   typeDisplayName?: string
+  /** 结算方式：SELLER 为玩家商品（归属真实用户）；BURN 为官方消耗商品（归属平台，没有归属用户） */
+  settlement?: ShopSettlement
+  /** 是否官方投放（平台归属、没有归属用户） */
+  platformOwned?: boolean
+  /** 官方商品的归属展示名（可在商店设置里改，null 表示不显示归属行） */
+  ownerLabel?: string | null
+  /** 官方商品的归属头像（商店设置里配置，null 表示用展示名首字占位） */
+  ownerAvatar?: string | null
+  /** 可选型号：非空时价格与库存以型号为准（price 为最低价、stock 为合计） */
+  variants?: ShopVariant[]
+  /** 展示排序权重（管理端可调，大的在前；0 表示按创建时间倒序） */
+  sortOrder?: number
   status: string
   statusText?: string
   createdAt: TimeValue
@@ -53,18 +79,48 @@ export interface ShopOrder {
   price: string | number
   quantity: number
   totalAmount: string | number
+  /** 下单时选中的型号（商品无型号时为 null） */
+  variantId?: string | null
+  variantName?: string | null
   status: string
   statusText?: string
+  /** 结算方式：SELLER 转给卖家 / BURN 消耗；历史订单缺省按 SELLER 处理 */
+  settlement: ShopSettlement
+  /** 没有卖家账号的消耗式订单的归属展示名，null 表示不显示归属行 */
+  sellerLabel?: string | null
   walletTransactionId?: string
   refundTransactionId?: string
   deliveryMessage?: string
   deliveryContent?: string | null
-  /** 卖家发货凭证；voucherVerified 为买家核验标记 */
+  /** 卖家发货凭证文本；voucherVerified 为买家核验标记 */
   deliveryVoucher?: string | null
+  /** 卖家发货凭证图片（已上传文件地址，最多 6 张），与 deliveryVoucher 至少一个非空 */
+  deliveryProofs: string[]
   voucherVerified?: boolean
+  /** 买家视角：未发货、未终结为 true，可自行取消并原路退款 */
+  cancellable: boolean
   createdAt: TimeValue
   paidAt?: TimeValue
   deliveredAt?: TimeValue
+}
+
+/** 商品型号：同一商品可选不同型号，各自带价格与库存 */
+export interface ShopVariant {
+  id: string
+  name: string
+  price: string | number
+  stock: number
+  image?: string | null
+  soldOut?: boolean
+}
+
+/** 型号请求体：id 留空表示新建 */
+export interface ShopVariantPayload {
+  id?: string
+  name: string
+  price: number
+  stock: number
+  image?: string
 }
 
 export interface ShopCurrency {
@@ -98,13 +154,19 @@ export interface ShopProductPayload {
   assetCode: string
   price: number
   stock: number
+  /** 每人限购数量，0 表示不限 */
+  perUserLimit: number
   type: string
   typeConfig: Record<string, unknown>
+  /** 可选型号；非空时以型号价格与库存为准 */
+  variants: ShopVariantPayload[]
 }
 
 export interface AdminShopProductPayload extends ShopProductPayload {
   /** 归属用户 ID，留空归属管理员自己 */
   ownerId?: string
+  /** 展示排序权重（管理端可调，0 到 9999，大的在前） */
+  sortOrder?: number
 }
 
 export interface ShopSettings {
@@ -113,6 +175,10 @@ export interface ShopSettings {
   publishMinBalance: string | number
   allowedAssetCodes: string[]
   walletAvailable: boolean
+  /** 官方（平台归属）商品的归属展示名，空串表示界面不显示归属行 */
+  platformOwnerName: string
+  /** 官方归属头像（平台上传文件地址），null 表示不设置 */
+  platformOwnerAvatar: string | null
   assetOptions: ShopCurrency[]
 }
 
@@ -120,6 +186,8 @@ export interface ShopSettingsPayload {
   allowUserPublish: boolean
   publishAssetCode: string
   publishMinBalance: number
+  platformOwnerName: string
+  platformOwnerAvatar: string
   allowedAssetCodes: string[]
 }
 

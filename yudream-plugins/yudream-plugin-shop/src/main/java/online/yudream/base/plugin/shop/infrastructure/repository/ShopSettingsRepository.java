@@ -40,6 +40,8 @@ public class ShopSettingsRepository {
         document.put("allowedAssetCodes", normalized.allowedAssetCodes().isEmpty()
                 ? null
                 : new ArrayList<>(normalized.allowedAssetCodes()));
+        document.put("platformOwnerName", normalized.platformOwnerName());
+        document.put("platformOwnerAvatar", normalized.platformOwnerAvatar());
         return toSettings(documents.save(SETTINGS, SETTINGS_ID, DocumentSupport.stripNulls(document)));
     }
 
@@ -48,7 +50,12 @@ public class ShopSettingsRepository {
                 parseBoolean(document.get("allowUserPublish"), true),
                 ShopProductRepository.stringValue(document.get("publishAssetCode")),
                 parseBalance(document.get("publishMinBalance")),
-                parseCodes(document.get("allowedAssetCodes"))
+                parseCodes(document.get("allowedAssetCodes")),
+                // 历史文档没有该字段时回退默认展示名，而不是变成空（空表示管理员主动隐藏）
+                document.containsKey("platformOwnerName")
+                        ? ShopProductRepository.stringValue(document.get("platformOwnerName"))
+                        : ShopSettings.DEFAULT_PLATFORM_OWNER_NAME,
+                ShopProductRepository.stringValue(document.get("platformOwnerAvatar"))
         ).normalized();
     }
 

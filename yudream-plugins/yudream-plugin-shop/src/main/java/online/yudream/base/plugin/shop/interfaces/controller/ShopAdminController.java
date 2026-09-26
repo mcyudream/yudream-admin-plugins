@@ -63,6 +63,11 @@ public class ShopAdminController {
         return catalog.adminSetShelf(request);
     }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/products/{id}/sort", permission = ShopPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse moveProduct(PluginHttpRequest request) {
+        return catalog.adminMoveProduct(request);
+    }
+
     @PluginHttpEndpoint(method = "DELETE", path = "/admin/products/{id}", permission = ShopPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse deleteProduct(PluginHttpRequest request) {
         return catalog.adminDeleteProduct(request);
@@ -86,5 +91,15 @@ public class ShopAdminController {
     @PluginHttpEndpoint(method = "POST", path = "/admin/orders/{id}/refund", permission = ShopPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse refund(PluginHttpRequest request) {
         return orders.adminRefund(request);
+    }
+
+    /**
+     * 管理员代发货：与卖家提交凭证同一份校验，但不要求订单归属当前账号，
+     * 用于平台归属的历史订单（迁移自积分商城）与代他人上架的订单。
+     */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/orders/{id}/delivery",
+            permission = ShopPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse submitDelivery(PluginHttpRequest request) {
+        return orders.adminSubmitDelivery(request);
     }
 }

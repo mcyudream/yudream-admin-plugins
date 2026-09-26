@@ -8,7 +8,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
-import { displayUserName, errorMessage, formatAmount, formatTime, productStatusTag } from '../composables/utils'
+import { displayProductOwner, errorMessage, formatAmount, formatTime, isPlatformOwned, perUserLimitText, productStatusTag, productTypeLabel } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -41,9 +41,10 @@ const columns: TableColumn<ShopProductSummary>[] = [
   { id: 'price', header: '价格', width: 130 },
   { id: 'stock', header: '库存 / 已售', width: 120 },
   { id: 'type', header: '类型', width: 110 },
+  { id: 'sortOrder', header: '排序', width: 80, align: 'center' },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 300, align: 'center', fixed: 'right' },
+  { id: 'operation', header: '操作', width: 460, align: 'center', fixed: 'right' },
 ]
 
 const currentConfigText = computed(() => {
@@ -117,10 +118,27 @@ function toggleShelf(product: ShopProductSummary) {
     .finally(() => { actingId.value = '' })
 }
 
+async function moveProduct(product: ShopProductSummary, direction: 'UP' | 'DOWN' | 'TOP') {
+  if (actingId.value) {
+    return
+  }
+  actingId.value = product.id
+  try {
+    await api.adminMoveProduct(product.id, direction)
+    await load()
+  }
+  catch (error) {
+    toast.error(errorMessage(error, '排序失败'))
+  }
+  finally {
+    actingId.value = ''
+  }
+}
+
 function confirmDelete(product: ShopProductSummary) {
   confirm.confirm({
     title: '删除商品',
-    content: `确认删除「${product.title}」（卖家：${displayUserName(product.owner)}）吗？删除后商品不再展示，已产生的订单仍保留快照记录；若有待发货订单将无法删除。`,
+    content: `确认删除「${product.title}」（归属：${displayProductOwner(product)}）吗？删除后商品不再展示，已产生的订单仍保留快照记录；若有待发货订单将无法删除。`,
     onConfirm: () => removeProduct(product),
   })
 }
@@ -214,7 +232,7 @@ onMounted(() => { void load() })
           </div>
         </template>
         <template #cell-owner="{ row }">
-          {{ displayUserName(row.original.owner) }}
+          {{ displayProductOwner(row.original) }}
         </template>
         <template #cell-price="{ row }">
           {{ row.original.assetSymbol || '¥' }}{{ formatAmount(row.original.price) }}
@@ -224,7 +242,7 @@ onMounted(() => { void load() })
           {{ row.original.stock < 0 ? '不限' : row.original.stock }} / {{ Number(row.original.soldCount) || 0 }}
         </template>
         <template #cell-type="{ row }">
-          <FaTag variant="secondary">{{ row.original.typeDisplayName || row.original.type }}</FaTag>
+          <FaTag variant="secondary">{{ productTypeLabel(row.original.type, row.original.typeDisplayName) }}</FaTag>
         </template>
         <template #cell-status="{ row }">
           <FaTag :variant="productStatusTag(row.original.status).variant">
@@ -234,8 +252,20 @@ onMounted(() => { void load() })
         <template #cell-updatedAt="{ row }">
           {{ formatTime(row.original.updatedAt) }}
         </template>
+        <template #cell-sortOrder="{ row }">
+          <span class="text-xs text-muted-foreground">{{ Number(row.original.sortOrder) || 0 }}</span>
+        </template>
         <template #cell-operation="{ row }">
           <div class="flex-center gap-2">
+            <FaButton size="sm" variant="outline" :loading="actingId === row.original.id" @click="moveProduct(row.original, 'TOP')">
+              置顶
+            </FaButton>
+            <FaButton size="sm" variant="outline" :loading="actingId === row.original.id" @click="moveProduct(row.original, 'UP')">
+              上移
+            </FaButton>
+            <FaButton size="sm" variant="outline" :loading="actingId === row.original.id" @click="moveProduct(row.original, 'DOWN')">
+              下移
+            </FaButton>
             <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
             <FaButton size="sm" variant="outline" @click="openEdit(row.original)">编辑</FaButton>
             <FaButton
@@ -275,15 +305,17 @@ onMounted(() => { void load() })
               <FaTag :variant="productStatusTag(current.status).variant">
                 {{ current.statusText || productStatusTag(current.status).text }}
               </FaTag>
-              <FaTag variant="secondary">{{ current.typeDisplayName || current.type }}</FaTag>
+              <FaTag variant="secondary">{{ productTypeLabel(current.type, current.typeDisplayName) }}</FaTag>
             </div>
             <div class="shop-order-detail-grid">
-              <span class="shop-order-detail-label">卖家</span>
-              <span>{{ displayUserName(current.owner) }}（{{ current.ownerId }}）</span>
+              <span class="shop-order-detail-label">归属</span>
+              <span>{{ displayProductOwner(current) }}<template v-if="!isPlatformOwned(current.ownerId, current.settlement)">（{{ current.ownerId }}）</template></span>
               <span class="shop-order-detail-label">价格</span>
               <span>{{ current.assetSymbol || '¥' }}{{ formatAmount(current.price) }} {{ current.assetCode }}</span>
               <span class="shop-order-detail-label">库存 / 已售</span>
               <span>{{ current.stock < 0 ? '不限' : current.stock }} / {{ Number(current.soldCount) || 0 }}</span>
+              <span class="shop-order-detail-label">每人限购</span>
+              <span>{{ perUserLimitText(current.perUserLimit) }}</span>
               <span class="shop-order-detail-label">创建 / 更新</span>
               <span>{{ formatTime(current.createdAt) }} / {{ formatTime(current.updatedAt) }}</span>
             </div>
