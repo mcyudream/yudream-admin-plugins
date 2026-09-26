@@ -17,18 +17,21 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <yudream.plugin.spi.version>2.31.0</yudream.plugin.spi.version>
+        <yudream.plugin.spi.version>2.33.0</yudream.plugin.spi.version>
         <jackson.version>2.20.0</jackson.version>
         <!-- 插件间 provided 依赖在此统一锁定 provider 版本；消费方禁止用 ${project.version} 与自身版本锁步 -->
         <yudream.plugin.yudream-skin.version>1.4.0</yudream.plugin.yudream-skin.version>
         <yudream.plugin.wallet.version>1.1.5</yudream.plugin.wallet.version>
-        <yudream.plugin.minecraft-server.version>1.6.0</yudream.plugin.minecraft-server.version>
-        <yudream.plugin.ymcl-adapter.version>0.8.0</yudream.plugin.ymcl-adapter.version>
-        <yudream.plugin.authlib-injector.version>1.1.5</yudream.plugin.authlib-injector.version>
+        <yudream.plugin.minecraft-server.version>1.6.2</yudream.plugin.minecraft-server.version>
+        <yudream.plugin.ymcl-adapter.version>0.10.0</yudream.plugin.ymcl-adapter.version>
+        <yudream.plugin.authlib-injector.version>1.2.0</yudream.plugin.authlib-injector.version>
         <yudream.plugin.launcher-adapter.version>0.7.0</yudream.plugin.launcher-adapter.version>
         <yudream.plugin.student-info.version>1.1.2</yudream.plugin.student-info.version>
         <yudream.plugin.mc-wiki.version>2.0.3</yudream.plugin.mc-wiki.version>
         <yudream.plugin.questionbank.version>1.2.1</yudream.plugin.questionbank.version>
+        <yudream.plugin.mcpanel.version>0.17.1</yudream.plugin.mcpanel.version>
+        <yudream.plugin.shop.version>1.0.0</yudream.plugin.shop.version>
+        <yudream.plugin.playtime-points.version>1.0.0</yudream.plugin.playtime-points.version>
     </properties>
 
     <modules>
@@ -58,8 +61,12 @@
         <module>yudream-plugins/yudream-plugin-mc-pet</module>
         <module>yudream-plugins/yudream-plugin-neco-pixel</module>
         <module>yudream-plugins/yudream-plugin-mc-news</module>
+        <module>yudream-plugins/yudream-plugin-mcpanel</module>
         <module>yudream-plugins/yudream-plugin-launcher-adapter</module>
         <module>yudream-plugins/yudream-plugin-ymcl-content</module>
+        <module>yudream-plugins/yudream-plugin-shop</module>
+        <module>yudream-plugins/yudream-plugin-forum</module>
+        <module>yudream-plugins/yudream-plugin-playtime-points</module>
     </modules>
 
     <dependencyManagement>
@@ -73,6 +80,11 @@
                 <groupId>online.yudream.plugins</groupId>
                 <artifactId>yudream-plugin-ymcl-adapter</artifactId>
                 <version>${yudream.plugin.ymcl-adapter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-mcpanel</artifactId>
+                <version>${yudream.plugin.mcpanel.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
@@ -119,6 +131,16 @@
                 <artifactId>yudream-plugin-launcher-adapter</artifactId>
                 <version>${yudream.plugin.launcher-adapter.version}</version>
             </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-shop</artifactId>
+                <version>${yudream.plugin.shop.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-playtime-points</artifactId>
+                <version>${yudream.plugin.playtime-points.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -144,6 +166,10 @@
           开发模式：把运行时依赖导出到 target/plugin-dev/lib，
           供宿主 yudream.platform.plugin.dev-mode 直接从 target/classes 目录加载插件，
           省去打包 JAR 与拷贝重启。provided 作用域（SPI、插件间 api）由宿主/提供者 ClassLoader 链提供，不会导出。
+          宿主运行时已提供的类库同样不导出（compile 声明也不导），防止 lib 内旧副本在
+          热重载后遮蔽宿主版本：SPI（online.yudream.base）、jackson core/databind/annotations、
+          slf4j 体系（api 与 jcl 桥接）。各插件真正 shade 进 JAR 的第三方依赖（如
+          jackson-dataformat、snakeyaml、sshd）才会出现在 lib 中。
         -->
         <profile>
             <id>dev-export</id>
@@ -171,6 +197,11 @@
                                 <configuration>
                                     <outputDirectory>${project.build.directory}/plugin-dev/lib</outputDirectory>
                                     <includeScope>runtime</includeScope>
+                                    <!-- online.yudream.plugins = 插件工件（含 SPI 整包）一律不进 lib：
+                                         provided 跨插件依赖由运行时委托（消费方 plugin.yml 已声明 depend/softdepend）
+                                         解析，进 lib 反而会以旧整包遮蔽 provider 自身的新类；
+                                         SPI 由宿主 parent 加载器永远优先提供。 -->
+                                    <excludeGroupIds>online.yudream.base,online.yudream.plugins,com.fasterxml.jackson.core,org.slf4j</excludeGroupIds>
                                 </configuration>
                             </execution>
                         </executions>
