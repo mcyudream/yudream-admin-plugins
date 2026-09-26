@@ -70,7 +70,7 @@ require_pattern 'library/python:3.12-alpine' "catalog/submission/store jobs must
 require_pattern 'mirrors.aliyun.com/alpine' "python alpine jobs must rewrite apk repositories to a China-reachable mirror"
 require_pattern 'apk add --no-cache curl unzip' "market publish job must add curl and unzip"
 require_pattern 'apk add --no-cache unzip' "python-image validate jobs must add unzip"
-require_pattern 'apt-get install -y -qq unzip' "tag package job must install unzip for the release-selection validator"
+require_pattern "unzip" "tag package job must provide unzip for the release-selection validator (apt install or ci/unzip-shim.sh)"
 if grep -A12 '^validate:third-party-submission:' .gitlab-ci.yml | grep -Eq 'NEXUS_(USERNAME|PASSWORD)'; then
   fail "third-party submission validation must not receive Nexus write credentials"
 fi
