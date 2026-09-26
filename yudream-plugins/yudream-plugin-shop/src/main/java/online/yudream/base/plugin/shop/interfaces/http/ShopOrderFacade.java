@@ -6,6 +6,7 @@ import online.yudream.base.plugin.shop.application.service.ShopPage;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopOrder;
 import online.yudream.base.plugin.shop.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.shop.interfaces.assembler.ShopWebAssembler;
+import online.yudream.base.plugin.shop.interfaces.request.ShopOrderCancelRequest;
 import online.yudream.base.plugin.shop.interfaces.request.ShopPurchaseRequest;
 import online.yudream.base.plugin.shop.interfaces.request.ShopVoucherRequest;
 import online.yudream.base.plugin.shop.interfaces.res.ShopOrderRes;
@@ -42,7 +43,7 @@ public class ShopOrderFacade {
         String userId = requireUserId(request);
         ShopPurchaseRequest body = JsonSupport.read(request.body(), ShopPurchaseRequest.class);
         ShopOrder order = orderService.purchase(userId,
-                new ShopPurchaseCmd(body.productId(), body.quantity() == null ? 1 : body.quantity()));
+                new ShopPurchaseCmd(body.productId(), body.variantId(), body.quantity() == null ? 1 : body.quantity()));
         return PluginHttpResponse.ok(assembler.toRes(order, userOf(order.buyerId()), userOf(order.sellerId()), true));
     }
 
@@ -87,18 +88,40 @@ public class ShopOrderFacade {
 
     // ---------- 发货凭证核验 ----------
 
-    /** 卖家提交发货凭证（publish 权限）：订单进入待买家核验状态。 */
+    /** 卖家提交发货凭证（publish 权限）：文本与最多 6 张图片至少其一，订单进入待买家核验状态。 */
     public PluginHttpResponse submitVoucher(PluginHttpRequest request) {
         String userId = requireUserId(request);
         ShopVoucherRequest body = JsonSupport.read(request.body(), ShopVoucherRequest.class);
-        ShopOrder order = orderService.submitVoucher(userId, pathSegment(request.path(), 2), body.voucher());
+        ShopOrder order = orderService.submitDelivery(userId, pathSegment(request.path(), 2),
+                body.voucher(), body.proofs());
         return PluginHttpResponse.ok(assembler.toRes(order, userOf(order.buyerId()), userOf(order.sellerId()), false));
+    }
+
+    /**
+     * 管理员代发货（manage 权限）：对任意归属的订单提交发货凭证。
+     *
+     * <p>覆盖两类订单：归属平台的历史订单（迁移自积分商城的存量兑换，sellerId=system，没有自然人卖家），
+     * 以及管理员代他人上架、需要管理员代为发货的订单。
+     */
+    public PluginHttpResponse adminSubmitDelivery(PluginHttpRequest request) {
+        ShopVoucherRequest body = JsonSupport.read(request.body(), ShopVoucherRequest.class);
+        ShopOrder order = orderService.adminSubmitDelivery(pathSegment(request.path(), 2),
+                body.voucher(), body.proofs());
+        return PluginHttpResponse.ok(assembler.toRes(order, userOf(order.buyerId()), userOf(order.sellerId()), true));
     }
 
     /** 买家核验发货凭证（use 权限）：核验后订单完成。 */
     public PluginHttpResponse verifyDelivery(PluginHttpRequest request) {
         String userId = requireUserId(request);
         ShopOrder order = orderService.verifyDelivery(userId, pathSegment(request.path(), 2));
+        return PluginHttpResponse.ok(assembler.toRes(order, userOf(order.buyerId()), userOf(order.sellerId()), true));
+    }
+
+    /** 买家在发货前取消订单（use 权限）：原路退款、回滚库存，订单落为已取消。 */
+    public PluginHttpResponse cancelOrder(PluginHttpRequest request) {
+        String userId = requireUserId(request);
+        ShopOrderCancelRequest body = JsonSupport.read(request.body(), ShopOrderCancelRequest.class);
+        ShopOrder order = orderService.cancelOrder(userId, pathSegment(request.path(), 2), body.reason());
         return PluginHttpResponse.ok(assembler.toRes(order, userOf(order.buyerId()), userOf(order.sellerId()), true));
     }
 

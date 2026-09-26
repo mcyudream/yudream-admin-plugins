@@ -2,15 +2,17 @@ package online.yudream.base.plugin.shop.interfaces.http;
 
 import online.yudream.base.plugin.shop.application.service.ShopCatalogService;
 import online.yudream.base.plugin.shop.application.service.ShopPage;
-import online.yudream.base.plugin.shop.application.service.ShopProductTypeRegistry;
 import online.yudream.base.plugin.shop.application.service.ShopSettingsService;
+import online.yudream.base.plugin.shop.bootstrap.ShopPlugin;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopProduct;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
 import online.yudream.base.plugin.shop.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.shop.infrastructure.wallet.ShopWalletPort;
 import online.yudream.base.plugin.shop.interfaces.assembler.ShopWebAssembler;
 import online.yudream.base.plugin.shop.interfaces.request.ShopAdminProductSaveRequest;
 import online.yudream.base.plugin.shop.interfaces.request.ShopProductSaveRequest;
 import online.yudream.base.plugin.shop.interfaces.request.ShopSettingsSaveRequest;
+import online.yudream.base.plugin.shop.interfaces.request.ShopSortRequest;
 import online.yudream.base.plugin.shop.interfaces.request.ShopShelfRequest;
 import online.yudream.base.plugin.shop.interfaces.res.ShopProductRes;
 import online.yudream.base.plugin.shop.interfaces.res.ShopPublishQualificationRes;
@@ -25,6 +27,7 @@ import online.yudream.base.plugin.spi.system.user.PluginUserOption;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static online.yudream.base.plugin.shop.interfaces.http.HttpSupport.firstQuery;
@@ -38,17 +41,15 @@ public class ShopCatalogFacade {
 
     private final ShopCatalogService catalogService;
     private final ShopSettingsService settingsService;
-    private final ShopProductTypeRegistry typeRegistry;
     private final ShopWalletPort walletPort;
     private final ShopWebAssembler assembler;
     private final PluginContext context;
 
     public ShopCatalogFacade(ShopCatalogService catalogService, ShopSettingsService settingsService,
-                             ShopProductTypeRegistry typeRegistry, ShopWalletPort walletPort,
+                             ShopWalletPort walletPort,
                              ShopWebAssembler assembler, PluginContext context) {
         this.catalogService = catalogService;
         this.settingsService = settingsService;
-        this.typeRegistry = typeRegistry;
         this.walletPort = walletPort;
         this.assembler = assembler;
         this.context = context;
@@ -58,7 +59,7 @@ public class ShopCatalogFacade {
 
     public PluginHttpResponse plazaProducts(PluginHttpRequest request) {
         ShopPage<ShopProduct> result = catalogService.pagePlaza(
-                firstQuery(request, "keyword"), firstQuery(request, "assetCode"),
+                firstQuery(request, "keyword"), firstQuery(request, "assetCode"), plazaSettlement(request),
                 page(request), size(request));
         Map<String, String> symbols = assetSymbols();
         List<ShopProductRes> records = result.records().stream()
@@ -74,8 +75,10 @@ public class ShopCatalogFacade {
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), true, false));
     }
 
-    public PluginHttpResponse plazaCurrencies() {
-        return PluginHttpResponse.ok(catalogService.plazaCurrencies().stream().map(assembler::toRes).toList());
+    /** 广场货币筛选项：与商品列表同一结算方式，避免「玩家市场」里出现只有兑换商品在用的货币。 */
+    public PluginHttpResponse plazaCurrencies(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(
+                catalogService.plazaCurrencies(plazaSettlement(request)).stream().map(assembler::toRes).toList());
     }
 
     // ---------- 卖家商品维护 ----------
@@ -90,13 +93,23 @@ public class ShopCatalogFacade {
                         .toList()));
     }
 
+    /** 用户端只提供玩家侧类型：官方消耗类商品没有归属用户，由管理员在管理端投放。 */
     public PluginHttpResponse myProductTypes() {
-        return PluginHttpResponse.ok(typeRegistry.types().stream().map(assembler::toRes).toList());
+        return PluginHttpResponse.ok(catalogService.typesFor(ShopSettlement.SELLER).stream()
+                .map(assembler::toRes).toList());
     }
 
-    /** 当前账号的上架资格：开关关闭或积分门槛不足时 allowed=false 并给出原因。 */
+    /**
+     * 当前账号的上架资格：开关关闭、积分门槛不足或账号是管理员（只能发官方商品）时
+     * allowed=false 并给出原因，用户端据此禁用发布入口。
+     */
     public PluginHttpResponse publishQualification(PluginHttpRequest request) {
         String userId = requireUserId(request);
+        if (canManage(request)) {
+            return PluginHttpResponse.ok(new ShopPublishQualificationRes(false,
+                    "管理员账号只能发布积分兑换商品，请在「商店管理 → 商品管理」新增官方商品",
+                    null, null, null, walletPort.available()));
+        }
         ShopSettingsService.PublishQualification qualification = settingsService.qualify(userId);
         return PluginHttpResponse.ok(new ShopPublishQualificationRes(
                 qualification.allowed(), qualification.reason(),
@@ -127,7 +140,7 @@ public class ShopCatalogFacade {
     public PluginHttpResponse createProduct(PluginHttpRequest request) {
         String userId = requireUserId(request);
         ShopProductSaveRequest body = JsonSupport.read(request.body(), ShopProductSaveRequest.class);
-        ShopProduct product = catalogService.saveMyProduct(userId, assembler.toCmd(body));
+        ShopProduct product = catalogService.saveMyProduct(userId, canManage(request), assembler.toCmd(body));
         return PluginHttpResponse.ok(assembler.toRes(product, null,
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), true, true));
     }
@@ -135,7 +148,7 @@ public class ShopCatalogFacade {
     public PluginHttpResponse updateProduct(PluginHttpRequest request) {
         String userId = requireUserId(request);
         ShopProductSaveRequest body = JsonSupport.read(request.body(), ShopProductSaveRequest.class);
-        ShopProduct product = catalogService.saveMyProduct(userId,
+        ShopProduct product = catalogService.saveMyProduct(userId, canManage(request),
                 assembler.toCmd(pathSegment(request.path(), 2), body));
         return PluginHttpResponse.ok(assembler.toRes(product, null,
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), true, true));
@@ -189,6 +202,14 @@ public class ShopCatalogFacade {
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), false, false));
     }
 
+    /** 管理端排序：在同族的展示顺序里上移、下移或置顶。 */
+    public PluginHttpResponse adminMoveProduct(PluginHttpRequest request) {
+        ShopSortRequest body = JsonSupport.read(request.body(), ShopSortRequest.class);
+        ShopProduct product = catalogService.adminMoveProduct(pathSegment(request.path(), 2), body.direction());
+        return PluginHttpResponse.ok(assembler.toRes(product, userOf(product.ownerId()),
+                assetSymbols().getOrDefault(product.assetCode(), "¥"), false, false));
+    }
+
     public PluginHttpResponse adminDeleteProduct(PluginHttpRequest request) {
         catalogService.adminDeleteProduct(pathSegment(request.path(), 2));
         return PluginHttpResponse.ok(Map.of("deleted", true));
@@ -206,7 +227,9 @@ public class ShopCatalogFacade {
                 body.allowUserPublish() == null || body.allowUserPublish(),
                 body.publishAssetCode(),
                 body.publishMinBalance() == null ? BigDecimal.ZERO : body.publishMinBalance(),
-                body.allowedAssetCodes()));
+                body.allowedAssetCodes(),
+                body.platformOwnerName(),
+                body.platformOwnerAvatar()));
         return PluginHttpResponse.ok(toSettingsRes(saved));
     }
 
@@ -223,25 +246,22 @@ public class ShopCatalogFacade {
         return PluginHttpResponse.ok(Map.of("records", records, "total", total));
     }
 
-    /** 管理端商品类型选项：管理账号可能没有 publish 权限，不能复用 /me 端点。 */
+    /** 管理端商品类型选项：只提供官方侧（消耗类）类型，管理账号可能没有 publish 权限，不能复用 /me 端点。 */
     public PluginHttpResponse adminProductTypes() {
-        return PluginHttpResponse.ok(typeRegistry.types().stream().map(assembler::toRes).toList());
+        return PluginHttpResponse.ok(catalogService.typesFor(ShopSettlement.BURN).stream()
+                .map(assembler::toRes).toList());
     }
 
     public PluginHttpResponse adminCreateProduct(PluginHttpRequest request) {
-        String operatorId = requireUserId(request);
         ShopAdminProductSaveRequest body = JsonSupport.read(request.body(), ShopAdminProductSaveRequest.class);
-        ShopProduct product = catalogService.adminSaveProduct(operatorId, requireTargetOwner(body.ownerId()),
-                assembler.toCmd(body));
+        ShopProduct product = catalogService.adminSaveProduct(assembler.toCmd(body));
         return PluginHttpResponse.ok(assembler.toRes(product, userOf(product.ownerId()),
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), true, true));
     }
 
     public PluginHttpResponse adminUpdateProduct(PluginHttpRequest request) {
-        String operatorId = requireUserId(request);
         ShopAdminProductSaveRequest body = JsonSupport.read(request.body(), ShopAdminProductSaveRequest.class);
-        ShopProduct product = catalogService.adminSaveProduct(operatorId, requireTargetOwner(body.ownerId()),
-                assembler.toCmd(pathSegment(request.path(), 2), body));
+        ShopProduct product = catalogService.adminSaveProduct(assembler.toCmd(pathSegment(request.path(), 2), body));
         return PluginHttpResponse.ok(assembler.toRes(product, userOf(product.ownerId()),
                 assetSymbols().getOrDefault(product.assetCode(), "¥"), true, true));
     }
@@ -250,17 +270,39 @@ public class ShopCatalogFacade {
 
     private ShopSettingsRes toSettingsRes(ShopSettings settings) {
         return new ShopSettingsRes(settings.allowUserPublish(), settings.publishAssetCode(),
-                settings.publishMinBalance(), settings.allowedAssetCodes(), walletPort.available(),
+                settings.publishMinBalance(), settings.allowedAssetCodes(), settings.platformOwnerName(),
+                settings.platformOwnerAvatar(),
+                walletPort.available(),
                 walletPort.enabledAssets().stream().map(assembler::toRes).toList());
     }
 
-    /** 归属用户校验：填了 ownerId 必须是平台存在的用户，避免手误造出无主商品。 */
-    private String requireTargetOwner(String ownerId) {
-        String target = ownerId == null || ownerId.isBlank() ? null : ownerId.trim();
-        if (target != null && userOf(target) == null) {
-            throw new IllegalArgumentException("归属用户不存在：" + target);
+    /**
+     * 调用者是否持有商店管理权限。
+     *
+     * <p>发布规则按它分流：管理员只能投放官方（消耗类）商品，非管理员只能发布玩家侧商品。
+     * 与宿主 SPI 对齐，超管角色下发的是字面量 {@code *}，由 {@code hasPermission} 展开。
+     */
+    private boolean canManage(PluginHttpRequest request) {
+        return request.principal() != null && request.principal().hasPermission(ShopPlugin.MANAGE_PERMISSION);
+    }
+
+    /**
+     * 广场的结算方式过滤。
+     *
+     * <p>缺省是 {@link ShopSettlement#SELLER}——广场即「玩家市场」，只列玩家互相买卖的商品；
+     * 「积分商城」显式传 {@code settlement=BURN}。写了无法识别的值直接报错，
+     * 避免参数写错时静默退化成"只看玩家市场"这种难以察觉的错。
+     */
+    private ShopSettlement plazaSettlement(PluginHttpRequest request) {
+        String raw = firstQuery(request, "settlement");
+        if (raw == null || raw.isBlank()) {
+            return ShopSettlement.SELLER;
         }
-        return target;
+        return switch (raw.trim().toUpperCase(Locale.ROOT)) {
+            case "SELLER" -> ShopSettlement.SELLER;
+            case "BURN" -> ShopSettlement.BURN;
+            default -> throw new IllegalArgumentException("未知的结算方式：" + raw);
+        };
     }
 
     /** 每个请求解析一次货币符号表，避免分页列表逐商品查询钱包。 */

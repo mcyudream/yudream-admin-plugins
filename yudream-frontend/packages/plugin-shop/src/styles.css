@@ -49,9 +49,92 @@
   font-style: normal;
 }
 
-/* 商品广场（瀑布流） */
+/* 玩家市场 / 积分商城列表（瀑布流） */
 .shop-plaza {
   min-height: 200px;
+}
+
+/* 商品型号编辑器：每个型号一张卡片（序号 + 名称 + 删除 / 价格 + 库存） */
+.shop-variant-empty {
+  padding: 12px;
+  border: 1px dashed var(--color-border-2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.shop-variant-item {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 8px;
+  background: var(--color-fill-1);
+}
+
+.shop-variant-item-head {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.shop-variant-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-fill-3);
+  font-size: 12px;
+  color: var(--color-text-2);
+}
+
+.shop-variant-item-body {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.shop-variant-field {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+@media (max-width: 720px) {
+  .shop-variant-item-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+/* 商品详情的型号选择 */
+.shop-variant-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shop-variant-option {
+  display: grid;
+  gap: 2px;
+  min-width: 96px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shop-variant-option.is-active {
+  border-color: rgb(var(--primary-6));
+}
+
+.shop-variant-option.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .shop-plaza-grid {
@@ -115,6 +198,21 @@
   font-size: 12px;
   color: #fff;
   background: rgb(0 0 0 / 55%);
+}
+
+/* 积分兑换标识：与「已售罄」区分，放左上角 */
+.shop-product-card-type {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fff;
+  background: rgb(22 93 255 / 78%);
 }
 
 .shop-product-card-body {
@@ -313,6 +411,53 @@
   white-space: pre-wrap;
   word-break: break-all;
   background: var(--color-fill-2, #f2f3f5);
+}
+
+/* 发货凭证图片网格：缩略图可点击放大预览 */
+.shop-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  max-width: 420px;
+}
+
+.shop-proof-item {
+  padding: 0;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  background: var(--color-fill-2, #f2f3f5);
+  cursor: zoom-in;
+  transition: border-color 0.2s ease;
+}
+
+.shop-proof-item:hover {
+  border-color: var(--color-primary-6, #165dff);
+}
+
+.shop-proof-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 买家取消订单：二次确认区域 */
+.shop-order-cancel {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-2, #e5e6eb);
+}
+
+.shop-order-cancel-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  background: var(--color-fill-1, #f7f8fa);
 }
 
 /* Markdown 预览背景透出宿主底色（md-editor github 主题默认白底） */

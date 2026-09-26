@@ -2,6 +2,7 @@ package online.yudream.base.plugin.shop.infrastructure.wallet;
 
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.wallet.api.PluginWalletAsset;
+import online.yudream.base.plugin.wallet.api.PluginWalletChangeRequest;
 import online.yudream.base.plugin.wallet.api.PluginWalletService;
 import online.yudream.base.plugin.wallet.api.PluginWalletTransaction;
 import online.yudream.base.plugin.wallet.api.PluginWalletTransferRequest;
@@ -82,6 +83,33 @@ public class ShopWalletPort {
                 .orElseThrow(() -> new IllegalStateException("钱包插件未启用，暂时无法完成支付"));
         PluginWalletTransaction transaction = wallet.transfer(new PluginWalletTransferRequest(
                 fromUserId, toUserId, assetCode, amount, businessNo, remark));
+        return new WalletPayment(transaction.id());
+    }
+
+    /**
+     * 消耗式结算：从买家账户扣减资产、不产生收款方（积分兑换类商品）。
+     *
+     * <p>走钱包 {@code debit(PluginWalletChangeRequest)}；钱包按 businessNo 幂等，同一单号重复调用只会扣一次
+     * 并返回首笔流水。钱包不可用抛 IllegalStateException，余额不足等业务异常由钱包原样抛出。
+     */
+    public WalletPayment burn(String userId, String assetCode, BigDecimal amount, String businessNo, String remark) {
+        PluginWalletService wallet = service()
+                .orElseThrow(() -> new IllegalStateException("钱包插件未启用，暂时无法完成扣减"));
+        PluginWalletTransaction transaction = wallet.debit(new PluginWalletChangeRequest(
+                userId, assetCode, amount, businessNo, remark));
+        return new WalletPayment(transaction.id());
+    }
+
+    /**
+     * 原路退款：把钱加回买家账户（走钱包 {@code credit(PluginWalletChangeRequest)}）。
+     *
+     * <p>消耗式结算的订单没有卖家可退，只能退回买家；businessNo 同样是幂等键，重复退款不会重复入账。
+     */
+    public WalletPayment refund(String userId, String assetCode, BigDecimal amount, String businessNo, String remark) {
+        PluginWalletService wallet = service()
+                .orElseThrow(() -> new IllegalStateException("钱包插件未启用，暂时无法完成退款"));
+        PluginWalletTransaction transaction = wallet.credit(new PluginWalletChangeRequest(
+                userId, assetCode, amount, businessNo, remark));
         return new WalletPayment(transaction.id());
     }
 

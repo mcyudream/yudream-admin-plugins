@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-shop</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 
     <build>
         <resources>
@@ -39,6 +39,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { ShopCurrency, ShopProductType, ShopUserOption } from '../types'
-import type { TableColumn } from '@yudream/components'
+import type { ShopCurrency, ShopProductType, ShopVariantPayload } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdTablePicker, FaAlert, FaButton, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaTextarea, useFaToast } from '@yudream/components'
+import { POINTS_REDEEM_TYPE } from '../types'
+import { FaAlert, FaButton, FaIcon, FaImageUpload, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaTextarea, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
-import { errorMessage, normalizeFileUrl, uploadMarkdownImage } from '../composables/utils'
+import VariantEditor from '../components/VariantEditor.vue'
+import { errorMessage, isPlatformOwned, normalizeFileUrl, uploadMarkdownImage } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -31,7 +32,6 @@ const productId = computed(() => String(route.query.id || ''))
 const isEdit = computed(() => !!productId.value)
 
 const form = reactive({
-  ownerIds: [] as string[],
   title: '',
   summary: '',
   descriptionMd: '',
@@ -39,28 +39,17 @@ const form = reactive({
   assetCode: '',
   price: 1,
   stock: -1,
+  perUserLimit: 0,
   type: 'GENERIC',
+  variants: [] as ShopVariantPayload[],
+  sortOrder: 0,
   deliveryNote: '',
   extraConfigJson: '',
 })
 
-const ownerInitialLabels = ref<Record<string, string>>({})
-
-const ownerColumns: TableColumn<ShopUserOption>[] = [
-  { accessorKey: 'username', header: '用户名', width: 150 },
-  { accessorKey: 'nickname', header: '昵称', width: 150 },
-  { accessorKey: 'id', header: '用户 ID', width: 200 },
-]
-
-/** 归属用户选择器取数：label 为表面芯片与回显文本（昵称优先）。 */
-async function fetchOwnerOptions(query: { page: number, size: number, keyword: string }) {
-  const result = await api.adminUserOptions(query.keyword, query.page, query.size)
-  const list = (result.records ?? []).map(item => ({
-    ...item,
-    label: item.nickname || item.username || item.id,
-  }))
-  return { list, total: Number(result.total ?? 0) }
-}
+/** 旧版代上架留下的玩家商品（归属真实用户）：只读展示，归属在创建时确定、编辑不改 */
+const legacyOwnerId = ref('')
+const legacyOwnerLabel = ref('')
 
 // FaImageUpload 内部通过 push/splice 原地改数组，不会触发 update:modelValue；
 // 用独立 ref 承接展示用绝对地址，再 watch 同步回落库相对路径
@@ -80,6 +69,13 @@ const typeOptions = computed(() => productTypes.value.map(item => ({
 })))
 const currentType = computed(() => productTypes.value.find(item => item.type === form.type))
 const isGeneric = computed(() => form.type === 'GENERIC')
+/** 积分兑换：支付即扣积分（消耗），需提交发货凭证、买家核验，卖家发货前买家可取消退款 */
+const isPointsRedeem = computed(() => form.type === POINTS_REDEEM_TYPE)
+const perUserLimitLabel = computed(() => (isPointsRedeem.value ? '每人限兑（0 表示不限）' : '每人限购（0 表示不限）'))
+/** GENERIC 与 POINTS_REDEEM 都用 deliveryNote 作为发货说明，其余类型走自定义 JSON 配置 */
+const usesDeliveryNote = computed(() => isGeneric.value || isPointsRedeem.value)
+/** 配了型号时价格与库存以型号为准，商品级输入隐藏 */
+const hasVariants = computed(() => form.variants.length > 0)
 
 async function loadOptions() {
   try {
@@ -108,10 +104,9 @@ async function loadProduct() {
   loading.value = true
   try {
     const product = await api.adminProductDetail(productId.value)
-    form.ownerIds = product.ownerId ? [product.ownerId] : []
-    ownerInitialLabels.value = product.ownerId
-      ? { [product.ownerId]: product.owner?.nickname || product.owner?.username || product.ownerId }
-      : {}
+    // 官方侧商品（BURN）没有归属用户；旧版代上架的玩家商品保留原归属只读展示
+    legacyOwnerId.value = isPlatformOwned(product.ownerId, product.settlement) ? '' : String(product.ownerId || '')
+    legacyOwnerLabel.value = product.owner?.nickname || product.owner?.username || String(product.ownerId || '')
     form.title = product.title
     form.summary = product.summary || ''
     form.descriptionMd = product.descriptionMd || ''
@@ -119,9 +114,18 @@ async function loadProduct() {
     form.assetCode = product.assetCode
     form.price = Number(product.price) || 1
     form.stock = product.stock
+    form.perUserLimit = Number(product.perUserLimit) || 0
     form.type = product.type || 'GENERIC'
+    form.sortOrder = Number(product.sortOrder) || 0
+    form.variants = (product.variants ?? []).map(variant => ({
+      id: variant.id,
+      name: variant.name,
+      price: Number(variant.price) || 0,
+      stock: Number(variant.stock),
+      image: variant.image || undefined,
+    }))
     const config = product.typeConfig ?? {}
-    if (form.type === 'GENERIC') {
+    if (form.type === 'GENERIC' || form.type === POINTS_REDEEM_TYPE) {
       form.deliveryNote = String(config.deliveryNote || '')
       form.extraConfigJson = ''
     }
@@ -168,10 +172,18 @@ function validate(): string {
   if (form.title.trim().length > 60) return '商品标题不能超过 60 个字符'
   if (form.summary.trim().length > 200) return '商品简介不能超过 200 个字符'
   if (!form.assetCode.trim()) return '请选择或填写计价货币'
-  if (!Number.isFinite(form.price) || form.price <= 0) return '商品价格必须大于 0'
-  if (!Number.isInteger(form.stock) || form.stock < -1) return '库存必须是大于等于 0 的整数，不限库存填 -1'
+  if (!Number.isInteger(form.sortOrder) || form.sortOrder < 0 || form.sortOrder > 9999) return '排序值必须是 0 到 9999 的整数'
+  if (form.variants.length > 20) return '商品型号最多 20 个'
+  for (const variant of form.variants) {
+    if (!variant.name.trim()) return '型号名称不能为空'
+    if (!Number.isFinite(Number(variant.price)) || Number(variant.price) <= 0) return `型号「${variant.name.trim()}」的价格必须大于 0`
+    if (!Number.isInteger(Number(variant.stock)) || Number(variant.stock) < -1) return `型号「${variant.name.trim()}」的库存必须是不小于 -1 的整数`
+  }
+  if (!form.variants.length && (!Number.isFinite(form.price) || form.price <= 0)) return '商品价格必须大于 0'
+  if (!form.variants.length && (!Number.isInteger(form.stock) || form.stock < -1)) return '库存必须是大于等于 0 的整数，不限库存填 -1'
+  if (!Number.isInteger(form.perUserLimit) || form.perUserLimit < 0) return '每人限购必须是大于等于 0 的整数，不限填 0'
   if (!form.type) return '请选择商品类型'
-  if (!isGeneric.value && form.extraConfigJson.trim()) {
+  if (!isGeneric.value && !isPointsRedeem.value && form.extraConfigJson.trim()) {
     try {
       const parsed = JSON.parse(form.extraConfigJson)
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -186,7 +198,7 @@ function validate(): string {
 }
 
 function buildTypeConfig() {
-  if (isGeneric.value) {
+  if (usesDeliveryNote.value) {
     return form.deliveryNote.trim() ? { deliveryNote: form.deliveryNote.trim() } : {}
   }
   if (!form.extraConfigJson.trim()) {
@@ -207,16 +219,25 @@ async function save() {
   saving.value = true
   try {
     const payload = {
-      ownerId: form.ownerIds[0] || '',
       title: form.title.trim(),
       summary: form.summary.trim(),
       descriptionMd: form.descriptionMd,
       images: form.images,
       assetCode: form.assetCode.trim().toUpperCase(),
-      price: form.price,
-      stock: form.stock,
+      // 有型号时商品价取型号最低价、库存由后端按型号合计推导（这里送 -1 占位）
+      price: hasVariants.value ? Math.min(...form.variants.map(variant => Number(variant.price))) : form.price,
+      stock: hasVariants.value ? -1 : form.stock,
+      perUserLimit: form.perUserLimit,
       type: form.type,
       typeConfig: buildTypeConfig(),
+      variants: form.variants.map(variant => ({
+        id: variant.id,
+        name: variant.name.trim(),
+        price: Number(variant.price),
+        stock: Number(variant.stock),
+        image: variant.image,
+      })),
+      sortOrder: form.sortOrder,
     }
     if (isEdit.value) {
       await api.adminUpdateProduct(productId.value, payload)
@@ -256,37 +277,31 @@ onMounted(() => {
     </FaPageHeader>
     <FaPageMain>
       <div v-loading="loading">
-        <FaAlert title="管理员代上架不受用户上架开关与积分门槛限制" class="mb-4">
+        <FaAlert title="管理端只投放官方积分商品（没有归属用户）" class="mb-4">
           <template #description>
-            归属用户 ID 留空时商品归属当前管理员账号；填写平台用户 ID 可把商品挂到该用户名下。
+            积分兑换等消耗类商品由平台投放，归属为「官方」，不需要也不能指定归属用户；
+            管理端不受用户上架开关与积分门槛限制。玩家商品请由玩家在「玩家市场」自行上架。
+            <template v-if="isEdit && legacyOwnerId">
+              当前商品是旧版代上架留下的玩家商品（归属 {{ legacyOwnerLabel }}），可以继续编辑，归属保持不变。
+            </template>
           </template>
         </FaAlert>
         <form class="grid gap-5" @submit.prevent="save">
           <div class="grid gap-3 rounded-lg border p-4">
             <h3 class="text-base font-semibold">基本信息</h3>
-            <label class="grid gap-2">
-              <span>归属用户（可选）</span>
-              <YdTablePicker
-                v-model="form.ownerIds"
-                :columns="ownerColumns"
-                :fetcher="fetchOwnerOptions"
-                :multiple="false"
-                :initial-labels="ownerInitialLabels"
-                title="选择归属用户"
-                placeholder="留空归属当前管理员账号，点击选择用户"
-                search-placeholder="搜索用户名 / 昵称 / ID"
-              />
-              <span class="text-xs text-muted-foreground">
-                留空则商品归属当前管理员账号；选择后商品挂到该用户名下，由其继续维护。
+            <div v-if="isEdit" class="grid gap-1">
+              <span>归属</span>
+              <span class="text-sm text-muted-foreground">
+                {{ legacyOwnerId ? legacyOwnerLabel : '官方（无归属用户）' }}
               </span>
-            </label>
+            </div>
             <label class="grid gap-2">
               <span>商品标题 <em class="required-mark">*</em></span>
               <FaInput v-model="form.title" placeholder="请输入商品标题（60 字以内）" />
             </label>
             <label class="grid gap-2">
               <span>商品简介</span>
-              <FaInput v-model="form.summary" placeholder="一句话介绍，展示在商品广场卡片上（200 字以内）" />
+              <FaInput v-model="form.summary" placeholder="一句话介绍，展示在商品卡片上（200 字以内）" />
             </label>
             <div class="grid gap-2">
               <span>商品图片（最多 9 张，第一张为封面，可拖拽排序）</span>
@@ -334,16 +349,28 @@ onMounted(() => {
                   placeholder="钱包货币代码，如 CNY"
                 />
               </label>
-              <label class="grid gap-2">
+              <label v-if="!hasVariants" class="grid gap-2">
                 <span>商品价格 <em class="required-mark">*</em></span>
                 <!-- 步进 0.01：reka-ui 提交时按 min 锚点吸附 step 网格，step=1 会把整数价格推成 .01 -->
                 <FaNumberField v-model="form.price" :min="0.01" :step="0.01" class="w-full" />
               </label>
-              <label class="grid gap-2">
+              <label v-if="!hasVariants" class="grid gap-2">
                 <span>库存（-1 表示不限）</span>
                 <FaNumberField v-model="form.stock" :min="-1" :step="1" class="w-full" />
               </label>
+              <label class="grid gap-2">
+                <span>{{ perUserLimitLabel }}</span>
+                <FaNumberField v-model="form.perUserLimit" :min="0" :step="1" class="w-full" />
+              </label>
             </div>
+            <VariantEditor v-model="form.variants" />
+            <label class="grid gap-2">
+              <span>排序权重（0 到 9999，数值大的排在前面）</span>
+              <FaNumberField v-model="form.sortOrder" :min="0" :max="9999" :step="1" class="w-full" />
+              <span class="text-xs text-muted-foreground">
+                仅影响展示顺序（积分商城等官方商品列表按它排序）；也可以在「商品管理」列表用置顶 / 上移 / 下移快速调整。
+              </span>
+            </label>
           </div>
 
           <div class="grid gap-3 rounded-lg border p-4">
@@ -355,7 +382,13 @@ onMounted(() => {
             <p v-if="currentType?.description" class="text-xs text-muted-foreground">
               {{ currentType.description }}
             </p>
-            <label v-if="isGeneric" class="grid gap-2">
+            <FaAlert v-if="isPointsRedeem" title="积分兑换商品流程">
+              <template #description>
+                买家下单支付时立即扣减所选积分资产（消耗式结算，不转给卖家）；商品归属官方，随后由管理员在「订单管理」提交发货凭证
+                （文本说明与最多 6 张凭证图片至少一项），买家核验无误后订单完成。买家在管理员提交发货凭证前可自行取消订单，扣减的积分原路退回。
+              </template>
+            </FaAlert>
+            <label v-if="usesDeliveryNote" class="grid gap-2">
               <span>发货说明（可选，买家支付成功后在订单中可见）</span>
               <FaTextarea
                 v-model="form.deliveryNote"
