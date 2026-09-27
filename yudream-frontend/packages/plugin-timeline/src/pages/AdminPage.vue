@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { TimelinePluginModel } from '../composables/useTimelinePlugin'
 import type { TimelineEventSummary } from '../types'
-import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import CoverThumb from '../components/CoverThumb.vue'
 import EventEditorModal from '../components/EventEditorModal.vue'
@@ -105,69 +105,64 @@ onMounted(() => {
       </div>
     </FaSearchBar>
 
-    <div class="tl-desktop-only">
-      <FaTable
-        v-loading="model.adminLoading"
-        :columns="columns"
-        :data="model.adminEvents"
-        row-key="id"
-        table-root-class="tl-table-scroll"
-        table-class="tl-table-w1000"
-        border
-        stripe
-        column-visibility
-        empty-text="暂无事件，点击右上角新建第一条大事记"
-      >
-        <template #cell-eventDate="{ row }">
-          <span>{{ formatEventDate(row.original.eventDate, row.original.dateLabel) }}</span>
-        </template>
-        <template #cell-title="{ row }">
-          <div class="tl-event-cell">
-            <CoverThumb
-              v-if="row.original.coverImage"
-              :src="coverThumb(row.original)"
-              :fallback-src="coverUrl(row.original)"
-              :alt="row.original.title"
-              img-class="tl-event-thumb"
-            />
-            <div class="tl-event-cell-text">
-              <span class="tl-event-cell-title" :title="row.original.title">
-                <FaTag :variant="eventTypeMeta(row.original.eventType).tagVariant" class="tl-event-type-tag">
-                  {{ eventTypeMeta(row.original.eventType).label }}
-                </FaTag>
-                {{ row.original.title }}
-              </span>
-              <span v-if="row.original.summary" class="tl-event-cell-summary" :title="row.original.summary">{{ row.original.summary }}</span>
-            </div>
+    <FaResponsiveTable
+      v-loading="model.adminLoading"
+      :columns="columns"
+      :data="model.adminEvents"
+      row-key="id"
+      table-root-class="tl-table-scroll"
+      table-class="tl-table-w1000"
+      border
+      stripe
+      column-visibility
+      empty-text="暂无事件，点击右上角新建第一条大事记"
+    >
+      <template #cell-eventDate="{ row }">
+        <span>{{ formatEventDate(row.original.eventDate, row.original.dateLabel) }}</span>
+      </template>
+      <template #cell-title="{ row }">
+        <div class="tl-event-cell">
+          <CoverThumb
+            v-if="row.original.coverImage"
+            :src="coverThumb(row.original)"
+            :fallback-src="coverUrl(row.original)"
+            :alt="row.original.title"
+            img-class="tl-event-thumb"
+          />
+          <div class="tl-event-cell-text">
+            <span class="tl-event-cell-title" :title="row.original.title">
+              <FaTag :variant="eventTypeMeta(row.original.eventType).tagVariant" class="tl-event-type-tag">
+                {{ eventTypeMeta(row.original.eventType).label }}
+              </FaTag>
+              {{ row.original.title }}
+            </span>
+            <span v-if="row.original.summary" class="tl-event-cell-summary" :title="row.original.summary">{{ row.original.summary }}</span>
           </div>
-        </template>
-        <template #cell-published="{ row }">
-          <FaTag :variant="row.original.published ? 'default' : 'outline'">
-            {{ row.original.published ? '已发布' : '草稿' }}
-          </FaTag>
-        </template>
-        <template #cell-updatedAt="{ row }">
-          {{ formatTime(row.original.updatedAt) }}
-        </template>
-        <template #cell-operation="{ row }">
-          <div class="flex-center gap-2">
-            <FaButton size="sm" variant="outline" @click="openEdit(row.original)">
-              编辑
-            </FaButton>
-            <FaButton size="sm" variant="outline" :disabled="model.toggling" @click="togglePublish(row.original)">
-              {{ row.original.published ? '下架' : '发布' }}
-            </FaButton>
-            <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">
-              删除
-            </FaButton>
-          </div>
-        </template>
-      </FaTable>
-    </div>
-
-    <div class="tl-mobile-only">
-      <div v-loading="model.adminLoading" class="tl-mobile-list">
-        <FaCard v-for="row in model.adminEvents" :key="row.id">
+        </div>
+      </template>
+      <template #cell-published="{ row }">
+        <FaTag :variant="row.original.published ? 'default' : 'outline'">
+          {{ row.original.published ? '已发布' : '草稿' }}
+        </FaTag>
+      </template>
+      <template #cell-updatedAt="{ row }">
+        {{ formatTime(row.original.updatedAt) }}
+      </template>
+      <template #cell-operation="{ row }">
+        <div class="flex-center gap-2">
+          <FaButton size="sm" variant="outline" @click="openEdit(row.original)">
+            编辑
+          </FaButton>
+          <FaButton size="sm" variant="outline" :disabled="model.toggling" @click="togglePublish(row.original)">
+            {{ row.original.published ? '下架' : '发布' }}
+          </FaButton>
+          <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">
+            删除
+          </FaButton>
+        </div>
+      </template>
+      <template #card="{ row }">
+        <FaCard class="w-full">
           <div class="tl-mobile-card">
             <div class="tl-mobile-card-head">
               <CoverThumb
@@ -206,11 +201,8 @@ onMounted(() => {
             </div>
           </div>
         </FaCard>
-        <div v-if="!model.adminLoading && model.adminEvents.length === 0" class="tl-mobile-empty">
-          暂无事件，点击右上角新建第一条大事记
-        </div>
-      </div>
-    </div>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="model.adminPager.page"
