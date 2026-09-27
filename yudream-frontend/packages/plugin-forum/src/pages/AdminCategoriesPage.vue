@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
 import type { Category } from '../api/forum-api'
@@ -110,7 +110,7 @@ onMounted(load)
       <FaButton @click="openCreate"><FaIcon name="i-ri:add-line" />新增分类</FaButton>
     </FaPageHeader>
     <FaPageMain>
-      <FaTable row-key="id" :columns="columns" :data="rows" border stripe table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1100px]">
+      <FaResponsiveTable row-key="id" :columns="columns" :data="rows" border stripe table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1100px]">
         <template #cell-moderation="{ row }"><FaTag variant="outline">{{ row.original.moderation }}</FaTag></template>
         <template #cell-operation="{ row }">
           <div class="flex gap-2">
@@ -118,7 +118,35 @@ onMounted(load)
             <FaButton size="sm" variant="destructive" @click="remove(row.original)">删除</FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                <FaTag variant="outline">{{ row.moderation }}</FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Slug</span>
+                  <span class="break-all">{{ row.slug }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">查看权限</span>
+                  <span class="break-all">{{ row.viewPermission }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">发帖权限</span>
+                  <span class="break-all">{{ row.postPermission }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                <FaButton size="sm" variant="destructive" @click="remove(row)">删除</FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaModal v-model="editOpen" :title="editTarget ? '编辑分类' : '新增分类'" :confirm-button-loading="saving" @confirm="save">
         <div class="forum-editor">
           <label>分类名称<FaInput v-model="editName" placeholder="例如：服务器技术" maxlength="40" /></label>
