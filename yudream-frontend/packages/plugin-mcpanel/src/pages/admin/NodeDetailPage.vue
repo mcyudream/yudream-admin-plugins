@@ -3,7 +3,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { DescriptionItem } from '@yudream/components'
 import type { McpEnrollCredential, McpNode, McpNodeContainerStat, McpNodeStateEvent } from '../../types'
-import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaPageHeader, FaPageMain, FaProgress, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaPageHeader, FaPageMain, FaProgress, FaResponsiveTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -378,7 +378,7 @@ onMounted(() => {
           <span>实例容器</span>
           <span class="mcp-status-meta">负载：{{ stats?.load ?? '-' }}</span>
         </div>
-        <FaTable
+        <FaResponsiveTable
           :columns="containerColumns"
           :data="containers"
           row-key="instanceId"
@@ -394,7 +394,29 @@ onMounted(() => {
           <template #cell-memUsedMb="{ row }">
             {{ formatMib(toNumberOr(row.original.memUsedMb)) }}
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="mcp-mono min-w-0 break-all text-sm font-semibold">{{ row.instanceId }}</span>
+                  <FaTag :variant="row.state === 'running' ? 'default' : 'secondary'">
+                    {{ row.state || '-' }}
+                  </FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">CPU</span>
+                    <span class="break-all">{{ formatPercent(toNumberOr(row.cpuPercent)) }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">内存</span>
+                    <span class="break-all">{{ formatMib(toNumberOr(row.memUsedMb)) }}</span>
+                  </div>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </div>
     </FaCard>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { createNodeOpsApi } from '../../api/node-ops-api'
@@ -251,7 +251,7 @@ onMounted(() => {
       </div>
     </FaSearchBar>
 
-    <FaTable
+    <FaResponsiveTable
       class="mcp-page-gap"
       v-loading="loading"
       :columns="columns"
@@ -336,7 +336,70 @@ onMounted(() => {
           </FaTooltip>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.instanceName }}</span>
+              <FaTag :variant="statusTagVariant(row)">
+                {{ dirStatusText(row) }}
+              </FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div v-if="row.remark" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">备注</span>
+                <span class="break-all">{{ row.remark }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                <span class="break-all">{{ (KIND_LABEL[row.kind as string] ?? row.kind) || '-' }}{{ row.mcVersion ? ` · ${row.mcVersion}` : '' }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">节点</span>
+                <span class="break-all">{{ row.nodeName || row.nodeId }}<template v-if="row.nodeMissing">（节点已删除）</template><template v-else-if="!row.nodeOnline">（离线）</template></span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">删除时间</span>
+                <span class="break-all">{{ formatDateTime(row.deletedAtMs) }}<template v-if="row.deletedBy"> · 操作人 {{ row.deletedBy }}</template></span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">自动清除</span>
+                <span class="break-all"><template v-if="typeof row.retentionDays === 'number'">{{ row.retentionDays > 0 ? `${row.retentionDays} 天` : '永久保留' }}</template><template v-else>按节点配置</template></span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton
+                v-if="canManage"
+                size="sm"
+                variant="outline"
+                :disabled="!nodeReady(row) || row.dirPresent === false || restoring"
+                @click="openRestore(row)"
+              >
+                找回
+              </FaButton>
+              <FaButton
+                v-if="canManage"
+                size="sm"
+                variant="outline"
+                :disabled="!nodeReady(row) || row.dirPresent === false || download.active.value"
+                @click="downloadRow(row)"
+              >
+                下载
+              </FaButton>
+              <FaButton
+                v-if="canDelete"
+                size="sm"
+                variant="destructive"
+                :disabled="!nodeReady(row)"
+                @click="confirmRemove(row)"
+              >
+                删除
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pager.page"

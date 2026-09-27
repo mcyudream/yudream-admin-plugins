@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { McpNode, McpNodeContainerStat } from '../../types'
-import { FaButton, FaButtonGroup, FaCheckbox, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaButtonGroup, FaCard, FaCheckbox, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
 
     <!-- 表格视图：标准 FaTable 管理页 -->
     <template v-else>
-      <FaTable
+      <FaResponsiveTable
         ref="tableRef"
         v-loading="loading"
         :columns="columns"
@@ -692,7 +692,66 @@ onBeforeUnmount(() => {
             </FaTooltip>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name || '未命名实例' }}</span>
+                <FaTag :variant="stateTagVariant(row)">
+                  {{ stateLabel(row) }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">节点</span>
+                  <span class="break-all">{{ nodeNameMap.get(String(row.nodeId)) || row.nodeId || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                  <span class="break-all">{{ KIND_LABEL[String(row.kind)] || row.kind || '-' }}{{ row.mcVersion ? ` · v${row.mcVersion}` : '' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">端口</span>
+                  <span class="break-all">{{ portsText(row) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">内存</span>
+                  <span class="break-all">{{ memoryText(row) }}</span>
+                </div>
+                <div v-if="row.image" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">镜像</span>
+                  <span class="break-all">{{ row.image }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openDetail(row)">
+                  详情
+                </FaButton>
+                <template v-if="canUse">
+                  <FaButton v-if="stateOf(row) !== 'running'" size="sm" variant="outline" :disabled="actingId === String(row.id)" @click="act(row, 'start')">
+                    启动
+                  </FaButton>
+                  <FaButton v-else size="sm" variant="outline" :disabled="actingId === String(row.id)" @click="act(row, 'stop')">
+                    停止
+                  </FaButton>
+                  <FaButton size="sm" variant="outline" :disabled="actingId === String(row.id)" @click="act(row, 'restart')">
+                    重启
+                  </FaButton>
+                  <FaButton size="sm" variant="outline" class="text-destructive" :disabled="actingId === String(row.id)" @click="act(row, 'kill')">
+                    强杀
+                  </FaButton>
+                </template>
+                <FaButton v-if="canManage" size="sm" variant="outline" @click="editing = row; formOpen = true">
+                  编辑
+                </FaButton>
+                <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmDelete(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="pager.page"

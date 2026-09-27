@@ -2,7 +2,7 @@
 import type { TableColumn, YdTablePickerQuery, YdTablePickerResult } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../../types'
-import { FaAlert, FaButton, FaCard, FaInput, FaModal, FaPageHeader, FaPageMain, FaSelect, FaTable, YdTablePicker, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaSelect, YdTablePicker, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -368,7 +368,7 @@ onMounted(() => {
           刷新目录
         </FaButton>
       </div>
-      <FaTable
+      <FaResponsiveTable
         v-loading="catalogLoading"
         :columns="catalogColumns"
         :data="catalogRows"
@@ -384,7 +384,39 @@ onMounted(() => {
             删除
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">核心</span>
+                  <span class="break-all">{{ row.kind || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">版本</span>
+                  <span class="break-all">{{ row.mcVersion || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Java</span>
+                  <span class="break-all">{{ row.javaImageId || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">内存</span>
+                  <span class="break-all">{{ row.memoryMb ? `${row.memoryMb} MB` : '-' }}</span>
+                </div>
+              </div>
+              <div v-if="canDelete" class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="destructive" @click="confirmCatalogDelete(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </FaCard>
 
     <FaModal

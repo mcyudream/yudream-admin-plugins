@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FileItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaAlert, FaButton, FaCard, FaContextMenu, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaSelect, FaTable, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaContextMenu, FaFileUpload, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaResponsiveTable, FaSelect, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { withTimeout } from '../../utils/fileContent.ts'
 import { relativeFilePath } from '../../utils/textFileAccess.ts'
@@ -789,7 +789,7 @@ onBeforeUnmount(() => { listRequest++; download.cancel() })
             </div>
           </div>
 
-          <FaTable
+          <FaResponsiveTable
             ref="tableRef"
             v-loading="loading"
             :columns="columns"
@@ -853,7 +853,52 @@ onBeforeUnmount(() => { listRequest++; download.cancel() })
                 </FaTooltip>
               </div>
             </template>
-          </FaTable>
+            <template #card="{ row }">
+              <FaCard class="w-full">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <button type="button" class="mcp-link flex min-w-0 items-center gap-1" @click.prevent="enter(row)">
+                      <FaIcon :name="row.isDir ? 'i-ri:folder-line' : 'i-ri:file-line'" class="shrink-0" />
+                      <span class="min-w-0 break-all text-left text-base font-semibold">{{ row.name }}</span>
+                    </button>
+                    <FaTag :variant="row.isDir ? 'secondary' : 'outline'">
+                      {{ row.isDir ? '目录' : (row.mode === 'symlink' ? '链接' : '文件') }}
+                    </FaTag>
+                  </div>
+                  <div class="flex flex-col gap-1 text-sm">
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                      <span class="break-all">{{ row.isDir ? '-' : formatSize(row.size) }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">修改时间</span>
+                      <span class="break-all">{{ row.modTime ? formatDateTime(Number(row.modTime)) : '-' }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 border-t pt-3">
+                    <FaButton v-if="canManage && !row.isDir" size="sm" variant="outline" @click="openFileFromBrowser(String(row.path ?? row.name))">
+                      编辑
+                    </FaButton>
+                    <FaButton v-if="!row.isDir" size="sm" variant="outline" :disabled="download.active.value" @click="downloadRow(row)">
+                      下载
+                    </FaButton>
+                    <FaButton v-if="canManage" size="sm" variant="outline" @click="promptRename(row)">
+                      重命名
+                    </FaButton>
+                    <FaButton v-if="canManage && String(row.name).toLowerCase().endsWith('.zip')" size="sm" variant="outline" @click="doUnzip(row)">
+                      解压
+                    </FaButton>
+                    <FaButton v-if="canManage" size="sm" variant="outline" @click="doZip(row)">
+                      压缩
+                    </FaButton>
+                    <FaButton v-if="canManage" size="sm" variant="destructive" @click="confirmDelete(row)">
+                      删除
+                    </FaButton>
+                  </div>
+                </div>
+              </FaCard>
+            </template>
+          </FaResponsiveTable>
           <FaPagination
             v-model:page="pager.page"
             v-model:size="pager.size"

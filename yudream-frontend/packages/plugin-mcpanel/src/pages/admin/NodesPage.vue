@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { McpNode, McpNodeHistorySample } from '../../types'
-import { FaButton, FaButtonGroup, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaSearchBar, FaSelect, FaTable, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaButtonGroup, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, FaTooltip, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -456,7 +456,7 @@ onBeforeUnmount(() => {
 
     <!-- 表格视图：标准 FaTable 管理页 -->
     <template v-else>
-      <FaTable
+      <FaResponsiveTable
         class="mcp-page-gap"
         v-loading="loading"
         :columns="columns"
@@ -544,7 +544,58 @@ onBeforeUnmount(() => {
             </FaTooltip>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                <div class="flex gap-1">
+                  <NodeStatusTag :status="row.status" />
+                  <FaTag v-if="row.enabled === false" variant="secondary">
+                    已停用
+                  </FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">地址</span>
+                  <span class="break-all">{{ row.endpoint || '未配置控制信道' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">CPU / 内存</span>
+                  <span class="break-all">{{ row.stats && freshnessOf(row) !== 'offline' ? `${metricTextOf(row, cpuPercentOf(row))} · ${metricTextOf(row, memPercentOf(row))}` : '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">容器</span>
+                  <span class="break-all">{{ row.stats?.containers?.length ?? '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">版本</span>
+                  <span class="break-all">Agent {{ row.agentVersion || '-' }} · Docker {{ row.stats?.dockerVersion || row.dockerVersion || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">心跳</span>
+                  <span class="break-all">{{ relativeSeenText(row.lastSeenAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openDetail(row)">
+                  详情
+                </FaButton>
+                <FaButton v-if="canManage" size="sm" variant="outline" @click="openEdit(row)">
+                  编辑
+                </FaButton>
+                <FaButton v-if="canManage" size="sm" variant="outline" :disabled="reconnectBusy[row.id]" @click="reconnect(row)">
+                  重连
+                </FaButton>
+                <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmDelete(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="pager.page"

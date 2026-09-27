@@ -12,9 +12,9 @@ import {
   FaPageHeader,
   FaPageMain,
   FaRadioGroup,
+  FaResponsiveTable,
   FaSelect,
   FaSwitch,
-  FaTable,
   FaTag,
   useFaModal,
   useFaToast,
@@ -897,7 +897,7 @@ onMounted(() => void load())
                   添加制品
                 </FaButton>
               </div>
-              <FaTable
+              <FaResponsiveTable
                 :columns="artifactColumns"
                 :data="artifacts"
                 row-key="name"
@@ -937,7 +937,44 @@ onMounted(() => void load())
                     </FaButton>
                   </div>
                 </template>
-              </FaTable>
+                <template #card="{ row, index }">
+                  <FaCard class="w-full">
+                    <div class="flex flex-col gap-3">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                        <FaTag :variant="row.kind === 'mod' ? 'secondary' : 'default'">
+                          {{ row.kind === 'mod' ? '模组' : '插件' }}
+                        </FaTag>
+                      </div>
+                      <div class="flex flex-col gap-1 text-sm">
+                        <div class="flex gap-2">
+                          <span class="shrink-0 text-secondary-foreground/60">加载器</span>
+                          <span class="break-all">{{ row.kind === 'mod' ? ((row.loaders ?? []).join(' / ') || '—') : '—' }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <span class="shrink-0 text-secondary-foreground/60">MC 版本</span>
+                          <span class="break-all">{{ mcRangeOf(row) }}</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <span class="shrink-0 text-secondary-foreground/60">来源</span>
+                          <span class="min-w-0 flex-1 break-all">
+                            <template v-if="row.fileId">{{ artifactNameFromFileId(row.fileId) }}</template>
+                            <span v-else class="mcp-mono">{{ row.url || '-' }}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div class="flex flex-wrap gap-2 border-t pt-3">
+                        <FaButton size="sm" variant="outline" @click="openArtifactEdit(index)">
+                          编辑
+                        </FaButton>
+                        <FaButton size="sm" variant="destructive" @click="removeArtifact(index)">
+                          删除
+                        </FaButton>
+                      </div>
+                    </div>
+                  </FaCard>
+                </template>
+              </FaResponsiveTable>
               <span class="mcp-form-hint">插件形态按 MC 版本区分（如 Paper 多版本）；模组形态按加载器（Fabric/Forge/NeoForge/Quilt）与 MC 版本细分。注入链路上线后按实例环境自动挑选匹配制品。</span>
             </div>
           </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
-import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions'
@@ -100,7 +100,7 @@ onMounted(() => void load())
     </FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -147,7 +147,45 @@ onMounted(() => void load())
           </FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.key }}</span>
+              <FaTag :variant="row.kind === 'image' ? 'secondary' : 'default'">
+                {{ row.kind === 'image' ? '镜像' : '服务端' }}
+              </FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">Key</span>
+                <span class="mcp-mono break-all">{{ row.key }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">默认版本</span>
+                <span class="break-all">{{ row.mcVersion || '-' }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">镜像</span>
+                <span class="break-all">{{ row.image || '-' }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                <span class="break-all">{{ formatDateTime(row.updatedAt as number | undefined) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton v-if="canManage" size="sm" variant="outline" @click="editing = row; formOpen = true">
+                编辑
+              </FaButton>
+              <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmDelete(row)">
+                删除
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
     <FaPagination
       v-model:page="pager.page"
       v-model:size="pager.size"

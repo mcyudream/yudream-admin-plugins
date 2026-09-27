@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaAlert, FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions'
@@ -245,7 +245,7 @@ onMounted(() => void load())
   </FaPageHeader>
   <FaPageMain>
     <FaAlert v-if="error" variant="destructive" title="无法加载审计日志" :description="error" class="mb-4" />
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -309,7 +309,50 @@ onMounted(() => void load())
           <FaIcon name="i-ri:delete-bin-line" class="mcp-audit-del" />
         </FaButton>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ actionLabel(row.action) || row.action }}</span>
+              <FaTag variant="secondary">
+                {{ targetTypeLabel(row.targetType) }}
+              </FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">时间</span>
+                <span class="break-all">{{ formatDateTime(row.at as number) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">操作者</span>
+                <span class="break-all">{{ row.actor }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">对象</span>
+                <span class="min-w-0 flex-1 break-all">
+                  <span v-if="row.targetName">{{ row.targetName }} </span>
+                  <span class="mcp-mono">{{ row.targetId }}</span>
+                </span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">详情</span>
+                <span class="break-all">{{ row.detail || '-' }}</span>
+              </div>
+            </div>
+            <div v-if="canDelete" class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton
+                size="sm"
+                variant="ghost"
+                :loading="deleting === row.logId"
+                @click="confirmDelete(row)"
+              >
+                删除
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
     <FaPagination
       v-model:page="pager.page"
       v-model:size="pager.size"

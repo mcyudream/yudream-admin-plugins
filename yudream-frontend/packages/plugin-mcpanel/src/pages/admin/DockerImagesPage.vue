@@ -2,7 +2,7 @@
 import type { TableColumn, YdTablePickerQuery, YdTablePickerResult } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../../types'
-import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaSwitch, FaTable, FaTag, FaTextarea, YdTablePicker, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, FaSwitch, FaTag, FaTextarea, YdTablePicker, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -487,7 +487,7 @@ onMounted(() => {
         />
       </div>
 
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         :columns="imageColumns"
         :data="pagedImages"
@@ -519,7 +519,35 @@ onMounted(() => {
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.nameText }}</span>
+                <FaTag variant="secondary">{{ row.sizeText }}</FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">镜像 ID</span>
+                  <span class="mcp-mono break-all">{{ shortId(row.id) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="copyId(row)">
+                  <FaIcon name="i-ri:file-copy-line" />
+                  复制 ID
+                </FaButton>
+                <FaButton size="sm" variant="outline" @click="openDetail(row)">
+                  详情
+                </FaButton>
+                <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmRemoveImage(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="imagePager.page"
@@ -535,7 +563,7 @@ onMounted(() => {
     </FaCard>
 
     <FaCard title="远程主机容器列表" description="节点上全部 Docker 容器（含非面板启动），MCSM 同款列表。" class="mcp-page-gap">
-      <FaTable
+      <FaResponsiveTable
         v-loading="containerLoading"
         :columns="containerColumns"
         :data="allContainers.length ? allContainers : containerRows"
@@ -551,7 +579,38 @@ onMounted(() => {
             打开实例
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                <FaTag :variant="String(row.state) === 'running' ? 'default' : 'secondary'">
+                  {{ row.state || '-' }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">镜像</span>
+                  <span class="break-all">{{ row.image || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Docker 状态</span>
+                  <span class="break-all">{{ row.status || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">ID</span>
+                  <span class="mcp-mono break-all">{{ row.id }}</span>
+                </div>
+              </div>
+              <div v-if="row.instanceId" class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openContainer(row)">
+                  打开实例
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </FaCard>
 
     <FaCard title="Java 运行时镜像目录" description="按 Java/JRE 版本维护的内部名称 + 标签，与 Paper 等服务端核心无关；创建服务器时选 Java 运行时。" class="mcp-page-gap">
@@ -572,7 +631,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <FaTable
+      <FaResponsiveTable
         v-loading="catalogLoading"
         :columns="catalogColumns"
         :data="catalogRows"
@@ -628,7 +687,47 @@ onMounted(() => {
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.label || row.id || '-' }}</span>
+                <div class="flex gap-1">
+                  <FaTag v-if="row.builtin" variant="default">内置</FaTag>
+                  <FaTag :variant="row.enabled === false ? 'secondary' : 'outline'">
+                    {{ row.enabled === false ? '停用' : '启用' }}
+                  </FaTag>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Java</span>
+                  <span class="break-all">{{ row.javaVersion || guessJava(row) || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">JRE 镜像</span>
+                  <span class="mcp-mono break-all">{{ row.primaryImage || row.image || (Array.isArray(row.tags) && row.tags.length ? row.tags[0] : '-') }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">标签</span>
+                  <span class="break-all">{{ resolveTags(row).join('、') || '-' }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton v-if="canManage && nodeId" size="sm" variant="outline" @click="pullFromCatalogRow(row)">
+                  拉取到节点
+                </FaButton>
+                <FaButton v-if="canManage" size="sm" variant="outline" @click="openCatalogEdit(row)">
+                  编辑
+                </FaButton>
+                <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmCatalogDelete(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination
         v-model:page="catalogPager.page"
         v-model:size="catalogPager.size"

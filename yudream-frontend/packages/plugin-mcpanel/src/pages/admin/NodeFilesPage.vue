@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
-import { FaAlert, FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaProgress, FaResponsiveTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createNodeOpsApi } from '../../api/node-ops-api.ts'
@@ -214,7 +214,7 @@ onBeforeUnmount(() => { generation++; request++; download.cancel() })
         <div class="mcp-file-search"><FaInput v-model="keyword" clearable placeholder="搜索当前目录" @keydown.enter="search" @clear="search" /><FaButton variant="outline" :loading="loading" @click="search"><FaIcon name="i-ri:refresh-line" />刷新</FaButton></div>
         <FaAlert v-if="error" variant="destructive" title="目录加载失败" class="mb-4">{{ error }}</FaAlert>
         <div v-if="download.active.value" class="mcp-download-status"><FaIcon name="i-ri:download-line" /><span>{{ download.fileName.value }}</span><FaProgress :model-value="download.progress.value" /><span>{{ download.progress.value }}%</span><FaButton size="sm" variant="outline" @click="download.cancel">取消</FaButton></div>
-        <FaTable v-loading="loading" :data="rows" :columns="columns" row-key="name" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[800px]" border stripe column-visibility :empty-text="error ? '未能读取目录' : keyword ? '没有匹配的文件' : '此目录为空'">
+        <FaResponsiveTable v-loading="loading" :data="rows" :columns="columns" row-key="name" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[800px]" border stripe column-visibility :empty-text="error ? '未能读取目录' : keyword ? '没有匹配的文件' : '此目录为空'">
           <template #cell-name="{ row }"><FaButton variant="ghost" class="mcp-file-name" @click="enter(row.original)"><FaIcon :name="row.original.isDir ? 'i-ri:folder-3-line' : 'i-ri:file-text-line'" />{{ row.original.name }}</FaButton></template>
           <template #cell-type="{ row }">{{ row.original.isDir ? '目录' : '文件' }}</template>
           <template #cell-size="{ row }">{{ row.original.isDir ? '—' : formatSize(row.original.size) }}</template>
@@ -225,7 +225,46 @@ onBeforeUnmount(() => { generation++; request++; download.cancel() })
             <FaButton v-if="canManage" size="icon-sm" variant="ghost" title="重命名或移动" :disabled="busy" @click="openForm(row.original)"><FaIcon name="i-ri:edit-line" /></FaButton>
             <FaButton v-if="canManage" size="icon-sm" variant="ghost" title="删除" class="text-destructive" :disabled="busy" @click="remove(row.original)"><FaIcon name="i-ri:delete-bin-line" /></FaButton>
           </div></template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <button type="button" class="mcp-file-name min-w-0" @click="enter(row)">
+                    <FaIcon :name="row.isDir ? 'i-ri:folder-3-line' : 'i-ri:file-text-line'" />
+                    <span class="min-w-0 break-all">{{ row.name }}</span>
+                  </button>
+                  <FaTag :variant="row.isDir ? 'secondary' : 'outline'">
+                    {{ row.isDir ? '目录' : '文件' }}
+                  </FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                    <span class="break-all">{{ row.isDir ? '—' : formatSize(row.size) }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">修改时间</span>
+                    <span class="break-all">{{ formatDateTime(row.modTime as number | string) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton v-if="!row.isDir" size="sm" variant="outline" @click="edit(filePath(row))">
+                    打开
+                  </FaButton>
+                  <FaButton v-if="!row.isDir" size="sm" variant="outline" :disabled="download.active.value" @click="downloadRow(row)">
+                    下载
+                  </FaButton>
+                  <FaButton v-if="canManage" size="sm" variant="outline" :disabled="busy" @click="openForm(row)">
+                    重命名
+                  </FaButton>
+                  <FaButton v-if="canManage" size="sm" variant="ghost" class="text-destructive" :disabled="busy" @click="remove(row)">
+                    删除
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
         <FaPagination v-model:page="pager.page" v-model:size="pager.size" :sizes="[10, 20, 50, 100]" :total="pager.total" class="mt-3" @page-change="() => load()" @size-change="search" />
       </div>
     </div>

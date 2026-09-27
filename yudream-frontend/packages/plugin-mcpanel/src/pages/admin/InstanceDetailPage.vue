@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNodeStats } from '../../types.ts'
-import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaSelect, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra.ts'
@@ -601,6 +601,17 @@ const gamePort = computed(() => {
   return ports.find(item => (item.proto ?? 'tcp') === 'tcp') ?? ports[0]
 })
 
+/** 端口摘要（基本信息行）：主端口 + 附加端口全列出。 */
+const portsSummary = computed(() => {
+  const ports = (instance.value?.ports ?? []) as Array<{ hostPort?: number, proto?: string }>
+  if (!ports.length) {
+    return '-'
+  }
+  return ports
+    .map((item, index) => `${item.hostPort}/${item.proto ?? 'tcp'}${index === 0 ? '（主）' : ''}`)
+    .join(' · ')
+})
+
 /** 代理父子关系（后端按 proxy-group 装饰）：子服显示所属代理，代理显示子服数量摘要。 */
 const proxyInfo = computed(() => instance.value?.proxy as {
   proxyInstanceId?: string, proxyName?: string, serverName?: string
@@ -687,7 +698,7 @@ const basicItems = computed(() => {
     { label: '镜像', value: String(item?.image ?? '-') },
     { label: '节点', value: String(item?.nodeId ?? '-') },
     { label: '内存', value: item?.memoryMb ? `${item.memoryMb} MB` : '-' },
-    { label: '端口', value: gamePort.value?.hostPort ? `${gamePort.value.hostPort}/${gamePort.value.proto ?? 'tcp'}` : '-' },
+    { label: '端口', value: portsSummary.value },
     ...(proxyInfo.value?.proxyInstanceId
       ? [{ label: '所属代理', value: `${proxyInfo.value.proxyName}（子服 ${proxyInfo.value.serverName ?? '-'}）` }]
       : []),
@@ -1534,7 +1545,7 @@ onBeforeUnmount(() => {
         <p v-if="backupCreating" class="mb-2 text-sm text-muted-foreground">
           正在打包备份，完成后自动出现在列表（大世界可能需要数分钟）…
         </p>
-        <FaTable
+        <FaResponsiveTable
           v-loading="backupLoading"
           :columns="backupColumns"
           :data="backupRows"
@@ -1588,7 +1599,51 @@ onBeforeUnmount(() => {
             </div>
             <span v-else>-</span>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="mcp-mono min-w-0 break-all text-sm font-semibold">{{ row.type === 'local' ? row.file : (row.archiveName || `备份任务 #${row.jobId ?? '-'}`) }}</span>
+                  <FaTag :variant="row.type === 'local' ? 'default' : 'secondary'">
+                    {{ backupKindLabel(row) }}
+                  </FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                    <span class="break-all">{{ row.type === 'local' && row.size !== undefined ? formatBytes(row.size) : '-' }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">状态</span>
+                    <span class="break-all" :class="String(row.status) === 'FAILED' ? 'text-destructive' : ''">{{ row.type !== 'local' ? (backupStatusLabel(row) || '-') : '-' }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">时间</span>
+                    <span class="break-all">{{ formatDateTime(row.at as number) }}</span>
+                  </div>
+                </div>
+                <div v-if="row.type === 'local' && canManage" class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton
+                    size="sm"
+                    variant="outline"
+                    :loading="restoringFile === String(row.file)"
+                    @click="confirmRestoreBackup(row)"
+                  >
+                    恢复
+                  </FaButton>
+                  <FaButton
+                    size="sm"
+                    variant="destructive"
+                    :loading="deletingFile === String(row.file)"
+                    @click="confirmDeleteBackup(row)"
+                  >
+                    删除
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </FaCard>
     </div>
     <FileEditorModal

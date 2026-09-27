@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaAlert, FaButton, FaCard, FaInput, FaModal, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaSelect, FaSwitch, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -220,7 +220,7 @@ const targetOptions = computed(() => backupTargets.targets.value.map(target => (
   </template>
     </FaAlert>
     <FaCard>
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         :columns="columns"
         :data="rows"
@@ -265,7 +265,57 @@ const targetOptions = computed(() => backupTargets.targets.value.map(target => (
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                <FaTag :variant="row.enabled === false ? 'secondary' : 'default'">
+                  {{ row.enabled === false ? '停用' : '启用' }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">触发</span>
+                  <span class="break-all">{{ timeText(row) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">命令 / 目标</span>
+                  <span class="min-w-0 flex-1 break-all">
+                    <template v-if="String(row.action) === 'offsite-backup'">
+                      <FaTag variant="secondary">异地备份</FaTag>
+                      <span class="mcp-mono">{{ row.payload }}</span>
+                    </template>
+                    <template v-else-if="String(row.action) === 'local-backup'">
+                      <FaTag variant="secondary">本地备份</FaTag>
+                    </template>
+                    <span v-else class="mcp-mono">{{ row.payload }}</span>
+                  </span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">次数</span>
+                  <span class="break-all">{{ row.count ?? '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">下次执行</span>
+                  <span class="break-all">{{ formatDateTime(row.nextRunAt as number) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton v-if="canManage" size="sm" variant="outline" @click="runNow(row)">
+                  立即执行
+                </FaButton>
+                <FaButton v-if="canManage" size="sm" variant="outline" @click="openEdit(row)">
+                  编辑
+                </FaButton>
+                <FaButton v-if="canDelete" size="sm" variant="destructive" @click="confirmDelete(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </FaCard>
 
     <FaModal

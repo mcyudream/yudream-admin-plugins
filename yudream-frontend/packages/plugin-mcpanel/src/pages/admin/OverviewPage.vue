@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
-import { FaAlert, FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaProgress, FaTable, FaTag } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaProgress, FaResponsiveTable, FaTag } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -266,7 +266,7 @@ onMounted(() => void load())
             <FaIcon name="i-ri:arrow-right-s-line" />
           </FaButton>
         </div>
-        <FaTable
+        <FaResponsiveTable
           :columns="instanceColumns"
           :data="recentInstances"
           row-key="id"
@@ -295,7 +295,39 @@ onMounted(() => void load())
           <template #cell-updatedAt="{ row }">
             {{ formatDateTime(row.original.updatedAt as number) }}
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <button type="button" class="min-w-0 break-words text-left text-base font-semibold text-primary hover:underline" @click="openInstance(row)">
+                    {{ row.name }}
+                  </button>
+                  <FaTag :variant="stateTagVariant(String(row.state ?? ''))">
+                    {{ STATE_LABEL[String(row.state)] || row.state || '-' }}
+                  </FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                    <span class="break-all">{{ row.kind || '-' }}{{ row.mcVersion ? ` · v${row.mcVersion}` : '' }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">CPU</span>
+                    <span class="break-all">{{ row.cpuPercent == null ? '-' : `${cpuPercent(row)}%` }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">内存</span>
+                    <span class="break-all">{{ row.memUsedMb == null ? '-' : `${Math.round(Number(row.memUsedMb))} MB` }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                    <span class="break-all">{{ formatDateTime(row.updatedAt as number) }}</span>
+                  </div>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </section>
     </div>
   </FaPageMain>

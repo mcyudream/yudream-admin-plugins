@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSelect, FaTable, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSelect, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra.ts'
@@ -184,7 +184,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         :columns="columns"
         :data="rows"
@@ -215,7 +215,45 @@ onMounted(() => {
             安装
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.title }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="row.slug" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Slug</span>
+                  <span class="break-all">{{ row.slug }}</span>
+                </div>
+                <div v-if="row.description" class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">简介</span>
+                  <span class="break-all">{{ row.description }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">作者</span>
+                  <span class="break-all">{{ row.author || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">下载</span>
+                  <span class="break-all">{{ Number(row.downloads ?? 0).toLocaleString() }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton
+                  size="sm"
+                  variant="outline"
+                  :disabled="!canManage || !instanceId"
+                  :loading="installing === String(row.id)"
+                  @click="install(row)"
+                >
+                  安装
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaPagination
         v-model:page="pager.page"
         v-model:size="pager.size"
@@ -227,7 +265,7 @@ onMounted(() => {
     </FaCard>
 
     <FaCard :title="projectType === 'plugin' ? '本地插件目录 plugins/' : '本地模组目录 mods/'" class="mcp-page-gap">
-      <FaTable
+      <FaResponsiveTable
         :columns="localColumns"
         :data="localRows"
         row-key="name"
@@ -255,7 +293,33 @@ onMounted(() => {
             <FaIcon name="i-ri:delete-bin-line" />
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                  <span class="break-all">{{ Number(row.size ?? 0) > 1024 * 1024
+                    ? `${(Number(row.size) / 1024 / 1024).toFixed(1)} MB`
+                    : `${Math.round(Number(row.size ?? 0) / 1024)} KB` }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">修改时间</span>
+                  <span class="break-all">{{ row.modTime ? formatDateTime(row.modTime as number) : '-' }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="destructive" :disabled="!canManage" @click="confirmDeleteLocal(row)">
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
     </FaCard>
   </FaPageMain>
 </template>
