@@ -48,6 +48,10 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     static final long INBOUND_TTL_MILLIS = 10L * 60 * 1000;
     /** SSE 心跳周期：必须短于常见代理/客户端读超时，保持长连接不被中间设备掐断。 */
     static final long INBOUND_HEARTBEAT_MILLIS = 25L * 1000;
+
+    private static final long POLL_LOG_THROTTLE_MILLIS = 60L * 1000;
+
+    private long lastPollLogAt;
     private static final int INBOUND_BUFFER_CAPACITY = 200;
     private static final int MAX_INBOUND_CONTENT = 300;
     private static final int DEDUP_CAPACITY = 1024;
@@ -207,9 +211,13 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     public void onServerPowerState(String serverId, boolean started, long atMs) {
         MinecraftBridgeSettings settings = cachedSettings(serverId);
         if (!settings.enabled() || !settings.forwardStartStop() || !settings.targetConfigured()) {
+            LOGGER.info("启停通报跳过：server=" + serverId + " enabled=" + settings.enabled()
+                    + " forwardStartStop=" + settings.forwardStartStop()
+                    + " targetConfigured=" + settings.targetConfigured() + "（开关未开时为正常现象）。");
             return;
         }
         if (staleOrDuplicate(serverId, "power", started ? "up" : "down", atMs)) {
+            LOGGER.info("启停通报跳过：server=" + serverId + " 事件超龄或重复帧。");
             return;
         }
         LOGGER.info("已投递启停通报（" + (started ? "已启动" : "已关闭") + "）。");
@@ -328,6 +336,8 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
                 buffer.removeFirst();
             }
         }
+        LOGGER.info("群消息入站：server=" + serverId + " seq=" + message.seq() + " sender=" + message.sender()
+                + " content=" + message.content() + "，当前 SSE 订阅流 " + inboundSubscribers(serverId) + " 条");
         fanOutInbound(serverId, message);
     }
 
@@ -342,6 +352,8 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         requireServer(serverId);
         InboundStream stream = new InboundStream(serverId, afterSeq == null ? 0L : afterSeq);
         inboundStreams.computeIfAbsent(serverId, key -> new CopyOnWriteArrayList<>()).add(stream);
+        LOGGER.info("新的入站 SSE 订阅：server=" + serverId + " after=" + (afterSeq == null ? 0L : afterSeq)
+                + "（该服务器当前 " + inboundSubscribers(serverId) + " 条订阅流）");
         ensureInboundHeartbeat();
         return stream;
     }
@@ -365,11 +377,17 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     private void fanOutInbound(String serverId, InboundMessage message) {
         List<InboundStream> streams = inboundStreams.get(serverId);
         if (streams == null || streams.isEmpty()) {
+            LOGGER.info("群消息实时扇出跳过：server=" + serverId + " seq=" + message.seq() + " 当前无 SSE 订阅（等待桥接轮询拉取）。");
             return;
         }
         for (InboundStream stream : streams) {
             stream.push(message);
         }
+    }
+
+    private int inboundSubscribers(String serverId) {
+        List<InboundStream> streams = inboundStreams.get(serverId);
+        return streams == null ? 0 : streams.size();
     }
 
     private synchronized void ensureInboundHeartbeat() {
@@ -454,6 +472,8 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
             try {
                 subscriber.send("message", inboundEnvelope(message));
             } catch (RuntimeException e) {
+                LOGGER.warning("入站 SSE 推送失败，已摘除该订阅：server=" + serverId
+                        + " seq=" + message.seq() + " error=" + e.getMessage());
                 detach();
             }
         }
@@ -542,6 +562,13 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         }
         long newCursor = messages.isEmpty() ? latest : messages.get(messages.size() - 1).seq();
         inboundCursors.put(serverId, Math.max(cursor, newCursor));
+        long nowLog = clock.getAsLong();
+        if (!messages.isEmpty() || nowLog - lastPollLogAt >= POLL_LOG_THROTTLE_MILLIS) {
+            lastPollLogAt = nowLog;
+            LOGGER.info("桥接轮询：server=" + serverId + " 客户端after=" + afterSeq + " 有效游标=" + cursor
+                    + " -> 返回 " + messages.size() + " 条，游标推进至 " + Math.max(cursor, newCursor)
+                    + "（缓冲 latest=" + latest + "）");
+        }
         return new InboundBatch(List.copyOf(messages), latest);
     }
 
