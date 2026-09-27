@@ -9,8 +9,8 @@ import {
   FaModal,
   FaPageHeader,
   FaPageMain,
+  FaResponsiveTable,
   FaSelect,
-  FaTable,
   FaTag,
   useFaToast,
 } from '@yudream/components'
@@ -155,7 +155,7 @@ onMounted(() => {
 
     <FaPageMain>
       <FaCard content-class="ymcl-card-content">
-        <FaTable
+        <FaResponsiveTable
           table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
           v-loading="model.loading"
           :columns="serverColumns"
@@ -192,7 +192,44 @@ onMounted(() => {
               绑定
             </FaButton>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ serverName(row) }}</span>
+                  <FaTag :variant="statusOnline(row) ? 'default' : 'outline'">
+                    {{ statusLabel(row) }}
+                  </FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div v-if="row.serverId" class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">ID</span>
+                    <span class="ymcl-break">{{ row.serverId }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">地址</span>
+                    <code v-if="row.mcAddress" class="ymcl-hash">{{ row.mcAddress }}</code>
+                    <span v-else>-</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">当前绑定</span>
+                    <span class="break-all" :class="row.binding?.packId ? '' : 'ymcl-muted'">{{ bindingSummary(row) }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">绑定更新时间</span>
+                    <span class="break-all">{{ formatTime(row.binding?.updatedAt) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" @click="openEdit(row)">
+                    <FaIcon name="i-ri:link" />
+                    绑定
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </FaCard>
     </FaPageMain>
 

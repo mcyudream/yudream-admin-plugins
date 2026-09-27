@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { ManifestFileEntry, PackDoc, PackVersionSummary } from '../types'
-import { FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaTable, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaTag, FaTextarea, useFaModal, useFaToast } from '@yudream/components'
 import type { TableColumn } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import FilePreviewDrawer from '../components/FilePreviewDrawer.vue'
@@ -178,7 +178,7 @@ onMounted(() => {
 
     <FaPageMain>
       <FaCard content-class="ymcl-card-content">
-        <FaTable
+        <FaResponsiveTable
           table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
           v-loading="model.loading"
           :columns="packColumns"
@@ -222,7 +222,50 @@ onMounted(() => {
               </FaButton>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.packId }}</span>
+                  <FaTag v-if="packLatest(row) !== '-'" variant="secondary">{{ packLatest(row) }}</FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">整合包 ID</span>
+                    <span class="break-all">{{ row.packId }}</span>
+                  </div>
+                  <div v-if="row.description" class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">简介</span>
+                    <span class="break-all">{{ row.description }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">版本数</span>
+                    <span>{{ packVersionCount(row) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" @click="openVersions(row)">
+                    <FaIcon name="i-ri:history-line" />
+                    版本
+                  </FaButton>
+                  <FaButton size="sm" variant="outline" @click="openEdit(row)">
+                    <FaIcon name="i-ri:pencil-line" />
+                    编辑
+                  </FaButton>
+                  <FaButton
+                    size="sm"
+                    variant="destructive"
+                    :disabled="!model.canPublish || model.saving"
+                    @click="confirmDeletePack(row)"
+                  >
+                    <FaIcon name="i-ri:delete-bin-line" />
+                    删除
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </FaCard>
     </FaPageMain>
 
@@ -274,7 +317,7 @@ onMounted(() => {
       content-class="ymcl-versions-drawer"
     >
       <div v-loading="versionsLoading" class="ymcl-drawer-body">
-        <FaTable
+        <FaResponsiveTable
           table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
           v-if="activeVersions.length"
           :columns="versionColumns"
@@ -302,7 +345,36 @@ onMounted(() => {
               </FaButton>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.version }}</span>
+                  <FaTag variant="outline">{{ row.channel || 'stable' }}</FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">发布时间</span>
+                    <span class="break-all">{{ formatTime(row.releasedAt) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" @click="openManifest(row)">
+                    manifest
+                  </FaButton>
+                  <FaButton
+                    size="sm"
+                    variant="destructive"
+                    :disabled="!model.canPublish || model.saving"
+                    @click="confirmDeleteVersion(row)"
+                  >
+                    删除
+                  </FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
         <p v-else-if="!versionsLoading" class="ymcl-muted">
           该整合包还没有版本。
         </p>
@@ -327,7 +399,7 @@ onMounted(() => {
               JSON 全文
             </FaButton>
           </div>
-          <FaTable
+          <FaResponsiveTable
             table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
             :columns="fileColumns"
             :data="versionFiles"
@@ -348,7 +420,33 @@ onMounted(() => {
                 预览
               </FaButton>
             </template>
-          </FaTable>
+            <template #card="{ row }">
+              <FaCard class="w-full">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="min-w-0 break-words text-base font-semibold">{{ row.path }}</span>
+                    <FaTag v-if="row.policy" variant="outline">{{ row.policy }}</FaTag>
+                  </div>
+                  <div class="flex flex-col gap-1 text-sm">
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">sha512</span>
+                      <code class="ymcl-hash">{{ String(row.sha512 || '').slice(0, 12) }}</code>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                      <span class="break-all">{{ formatSize(Number(row.size) || 0) }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 border-t pt-3">
+                    <FaButton size="sm" variant="outline" @click="openFilePreview(row)">
+                      <FaIcon name="i-ri:eye-line" />
+                      预览
+                    </FaButton>
+                  </div>
+                </div>
+              </FaCard>
+            </template>
+          </FaResponsiveTable>
         </template>
         <p v-else-if="!detailLoading" class="ymcl-muted">
           manifest 加载失败或不存在。

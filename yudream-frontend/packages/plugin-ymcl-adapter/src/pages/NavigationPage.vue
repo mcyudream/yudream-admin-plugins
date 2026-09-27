@@ -6,14 +6,15 @@ import type { NavigationConfigItem, NavigationPageInfo } from '../types'
 import { Tree as ATree } from '@arco-design/web-vue'
 import {
   FaButton,
+  FaCard,
   FaIcon,
   FaInput,
   FaModal,
   FaPageHeader,
   FaPageMain,
+  FaResponsiveTable,
   FaSelect,
   FaSwitch,
-  FaTable,
   FaTag,
   FaTextarea,
   useFaModal,
@@ -815,7 +816,7 @@ onMounted(() => {
                 </FaButton>
               </div>
             </div>
-            <FaTable
+            <FaResponsiveTable
               v-loading="model.loading"
               table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
               :columns="registryColumns"
@@ -863,7 +864,53 @@ onMounted(() => {
                 </div>
                 <span v-else class="ymcl-muted">—</span>
               </template>
-            </FaTable>
+              <template #card="{ row }">
+                <FaCard class="w-full">
+                  <div class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="ymcl-action-row">
+                        <FaIcon
+                          v-if="remixIcon(preferredIconValue(row.icon))"
+                          :name="remixIcon(preferredIconValue(row.icon))!"
+                        />
+                        <span class="min-w-0 break-words text-base font-semibold">{{ row.title }}</span>
+                        <FaTag v-if="isNativeIconValue(row.icon)" variant="outline">内置图标</FaTag>
+                      </span>
+                      <FaTag :variant="sourceVariant(row.source)">
+                        {{ sourceText(row.source) }}
+                      </FaTag>
+                    </div>
+                    <div class="flex flex-col gap-1 text-sm">
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">路由 / 标识</span>
+                        <code class="ymcl-hash">{{ row.route || row.pageId }}</code>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">所需权限</span>
+                        <span v-if="row.requiredPermission" class="ymcl-break">{{ row.requiredPermission }}</span>
+                        <span v-else class="ymcl-muted">公开</span>
+                      </div>
+                      <div class="flex gap-2">
+                        <span class="shrink-0 text-secondary-foreground/60">状态</span>
+                        <FaTag :variant="isUsed(row.pageId) ? 'default' : 'outline'">
+                          {{ isUsed(row.pageId) ? '导航中' : '未使用' }}
+                        </FaTag>
+                      </div>
+                    </div>
+                    <div v-if="row.source === 'custom'" class="flex flex-wrap gap-2 border-t pt-3">
+                      <FaButton variant="outline" size="sm" :disabled="!model.canDesign" @click="openCustomEdit(row)">
+                        <FaIcon name="i-ri:edit-2-line" />
+                        编辑
+                      </FaButton>
+                      <FaButton variant="destructive" size="sm" :disabled="!model.canDesign" @click="confirmDeleteCustomPage(row)">
+                        <FaIcon name="i-ri:delete-bin-line" />
+                        删除
+                      </FaButton>
+                    </div>
+                  </div>
+                </FaCard>
+              </template>
+            </FaResponsiveTable>
             <p class="ymcl-muted">
               自定义页面由页面包驱动：extension=沙箱 iframe 页面，module=域内可信 ESM 模块（remoteEntry 热下发）。先上传 zip 包，再登记页面并加入导航。
             </p>

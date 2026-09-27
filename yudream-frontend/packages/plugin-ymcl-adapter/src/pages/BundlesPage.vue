@@ -8,7 +8,8 @@ import {
   FaInput,
   FaPageHeader,
   FaPageMain,
-  FaTable,
+  FaResponsiveTable,
+  FaTag,
   useFaToast,
 } from '@yudream/components'
 import type { TableColumn } from '@yudream/components'
@@ -126,7 +127,7 @@ onMounted(() => {
         </FaCard>
 
         <FaCard title="已注册包" description="启动器按 manifest 中的 sha256 校验后加载" content-class="ymcl-card-content ymcl-card-content--wide">
-          <FaTable
+          <FaResponsiveTable
             table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
             v-loading="model.loading"
             :columns="bundleColumns"
@@ -153,7 +154,39 @@ onMounted(() => {
                 下载地址
               </FaButton>
             </template>
-          </FaTable>
+            <template #card="{ row }">
+              <FaCard class="w-full">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="min-w-0 break-words text-base font-semibold">{{ row.bundleId }}</span>
+                    <FaTag variant="secondary">{{ row.version }}</FaTag>
+                  </div>
+                  <div class="flex flex-col gap-1 text-sm">
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">sha256</span>
+                      <button type="button" class="ymcl-hash ymcl-hash--button" title="点击复制完整 sha256" @click="copyHash(row)">
+                        {{ String(row.sha256 || '').slice(0, 12) }}…
+                      </button>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">大小</span>
+                      <span class="break-all">{{ formatSize(Number(row.size) || 0) }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">上传时间</span>
+                      <span class="break-all">{{ formatTime(row.uploadedAt) }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 border-t pt-3">
+                    <FaButton size="sm" variant="outline" @click="copyDownloadUrl(row)">
+                      <FaIcon name="i-ri:links-line" />
+                      下载地址
+                    </FaButton>
+                  </div>
+                </div>
+              </FaCard>
+            </template>
+          </FaResponsiveTable>
         </FaCard>
       </div>
     </FaPageMain>
