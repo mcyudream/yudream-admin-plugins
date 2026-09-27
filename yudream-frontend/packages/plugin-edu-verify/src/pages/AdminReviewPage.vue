@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { MaterialItem, VerificationRecord } from '../types'
-import { FaAlert, FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, FaTextarea, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaDrawer, FaIcon, FaInput, FaLabel, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, FaTextarea, useFaToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createEduVerifyApi } from '../api/edu-verify-api'
 import { channelLabel, errorMessage, formatSize, formatTime, isImageMaterial, kindLabel, statusLabel, statusVariant } from '../types'
@@ -231,73 +231,68 @@ onMounted(load)
         </div>
       </FaSearchBar>
 
-      <div class="ev-desktop-only">
-        <FaTable
-          v-loading="loading"
-          :columns="columns"
-          :data="records"
-          row-key="id"
-          table-root-class="ev-table-scroll rounded-lg overflow-hidden"
-          table-class="ev-table-w1080"
-          border
-          stripe
-          column-visibility
-          empty-text="暂无认证记录"
-        >
-          <template #cell-email="{ row }">
-            <div class="ev-user-cell">
-              <strong>{{ row.original.email || '-' }}</strong>
-              <span>{{ row.original.userId ? `用户 ${row.original.userId}` : '尚未绑定账号' }}</span>
-            </div>
-          </template>
-          <template #cell-channel="{ row }">
-            {{ channelLabel(row.original.channel, row.original.channelName) }}
-          </template>
-          <template #cell-status="{ row }">
-            <FaTag :variant="statusVariant(row.original.status)">
-              {{ statusLabel(row.original.status, row.original.statusName) }}
-            </FaTag>
-          </template>
-          <template #cell-realName="{ row }">{{ row.original.realName || '-' }}</template>
-          <template #cell-schoolName="{ row }">{{ row.original.schoolName || '-' }}</template>
-          <template #cell-submittedAt="{ row }">{{ formatTime(row.original.submittedAt) }}</template>
-          <template #cell-operation="{ row }">
-            <div class="ev-row-actions">
-              <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
-              <FaButton
-                v-if="row.original.status === 'PENDING' || row.original.status === 'REJECTED'"
-                size="sm"
-                :disabled="acting"
-                @click="openApprove(row.original)"
-              >
-                通过
-              </FaButton>
-              <FaButton
-                v-if="row.original.status === 'PENDING'"
-                size="sm"
-                variant="destructive"
-                :disabled="acting"
-                @click="openReason(row.original, 'reject')"
-              >
-                驳回
-              </FaButton>
-              <FaButton
-                v-if="row.original.status === 'PASSED' && !row.original.userId"
-                size="sm"
-                variant="destructive"
-                :disabled="acting"
-                @click="openReason(row.original, 'revoke')"
-              >
-                撤销
-              </FaButton>
-            </div>
-          </template>
-        </FaTable>
-      </div>
-
-      <div class="ev-mobile-only">
-        <div v-loading="loading" class="ev-mobile-list">
-          <FaCard v-for="row in records" :key="row.id">
+      <FaResponsiveTable
+        v-loading="loading"
+        :columns="columns"
+        :data="records"
+        row-key="id"
+        table-root-class="ev-table-scroll rounded-lg overflow-hidden"
+        table-class="ev-table-w1080"
+        border
+        stripe
+        column-visibility
+        empty-text="暂无认证记录"
+      >
+        <template #cell-email="{ row }">
+          <div class="ev-user-cell">
+            <strong>{{ row.original.email || '-' }}</strong>
+            <span>{{ row.original.userId ? `用户 ${row.original.userId}` : '尚未绑定账号' }}</span>
+          </div>
+        </template>
+        <template #cell-channel="{ row }">
+          {{ channelLabel(row.original.channel, row.original.channelName) }}
+        </template>
+        <template #cell-status="{ row }">
+          <FaTag :variant="statusVariant(row.original.status)">
+            {{ statusLabel(row.original.status, row.original.statusName) }}
+          </FaTag>
+        </template>
+        <template #cell-realName="{ row }">{{ row.original.realName || '-' }}</template>
+        <template #cell-schoolName="{ row }">{{ row.original.schoolName || '-' }}</template>
+        <template #cell-submittedAt="{ row }">{{ formatTime(row.original.submittedAt) }}</template>
+        <template #cell-operation="{ row }">
+          <div class="ev-row-actions">
+            <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
+            <FaButton
+              v-if="row.original.status === 'PENDING' || row.original.status === 'REJECTED'"
+              size="sm"
+              :disabled="acting"
+              @click="openApprove(row.original)"
+            >
+              通过
+            </FaButton>
+            <FaButton
+              v-if="row.original.status === 'PENDING'"
+              size="sm"
+              variant="destructive"
+              :disabled="acting"
+              @click="openReason(row.original, 'reject')"
+            >
+              驳回
+            </FaButton>
+            <FaButton
+              v-if="row.original.status === 'PASSED' && !row.original.userId"
+              size="sm"
+              variant="destructive"
+              :disabled="acting"
+              @click="openReason(row.original, 'revoke')"
+            >
+              撤销
+            </FaButton>
+          </div>
+        </template>
+        <template #card="{ row }">
+          <FaCard class="w-full">
             <div class="ev-record-card">
               <div class="ev-record-head">
                 <div class="ev-record-title">
@@ -316,9 +311,8 @@ onMounted(load)
               </div>
             </div>
           </FaCard>
-          <div v-if="!loading && records.length === 0" class="ev-mobile-empty">暂无认证记录</div>
-        </div>
-      </div>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="page"
