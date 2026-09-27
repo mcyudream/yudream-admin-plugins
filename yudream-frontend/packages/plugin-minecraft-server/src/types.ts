@@ -244,6 +244,7 @@ export interface MinecraftBridgeSettings {
   forwardJoinQuit: boolean
   forwardDeath: boolean
   forwardAdvancement: boolean
+  forwardStartStop: boolean
   forwardToGame: boolean
   /** 后端已选定消息连接与群聊时为 true，此时才允许启用。 */
   configured: boolean

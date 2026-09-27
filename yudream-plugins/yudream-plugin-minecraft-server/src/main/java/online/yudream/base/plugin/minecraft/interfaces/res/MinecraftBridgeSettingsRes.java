@@ -15,6 +15,7 @@ public record MinecraftBridgeSettingsRes(
         boolean forwardJoinQuit,
         boolean forwardDeath,
         boolean forwardAdvancement,
+        boolean forwardStartStop,
         boolean forwardToGame,
         boolean configured,
         long updatedAt

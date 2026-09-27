@@ -91,6 +91,7 @@ public class MinecraftServerWebAssembler {
                 Boolean.TRUE.equals(request.forwardJoinQuit()),
                 Boolean.TRUE.equals(request.forwardDeath()),
                 Boolean.TRUE.equals(request.forwardAdvancement()),
+                Boolean.TRUE.equals(request.forwardStartStop()),
                 Boolean.TRUE.equals(request.forwardToGame()),
                 0L
         );
@@ -107,6 +108,7 @@ public class MinecraftServerWebAssembler {
                 settings.forwardJoinQuit(),
                 settings.forwardDeath(),
                 settings.forwardAdvancement(),
+                settings.forwardStartStop(),
                 settings.forwardToGame(),
                 settings.targetConfigured(),
                 settings.updatedAt()

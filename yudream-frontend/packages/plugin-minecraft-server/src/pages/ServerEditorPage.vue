@@ -17,6 +17,7 @@ const bridgeForwardToggles = computed(() => [
   { key: 'forwardJoinQuit' as const, label: '进退服通知', hint: '附带在线人数与前三个玩家名' },
   { key: 'forwardDeath' as const, label: '死亡消息', hint: '玩家死亡时转发' },
   { key: 'forwardAdvancement' as const, label: '成就通知', hint: '达成进度时转发' },
+  { key: 'forwardStartStop' as const, label: '启停通报', hint: '服务器启动/关闭时转发' },
   { key: 'forwardToGame' as const, label: '群聊转游戏', hint: '绑定群的普通消息广播进游戏' },
 ])
 const columns: TableColumn<MinecraftEndpoint>[] = [{ id: 'name', header: '线路名称', width: 160 }, { id: 'host', header: '主机', width: 220 }, { id: 'port', header: '端口', width: 120 }, { id: 'edition', header: '版本', width: 130 }, { id: 'primary', header: '主线', width: 90 }, { id: 'enabled', header: '启用', width: 90 }, { id: 'operation', header: '操作', width: 90, fixed: 'right' }]

@@ -13,6 +13,10 @@ public interface MinecraftBridgeListener {
     /** 游戏内事件：聊天、死亡、成就。 */
     void onGameEvent(String serverId, GameEventKind kind, String playerName, String content, long eventAt);
 
+    /** 面板实例电源状态迁移（running↔停止）：启停通报进群。默认空实现兼容既有实现类。 */
+    default void onServerPowerState(String serverId, boolean started, long atMs) {
+    }
+
     enum GameEventKind {
         CHAT, DEATH, ADVANCEMENT
     }

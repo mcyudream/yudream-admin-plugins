@@ -15,6 +15,7 @@ public record MinecraftBridgeSettingsSaveRequest(
         Boolean forwardJoinQuit,
         Boolean forwardDeath,
         Boolean forwardAdvancement,
+        Boolean forwardStartStop,
         Boolean forwardToGame
 ) {
 }

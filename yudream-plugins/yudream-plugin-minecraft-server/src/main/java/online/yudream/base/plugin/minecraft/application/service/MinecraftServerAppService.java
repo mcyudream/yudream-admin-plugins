@@ -721,10 +721,33 @@ public class MinecraftServerAppService implements PluginMinecraftService {
             throw new IllegalArgumentException("面板状态回传参数不完整");
         }
         requireServer(serverId);
-        panelStates.compute(serverId, (key, existing) ->
+        String normalized = panelState.trim();
+        PluginMinecraftPanelState previous = panelStates.get(serverId);
+        PluginMinecraftPanelState merged = panelStates.compute(serverId, (key, existing) ->
                 existing != null && existing.updatedAt() > atMs ? existing
-                        : new PluginMinecraftPanelState(instanceId, panelState, atMs));
+                        : new PluginMinecraftPanelState(instanceId, normalized, atMs));
+        notifyPowerTransition(serverId, previous, merged, atMs);
         return true;
+    }
+
+    /** 启停通报：有效状态发生 非运行→运行（启动） 或 运行→明确停止（关闭）迁移时回调桥接；首帧只建立基线不通报。 */
+    private void notifyPowerTransition(String serverId, PluginMinecraftPanelState previous,
+                                       PluginMinecraftPanelState merged, long atMs) {
+        MinecraftBridgeListener listener = bridgeListener;
+        if (merged == null || previous == null || listener == null) {
+            return;
+        }
+        boolean wasRunning = "running".equalsIgnoreCase(previous.state());
+        boolean nowRunning = "running".equalsIgnoreCase(merged.state());
+        if (!wasRunning && nowRunning) {
+            listener.onServerPowerState(serverId, true, atMs);
+        } else if (wasRunning && !nowRunning && isStoppedState(merged.state())) {
+            listener.onServerPowerState(serverId, false, atMs);
+        }
+    }
+
+    private static boolean isStoppedState(String state) {
+        return "exited".equalsIgnoreCase(state) || "stopped".equalsIgnoreCase(state) || "dead".equalsIgnoreCase(state);
     }
 
     @Override

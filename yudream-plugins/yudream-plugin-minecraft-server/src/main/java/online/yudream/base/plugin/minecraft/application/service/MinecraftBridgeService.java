@@ -157,6 +157,7 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         }
         String name = playerName.trim();
         if (staleOrDuplicate(serverId, "presence", (join ? "in:" : "out:") + playerId + "/" + name, eventAt)) {
+            LOGGER.info("进退服通报跳过（" + name + "）：事件超龄（超过 5 分钟）或桥接重复帧，按设计不重复进群。");
             return;
         }
         String summary = onlineSummary(serverId);
@@ -165,6 +166,7 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         if (!summary.isEmpty()) {
             text.append('\n').append(summary);
         }
+        LOGGER.info("已投递进退服通报（" + name + (join ? " 进服" : " 退服") + "）。");
         send(settings, text.toString());
     }
 
@@ -198,6 +200,20 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
             case DEATH -> settings.forwardDeath();
             case ADVANCEMENT -> settings.forwardAdvancement();
         };
+    }
+
+    /** 面板实例电源状态迁移（running↔停止）：按开关投递启停通报（同态重复帧由去重兜底）。 */
+    @Override
+    public void onServerPowerState(String serverId, boolean started, long atMs) {
+        MinecraftBridgeSettings settings = cachedSettings(serverId);
+        if (!settings.enabled() || !settings.forwardStartStop() || !settings.targetConfigured()) {
+            return;
+        }
+        if (staleOrDuplicate(serverId, "power", started ? "up" : "down", atMs)) {
+            return;
+        }
+        LOGGER.info("已投递启停通报（" + (started ? "已启动" : "已关闭") + "）。");
+        send(settings, started ? "🟢 服务器已启动，欢迎玩家进入。" : "🔴 服务器已关闭。");
     }
 
     /** 进退服消息尾行的在线概览：人数 + 前三个玩家名（超出部分用「等」收尾）。 */

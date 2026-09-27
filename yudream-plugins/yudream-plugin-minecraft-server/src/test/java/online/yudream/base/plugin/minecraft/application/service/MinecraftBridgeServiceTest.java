@@ -62,8 +62,13 @@ class MinecraftBridgeServiceTest {
 
     private MinecraftBridgeSettings settings(boolean enabled, boolean chat, boolean joinQuit, boolean death,
                                              boolean advancement, boolean toGame) {
+        return settings(enabled, chat, joinQuit, death, advancement, false, toGame);
+    }
+
+    private MinecraftBridgeSettings settings(boolean enabled, boolean chat, boolean joinQuit, boolean death,
+                                             boolean advancement, boolean startStop, boolean toGame) {
         return new MinecraftBridgeSettings(SERVER_ID, enabled, "conn-1", "grp-1", "测试群",
-                chat, joinQuit, death, advancement, toGame, NOW);
+                chat, joinQuit, death, advancement, startStop, toGame, NOW);
     }
 
     private String capturedContent() {
@@ -166,7 +171,7 @@ class MinecraftBridgeServiceTest {
     void saveSettingsRejectsEnabledWithoutTarget() {
         givenSettings(settings(true, false, false, false, false, false));
         MinecraftBridgeSettings invalid = new MinecraftBridgeSettings(SERVER_ID, true, "", "", "",
-                false, false, false, false, false, 0L);
+                false, false, false, false, false, false, 0L);
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.saveSettings(invalid));
     }

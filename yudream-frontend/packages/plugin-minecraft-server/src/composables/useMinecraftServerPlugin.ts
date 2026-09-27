@@ -45,6 +45,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     forwardJoinQuit: true,
     forwardDeath: true,
     forwardAdvancement: true,
+    forwardStartStop: true,
     forwardToGame: true,
   })
 
@@ -785,6 +786,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
         forwardJoinQuit: settings.forwardJoinQuit,
         forwardDeath: settings.forwardDeath,
         forwardAdvancement: settings.forwardAdvancement,
+        forwardStartStop: settings.forwardStartStop,
         forwardToGame: settings.forwardToGame,
       })
       await ensureBridgeConnections()

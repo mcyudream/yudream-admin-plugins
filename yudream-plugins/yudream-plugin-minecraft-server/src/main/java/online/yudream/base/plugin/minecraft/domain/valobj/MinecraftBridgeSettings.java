@@ -16,6 +16,7 @@ public record MinecraftBridgeSettings(
         boolean forwardJoinQuit,
         boolean forwardDeath,
         boolean forwardAdvancement,
+        boolean forwardStartStop,
         boolean forwardToGame,
         long updatedAt
 ) {
@@ -23,7 +24,7 @@ public record MinecraftBridgeSettings(
     /** 未配置时的默认值：整体关闭、全部细分关闭。 */
     public static MinecraftBridgeSettings empty(String serverId) {
         return new MinecraftBridgeSettings(serverId, false, "", "", "",
-                false, false, false, false, false, 0L);
+                false, false, false, false, false, false, 0L);
     }
 
     /** 转发目标已选定（启用了群服互联就必须同时配置连接与群聊）。 */
@@ -44,6 +45,7 @@ public record MinecraftBridgeSettings(
                 forwardJoinQuit,
                 forwardDeath,
                 forwardAdvancement,
+                forwardStartStop,
                 forwardToGame,
                 at <= 0 ? System.currentTimeMillis() : at
         );
