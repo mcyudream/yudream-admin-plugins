@@ -51,7 +51,7 @@ public class AuthlibAppService implements PluginAuthService {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("serverName", "YuDream Authlib Injector");
         meta.put("implementationName", "YuDream Authlib Injector Plugin");
-        meta.put("implementationVersion", "1.3.0");
+        meta.put("implementationVersion", "1.3.1");
         meta.put("links", links(apiRoot));
         meta.put("feature.non_email_login", true);
         meta.put("feature.legacy_skin_api", false);
@@ -229,11 +229,13 @@ public class AuthlibAppService implements PluginAuthService {
      * POST {api_root}/minecraftservices/player/certificates 打到这里。
      * Bearer 访问令牌确认会话有效后，为现生成的玩家密钥对出具站点签名
      * （签名密钥即元数据 signaturePublickey，与材质属性签名同源）；
-     * 玩家私钥与服务端无关、不落库，证书 24 小时过期由客户端自动刷新。
+     * v1 签名须绑定玩家 UUID 与到期时间——服务端校验聊天会话时按
+     * uuid ‖ 到期毫秒 ‖ 公钥 DER 复核；玩家私钥与服务端无关、不落库，
+     * 证书 24 小时过期由客户端自动刷新。
      */
     public Object playerCertificates(String accessToken) {
-        validSession(accessToken, null);
-        return cryptoService.playerCertificateBody();
+        AuthSession session = validSession(accessToken, null);
+        return cryptoService.playerCertificateBody(session.selectedProfileId());
     }
 
     public void setTexture(String accessToken, String uuid, String textureType, TextureBindRequest request) {

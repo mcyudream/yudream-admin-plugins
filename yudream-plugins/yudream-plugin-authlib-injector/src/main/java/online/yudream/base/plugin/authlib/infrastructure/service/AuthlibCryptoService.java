@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class AuthlibCryptoService {
 
@@ -59,11 +60,14 @@ public class AuthlibCryptoService {
      * （即元数据 signaturePublickey 对应密钥）签发公钥，玩家私钥不落库。
      * PEM 标签沿用 authlib-injector ProfileKeyFilter 的写法（PKCS8 内容配
      * "RSA PRIVATE KEY" 标签），与原版客户端 PemCodec 的解析约定一致。
-     * 签名格式对齐 Mojang：v1 = SHA1withRSA(公钥 DER)；v2 = SHA256withRSA
-     * （到期 epoch 秒 8B 大端 ‖ 0x00000000 ‖ 公钥 DER）。
+     * 签名格式对齐 Mojang：v1（publicKeySignature，客户端原样放进聊天会话、
+     * 服务端用 SHA1withRSA 校验）= SHA1withRSA(玩家 UUID 高 8B ‖ UUID 低 8B ‖
+     * 到期 epoch 毫秒 8B 大端 ‖ 公钥 DER)；v2 = SHA256withRSA（到期 epoch 秒
+     * 8B 大端 ‖ 0x00000000 ‖ 公钥 DER，供 1.19.1–1.20.4 客户端本地校验）。
      */
-    public Map<String, Object> playerCertificateBody() {
+    public Map<String, Object> playerCertificateBody(String profileId) {
         try {
+            UUID uuid = parseProfileUuid(profileId);
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
             generator.initialize(2048);
             KeyPair playerKey = generator.generateKeyPair();
@@ -71,6 +75,11 @@ public class AuthlibCryptoService {
             Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
             Instant expiresAt = now.plus(Duration.ofHours(24));
             Instant refreshedAfter = now.plus(Duration.ofHours(18));
+            ByteBuffer v1Payload = ByteBuffer.allocate(16 + 8 + publicDer.length)
+                    .putLong(uuid.getMostSignificantBits())
+                    .putLong(uuid.getLeastSignificantBits())
+                    .putLong(expiresAt.toEpochMilli())
+                    .put(publicDer);
             ByteBuffer v2Payload = ByteBuffer.allocate(8 + 4 + publicDer.length)
                     .putLong(expiresAt.getEpochSecond())
                     .putInt(0)
@@ -81,7 +90,7 @@ public class AuthlibCryptoService {
             keyPair.put("publicKey", pem("RSA PUBLIC KEY", mime.encodeToString(publicDer)));
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("keyPair", keyPair);
-            body.put("publicKeySignature", Base64.getEncoder().encodeToString(signWith("SHA1withRSA", publicDer)));
+            body.put("publicKeySignature", Base64.getEncoder().encodeToString(signWith("SHA1withRSA", v1Payload.array())));
             body.put("publicKeySignatureV2", Base64.getEncoder().encodeToString(signWith("SHA256withRSA", v2Payload.array())));
             body.put("expiresAt", DateTimeFormatter.ISO_INSTANT.format(expiresAt));
             body.put("refreshedAfter", DateTimeFormatter.ISO_INSTANT.format(refreshedAfter));
@@ -89,6 +98,15 @@ public class AuthlibCryptoService {
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("玩家聊天签名证书签发失败：" + e.getMessage(), e);
         }
+    }
+
+    private UUID parseProfileUuid(String profileId) {
+        String hex = profileId == null ? "" : profileId.replace("-", "");
+        if (hex.length() != 32 || !hex.chars().allMatch(c -> Character.digit(c, 16) >= 0)) {
+            throw new IllegalStateException("角色 UUID 非法，无法签发聊天签名证书：" + profileId);
+        }
+        return UUID.fromString(hex.substring(0, 8) + "-" + hex.substring(8, 12) + "-" + hex.substring(12, 16)
+                + "-" + hex.substring(16, 20) + "-" + hex.substring(20, 32));
     }
 
     private byte[] signWith(String algorithm, byte[] data) throws GeneralSecurityException {
