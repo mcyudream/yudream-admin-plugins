@@ -3,7 +3,7 @@ import type { ShopOrder } from '../types'
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTag, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
@@ -95,7 +95,7 @@ onMounted(() => { void load() })
       </FaButton>
     </FaPageHeader>
     <FaPageMain>
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         row-key="id"
         table-root-class="rounded-lg overflow-hidden"
@@ -153,7 +153,45 @@ onMounted(() => { void load() })
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.productTitle }}<template v-if="row.variantName">（{{ row.variantName }}）</template></span>
+                <FaTag :variant="orderStatusTag(row.status).variant">
+                  {{ row.statusText || orderStatusTag(row.status).text }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">金额</span>
+                  <span class="break-all">{{ formatAmount(row.totalAmount) }} {{ row.assetCode }} ×{{ row.quantity }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">卖家</span>
+                  <span class="break-all">{{ displayOrderSeller(row) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">下单时间</span>
+                  <span class="break-all">{{ formatTime(row.createdAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton
+                  v-if="canVerify(row)"
+                  size="sm"
+                  @click="openDetail(row)"
+                >
+                  核验
+                </FaButton>
+                <FaButton size="sm" variant="outline" @click="openDetail(row)">
+                  {{ row.cancellable ? '详情 / 取消' : '详情' }}
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="pager.page"

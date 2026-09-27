@@ -3,7 +3,7 @@ import type { PublishQualification, ShopProductSummary } from '../types'
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaAlert, FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
@@ -141,7 +141,7 @@ onMounted(() => {
           {{ qualification?.reason || '管理员已关闭用户上架功能、积分门槛不足，或当前账号是管理员（只能投放官方积分商品）。' }}
         </template>
       </FaAlert>
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         row-key="id"
         table-root-class="rounded-lg overflow-hidden"
@@ -227,7 +227,57 @@ onMounted(() => {
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.title }}</span>
+                <FaTag :variant="productStatusTag(row.status).variant">
+                  {{ row.statusText || productStatusTag(row.status).text }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">价格</span>
+                  <span class="break-all">{{ row.assetSymbol || '¥' }}{{ formatAmount(row.price) }} {{ row.assetCode }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">库存 / 已售</span>
+                  <span class="break-all">{{ row.stock < 0 ? '不限' : row.stock }} / {{ Number(row.soldCount) || 0 }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                  <span class="break-all">{{ productTypeLabel(row.type, row.typeDisplayName) }}<template v-if="Number(row.perUserLimit) > 0"> · 每人限购 {{ perUserLimitText(row.perUserLimit) }}</template></span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                  <span class="break-all">{{ formatTime(row.updatedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                <FaButton
+                  size="sm"
+                  variant="outline"
+                  :disabled="shelfBlocked && row.status !== 'ON_SHELF'"
+                  :loading="actingId === row.id"
+                  @click="toggleShelf(row)"
+                >
+                  {{ row.status === 'ON_SHELF' ? '下架' : '上架' }}
+                </FaButton>
+                <FaButton
+                  size="sm"
+                  variant="destructive"
+                  :loading="actingId === row.id"
+                  @click="confirmDelete(row)"
+                >
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="pager.page"

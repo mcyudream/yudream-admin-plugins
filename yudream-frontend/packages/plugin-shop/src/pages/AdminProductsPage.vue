@@ -3,7 +3,7 @@ import type { ShopProductDetail, ShopProductSummary } from '../types'
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
@@ -179,7 +179,7 @@ onMounted(() => { void load() })
       </div>
     </FaPageHeader>
     <FaPageMain>
-      <FaTable
+      <FaResponsiveTable
         v-loading="loading"
         row-key="id"
         table-root-class="rounded-lg overflow-hidden"
@@ -286,7 +286,70 @@ onMounted(() => { void load() })
             </FaButton>
           </div>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.title }}</span>
+                <FaTag :variant="productStatusTag(row.status).variant">
+                  {{ row.statusText || productStatusTag(row.status).text }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">价格</span>
+                  <span class="break-all">{{ row.assetSymbol || '¥' }}{{ formatAmount(row.price) }} {{ row.assetCode }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">库存 / 已售</span>
+                  <span class="break-all">{{ row.stock < 0 ? '不限' : row.stock }} / {{ Number(row.soldCount) || 0 }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">卖家</span>
+                  <span class="break-all">{{ displayProductOwner(row) }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">类型 / 排序</span>
+                  <span class="break-all">{{ productTypeLabel(row.type, row.typeDisplayName) }} · 排序 {{ Number(row.sortOrder) || 0 }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                  <span class="break-all">{{ formatTime(row.updatedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton size="sm" variant="outline" :loading="actingId === row.id" @click="moveProduct(row, 'TOP')">
+                  置顶
+                </FaButton>
+                <FaButton size="sm" variant="outline" :loading="actingId === row.id" @click="moveProduct(row, 'UP')">
+                  上移
+                </FaButton>
+                <FaButton size="sm" variant="outline" :loading="actingId === row.id" @click="moveProduct(row, 'DOWN')">
+                  下移
+                </FaButton>
+                <FaButton size="sm" variant="outline" @click="openDetail(row)">详情</FaButton>
+                <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                <FaButton
+                  size="sm"
+                  variant="outline"
+                  :loading="actingId === row.id"
+                  @click="toggleShelf(row)"
+                >
+                  {{ row.status === 'ON_SHELF' ? '强制下架' : '恢复上架' }}
+                </FaButton>
+                <FaButton
+                  size="sm"
+                  variant="destructive"
+                  :loading="actingId === row.id"
+                  @click="confirmDelete(row)"
+                >
+                  删除
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
 
       <FaPagination
         v-model:page="pager.page"
