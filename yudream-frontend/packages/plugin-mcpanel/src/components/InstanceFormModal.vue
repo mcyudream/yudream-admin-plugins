@@ -150,7 +150,10 @@ function validate(): string {
 }
 
 function buildPayload() {
+  // 整档 spread 保留表单外字段（ports/env/config/domain/p2p 等）：
+  // 后端 PUT 是整档规格替换，漏带会把这些静默清空（曾导致编辑即丢端口与环境变量）。
   return {
+    ...(props.instance ?? {}),
     id: form.id || `inst-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     nodeId: form.nodeId,
     name: form.name.trim(),
@@ -158,12 +161,10 @@ function buildPayload() {
     mcVersion: form.mcVersion.trim() || null,
     image: form.image.trim(),
     command: form.command.trim().split(/\s+/).filter(Boolean),
-    env: {},
     mcServerId: form.mcServerId || null,
     memoryMb: form.memoryMb,
     cpuMillis: form.cpuMillis,
     diskMb: form.diskMb,
-    config: {},
     remark: form.remark.trim() || null,
     startDetect: form.startDetect.trim(),
   }
@@ -223,7 +224,7 @@ async function submit(done: () => void) {
       <label class="mcp-form-item">
         <span class="mcp-form-label">服务端类型</span>
         <FaSelect v-model="form.kind" :options="KIND_OPTIONS" class="w-full" />
-        <span class="mcp-form-hint">基岩版使用 UDP 端口；端口由面板按节点端口池自动分配。</span>
+        <span class="mcp-form-hint">基岩版使用 UDP 端口；主端口由面板按节点端口池自动分配，附加端口可在「实例设置 → 端口管理」开放。</span>
       </label>
       <label class="mcp-form-item">
         <span class="mcp-form-label">MC 版本（可选）</span>

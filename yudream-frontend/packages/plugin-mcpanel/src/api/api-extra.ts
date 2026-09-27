@@ -26,6 +26,14 @@ export function createMcPanelApi(sdk: YuDreamPluginSdk) {
     createInstance: (data: Record<string, unknown>) => sdk.http.post('admin/instances', data),
     updateInstance: (id: string, data: Record<string, unknown>) =>
       sdk.http.request(inst(id), { method: 'PUT', data }),
+    /** 端口管理视图：列表（主端口标记/访问地址）+ 池范围与保留端口。 */
+    instancePorts: (id: string) => sdk.http.get(`${inst(id)}/ports`),
+    /** 开放附加端口：proto 缺省 tcp；port 缺省 = 节点池内自动分配。 */
+    addInstancePort: (id: string, proto: 'tcp' | 'udp', port?: number) =>
+      sdk.http.post(`${inst(id)}/ports`, { proto, ...(port ? { port } : {}) }),
+    /** 回收附加端口（主端口由后端拒绝）。 */
+    removeInstancePort: (id: string, port: number, proto: string) =>
+      sdk.http.request(`${inst(id)}/ports/${port}${query({ proto })}`, { method: 'DELETE' }),
     deleteInstance: (id: string, purge: boolean) =>
       sdk.http.request<void>(`${inst(id)}${query({ purge })}`, { method: 'DELETE' }),
     instanceAction: (id: string, action: 'start' | 'stop' | 'restart' | 'kill', timeoutSec?: number) =>

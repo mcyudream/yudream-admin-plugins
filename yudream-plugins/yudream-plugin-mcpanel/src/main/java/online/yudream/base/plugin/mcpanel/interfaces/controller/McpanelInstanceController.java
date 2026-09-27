@@ -35,6 +35,21 @@ public class McpanelInstanceController {
         return facade.update(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/admin/instances/{instanceId}/ports", permission = McpanelPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse portsView(PluginHttpRequest request) {
+        return facade.portsView(request);
+    }
+
+    @PluginHttpEndpoint(method = "POST", path = "/admin/instances/{instanceId}/ports", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse portAdd(PluginHttpRequest request) {
+        return facade.portAdd(request);
+    }
+
+    @PluginHttpEndpoint(method = "DELETE", path = "/admin/instances/{instanceId}/ports/{port}", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse portRemove(PluginHttpRequest request) {
+        return facade.portRemove(request);
+    }
+
     @PluginHttpEndpoint(method = "PUT", path = "/admin/instances/{instanceId}/event-task", permission = McpanelPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse saveEventTask(PluginHttpRequest request) {
         return facade.eventTaskSave(request);

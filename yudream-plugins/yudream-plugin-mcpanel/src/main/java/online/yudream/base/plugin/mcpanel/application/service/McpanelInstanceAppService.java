@@ -13,6 +13,7 @@ import online.yudream.base.plugin.mcpanel.domain.valobj.NodeAccess;
 import online.yudream.base.plugin.mcpanel.infrastructure.node.NodeCallException;
 import online.yudream.base.plugin.mcpanel.infrastructure.sftp.SftpGatewayRegistry;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -335,18 +336,31 @@ public class McpanelInstanceAppService {
         if (bindingProblem != null) {
             throw McpanelBusinessException.invalid(bindingProblem);
         }
-        // 规格变更经 CAS 以最新文档为基：并发状态事件不会被旧读覆盖，
-        // CAS 持续冲突（极端争用）显式报 409，而不是静默落一个过期快照。
-        long stamp = System.currentTimeMillis();
-        if (!instanceRepository.mutateState(id, base -> base.withSpec(spec, stamp))) {
-            throw new McpanelBusinessException("instance.conflict", 409,
-                    "实例状态正在变化，配置保存冲突，请稍后重试");
+        // 端口对账：body 携带的端口列表与当前不一致时，走与专用端口端点同一套
+        // 校验（主端口不可变/池内/保留）/台账增减/探测；一致则零台账操作。
+        PortAllocator.ChangePlan ports = portAllocator.planChange(node, current.ports(), spec.ports());
+        for (McpanelInstance.PortMapping mapping : ports.additions()) {
+            if (!portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id)) {
+                throw new McpanelBusinessException("port.conflict", 409,
+                        "端口已被占用：" + mapping.hostPort() + "/" + mapping.proto());
+            }
         }
-        McpanelInstance updated = instanceRepository.findById(id).orElse(current);
         try {
+            probePortsOrThrow(node, id, ports.additions());
+            // 规格变更经 CAS 以最新文档为基：并发状态事件不会被旧读覆盖，
+            // CAS 持续冲突（极端争用）显式报 409，而不是静默落一个过期快照。
+            long stamp = System.currentTimeMillis();
+            if (!instanceRepository.mutateState(id, base -> base.withSpec(spec, stamp))) {
+                throw new McpanelBusinessException("instance.conflict", 409,
+                        "实例状态正在变化，配置保存冲突，请稍后重试");
+            }
+            McpanelInstance updated = instanceRepository.findById(id).orElse(current);
             Map<String, Object> result = call(node.id(), "instance.update",
                     withIk(withLinkEnv(updated.toNodePayload()),
                             "panel-update-" + updated.id() + "-" + updated.updatedAt()), CREATE_TIMEOUT_MS);
+            for (McpanelInstance.PortMapping mapping : ports.removals()) {
+                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+            }
             audit.record(actor, "instance.update", "instance", id, updated.name(), updated.tenantId());
             String nodeState = text(result.get("state"), null);
             if (nodeState != null) {
@@ -355,11 +369,185 @@ public class McpanelInstanceAppService {
             }
             return toDto(instanceRepository.findById(id).orElse(updated));
         } catch (RuntimeException error) {
-            // 回滚规格但保留最新运行时（state/lastExitCode 以 CAS 基线为准），不回写旧状态。
+            // 回滚规格但保留最新运行时（state/lastExitCode 以 CAS 基线为准），不回写旧状态；
+            // 端口台账同步回滚：新增释放、删除重占（allocate 幂等，未释放过也安全）。
+            for (McpanelInstance.PortMapping mapping : ports.additions()) {
+                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+            }
+            for (McpanelInstance.PortMapping mapping : ports.removals()) {
+                portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id);
+            }
             instanceRepository.mutateState(id, fresh ->
                     current.withState(fresh.state(), fresh.lastExitCode(), fresh.updatedAt()));
             throw error;
         }
+    }
+
+    /** 端口管理视图：列表（含主端口标记/访问地址）+ 节点直连地址 + 池范围与保留端口。 */
+    public Map<String, Object> portsView(String scopeKey, String id) {
+        McpanelInstance instance = findAccessible(scopeKey, id);
+        return portsViewOf(instance, requireNode(instance.nodeId()));
+    }
+
+    /** 开放一个附加端口（port 空 = 池内自动分配）：实例须停止，成功即容器已按新端口重建。 */
+    public Map<String, Object> addPort(String actor, String scopeKey, String id,
+                                       String proto, Integer port) {
+        McpanelInstance current = findAccessible(scopeKey, id);
+        McpanelNode node = requireNode(current.nodeId());
+        requireStoppedForPorts(current);
+        // 先占台账（自动分配的原子占坑在分配器内），再走共享应用路径。
+        McpanelInstance.PortMapping added = portAllocator.allocateExtra(node, proto, port, id);
+        List<McpanelInstance.PortMapping> desired = new ArrayList<>(current.ports());
+        desired.add(added);
+        return applyPorts(actor, current, node, desired, added);
+    }
+
+    /** 回收一个附加端口：主端口（ports[0]）不可移除；实例须停止。 */
+    public Map<String, Object> removePort(String actor, String scopeKey, String id, int port, String proto) {
+        McpanelInstance current = findAccessible(scopeKey, id);
+        McpanelNode node = requireNode(current.nodeId());
+        requireStoppedForPorts(current);
+        if (!current.ports().isEmpty()) {
+            McpanelInstance.PortMapping primary = current.ports().get(0);
+            if (primary.hostPort() == port && primary.proto().equals(proto)) {
+                throw McpanelBusinessException.invalid("主端口不可移除：" + port + "/" + proto);
+            }
+        }
+        if (current.ports().stream().noneMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
+            throw McpanelBusinessException.notFound("实例未开放该端口：" + port + "/" + proto);
+        }
+        List<McpanelInstance.PortMapping> desired = current.ports().stream()
+                .filter(item -> !(item.hostPort() == port && item.proto().equals(proto)))
+                .toList();
+        return applyPorts(actor, current, node, desired, null);
+    }
+
+    private static void requireStoppedForPorts(McpanelInstance current) {
+        if ("running".equalsIgnoreCase(current.state())) {
+            throw new McpanelBusinessException("instance-running", 409, "请先停止实例再修改端口");
+        }
+    }
+
+    /**
+     * 端口变更共享路径（addPort/removePort/update 共用语义）：
+     * planChange 校验 → 台账占坑 → 节点占用探测 → CAS 落库 → instance.update
+     * （节点停止态删容器重建，数据卷不受影响）→ 任一步失败全量回滚台账与聚合。
+     */
+    private Map<String, Object> applyPorts(String actor, McpanelInstance current, McpanelNode node,
+                                           List<McpanelInstance.PortMapping> desired,
+                                           McpanelInstance.PortMapping preAllocated) {
+        PortAllocator.ChangePlan plan = portAllocator.planChange(node, current.ports(), desired);
+        for (McpanelInstance.PortMapping mapping : plan.additions()) {
+            if (preAllocated != null && mapping.hostPort() == preAllocated.hostPort()
+                    && mapping.proto().equals(preAllocated.proto())) {
+                continue;
+            }
+            if (!portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), current.id())) {
+                throw new McpanelBusinessException("port.conflict", 409,
+                        "端口已被占用：" + mapping.hostPort() + "/" + mapping.proto());
+            }
+        }
+        try {
+            probePortsOrThrow(node, current.id(), plan.additions());
+            long stamp = System.currentTimeMillis();
+            if (!instanceRepository.mutateState(current.id(), base -> base.withPorts(plan.desired(), stamp))) {
+                throw new McpanelBusinessException("instance.conflict", 409,
+                        "实例状态正在变化，端口保存冲突，请稍后重试");
+            }
+            McpanelInstance updated = instanceRepository.findById(current.id()).orElse(current);
+            Map<String, Object> result = call(node.id(), "instance.update",
+                    withIk(withLinkEnv(updated.toNodePayload()),
+                            "panel-ports-" + current.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+            for (McpanelInstance.PortMapping mapping : plan.removals()) {
+                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+            }
+            audit.record(actor, "instance.ports.update", "instance", current.id(),
+                    current.name() + "：" + describePortChange(plan), current.tenantId());
+            String nodeState = text(result.get("state"), null);
+            if (nodeState != null) {
+                instanceRepository.mutateState(current.id(), fresh -> fresh.withState(nodeState,
+                        fresh.lastExitCode(), System.currentTimeMillis()));
+            }
+            return portsViewOf(instanceRepository.findById(current.id()).orElse(updated), node);
+        } catch (RuntimeException error) {
+            for (McpanelInstance.PortMapping mapping : plan.additions()) {
+                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+            }
+            for (McpanelInstance.PortMapping mapping : plan.removals()) {
+                portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), current.id());
+            }
+            instanceRepository.mutateState(current.id(),
+                    fresh -> current.withPorts(current.ports(), fresh.updatedAt()));
+            throw error;
+        }
+    }
+
+    /** 节点宿主机占用探测（port.check）：停止态容器不持宿主端口，可拦住非面板服务占用；
+     * 仅探测新增端口；旧节点未上报该能力时静默跳过（回退为 Docker 建容器时自然报错）。 */
+    private void probePortsOrThrow(McpanelNode node, String instanceId,
+                                   List<McpanelInstance.PortMapping> additions) {
+        if (additions.isEmpty() || !nodeSupports(node.id(), "port.check")) {
+            return;
+        }
+        List<Map<String, Object>> checks = new ArrayList<>();
+        for (McpanelInstance.PortMapping mapping : additions) {
+            checks.add(Map.of("port", mapping.hostPort(), "proto", mapping.proto()));
+        }
+        Map<String, Object> result = call(node.id(), "port.check",
+                Map.of("checks", checks), CALL_TIMEOUT_MS);
+        if (!(result.get("results") instanceof List<?> rows)) {
+            return;
+        }
+        for (Object row : rows) {
+            if (row instanceof Map<?, ?> item && !Boolean.TRUE.equals(item.get("free"))) {
+                String reason = text(item.get("reason"), "");
+                throw new McpanelBusinessException("port.conflict", 409,
+                        "节点宿主机端口已被其他程序占用：" + item.get("port") + "/" + item.get("proto")
+                                + (reason.isBlank() ? "" : "（" + reason + "）"));
+            }
+        }
+    }
+
+    private static String describePortChange(PortAllocator.ChangePlan plan) {
+        List<String> parts = new ArrayList<>();
+        for (McpanelInstance.PortMapping mapping : plan.additions()) {
+            parts.add("开放 " + mapping.hostPort() + "/" + mapping.proto());
+        }
+        for (McpanelInstance.PortMapping mapping : plan.removals()) {
+            parts.add("回收 " + mapping.hostPort() + "/" + mapping.proto());
+        }
+        return parts.isEmpty() ? "无端口变化" : String.join("、", parts);
+    }
+
+    private Map<String, Object> portsViewOf(McpanelInstance instance, McpanelNode node) {
+        String host = directHostOf(node);
+        List<Map<String, Object>> ports = new ArrayList<>();
+        List<McpanelInstance.PortMapping> mappings = instance.ports();
+        for (int i = 0; i < mappings.size(); i++) {
+            McpanelInstance.PortMapping mapping = mappings.get(i);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("hostPort", mapping.hostPort());
+            item.put("containerPort", mapping.containerPort());
+            item.put("proto", mapping.proto());
+            item.put("primary", i == 0);
+            item.put("address", host.isBlank() ? "" : host + ":" + mapping.hostPort());
+            ports.add(item);
+        }
+        int[] tcp = portAllocator.poolBounds(node, "tcp");
+        int[] udp = portAllocator.poolBounds(node, "udp");
+        Map<String, Object> ranges = new LinkedHashMap<>();
+        ranges.put("tcpStart", tcp[0]);
+        ranges.put("tcpEnd", tcp[1]);
+        ranges.put("udpStart", udp[0]);
+        ranges.put("udpEnd", udp[1]);
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("instanceId", instance.id());
+        view.put("state", instance.state());
+        view.put("accessHost", host);
+        view.put("ports", ports);
+        view.put("ranges", ranges);
+        view.put("reservedPorts", node.reservedPorts() == null ? List.of() : node.reservedPorts());
+        return view;
     }
 
     public Map<String, Object> action(String actor, String scopeKey, String id, String action, Integer timeoutSec) {

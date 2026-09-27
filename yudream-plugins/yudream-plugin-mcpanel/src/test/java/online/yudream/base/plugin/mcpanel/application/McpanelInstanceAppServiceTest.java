@@ -424,4 +424,213 @@ class McpanelInstanceAppServiceTest {
         assertNotNull(listed.get("backups"));
         assertTrue(((List<?>) listed.get("backups")).isEmpty());
     }
+
+    // ---------- 附加端口开放/回收 ----------
+
+    /** 让节点上报 port.check 能力（探测门禁按节点 caps 判定）。 */
+    private void nodeWithPortCheckCap() {
+        nodes.save(nodes.findById("node-1").orElseThrow().withRuntime(
+                online.yudream.base.plugin.mcpanel.domain.enumerate.NodeStatus.ONLINE,
+                "0.7.0", "h", "sess", List.of("port.check"), "27", null, 1L, 1L));
+    }
+
+    private List<McpanelInstance.PortMapping> instancePorts(String id) {
+        return instances.findById(id).orElseThrow().ports();
+    }
+
+    @Test
+    void addPortAutoAllocatesProbesThenUpdatesNode() {
+        onlineNode();
+        nodeWithPortCheckCap();
+        List<String> methods = new java.util.ArrayList<>();
+        Map<String, Object> updatePayload = new java.util.concurrent.ConcurrentHashMap<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            if ("port.check".equals(method)) {
+                return Map.of("results", List.of(Map.of("port", 25566, "proto", "tcp", "free", true)));
+            }
+            if ("instance.update".equals(method)) {
+                updatePayload.putAll(payload);
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-port1", "paper"));
+        methods.clear();
+        Map<String, Object> view = service.addPort("user:1", "user:1", "inst-port1", "tcp", null);
+        // 调用顺序：先探测占用，再下发容器重建
+        assertEquals(List.of("port.check", "instance.update"), methods);
+        assertEquals(2, ((List<?>) updatePayload.get("ports")).size());
+        assertEquals(2L, ports.countByNode("node-1"));
+        assertEquals(2, ((List<?>) view.get("ports")).size());
+    }
+
+    @Test
+    void addPortManualConflictKeepsInstanceIntact() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
+        service.create("user:1", "user:1", spec("inst-pa", "paper"));
+        service.create("user:1", "user:1", spec("inst-pb", "paper"));
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-pa", "tcp", 25566));
+        assertEquals("port.conflict", error.code());
+        assertEquals(2L, ports.countByNode("node-1"));
+        assertEquals(1, instancePorts("inst-pa").size());
+    }
+
+    @Test
+    void addPortProbeOccupiedRejectsWithoutMutating() {
+        onlineNode();
+        nodeWithPortCheckCap();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            if ("port.check".equals(method)) {
+                return Map.of("results", List.of(Map.of("port", 25570, "proto", "tcp", "free", false,
+                        "reason", "地址已在使用中")));
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pc", "paper"));
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-pc", "tcp", 25570));
+        assertEquals("port.conflict", error.code());
+        assertTrue(error.getMessage().contains("25570"));
+        assertEquals(1L, ports.countByNode("node-1"));
+        assertEquals(1, instancePorts("inst-pc").size());
+    }
+
+    @Test
+    void addPortNodeFailureRollsBackLedgerAndSpec() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            if ("instance.update".equals(method)) {
+                throw new McpanelBusinessException("node.offline", 502, "节点离线");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pd", "paper"));
+        assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-pd", "tcp", 25570));
+        assertEquals(1L, ports.countByNode("node-1"));
+        assertEquals(1, instancePorts("inst-pd").size());
+    }
+
+    @Test
+    void removePortRejectsPrimaryAndUnknown() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
+        service.create("user:1", "user:1", spec("inst-pe", "paper"));
+        assertEquals("invalid-request", assertThrows(McpanelBusinessException.class,
+                () -> service.removePort("user:1", "user:1", "inst-pe", 25565, "tcp")).code());
+        assertEquals("node-not-found", assertThrows(McpanelBusinessException.class,
+                () -> service.removePort("user:1", "user:1", "inst-pe", 25590, "tcp")).code());
+        assertEquals(1L, ports.countByNode("node-1"));
+    }
+
+    @Test
+    void addThenRemovePortRoundTripReleasesLedger() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method) || "instance.update".equals(method)) {
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pf", "paper"));
+        service.addPort("user:1", "user:1", "inst-pf", "tcp", 25570);
+        assertEquals(2, instancePorts("inst-pf").size());
+        assertEquals(2L, ports.countByNode("node-1"));
+        Map<String, Object> view = service.removePort("user:1", "user:1", "inst-pf", 25570, "tcp");
+        assertEquals(1, instancePorts("inst-pf").size());
+        assertEquals(1L, ports.countByNode("node-1"));
+        assertEquals(1, ((List<?>) view.get("ports")).size());
+        assertTrue(Boolean.TRUE.equals(((Map<?, ?>) ((List<?>) view.get("ports")).get(0)).get("primary")));
+    }
+
+    @Test
+    void removePortNodeFailureRestoresLedgerAndSpec() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            if ("instance.update".equals(method)) {
+                // 开放端口（2 ports）成功下发；回收端口（1 port）时节点离线。
+                if (((List<?>) payload.get("ports")).size() <= 1) {
+                    throw new McpanelBusinessException("node.offline", 502, "节点离线");
+                }
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pg", "paper"));
+        service.addPort("user:1", "user:1", "inst-pg", "tcp", 25570);
+        assertEquals(2L, ports.countByNode("node-1"));
+        assertThrows(McpanelBusinessException.class,
+                () -> service.removePort("user:1", "user:1", "inst-pg", 25570, "tcp"));
+        assertEquals(2L, ports.countByNode("node-1"));
+        assertEquals(2, instancePorts("inst-pg").size());
+    }
+
+    @Test
+    void portChangeRequiresStoppedInstance() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
+        service.create("user:1", "user:1", spec("inst-ph", "paper"));
+        instances.mutateState("inst-ph", base -> base.withState("running", null, 1L));
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-ph", "tcp", null));
+        assertEquals("instance-running", error.code());
+        assertEquals(1L, ports.countByNode("node-1"));
+    }
+
+    @Test
+    void updateWithPortChangeAllocatesAndReleases() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method) || "instance.update".equals(method)) {
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pi", "paper"));
+        McpanelInstance current = instances.findById("inst-pi").orElseThrow();
+        McpanelInstance withExtra = current.withPorts(
+                List.of(current.ports().get(0), new McpanelInstance.PortMapping(25570, 25570, "tcp")), 1L);
+        Map<String, Object> updated = service.update("user:1", "user:1", "inst-pi", withExtra);
+        assertEquals(2, ((List<?>) updated.get("ports")).size());
+        assertEquals(2L, ports.countByNode("node-1"));
+        McpanelInstance withoutExtra = current.withPorts(List.of(current.ports().get(0)), 1L);
+        Map<String, Object> updated2 = service.update("user:1", "user:1", "inst-pi", withoutExtra);
+        assertEquals(1, ((List<?>) updated2.get("ports")).size());
+        assertEquals(1L, ports.countByNode("node-1"));
+    }
+
+    @Test
+    void updateStrippingPortsFailsExplicitlyInsteadOfWiping() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-pj", "paper"));
+        // 旧实例弹窗式整档替换（body 不带 ports → 空列表）：必须显式报错，不再静默清空端口。
+        McpanelInstance stripped = McpanelInstance.create("inst-pj", "node-1", "实例inst-pj", "paper",
+                "1.21.4", "", "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 1000, 2048, List.of(), Map.of(), null, "", 1L);
+        assertThrows(McpanelBusinessException.class,
+                () -> service.update("user:1", "user:1", "inst-pj", stripped));
+        assertEquals(1L, ports.countByNode("node-1"));
+        assertEquals(1, instancePorts("inst-pj").size());
+    }
 }

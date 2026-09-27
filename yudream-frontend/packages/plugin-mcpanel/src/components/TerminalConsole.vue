@@ -21,8 +21,11 @@ const term = props.term
 const toast = useFaToast()
 const screen = ref<HTMLElement | null>(null)
 const suggestBox = ref<HTMLElement | null>(null)
-const leftOpen = ref(true)
-const rightOpen = ref(true)
+// 窄屏（手机）默认收起文件浏览/会话工具两侧栏，终端独占可视区；
+// 侧栏开启后内层列表独立滚动，工作区总高不再随日志撑开主页面。
+const narrowScreen = typeof window !== 'undefined' && window.matchMedia('(max-width: 1000px)').matches
+const leftOpen = ref(!narrowScreen)
+const rightOpen = ref(!narrowScreen)
 const atBottom = ref(true)
 const unread = ref(0)
 const levelOptions = [{ value: 'all', label: '全部级别' }, { value: 'info', label: '信息' }, { value: 'warn', label: '警告' }, { value: 'error', label: '错误' }]

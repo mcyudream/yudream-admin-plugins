@@ -228,6 +228,47 @@ public class McpanelInstanceFacade {
                         segment(request.path(), 3), specOf(request.body()))));
     }
 
+    /** 端口管理视图：列表（主端口标记/访问地址）+ 池范围（前端提示）。 */
+    public PluginHttpResponse portsView(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.VIEW_PERMISSION, () ->
+                PluginHttpResponse.ok(instances.portsView(scope(request), segment(request.path(), 3))));
+    }
+
+    /** 开放附加端口：proto 缺省 tcp，port 缺省 = 池内自动分配。 */
+    public PluginHttpResponse portAdd(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            McpanelJson.MapReader reader = McpanelJson.readMap(request.body());
+            String proto = reader.string("proto");
+            if (proto == null || proto.isBlank()) {
+                proto = "tcp";
+            }
+            Integer port = reader.node().hasNonNull("port") && reader.node().get("port").canConvertToInt()
+                    ? reader.node().get("port").asInt()
+                    : null;
+            return PluginHttpResponse.ok(instances.addPort(HttpGuards.actorOf(request), scope(request),
+                    segment(request.path(), 3), proto, port));
+        });
+    }
+
+    /** 回收附加端口：DELETE /ports/{port}?proto=tcp；主端口由用例层拒绝。 */
+    public PluginHttpResponse portRemove(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
+            String portText = segment(request.path(), 5);
+            int port;
+            try {
+                port = Integer.parseInt(portText);
+            } catch (NumberFormatException error) {
+                throw new IllegalArgumentException("端口无效：" + portText);
+            }
+            String proto = query(request, "proto");
+            if (proto == null || proto.isBlank()) {
+                proto = "tcp";
+            }
+            return PluginHttpResponse.ok(instances.removePort(HttpGuards.actorOf(request), scope(request),
+                    segment(request.path(), 3), port, proto));
+        });
+    }
+
     /** 事件触发型任务开关（对标 MCSM eventTask）：运行中可随时保存，不触达节点。 */
     public PluginHttpResponse eventTaskSave(PluginHttpRequest request) {
         return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {

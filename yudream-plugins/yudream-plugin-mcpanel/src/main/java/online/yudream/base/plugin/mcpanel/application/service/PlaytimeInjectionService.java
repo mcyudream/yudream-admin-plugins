@@ -75,7 +75,7 @@ public class PlaytimeInjectionService {
         PanelSettings.Artifact matched = settings.enabled()
                 ? pick(settings.artifacts(), instance.kind(), instance.mcVersion())
                 : null;
-        String reason = unsupportedReason(settings, matched);
+        String reason = unsupportedReason(settings, matched, instance.mcVersion());
         boolean enabled = fileExists(scopeKey, instanceId, dir);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("supported", reason == null);
@@ -84,6 +84,12 @@ public class PlaytimeInjectionService {
         result.put("running", "running".equalsIgnoreCase(instance.state()));
         result.put("dir", dir);
         result.put("matchedName", matched == null ? "" : String.valueOf(matched.name()));
+        result.put("matchedKind", matched == null ? "" : String.valueOf(matched.kind()));
+        result.put("matchedLoaders", matched == null || matched.loaders() == null
+                ? List.of() : matched.loaders());
+        result.put("matchedRange", matched == null ? "" : rangeText(matched.mcMin(), matched.mcMax()));
+        result.put("instanceKind", String.valueOf(instance.kind() == null ? "" : instance.kind()));
+        result.put("instanceMcVersion", instance.mcVersion() == null ? "" : instance.mcVersion());
         return result;
     }
 
@@ -104,7 +110,7 @@ public class PlaytimeInjectionService {
         if (enable) {
             PanelSettings.Playtime settings = settings();
             PanelSettings.Artifact matched = pick(settings.artifacts(), instance.kind(), instance.mcVersion());
-            String reason = unsupportedReason(settings, matched);
+            String reason = unsupportedReason(settings, matched, instance.mcVersion());
             if (reason != null) {
                 throw McpanelBusinessException.invalid("无法开启在线时长注入：" + reason);
             }
@@ -139,6 +145,9 @@ public class PlaytimeInjectionService {
     /**
      * 从制品矩阵挑选首个匹配实例形态（plugin/mod + 加载器）与 MC 版本区间的制品；
      * mcMin/mcMax 空 = 不限。无匹配返回 null。
+     * plugin 形态实例只匹配未声明加载器的制品——声明了加载器的条目是 mod jar
+     * （误登记成 plugin 或旧数据），把 mod jar 放进 Paper 等插件核心的 plugins/
+     * 目录是无效甚至有害的匹配，一律跳过。
      */
     public static PanelSettings.Artifact pick(List<PanelSettings.Artifact> artifacts,
                                               String instanceKind, String mcVersion) {
@@ -148,8 +157,14 @@ public class PlaytimeInjectionService {
             if (artifact == null || !form.equals(artifact.kind())) {
                 continue;
             }
-            if (loader != null && artifact.loaders() != null && !artifact.loaders().isEmpty()
-                    && !artifact.loaders().stream().anyMatch(l -> loader.equalsIgnoreCase(
+            List<String> loaders = artifact.loaders() == null ? List.<String>of() : artifact.loaders();
+            if (loader == null) {
+                if (!loaders.isEmpty()) {
+                    continue;
+                }
+            }
+            else if (!loaders.isEmpty()
+                    && loaders.stream().noneMatch(l -> loader.equalsIgnoreCase(
                             l == null ? "" : l.toLowerCase(Locale.ROOT).trim()))) {
                 continue;
             }
@@ -221,7 +236,8 @@ public class PlaytimeInjectionService {
                 : settings.playtime();
     }
 
-    private String unsupportedReason(PanelSettings.Playtime settings, PanelSettings.Artifact matched) {
+    private String unsupportedReason(PanelSettings.Playtime settings, PanelSettings.Artifact matched,
+                                     String instanceMcVersion) {
         if (!settings.enabled()) {
             return "面板设置未启用在线时长注入";
         }
@@ -229,9 +245,21 @@ public class PlaytimeInjectionService {
             return "面板制品矩阵为空（在面板设置添加制品条目）";
         }
         if (matched == null) {
-            return "制品矩阵中没有匹配该实例核心类型与 MC 版本的制品";
+            return instanceMcVersion == null || instanceMcVersion.isBlank()
+                    ? "实例未记录 MC 版本，只有「不限版本」的制品可匹配；当前矩阵中没有匹配该实例核心类型的不限版本制品"
+                    : "制品矩阵中没有匹配该实例核心类型与 MC 版本的制品";
         }
         return null;
+    }
+
+    /** 版本区间展示文案：双侧空 = 不限版本。 */
+    private static String rangeText(String mcMin, String mcMax) {
+        boolean hasMin = mcMin != null && !mcMin.isBlank();
+        boolean hasMax = mcMax != null && !mcMax.isBlank();
+        if (!hasMin && !hasMax) {
+            return "";
+        }
+        return (hasMin ? mcMin.trim() : "…") + " ~ " + (hasMax ? mcMax.trim() : "…");
     }
 
     private boolean fileExists(String scopeKey, String instanceId, String dir) {

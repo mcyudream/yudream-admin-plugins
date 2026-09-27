@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { FaAlert, FaButton, FaCard, FaInput, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTextarea, useFaToast } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaInput, FaModal, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTag, FaTextarea, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -108,6 +108,103 @@ const form = reactive({
 /** 事件触发型任务（对标 MCSM eventTask）：面板侧语义，运行中可随时保存。 */
 const eventTask = reactive({ autoRestart: false, autoStart: false })
 const savingEventTask = ref(false)
+
+/** 端口管理：附加端口开放/回收（停止态操作，成功后节点按新端口重建容器）。 */
+interface PortRow {
+  hostPort: number
+  containerPort: number
+  proto: string
+  primary: boolean
+  address?: string
+}
+const portsView = ref<{ accessHost?: string, ports?: PortRow[], ranges?: Record<string, number> } | null>(null)
+const portProto = ref<'tcp' | 'udp'>('tcp')
+const portInput = ref('')
+const portBusy = ref(false)
+const removeTarget = ref<PortRow | null>(null)
+const removeOpen = computed({
+  get: () => removeTarget.value != null,
+  set: (open: boolean) => {
+    if (!open) {
+      removeTarget.value = null
+    }
+  },
+})
+
+const running = computed(() => String(instance.value?.state ?? '') === 'running')
+
+const portRangeHint = computed(() => {
+  const ranges = portsView.value?.ranges
+  if (!ranges?.tcpStart || !ranges?.tcpEnd) {
+    return ''
+  }
+  return `可用范围：tcp ${ranges.tcpStart}-${ranges.tcpEnd} · udp ${ranges.udpStart}-${ranges.udpEnd}（节点端口池配置）`
+})
+
+async function loadPorts() {
+  try {
+    portsView.value = await extra.instancePorts(instanceId.value) as typeof portsView.value
+  }
+  catch {
+    portsView.value = null
+  }
+}
+
+async function addPort() {
+  if (!canManage.value || portBusy.value) {
+    return
+  }
+  const raw = portInput.value.trim()
+  let port: number | undefined
+  if (raw) {
+    port = Number(raw)
+    if (!Number.isInteger(port) || port! <= 0) {
+      toast.error('端口号必须是正整数；留空则由面板自动分配')
+      return
+    }
+  }
+  portBusy.value = true
+  try {
+    portsView.value = await extra.addInstancePort(instanceId.value, portProto.value, port) as typeof portsView.value
+    portInput.value = ''
+    toast.success('端口已开放：实例保持停止，下次启动按新端口运行')
+    void load()
+  }
+  catch (e) {
+    toast.error(errorMessage(e, '开放端口失败'))
+  }
+  finally {
+    portBusy.value = false
+  }
+}
+
+function confirmRemovePort(action: 'confirm' | 'cancel' | 'close', done: () => void) {
+  if (action !== 'confirm') {
+    done()
+    return
+  }
+  void (async () => {
+    const target = removeTarget.value
+    if (!target || portBusy.value) {
+      return
+    }
+    portBusy.value = true
+    try {
+      portsView.value = await extra.removeInstancePort(instanceId.value, target.hostPort, target.proto) as typeof portsView.value
+      toast.success('端口已回收')
+      void load()
+      removeTarget.value = null
+      done()
+    }
+    catch (e) {
+      // beforeClose 内异常不能外抛（弹窗 loading 无 finally 兜底）：只 toast，弹窗保持打开。
+      toast.error(errorMessage(e, '回收端口失败'))
+    }
+    finally {
+      portBusy.value = false
+    }
+  })()
+}
 
 async function load() {
   loading.value = true
@@ -220,10 +317,16 @@ async function saveEventTask() {
 }
 
 watch(() => route.params.id, () => {
-  void load().then(() => void loadImageOptions())
+  void load().then(() => {
+    void loadImageOptions()
+    void loadPorts()
+  })
 })
 onMounted(() => {
-  void load().then(() => void loadImageOptions())
+  void load().then(() => {
+    void loadImageOptions()
+    void loadPorts()
+  })
 })
 </script>
 
@@ -313,6 +416,61 @@ onMounted(() => {
           </div>
         </div>
       </FaCard>
+      <FaCard title="端口管理（附加端口开放/回收）">
+        <div class="mcp-form">
+          <FaAlert v-if="running" icon="i-lucide:info" title="实例运行中">
+            <template #description>
+              开放或回收端口会重建容器，需先停止实例再操作。
+            </template>
+          </FaAlert>
+          <div
+            v-for="row in portsView?.ports ?? []"
+            :key="`${row.proto}-${row.hostPort}`"
+            class="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm sm:gap-3"
+          >
+            <FaTag :variant="row.primary ? 'default' : 'secondary'">
+              {{ row.primary ? '主端口' : '附加端口' }}
+            </FaTag>
+            <span class="font-mono">{{ row.hostPort }}/{{ row.proto }}</span>
+            <span class="ml-auto font-mono text-xs text-muted-foreground">
+              {{ row.address || '节点未配置对外地址' }}
+            </span>
+            <FaButton
+              v-if="canManage && !row.primary && !running"
+              variant="outline"
+              @click="removeTarget = row"
+            >
+              回收
+            </FaButton>
+          </div>
+          <div v-if="!portsView?.ports?.length" class="mcp-form-hint">
+            尚未分配端口。
+          </div>
+          <div v-if="canManage && !running" class="flex flex-wrap items-end gap-3">
+            <label class="mcp-form-item w-32">
+              <span class="mcp-form-label">协议</span>
+              <FaSelect
+                v-model="portProto"
+                :options="[{ label: 'TCP', value: 'tcp' }, { label: 'UDP', value: 'udp' }]"
+                class="mcp-w-full"
+              />
+            </label>
+            <label class="mcp-form-item min-w-40 flex-1">
+              <span class="mcp-form-label">端口号（留空自动分配）</span>
+              <FaInput v-model="portInput" type="number" placeholder="自动分配" class="mcp-w-full" />
+            </label>
+            <FaButton :loading="portBusy" @click="addPort">
+              开放端口
+            </FaButton>
+          </div>
+          <span class="mcp-form-hint">
+            {{ portRangeHint }}。开放/回收后节点会按新端口重建容器（存档与配置不受影响，实例保持停止态）。
+            附加插件（如 Dynmap、BlueMap 的 web 端口）请在插件配置中填写对应端口号；
+            访问地址按「节点直连地址:端口」计算，域名与单端口入口模式仅服务游戏主端口。
+          </span>
+        </div>
+      </FaCard>
+
       <FaCard title="P2P 直连（启动器无感接入）">
         <div class="mcp-form">
           <label class="flex items-start gap-3 text-sm">
@@ -355,4 +513,16 @@ onMounted(() => {
       </FaCard>
     </div>
   </FaPageMain>
+  <FaModal
+    v-model="removeOpen"
+    title="回收端口"
+    confirm-button-text="确认回收"
+    :confirm-button-loading="portBusy"
+    :before-close="confirmRemovePort"
+  >
+    <p v-if="removeTarget" class="text-sm">
+      确认回收端口 <span class="font-mono">{{ removeTarget.hostPort }}/{{ removeTarget.proto }}</span>？
+      节点会按剩余端口重建容器，实例保持停止态；该端口随之释放回节点端口池。
+    </p>
+  </FaModal>
 </template>

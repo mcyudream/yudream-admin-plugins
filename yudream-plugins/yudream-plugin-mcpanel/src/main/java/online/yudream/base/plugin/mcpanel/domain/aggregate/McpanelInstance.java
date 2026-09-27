@@ -86,6 +86,14 @@ public record McpanelInstance(
                 updated.autoRestart(), updated.autoStart(), createdAt, now);
     }
 
+    /** 端口列表变更（附加端口开放/回收）：ports[0] 主端口由用例层保证不变。 */
+    public McpanelInstance withPorts(List<PortMapping> newPorts, long now) {
+        return new McpanelInstance(id, nodeId, name, kind, mcVersion, templateKey, image, command, env,
+                memoryMb, cpuMillis, diskMb, newPorts, config, state, lastExitCode, mcServerId,
+                tenantId, remark, domainSlug, domainEnabled, p2pEnabled, p2pWhitelist, nodeTrust,
+                modpack, coreFallbackHistory, startDetect, autoRestart, autoStart, createdAt, now);
+    }
+
     public McpanelInstance withBinding(String mcServerId, long now) {
         return new McpanelInstance(id, nodeId, name, kind, mcVersion, templateKey, image, command, env,
                 memoryMb, cpuMillis, diskMb, ports, config, state, lastExitCode, mcServerId, tenantId,

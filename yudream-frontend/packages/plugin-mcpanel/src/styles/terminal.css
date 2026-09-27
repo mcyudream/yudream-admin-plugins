@@ -100,7 +100,9 @@
 .mcp-wt-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: 560px;
+  /* 固定工作区高度：日志只在内层 .mcp-wt-screen 滚动，绝不撑开页面；
+     侧栏文件/工具面板随之获得确定高度可拉伸铺满。 */
+  height: clamp(480px, 62vh, 720px);
 }
 
 .mcp-wt-body.has-left.has-right {
@@ -138,12 +140,12 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 
 .mcp-wt-screen {
   flex: 1;
-  min-height: 420px;
-  max-height: 700px;
+  min-height: 0;
   overflow: auto;
   padding: 8px 0;
   background: #0b0f14;
@@ -311,6 +313,7 @@
 }
 
 .mcp-wt-left .mcp-fbp,
+.mcp-wt-left .mcp-fbp-list,
 .mcp-wt-right .mcp-wt-list {
   max-height: none;
 }
@@ -470,20 +473,21 @@ button.mcp-term-player.is-clickable:hover {
   .mcp-wt-body.has-left.has-right {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    /* dvh 跟随手机工具栏收缩；不支持 dvh 的浏览器回退到上面的 clamp 高度 */
+    height: 74dvh;
   }
 
   .mcp-wt-left,
   .mcp-wt-right {
     order: 1;
-    max-height: 260px;
+    flex: 0 1 auto;
+    max-height: 200px;
     border: 0;
     border-bottom: 1px solid oklch(var(--border, 0.922 0 0));
   }
 
-  .mcp-wt-center { order: 2; min-height: 0; }
+  .mcp-wt-center { order: 2; flex: 1 1 0; min-height: 0; }
   .mcp-wt-right { order: 3; border-top: 1px solid oklch(var(--border, 0.922 0 0)); }
-  .mcp-wt-screen { min-height: 340px; max-height: none; }
   .mcp-wt-line { grid-template-columns: 1fr; gap: 2px; }
   .mcp-wt-meta { font-size: 10px; }
   .mcp-wt-panels > span { display: none; }

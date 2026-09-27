@@ -725,6 +725,11 @@ interface PlaytimeInjectionView {
   running?: boolean
   dir?: string
   matchedName?: string
+  matchedKind?: string
+  matchedLoaders?: string[]
+  matchedRange?: string
+  instanceKind?: string
+  instanceMcVersion?: string
 }
 
 const playtimeInjection = ref<PlaytimeInjectionView | null>(null)
@@ -1510,8 +1515,16 @@ onBeforeUnmount(() => {
                   ? `已注入：制品在 ${playtimeInjection.dir}/ 目录，启动实例后生效`
                   : '未注入' }}
               </p>
-              <p class="truncate text-xs text-muted-foreground">
+              <p class="truncate text-xs text-muted-foreground" :title="playtimeInjection.matchedName">
                 匹配制品：{{ playtimeInjection.matchedName || '-' }}
+              </p>
+              <p v-if="playtimeInjection.matchedName" class="text-xs text-muted-foreground">
+                {{ playtimeInjection.matchedKind === 'mod' ? '模组' : '插件'
+                }}{{ (playtimeInjection.matchedLoaders ?? []).length ? ` · ${(playtimeInjection.matchedLoaders ?? []).join(' / ')}` : ''
+                }} · MC {{ playtimeInjection.matchedRange || '不限版本' }}
+              </p>
+              <p v-if="!playtimeInjection.instanceMcVersion" class="text-xs text-muted-foreground">
+                实例未记录 MC 版本，仅「不限版本」的制品可参与匹配。
               </p>
               <p v-if="playtimeInjection.running" class="text-xs text-muted-foreground">
                 实例运行中：停止后才能切换注入。

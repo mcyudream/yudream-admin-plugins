@@ -205,6 +205,37 @@ class PlaytimeInjectionServiceTest {
     }
 
     @Test
+    void pickSkipsLoaderTaggedArtifactsForPluginInstances() {
+        // 截图事故形态：mod jar 误登记为 kind=plugin（或旧数据残留 loaders），
+        // Paper 实例版本未记录时空版本仅匹配不限版本制品 → 命中了「neoforge」条目。
+        // 修复后：声明了加载器的制品对 plugin 形态实例一律不匹配。
+        List<PanelSettings.Artifact> artifacts = List.of(
+                new PanelSettings.Artifact("yudream minecraft server-neoforge-1.21.1-1.1.0", "plugin",
+                        List.of("neoforge"), null, null, "mcpanel/artifacts/a.jar", null, null),
+                new PanelSettings.Artifact("时长插件 全版本", "plugin", List.of(),
+                        null, null, "mcpanel/artifacts/b.jar", null, null));
+        assertEquals("时长插件 全版本",
+                PlaytimeInjectionService.pick(artifacts, "paper", null).name());
+    }
+
+    @Test
+    void viewReportsMatchedContextAndBlankVersionReason() {
+        instances.save(instance("i1", "paper", "1.21.4", "exited"));
+        settings(true);
+        Map<String, Object> view = service.view("user:1", "i1");
+        assertEquals("plugin", String.valueOf(view.get("matchedKind")));
+        assertEquals("1.21.1 ~ …", String.valueOf(view.get("matchedRange")));
+        assertEquals("paper", String.valueOf(view.get("instanceKind")));
+        assertEquals("1.21.4", String.valueOf(view.get("instanceMcVersion")));
+
+        // 实例未记录 MC 版本且无「不限版本」制品可匹配：原因明说版本缺失
+        instances.save(instance("i2", "paper", "", "exited"));
+        Map<String, Object> blankView = service.view("user:1", "i2");
+        assertEquals(Boolean.FALSE, blankView.get("supported"));
+        assertTrue(String.valueOf(blankView.get("reason")).contains("未记录 MC 版本"));
+    }
+
+    @Test
     void applyEnableDownloadsMatchedArtifactIntoPluginsDir() {
         instances.save(instance("i1", "paper", "1.21.4", "exited"));
         settings(true);
