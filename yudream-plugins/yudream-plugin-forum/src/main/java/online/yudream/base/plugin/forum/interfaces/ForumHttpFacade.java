@@ -20,6 +20,51 @@ public final class ForumHttpFacade {
     public ForumHttpFacade(ForumAppService service) { this.service = service; }
 
     public PluginHttpResponse categories(PluginHttpRequest r) { return HttpSupport.guard(() -> PluginHttpResponse.ok(Map.of("records", service.categories(r.principal(), false).stream().map(this::categoryView).toList()))); }
+
+    /** 移动端首页内容源：标准条目模式（作者/标签/计数/路由），供宿主 App 聚合渲染。 */
+    public PluginHttpResponse mobileFeed(PluginHttpRequest r) { return HttpSupport.guard(() -> {
+        int page = parseInt(text(r, "page"), 1);
+        int size = parseInt(text(r, "size"), 20);
+        if (page < 1) page = 1;
+        if (size < 1 || size > 50) size = 20;
+        PageResult<ForumModels.Post> result = service.pagePosts(r.principal(), text(r, "sort"), text(r, "categoryId"), text(r, "tag"), text(r, "keyword"), page, size, false, "", "");
+        Map<String, ForumModels.Category> categories = new java.util.HashMap<>();
+        for (ForumModels.Category c : service.categories(r.principal(), false)) categories.put(c.id(), c);
+        Map<String, String[]> authorCache = new java.util.HashMap<>();
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (ForumModels.Post p : result.records()) {
+            String[] author = authorCache.computeIfAbsent(p.authorId() == null ? "" : p.authorId(), id -> {
+                PluginUserProfile profile = service.profile(id);
+                if (profile == null) return new String[]{"", ""};
+                String name = profile.nickname() == null || profile.nickname().isBlank() ? profile.username() : profile.nickname();
+                return new String[]{name == null ? "" : name, profile.avatar() == null ? "" : profile.avatar()};
+            });
+            ForumModels.Category category = categories.get(p.categoryId());
+            Map<String, Object> authorInfo = new LinkedHashMap<>();
+            authorInfo.put("name", author[0]);
+            authorInfo.put("avatar", author[1]);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", p.id());
+            item.put("route", "/posts/" + p.id());
+            item.put("title", p.title());
+            item.put("summary", p.summary() == null ? "" : p.summary());
+            item.put("images", List.of());
+            item.put("author", authorInfo);
+            item.put("tagName", category == null ? "" : category.name());
+            item.put("commentCount", p.comments());
+            item.put("likeCount", p.likes());
+            item.put("viewCount", p.views());
+            item.put("createTime", p.publishedAt() > 0 ? p.publishedAt() : p.createdAt());
+            items.add(item);
+        }
+        boolean hasMore = (long) page * size < result.total();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("items", items);
+        body.put("hasMore", hasMore);
+        return PluginHttpResponse.ok(body);
+    }); }
+
+    private static int parseInt(String value, int fallback) { try { return value == null || value.isBlank() ? fallback : Integer.parseInt(value.trim()); } catch (NumberFormatException e) { return fallback; } }
     public PluginHttpResponse settings() { return PluginHttpResponse.ok(service.settings()); }
     public PluginHttpResponse saveSettings(PluginHttpRequest r) { return HttpSupport.guard(() -> { JsonNode n=body(r); return PluginHttpResponse.ok(service.saveSettings(text(n,"moderation"),n.has("aiTagging")?n.get("aiTagging").asBoolean():null,optional(n,"aiProviderCode"),optional(n,"aiModelCode"),n.has("aiTimeoutSeconds")?n.get("aiTimeoutSeconds").asInt():null,HttpSupport.userId(r))); }); }
     public PluginHttpResponse audit(PluginHttpRequest r) { return HttpSupport.guard(() -> { PageResult<Map<String,Object>> page=service.audit(HttpSupport.page(r),HttpSupport.size(r)); return PluginHttpResponse.ok(Map.of("records",page.records(),"total",page.total())); }); }

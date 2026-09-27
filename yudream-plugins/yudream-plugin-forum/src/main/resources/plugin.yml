@@ -18,6 +18,9 @@ mobile:
   description: 社区讨论与最新动态
   icon: chatbubbles-outline
   home:
+    feed:
+      endpoint: /public/mobile-feed
+      title: 论坛动态
     cards:
       - id: latest-posts
         title: 最新帖子
