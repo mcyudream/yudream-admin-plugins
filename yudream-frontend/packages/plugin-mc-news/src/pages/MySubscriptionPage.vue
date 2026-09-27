@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { MySubscriptionView, PushTargetView, WebhookHeader } from '../types'
-import { FaButton, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaResponsiveTable, FaSwitch, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import { errorMessage } from '../composables/utils'
@@ -205,7 +205,7 @@ onMounted(() => {
             <FaIcon name="i-ri:add-line" />新增 Webhook
           </FaButton>
         </div>
-        <FaTable
+        <FaResponsiveTable
           :columns="columns"
           :data="view?.webhooks ?? []"
           row-key="id"
@@ -228,7 +228,28 @@ onMounted(() => {
               <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
             </div>
           </template>
-        </FaTable>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                  <FaTag :color="row.enabled ? 'green' : 'gray'">{{ row.enabled ? '启用' : '停用' }}</FaTag>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">Webhook 地址</span>
+                    <span class="mc-news-url break-all" :title="row.webhookUrl">{{ row.webhookUrl || '-' }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <FaButton size="sm" variant="outline" :loading="testingId === row.id" @click="testWebhook(row)">测试</FaButton>
+                  <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+                  <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+                </div>
+              </div>
+            </FaCard>
+          </template>
+        </FaResponsiveTable>
       </div>
     </div>
 

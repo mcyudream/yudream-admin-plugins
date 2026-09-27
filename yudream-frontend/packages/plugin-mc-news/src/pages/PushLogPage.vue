@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { PushLogView } from '../types'
-import { FaButton, FaDrawer, FaPageHeader, FaPageMain, FaPagination, FaTable, FaTag, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaDrawer, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaTag, useFaToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import { errorMessage, LOG_MODE_META } from '../composables/utils'
@@ -69,7 +69,7 @@ onMounted(() => {
 <template>
   <FaPageHeader title="推送记录" description="每条新新闻的推送明细：目标、成功与失败原因" />
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -96,7 +96,35 @@ onMounted(() => {
           <FaButton size="sm" variant="outline" @click="openDetail(row.original)">详情</FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <a v-if="row.url" class="mc-news-link min-w-0 break-words text-base font-semibold" :href="row.url" target="_blank" rel="noopener">{{ row.title }}</a>
+              <span v-else class="min-w-0 break-words text-base font-semibold">{{ row.title }}</span>
+              <FaTag :color="modeMeta(row.mode).color">{{ modeMeta(row.mode).label }}</FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">来源</span>
+                <span class="break-all">{{ row.sourceName }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">时间</span>
+                <span class="break-all">{{ row.createdAtLabel }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">结果</span>
+                <FaTag :color="row.okCount > 0 ? 'green' : 'red'">{{ row.okCount }}/{{ row.total }}</FaTag>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" @click="openDetail(row)">详情</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pager.page"

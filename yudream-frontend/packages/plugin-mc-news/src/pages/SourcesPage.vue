@@ -3,7 +3,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { NewsSourceView } from '../types'
 import { Tooltip as ArcoTooltip } from '@arco-design/web-vue'
-import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaResponsiveTable, FaSwitch, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import { checkKeywordDraft, describeKeywordDraft, errorMessage, parseKeywordDraft, SOURCE_TYPE_OPTIONS } from '../composables/utils'
@@ -161,7 +161,7 @@ onMounted(() => {
     </FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -204,7 +204,52 @@ onMounted(() => {
           </ArcoTooltip>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+              <FaSwitch :model-value="row.enabled" @update:model-value="(value?: boolean) => toggleEnabled(row, value === true)" />
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">类型</span>
+                <span><FaTag>{{ typeLabel(row.type) }}</FaTag></span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">地址</span>
+                <span class="mc-news-url break-all" :title="row.url">{{ row.url }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">关键词</span>
+                <div class="mc-news-variables mc-news-variables-readonly">
+                  <span
+                    v-for="keyword in row.keywords"
+                    :key="keyword"
+                    class="mc-news-variable-chip"
+                    :class="keywordChipClass(keyword)"
+                    :title="keywordChipTitle(keyword)"
+                  >{{ keyword }}</span>
+                  <span v-if="!row.keywords.length" class="mc-news-form-hint">不过滤</span>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">创建时间</span>
+                <span class="break-all">{{ row.createdAtLabel }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" :loading="testingId === row.id" @click="test(row)">测试</FaButton>
+              <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+              <FaButton v-if="!row.builtin" size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+              <ArcoTooltip v-else content="内置源不可删除，可停用">
+                <FaButton size="sm" variant="outline" disabled>删除</FaButton>
+              </ArcoTooltip>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <SourceEditorModal v-model:open="editorOpen" :sdk="props.sdk" :source="editing" @saved="load" />
   </FaPageMain>

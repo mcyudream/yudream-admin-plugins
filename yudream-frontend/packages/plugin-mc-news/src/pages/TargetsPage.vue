@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { PushTargetView } from '../types'
-import { FaButton, FaIcon, FaPageHeader, FaPageMain, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaPageHeader, FaPageMain, FaResponsiveTable, FaSwitch, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import { errorMessage } from '../composables/utils'
@@ -115,7 +115,7 @@ onMounted(() => {
     </FaButton>
   </FaPageHeader>
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -149,7 +149,37 @@ onMounted(() => {
           <FaButton size="sm" variant="destructive" @click="confirmDelete(row.original)">删除</FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+              <div class="flex shrink-0 items-center gap-2">
+                <FaTag :color="row.type === 'messaging' ? 'arcoblue' : 'green'">
+                  {{ row.type === 'messaging' ? '机器人群聊' : 'Webhook' }}
+                </FaTag>
+                <FaSwitch :model-value="row.enabled" @update:model-value="(value?: boolean) => toggleEnabled(row, value === true)" />
+              </div>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">推送位置</span>
+                <span class="mc-news-url break-all" :title="targetLabel(row)">{{ targetLabel(row) || '-' }}</span>
+              </div>
+              <div v-if="row.type === 'messaging'" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">Markdown</span>
+                <span>{{ row.markdown ? '开' : '关' }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" :loading="testingId === row.id" @click="test(row)">测试</FaButton>
+              <FaButton size="sm" variant="outline" @click="openEdit(row)">编辑</FaButton>
+              <FaButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <TargetEditorModal v-model:open="editorOpen" :sdk="props.sdk" :target="editing" @saved="load" />
   </FaPageMain>

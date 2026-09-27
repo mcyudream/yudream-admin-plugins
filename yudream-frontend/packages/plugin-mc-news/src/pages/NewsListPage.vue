@@ -3,7 +3,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { NewsArticleView, NewsSourceView, PollStatusView } from '../types'
 import { Tag as ArcoTag } from '@arco-design/web-vue'
-import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaSwitch, FaTable, FaTag, useFaModal, useFaToast } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaSwitch, FaTag, useFaModal, useFaToast } from '@yudream/components'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import ClearNewsModal from '../components/ClearNewsModal.vue'
@@ -275,7 +275,7 @@ onUnmounted(() => {
       <ArcoTag v-else-if="pollStatus && !pollStatus.enabled" color="gray">已暂停</ArcoTag>
     </div>
 
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       :columns="columns"
       :data="rows"
@@ -321,7 +321,39 @@ onUnmounted(() => {
           <FaButton size="sm" variant="destructive" :loading="deletingId === row.original.id" @click="confirmDelete(row.original)">删除</FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <a class="mc-news-link min-w-0 break-words text-base font-semibold" :href="row.url" target="_blank" rel="noopener">{{ row.title }}</a>
+              <FaTag :color="stateMeta(row.pushState).color">{{ stateMeta(row.pushState).label }}</FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">来源</span>
+                <span class="break-all">{{ row.sourceName }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">分类</span>
+                <span class="break-all">{{ row.category }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">发现时间</span>
+                <span class="break-all">{{ row.discoveredAtLabel }}</span>
+              </div>
+              <div v-if="row.pushedAtLabel" class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">推送时间</span>
+                <span class="break-all">{{ row.pushedAtLabel }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" @click="openPush(row)">推送</FaButton>
+              <FaButton size="sm" variant="destructive" :loading="deletingId === row.id" @click="confirmDelete(row)">删除</FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pager.page"
