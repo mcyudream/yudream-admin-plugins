@@ -3,6 +3,7 @@ package online.yudream.base.plugin.shop.application;
 import online.yudream.base.plugin.shop.application.cmd.ShopPurchaseCmd;
 import online.yudream.base.plugin.shop.application.service.ShopOrderService;
 import online.yudream.base.plugin.shop.application.service.ShopProductTypeRegistry;
+import online.yudream.base.plugin.shop.application.service.ShopSettingsService;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopOrder;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopProduct;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopVariant;
@@ -10,6 +11,7 @@ import online.yudream.base.plugin.shop.domain.enumerate.ShopOrderStatus;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
 import online.yudream.base.plugin.shop.infrastructure.repository.ShopOrderRepository;
 import online.yudream.base.plugin.shop.infrastructure.repository.ShopProductRepository;
+import online.yudream.base.plugin.shop.infrastructure.repository.ShopSettingsRepository;
 import online.yudream.base.plugin.shop.infrastructure.wallet.ShopWalletPort;
 import online.yudream.base.plugin.shop.support.FakeDocumentStore;
 import online.yudream.base.plugin.shop.support.FakePluginContext;
@@ -61,7 +63,9 @@ class ShopOrderServiceTest {
         orders = new ShopOrderRepository(documents);
         ShopWalletPort walletPort = ShopWalletPort.create(FakePluginContext.withWallet(wallet));
         ShopProductTypeRegistry typeRegistry = new ShopProductTypeRegistry(FakePluginContext.withWallet(wallet));
-        service = new ShopOrderService(orders, products, typeRegistry, walletPort);
+        ShopSettingsService settingsService = new ShopSettingsService(
+                new ShopSettingsRepository(documents), walletPort);
+        service = new ShopOrderService(orders, products, typeRegistry, walletPort, settingsService);
     }
 
     private ShopProduct product(String type, String assetCode, String price, int stock, int perUserLimit) {

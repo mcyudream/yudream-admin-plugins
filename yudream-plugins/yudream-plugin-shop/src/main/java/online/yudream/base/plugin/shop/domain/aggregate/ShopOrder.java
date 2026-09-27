@@ -2,6 +2,7 @@ package online.yudream.base.plugin.shop.domain.aggregate;
 
 import online.yudream.base.plugin.shop.domain.enumerate.ShopOrderStatus;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopTradeFeePayee;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,6 +15,11 @@ import java.util.List;
  * 历史文档缺该字段时按此处理）；{@link ShopSettlement#BURN} 只从买家账户扣减、不产生收款方，
  * 用于积分兑换类商品。两种方式的退款都原路退回买家。
  *
+ * <p>玩家市场订单可能带交易手续费：totalAmount 是买家总支出，feeAmount 是其中被收取的手续费，
+ * sellerAmount 是卖家实收（= totalAmount − feeAmount）。feePayee / feePayeeUserId 是下单当时
+ * 手续费去向的快照（销毁，或转给某个平台用户），退款时据此「原路」反向收回，不依赖当前商店设置。
+ * 旧文档没有这些字段时 feeAmount 视为 0、sellerAmount 视为 totalAmount，语义与升级前完全一致。
+ *
  * <p>发货凭证分两部分：deliveryVoucher 为文本说明（卡密、链接、联系方式等），deliveryProofs 为
  * 最多 {@link #MAX_DELIVERY_PROOFS} 张凭证图片（积分兑换发货时管理员上传的实拍/快递单等）。
  * 买家核验后写入 verifiedAt 并完成订单；买家也可在发货前取消（CANCELLED），由应用层退款并回滚库存。
@@ -21,6 +27,8 @@ import java.util.List;
 public record ShopOrder(String id, String productId, String productTitle, String productImage,
                         String productType, ShopSettlement settlement, String buyerId, String sellerId,
                         String assetCode, BigDecimal price, int quantity, BigDecimal totalAmount,
+                        BigDecimal feeAmount, BigDecimal sellerAmount,
+                        ShopTradeFeePayee feePayee, String feePayeeUserId,
                         String variantId, String variantName,
                         ShopOrderStatus status, String walletTransactionId, String refundTransactionId,
                         String deliveryMessage, String deliveryContent, String deliveryVoucher,
@@ -36,6 +44,12 @@ public record ShopOrder(String id, String productId, String productTitle, String
 
     public ShopOrder {
         settlement = settlement == null ? ShopSettlement.SELLER : settlement;
+        // 旧文档没有手续费字段：手续费 0、卖家实收 = 成交额，退款与展示都与改动前一致。
+        feeAmount = feeAmount == null ? BigDecimal.ZERO : feeAmount.max(BigDecimal.ZERO);
+        sellerAmount = sellerAmount == null
+                ? (totalAmount == null ? BigDecimal.ZERO : totalAmount.subtract(feeAmount))
+                : sellerAmount;
+        feePayee = feePayee == null ? ShopTradeFeePayee.BURN : feePayee;
         deliveryProofs = normalizeProofs(deliveryProofs);
     }
 
@@ -55,10 +69,24 @@ public record ShopOrder(String id, String productId, String productTitle, String
      */
     public static ShopOrder paid(String id, ShopProduct product, ShopVariant variant, String buyerId, int quantity,
                                  BigDecimal totalAmount, String walletTransactionId, ShopSettlement settlement) {
+        return paid(id, product, variant, buyerId, quantity, totalAmount, walletTransactionId, settlement,
+                BigDecimal.ZERO, ShopTradeFeePayee.BURN, null);
+    }
+
+    /**
+     * 下单快照（含玩家市场交易手续费）：feeAmount 为手续费，sellerAmount 由 totalAmount − feeAmount 推导，
+     * feePayee / feePayeeUserId 记录手续费去向，供退款时原路反向收回。
+     */
+    public static ShopOrder paid(String id, ShopProduct product, ShopVariant variant, String buyerId, int quantity,
+                                 BigDecimal totalAmount, String walletTransactionId, ShopSettlement settlement,
+                                 BigDecimal feeAmount, ShopTradeFeePayee feePayee, String feePayeeUserId) {
         long now = System.currentTimeMillis();
         BigDecimal unitPrice = variant == null ? product.price() : variant.price();
+        BigDecimal total = totalAmount == null ? BigDecimal.ZERO : totalAmount;
+        BigDecimal fee = feeAmount == null ? BigDecimal.ZERO : feeAmount;
         return new ShopOrder(id, product.id(), product.title(), product.coverImage(), product.type(),
-                settlement, buyerId, product.ownerId(), product.assetCode(), unitPrice, quantity, totalAmount,
+                settlement, buyerId, product.ownerId(), product.assetCode(), unitPrice, quantity, total,
+                fee, total.subtract(fee), feePayee, feePayeeUserId,
                 variant == null ? null : variant.id(), variant == null ? null : variant.name(),
                 ShopOrderStatus.PAID, walletTransactionId, null, "支付成功，等待发货", null, null, List.of(), null,
                 now, now, null);
@@ -140,6 +168,11 @@ public record ShopOrder(String id, String productId, String productTitle, String
         return (deliveryVoucher != null && !deliveryVoucher.isBlank()) || !deliveryProofs.isEmpty();
     }
 
+    /** 是否收取过交易手续费（旧订单与未收费订单为 false，界面据此不显示手续费行）。 */
+    public boolean hasTradeFee() {
+        return feeAmount != null && feeAmount.signum() > 0;
+    }
+
     /** 买家能否自行取消：尚未发货（没有凭证）且未进入终态。 */
     public boolean cancellableByBuyer() {
         return delivering() && !hasDeliveryProof();
@@ -149,7 +182,8 @@ public record ShopOrder(String id, String productId, String productTitle, String
                            String nextContent, String nextVoucher, List<String> nextProofs, Long nextVerifiedAt,
                            Long nextDeliveredAt) {
         return new ShopOrder(id, productId, productTitle, productImage, productType, settlement, buyerId, sellerId,
-                assetCode, price, quantity, totalAmount, variantId, variantName, nextStatus, walletTransactionId,
+                assetCode, price, quantity, totalAmount, feeAmount, sellerAmount, feePayee, feePayeeUserId,
+                variantId, variantName, nextStatus, walletTransactionId,
                 nextRefundTxId, nextMessage, nextContent, nextVoucher, nextProofs, nextVerifiedAt, createdAt, paidAt,
                 nextDeliveredAt);
     }

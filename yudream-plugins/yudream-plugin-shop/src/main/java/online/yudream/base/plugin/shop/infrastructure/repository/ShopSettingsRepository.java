@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.shop.infrastructure.repository;
 
+import online.yudream.base.plugin.shop.domain.enumerate.ShopTradeFeePayee;
 import online.yudream.base.plugin.shop.domain.valobj.ShopSettings;
 import online.yudream.base.plugin.shop.infrastructure.support.DocumentSupport;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
@@ -42,6 +43,17 @@ public class ShopSettingsRepository {
                 : new ArrayList<>(normalized.allowedAssetCodes()));
         document.put("platformOwnerName", normalized.platformOwnerName());
         document.put("platformOwnerAvatar", normalized.platformOwnerAvatar());
+        document.put("tradeFeeEnabled", normalized.tradeFeeEnabled());
+        document.put("tradeFeeRate", normalized.tradeFeeRate() == null
+                ? null
+                : normalized.tradeFeeRate().toPlainString());
+        document.put("tradeFeeMinAmount", normalized.tradeFeeMinAmount() == null
+                ? null
+                : normalized.tradeFeeMinAmount().toPlainString());
+        document.put("tradeFeePayee", normalized.tradeFeePayee() == null
+                ? null
+                : normalized.tradeFeePayee().name());
+        document.put("tradeFeePayeeUserId", normalized.tradeFeePayeeUserId());
         return toSettings(documents.save(SETTINGS, SETTINGS_ID, DocumentSupport.stripNulls(document)));
     }
 
@@ -55,7 +67,13 @@ public class ShopSettingsRepository {
                 document.containsKey("platformOwnerName")
                         ? ShopProductRepository.stringValue(document.get("platformOwnerName"))
                         : ShopSettings.DEFAULT_PLATFORM_OWNER_NAME,
-                ShopProductRepository.stringValue(document.get("platformOwnerAvatar"))
+                ShopProductRepository.stringValue(document.get("platformOwnerAvatar")),
+                // 历史文档没有手续费字段：开关缺省关闭、0 费率、不设下限、销毁，行为与升级前一致
+                parseBoolean(document.get("tradeFeeEnabled"), false),
+                parseBalance(document.get("tradeFeeRate")),
+                parseBalance(document.get("tradeFeeMinAmount")),
+                ShopTradeFeePayee.from(ShopProductRepository.stringValue(document.get("tradeFeePayee"))),
+                ShopProductRepository.stringValue(document.get("tradeFeePayeeUserId"))
         ).normalized();
     }
 
