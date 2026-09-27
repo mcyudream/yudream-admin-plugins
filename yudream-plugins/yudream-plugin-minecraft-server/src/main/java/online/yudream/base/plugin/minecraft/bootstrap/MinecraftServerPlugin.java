@@ -152,6 +152,8 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
                         .distinct()
                         .toList());
         appService.setBridgeListener(bridgeService);
+        // SSE 实时订阅随插件停用统一关闭，防止长连接与心跳线程泄漏
+        context.onDispose(bridgeService::closeInboundStreams);
         MinecraftStatusScheduler statusScheduler = new MinecraftStatusScheduler(appService);
         statusScheduler.start();
         context.onDispose(statusScheduler);

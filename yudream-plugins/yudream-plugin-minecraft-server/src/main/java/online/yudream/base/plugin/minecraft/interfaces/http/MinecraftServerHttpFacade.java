@@ -269,6 +269,46 @@ public class MinecraftServerHttpFacade {
         return PluginHttpResponse.ok(response);
     }
 
+    /** 群消息 SSE 实时推送：连接即重放 after 之后的缓冲增量，此后随队列实时下发。 */
+    public PluginHttpResponse chatInboundStream(PluginHttpRequest request) {
+        Long after = longQuery(request, "after");
+        if (after == null) {
+            after = longHeader(request, "Last-Event-ID");
+        }
+        online.yudream.base.plugin.spi.http.PluginSseStream stream = bridge.openInboundStream(reportServerId(request), after);
+        return new PluginHttpResponse(
+                200,
+                Map.of(
+                        "Cache-Control", "no-cache",
+                        "Connection", "keep-alive",
+                        "X-Accel-Buffering", "no"),
+                "text/event-stream",
+                stream,
+                false);
+    }
+
+    /** 大小写不敏感读取单个请求头并按 long 解析；缺失或非法一律返回 null。 */
+    private Long longHeader(PluginHttpRequest request, String name) {
+        if (request.headers() == null) {
+            return null;
+        }
+        for (Map.Entry<String, java.util.List<String>> entry : request.headers().entrySet()) {
+            if (entry.getKey() == null || !entry.getKey().equalsIgnoreCase(name)) {
+                continue;
+            }
+            java.util.List<String> values = entry.getValue();
+            if (values == null || values.isEmpty() || values.get(0) == null || values.get(0).isBlank()) {
+                return null;
+            }
+            try {
+                return Long.parseLong(values.get(0).trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private String userId(PluginHttpRequest request) {
         Long userId = request.principal().userId();
         if (userId == null) {

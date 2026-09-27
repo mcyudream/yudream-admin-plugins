@@ -93,4 +93,11 @@ public class MinecraftServerReportController {
 
     @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}/chat/inbound", permission = MinecraftServerPlugin.REPORT_PERMISSION)
     public PluginHttpResponse chatInboundLegacy(PluginHttpRequest request) { return http.chatInbound(request); }
+
+    /** 群消息实时推送（SSE）：连接即重放缓冲增量，此后随队列实时下发。 */
+    @PluginHttpEndpoint(method = "GET", path = "/report/servers/{serverId}/chat/inbound/stream", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse chatInboundStream(PluginHttpRequest request) { return http.chatInboundStream(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}/chat/inbound/stream", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse chatInboundStreamLegacy(PluginHttpRequest request) { return http.chatInboundStream(request); }
 }

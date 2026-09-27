@@ -3,6 +3,7 @@ package online.yudream.base.plugin.minecraft.application.service;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
+import online.yudream.base.plugin.spi.http.PluginSseStream;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -167,6 +169,57 @@ class MinecraftBridgeServiceTest {
                 false, false, false, false, false, 0L);
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.saveSettings(invalid));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void inboundStreamReplaysBufferThenPushesLive() {
+        givenSettings(settings(true, false, false, false, false, true));
+        service.onGroupMessage(new PluginEvent("s-1", "message_receive", "qq", "user-9", "grp-1",
+                "缓冲消息", null, null, null, null, null, "conn-1", "self-1", "m-1"));
+
+        PluginSseStream stream = service.openInboundStream(SERVER_ID, 0L);
+        List<String> events = new java.util.ArrayList<>();
+        List<Map<String, Object>> payloads = new java.util.ArrayList<>();
+        List<Boolean> completed = new java.util.ArrayList<>();
+        stream.subscribe(new PluginSseStream.Subscriber() {
+            @Override
+            public void send(String event, Object data) {
+                events.add(event);
+                payloads.add((Map<String, Object>) data);
+            }
+
+            @Override
+            public void complete() {
+                completed.add(true);
+            }
+
+            @Override
+            public void error(Throwable throwable) {
+            }
+        });
+
+        assertEquals("connected", events.get(0));
+        assertEquals("message", events.get(1));
+        assertEquals("缓冲消息", payloads.get(1).get("content"));
+        assertEquals(1L, payloads.get(1).get("seq"));
+
+        // 入队即实时推送
+        service.onGroupMessage(new PluginEvent("s-2", "message_receive", "qq", "user-9", "grp-1",
+                "实时消息", null, null, null, null, null, "conn-1", "self-1", "m-2"));
+        assertEquals("message", events.get(2));
+        assertEquals("实时消息", payloads.get(2).get("content"));
+        assertEquals(2L, payloads.get(2).get("seq"));
+
+        // 取消订阅后不再推送
+        stream.unsubscribe(null);
+        service.onGroupMessage(new PluginEvent("s-3", "message_receive", "qq", "user-9", "grp-1",
+                "取消后的消息", null, null, null, null, null, "conn-1", "self-1", "m-3"));
+        assertEquals(3, events.size());
+
+        // 插件停用关闭订阅：complete 回调且不再泄漏线程
+        service.openInboundStream(SERVER_ID, 0L);
+        service.closeInboundStreams();
     }
 
     private FrameworkServices mockFrameworkWith(PluginMessagingService messagingService) {

@@ -3,6 +3,7 @@ package online.yudream.base.plugin.minecraft.application.service;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
+import online.yudream.base.plugin.spi.http.PluginSseStream;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
 import online.yudream.base.plugin.spi.system.messaging.PluginMessageContent;
@@ -17,6 +18,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -41,6 +46,8 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     static final long MAX_EVENT_AGE_MILLIS = 5L * 60 * 1000;
     /** 群消息进游戏后在该窗口内可被拉取，超时丢弃。 */
     static final long INBOUND_TTL_MILLIS = 10L * 60 * 1000;
+    /** SSE 心跳周期：必须短于常见代理/客户端读超时，保持长连接不被中间设备掐断。 */
+    static final long INBOUND_HEARTBEAT_MILLIS = 25L * 1000;
     private static final int INBOUND_BUFFER_CAPACITY = 200;
     private static final int MAX_INBOUND_CONTENT = 300;
     private static final int DEDUP_CAPACITY = 1024;
@@ -57,7 +64,10 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     private final AtomicLong inboundSequence = new AtomicLong();
     /** 每台游戏服务器待拉取的游标：客户端按 afterSeq 增量拉取。 */
     private final Map<String, Long> inboundCursors = new ConcurrentHashMap<>();
+    /** 每台游戏服务器的 SSE 实时订阅：群消息写入队列时同步推送。 */
+    private final Map<String, List<InboundStream>> inboundStreams = new ConcurrentHashMap<>();
     private final SetWithCapacity deduplication = new SetWithCapacity(DEDUP_CAPACITY);
+    private volatile ScheduledExecutorService inboundHeartbeatExecutor;
 
     public MinecraftBridgeService(MinecraftServerRepository repository, FrameworkServices framework,
                                   Function<String, List<String>> onlinePlayers) {
@@ -302,6 +312,192 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
                 buffer.removeFirst();
             }
         }
+        fanOutInbound(serverId, message);
+    }
+
+    // ---------------------------------------------------------------- 入站 SSE 实时推送
+
+    /**
+     * MC 端桥接的 SSE 订阅视图：连接即重放 {@code afterSeq} 之后的缓冲增量，
+     * 此后群消息写入队列时实时推送。轮询接口保留，作为旧桥接或不支持长连接
+     * 环境的降级通道。
+     */
+    public PluginSseStream openInboundStream(String serverId, Long afterSeq) {
+        requireServer(serverId);
+        InboundStream stream = new InboundStream(serverId, afterSeq == null ? 0L : afterSeq);
+        inboundStreams.computeIfAbsent(serverId, key -> new CopyOnWriteArrayList<>()).add(stream);
+        ensureInboundHeartbeat();
+        return stream;
+    }
+
+    /** 插件停用时关闭全部 SSE 订阅并停掉心跳，避免线程与连接泄漏。 */
+    public void closeInboundStreams() {
+        ScheduledExecutorService executor = inboundHeartbeatExecutor;
+        inboundHeartbeatExecutor = null;
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+        for (List<InboundStream> streams : inboundStreams.values()) {
+            for (InboundStream stream : streams) {
+                stream.close();
+            }
+            streams.clear();
+        }
+        inboundStreams.clear();
+    }
+
+    private void fanOutInbound(String serverId, InboundMessage message) {
+        List<InboundStream> streams = inboundStreams.get(serverId);
+        if (streams == null || streams.isEmpty()) {
+            return;
+        }
+        for (InboundStream stream : streams) {
+            stream.push(message);
+        }
+    }
+
+    private synchronized void ensureInboundHeartbeat() {
+        if (inboundHeartbeatExecutor != null) {
+            return;
+        }
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "minecraft-server-inbound-sse-heartbeat");
+            thread.setDaemon(true);
+            return thread;
+        });
+        executor.scheduleWithFixedDelay(this::tickInboundHeartbeat,
+                INBOUND_HEARTBEAT_MILLIS, INBOUND_HEARTBEAT_MILLIS, TimeUnit.MILLISECONDS);
+        inboundHeartbeatExecutor = executor;
+    }
+
+    private void tickInboundHeartbeat() {
+        long at = clock.getAsLong();
+        for (List<InboundStream> streams : inboundStreams.values()) {
+            for (InboundStream stream : streams) {
+                stream.heartbeat(at);
+            }
+        }
+    }
+
+    /** 单条桥接连接的 SSE 视图；宿主在响应写出阶段回调 {@link #subscribe(Subscriber)}。 */
+    private final class InboundStream implements PluginSseStream {
+
+        private final String serverId;
+        private final long afterSeq;
+        private volatile Subscriber subscriber;
+
+        private InboundStream(String serverId, long afterSeq) {
+            this.serverId = serverId;
+            this.afterSeq = afterSeq;
+        }
+
+        @Override
+        public void subscribe(Subscriber subscriber) {
+            this.subscriber = subscriber;
+            try {
+                subscriber.send("connected", java.util.Map.of("id", 0, "serverId", serverId,
+                        "latest", latestBufferedSeq()));
+                replay(subscriber);
+            } catch (RuntimeException e) {
+                detach();
+            }
+        }
+
+        @Override
+        public void unsubscribe(Subscriber subscriber) {
+            detach();
+        }
+
+        private void replay(Subscriber subscriber) {
+            Deque<InboundMessage> buffer = inboundBuffers.get(serverId);
+            if (buffer == null) {
+                return;
+            }
+            long now = clock.getAsLong();
+            List<InboundMessage> replayed = new ArrayList<>();
+            synchronized (buffer) {
+                for (InboundMessage message : buffer) {
+                    if (now - message.at() > INBOUND_TTL_MILLIS) {
+                        continue;
+                    }
+                    if (message.seq() > afterSeq) {
+                        replayed.add(message);
+                    }
+                }
+            }
+            for (InboundMessage message : replayed) {
+                subscriber.send("message", inboundEnvelope(message));
+            }
+        }
+
+        private void push(InboundMessage message) {
+            Subscriber subscriber = this.subscriber;
+            if (subscriber == null) {
+                return;
+            }
+            try {
+                subscriber.send("message", inboundEnvelope(message));
+            } catch (RuntimeException e) {
+                detach();
+            }
+        }
+
+        private void heartbeat(long at) {
+            Subscriber subscriber = this.subscriber;
+            if (subscriber == null) {
+                return;
+            }
+            try {
+                subscriber.send("heartbeat", java.util.Map.of("id", 0, "at", at));
+            } catch (RuntimeException e) {
+                detach();
+            }
+        }
+
+        /** 当前缓冲内的最大序号（含超龄消息，与轮询接口的 latest 口径一致）；空缓冲返回 afterSeq。 */
+        private long latestBufferedSeq() {
+            Deque<InboundMessage> buffer = inboundBuffers.get(serverId);
+            long latest = afterSeq;
+            if (buffer != null) {
+                synchronized (buffer) {
+                    for (InboundMessage message : buffer) {
+                        latest = Math.max(latest, message.seq());
+                    }
+                }
+            }
+            return latest;
+        }
+
+        private void close() {
+            Subscriber subscriber = this.subscriber;
+            this.subscriber = null;
+            if (subscriber != null) {
+                try {
+                    subscriber.complete();
+                } catch (RuntimeException ignored) {
+                    // 连接可能已断开
+                }
+            }
+        }
+
+        private void detach() {
+            subscriber = null;
+            List<InboundStream> streams = inboundStreams.get(serverId);
+            if (streams != null) {
+                streams.remove(this);
+            }
+        }
+    }
+
+    /** SSE 事件信封：id 字段供宿主写 SSE id 行，seq 供桥接推进游标。 */
+    private static Map<String, Object> inboundEnvelope(InboundMessage message) {
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("id", message.seq());
+        envelope.put("seq", message.seq());
+        envelope.put("sender", message.sender());
+        envelope.put("content", message.content());
+        envelope.put("at", message.at());
+        return envelope;
     }
 
     /**
