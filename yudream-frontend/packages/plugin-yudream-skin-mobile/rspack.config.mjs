@@ -46,7 +46,7 @@ export default (env) => {
       }),
       new Repack.plugins.ModuleFederationPluginV2({
         name: 'yudream_skin',
-        library: { type: 'script', name: ['__federation_var_yudream_skin', 'default'] },
+        library: { type: 'script', name: 'yudream_skin' },
         filename: 'remoteEntry.js',
         exposes: {
           './module': './src/entry.tsx',
