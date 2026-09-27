@@ -1,6 +1,1 @@
-# Explicit tag-release module list (Maven artifactIds under yudream-plugins/).
-# A protected v* tag pipeline packages and publishes only the modules listed here.
-# Edit this file in the release commit; one artifactId per line, no duplicates,
-# every entry must be a root-reactor module. Local and branch builds ignore this
-# file and always build the full reactor.
-yudream-plugin-mcpanel
+yudream-plugin-minecraft-server

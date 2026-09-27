@@ -215,7 +215,7 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     private void send(MinecraftBridgeSettings settings, String text) {
         try {
             framework.messaging().sendToChannel(settings.connectionId(), settings.channelId(),
-                            new PluginMessageContent(PluginMessageContent.Type.TEXT, text, null, null))
+                            new PluginMessageContent(PluginMessageContent.Type.TEXT, withServerPrefix(settings.serverId(), text), null, null))
                     .whenComplete((result, error) -> {
                         if (error != null) {
                             LOGGER.warning("群服互联转发失败：server=" + settings.serverId()
@@ -225,6 +225,17 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         } catch (RuntimeException | LinkageError e) {
             LOGGER.warning("群服互联转发不可用：server=" + settings.serverId() + " error=" + rootMessage(e));
         }
+    }
+
+    /** 群里的通报标注来源服务器（[服务器名]:原文）；查不到名称时退回原文，转发永不失败。 */
+    private String withServerPrefix(String serverId, String text) {
+        String name;
+        try {
+            name = repository.findById(serverId).map(MinecraftServer::name).orElse(null);
+        } catch (RuntimeException e) {
+            return text;
+        }
+        return name == null || name.isBlank() ? text : "[" + name + "]:" + text;
     }
 
     /** 超龄（桥接重放）或刚转发过（桥接至少一次投递的重复帧）的事件不再进群。 */

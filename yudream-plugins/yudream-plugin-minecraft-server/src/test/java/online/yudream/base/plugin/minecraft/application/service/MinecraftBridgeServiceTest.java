@@ -46,6 +46,7 @@ class MinecraftBridgeServiceTest {
                 .thenReturn(CompletableFuture.completedStage(new PluginMessageResult(List.of(), true, false)));
         MinecraftServer server = mock(MinecraftServer.class);
         when(server.id()).thenReturn(SERVER_ID);
+        when(server.name()).thenReturn("生存服");
         when(repository.findById(SERVER_ID)).thenReturn(Optional.of(server));
         when(repository.list(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyBoolean()))
@@ -110,7 +111,7 @@ class MinecraftBridgeServiceTest {
         givenSettings(settings(true, true, false, false, false, false));
 
         service.onGameEvent(SERVER_ID, MinecraftBridgeListener.GameEventKind.CHAT, "Steve", "你好", NOW);
-        assertEquals("💬 Steve：你好", capturedContent());
+        assertEquals("[生存服]:💬 Steve：你好", capturedContent());
 
         // 聊天开关打开但进退服开关关闭：进服事件不转发
         MinecraftBridgeService fresh = new MinecraftBridgeService(repository, mockFrameworkWith(messaging),

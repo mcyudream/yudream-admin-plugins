@@ -76,4 +76,21 @@ public class MinecraftServerReportController {
     /** 群消息增量拉取：MC 端桥接按 after 游标轮询并游戏内广播。 */
     @PluginHttpEndpoint(method = "GET", path = "/report/servers/{serverId}/chat/inbound", permission = MinecraftServerPlugin.REPORT_PERMISSION)
     public PluginHttpResponse chatInbound(PluginHttpRequest request) { return http.chatInbound(request); }
+
+    /**
+     * Compatibility endpoints for bridge builds released before the /report namespace
+     * covered the game events and the inbound pull; they keep polling and reporting
+     * against the bare /servers paths.
+     */
+    @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/events/chat", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameChatLegacy(PluginHttpRequest request) { return http.gameChat(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/events/death", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameDeathLegacy(PluginHttpRequest request) { return http.gameDeath(request); }
+
+    @PluginHttpEndpoint(method = "POST", path = "/servers/{serverId}/events/advancement", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse gameAdvancementLegacy(PluginHttpRequest request) { return http.gameAdvancement(request); }
+
+    @PluginHttpEndpoint(method = "GET", path = "/servers/{serverId}/chat/inbound", permission = MinecraftServerPlugin.REPORT_PERMISSION)
+    public PluginHttpResponse chatInboundLegacy(PluginHttpRequest request) { return http.chatInbound(request); }
 }
