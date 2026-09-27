@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { LauncherPack, LauncherPackVersion } from '../types'
-import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaTable, FaTag, useFaModal } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaModal, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaTag, useFaModal } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { useLauncherPlugin } from '../composables/useLauncherPlugin'
 
@@ -92,7 +92,7 @@ onMounted(() => {
       </div>
     </FaSearchBar>
 
-    <FaTable
+    <FaResponsiveTable
       v-loading="model.loading"
       :columns="columns"
       :data="model.packs"
@@ -123,7 +123,38 @@ onMounted(() => {
           </FaButton>
         </div>
       </template>
-    </FaTable>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.id }}</span>
+              <FaTag v-if="row.recommendedVersionId" variant="default">
+                {{ row.recommendedVersionId }}
+              </FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">ID</span>
+                <span class="break-all">{{ row.id }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">保留版本</span>
+                <span>{{ row.retainedVersionIds?.length || 0 }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                <span class="break-all">{{ model.formatTime(row.updatedAt) }}</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t pt-3">
+              <FaButton size="sm" variant="outline" @click="openDetail(row)">
+                版本
+              </FaButton>
+            </div>
+          </div>
+        </FaCard>
+      </template>
+    </FaResponsiveTable>
     <FaPagination
       v-model:page="model.packPager.page"
       v-model:size="model.packPager.size"
@@ -163,7 +194,7 @@ onMounted(() => {
     </FaModal>
 
     <FaModal v-model="detailOpen" title="版本历史" class="sm:max-w-4xl" :show-confirm-button="false" show-cancel-button>
-      <FaTable
+      <FaResponsiveTable
         v-if="model.packDetail"
         v-loading="model.loading"
         :columns="versionColumns"
@@ -196,7 +227,39 @@ onMounted(() => {
             设为推荐
           </FaButton>
         </template>
-      </FaTable>
+        <template #card="{ row }">
+          <FaCard class="w-full">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 break-words text-base font-semibold">{{ row.versionId }}</span>
+                <FaTag :variant="row.versionId === recommendedId ? 'default' : 'secondary'">
+                  {{ row.versionId === recommendedId ? '推荐' : (row.status || '-') }}
+                </FaTag>
+              </div>
+              <div class="flex flex-col gap-1 text-sm">
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">Index Hash</span>
+                  <code class="break-all">{{ row.indexHash || '-' }}</code>
+                </div>
+                <div class="flex gap-2">
+                  <span class="shrink-0 text-secondary-foreground/60">发布时间</span>
+                  <span class="break-all">{{ model.formatTime(row.publishedAt) }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2 border-t pt-3">
+                <FaButton
+                  size="sm"
+                  variant="outline"
+                  :disabled="row.versionId === recommendedId"
+                  @click="confirmRollback(row)"
+                >
+                  设为推荐
+                </FaButton>
+              </div>
+            </div>
+          </FaCard>
+        </template>
+      </FaResponsiveTable>
       <FaCard v-else class="w-full">
         正在读取版本…
       </FaCard>
