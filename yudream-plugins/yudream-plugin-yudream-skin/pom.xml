@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/yudream-skin</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-yudream-skin-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/yudream-skin</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 

@@ -6,3 +6,11 @@ main: online.yudream.base.plugin.forum.bootstrap.ForumPlugin
 version: 1.0.2
 softdepend:
   - ymcl-adapter
+
+# 移动端（YuDream Mobile 宿主）接入声明
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []

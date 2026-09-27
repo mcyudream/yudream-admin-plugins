@@ -26,6 +26,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/forum</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-forum-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/forum</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
     <dependencies>
