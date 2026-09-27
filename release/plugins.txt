@@ -1,3 +1,2 @@
 yudream-plugin-mcpanel
 yudream-plugin-minecraft-server
-yudream-plugin-authlib-injector
