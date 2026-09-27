@@ -54,11 +54,18 @@ public class McpanelInstanceFacade {
         this.installTracker = installTracker;
         this.stateResolver = stateResolver;
         this.outputPool = new OutputAttachPool(instances, outputEvents::open);
+        // 实例（重）启动后为存活订阅重挂节点输出泵（实例停止时节点回收泵，浏览器不刷新就没有实时输出）。
+        instances.setOutputReattachListener(outputPool::reattachIfSubscribed);
     }
 
     /** 插件卸载时关停 attach 池的异步线程（bootstrap onDispose 注册）。幂等。 */
     public void closeOutputPool() {
         outputPool.close();
+    }
+
+    /** 供事件任务服务在自动启动成功后重挂输出泵（bootstrap 接线）。 */
+    public void reattachOutput(String instanceId) {
+        outputPool.reattachIfSubscribed(instanceId);
     }
 
     public PluginHttpResponse page(PluginHttpRequest request) {

@@ -590,6 +590,8 @@ public class McpanelPlugin implements YuDreamPlugin {
                         }
                         return eventBusRef.openFiltered(nodeId, "instance.output", "instanceId", instanceId);
                     }, proxyGroupService, installTracker, stateResolver);
+            // 事件任务自动启动成功后同样重挂输出泵（实例停止时节点回收泵）。
+            eventTaskService.setOutputReattachListener(instanceFacade::reattachOutput);
             context.registerHttpController(new McpanelInstanceController(instanceFacade));
             context.registerHttpController(new McpanelAdminController2(
                     templateService, settingsService, contributionService, artifactStoreService,

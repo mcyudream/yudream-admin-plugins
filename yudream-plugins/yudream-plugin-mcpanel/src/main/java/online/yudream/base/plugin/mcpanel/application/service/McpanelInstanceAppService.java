@@ -51,6 +51,30 @@ public class McpanelInstanceAppService {
     private volatile BackupPolicyStore backupPolicies;
     /** 事件触发型任务服务（bootstrap attach；未挂接时钩子整体旁路）。 */
     private volatile InstanceEventTaskService eventTasks;
+
+    /**
+     * 实例（重）启动成功后的输出泵重挂回调（interfaces 层注入，避免应用层反向依赖）。
+     * 实例停止时节点会回收输出 attach 泵，而已存活的浏览器订阅不会重新触发 0→1 的
+     * attach，导致重启后控制台没有实时输出、必须刷新页面；启动成功即重挂。
+     */
+    private volatile java.util.function.Consumer<String> outputReattachListener;
+
+    public void setOutputReattachListener(java.util.function.Consumer<String> listener) {
+        this.outputReattachListener = listener;
+    }
+
+    /** 通知输出 attach 池：该实例已（重）启动，若有存活订阅请重新挂泵。 */
+    public void fireOutputReattach(String instanceId) {
+        java.util.function.Consumer<String> listener = outputReattachListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.accept(instanceId);
+        } catch (RuntimeException error) {
+            System.err.println("[mcpanel] 输出泵重挂回调失败（" + instanceId + "）：" + error.getMessage());
+        }
+    }
     /** 每实例至多一个在途节点备份打包（受理 → 完成/失败），列表轮询消费。 */
     private final java.util.concurrent.ConcurrentHashMap<String, BackupCreation> pendingBackups =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -604,6 +628,10 @@ public class McpanelInstanceAppService {
         if (applied) {
             audit.record(actor, "instance." + action, "instance", id, instance.name(), instance.tenantId());
             link.writebackState(updated);
+        }
+        if (applied && ("start".equals(action) || "restart".equals(action))) {
+            // 实例（重）启动：节点在停止时会回收输出泵，通知 attach 池为存活订阅重新挂泵。
+            fireOutputReattach(id);
         }
         return toDto(updated);
     }

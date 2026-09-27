@@ -30,8 +30,13 @@ public class OutputAttachPool implements AutoCloseable {
     /** 单实例订阅引用：计数 + 防新订阅竞态的 generation。 */
     private static final class InstanceRef {
 
+        final String nodeId;
         final AtomicInteger count = new AtomicInteger();
         final AtomicLong generation = new AtomicLong();
+
+        private InstanceRef(String nodeId) {
+            this.nodeId = nodeId;
+        }
     }
 
     /** 节点事件流开启器（bootstrap 注入事件总线过滤视图）。 */
@@ -59,8 +64,26 @@ public class OutputAttachPool implements AutoCloseable {
     /** 打开按 instanceId 过滤的输出流并纳入引用计数。调用前 HTTP 层已完成数据范围校验。 */
     public PluginSseStream open(String nodeId, String instanceId) {
         PluginSseStream backendStream = backend.open(nodeId, instanceId);
-        InstanceRef ref = refs.computeIfAbsent(instanceId, key -> new InstanceRef());
+        InstanceRef ref = refs.computeIfAbsent(instanceId, key -> new InstanceRef(nodeId));
         return new RefStream(nodeId, instanceId, ref, backendStream);
+    }
+
+    /**
+     * 实例（重）启动成功后调用：实例停止时节点会回收输出泵，而已存活的浏览器
+     * 订阅不会重新走 0→1 的 attach，导致刷新前一直没有实时输出。此处对仍有
+     * 订阅者的实例重新发起 attach（节点侧 attach 幂等，泵不存在则重建）。
+     */
+    public void reattachIfSubscribed(String instanceId) {
+        InstanceRef ref = refs.get(instanceId);
+        if (ref == null || ref.count.get() <= 0) {
+            return;
+        }
+        ref.generation.incrementAndGet();
+        try {
+            executor.execute(() -> attach(ref.nodeId, instanceId));
+        } catch (RejectedExecutionException error) {
+            System.err.println("[mcpanel] 输出 re-attach 未调度（池不可用）：" + instanceId);
+        }
     }
 
     public void close() {
@@ -117,13 +140,7 @@ public class OutputAttachPool implements AutoCloseable {
         }
 
         private void attach() {
-            try {
-                // HTTP 层已做过范围校验；此处以系统身份开启节点 attach 泵。
-                instances.outputSubscribe("system", "user:system", instanceId);
-            } catch (RuntimeException | LinkageError error) {
-                System.err.println("[mcpanel] 输出 attach 失败（" + nodeId + "/" + instanceId + "）："
-                        + error.getMessage());
-            }
+            OutputAttachPool.this.attach(nodeId, instanceId);
         }
 
         private void detachIfLast(long capturedGeneration) {
@@ -142,6 +159,17 @@ public class OutputAttachPool implements AutoCloseable {
             if (ref.count.get() == 0 && ref.generation.get() == capturedGeneration) {
                 refs.remove(instanceId, ref);
             }
+        }
+    }
+
+    /** 以系统身份开启节点 attach 泵（0→1 订阅与实例启动重挂共用；节点侧幂等）。 */
+    private void attach(String nodeId, String instanceId) {
+        try {
+            // HTTP 层已做过范围校验；此处以系统身份开启节点 attach 泵。
+            instances.outputSubscribe("system", "user:system", instanceId);
+        } catch (RuntimeException | LinkageError error) {
+            System.err.println("[mcpanel] 输出 attach 失败（" + nodeId + "/" + instanceId + "）："
+                    + error.getMessage());
         }
     }
 }

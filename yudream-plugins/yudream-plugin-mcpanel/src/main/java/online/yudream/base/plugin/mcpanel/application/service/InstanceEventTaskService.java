@@ -62,10 +62,28 @@ public class InstanceEventTaskService {
                                                     Map<String, Object> payload, long timeoutMs);
     }
 
+    public void setOutputReattachListener(java.util.function.Consumer<String> listener) {
+        this.outputReattachListener = listener;
+    }
+
+    private void fireOutputReattach(String instanceId) {
+        java.util.function.Consumer<String> listener = outputReattachListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.accept(instanceId);
+        } catch (RuntimeException error) {
+            System.err.println("[mcpanel] 输出泵重挂回调失败（" + instanceId + "）：" + error.getMessage());
+        }
+    }
+
     private final McpanelInstanceRepository instances;
     private final StartGateway gateway;
     /** 自动动作审计：复用实例服务的审计端口（bootstrap 传同一实现）。 */
     private final McpanelInstanceAppService.AuditRecorder audit;
+    /** 自动启动成功后的输出泵重挂回调（bootstrap 注入，避免依赖 interfaces 层）。 */
+    private volatile java.util.function.Consumer<String> outputReattachListener;
     /** 同实例两次自动触发之间的最小间隔（生产常量；测试可注入更小值）。 */
     private final long triggerThrottleMs;
 
@@ -250,6 +268,8 @@ public class InstanceEventTaskService {
                     current.withState(targetState, current.lastExitCode(), System.currentTimeMillis()));
             audit.record(SYSTEM_ACTOR, auditAction, "instance", instanceId,
                     instance.name() + "：" + detail, instance.tenantId());
+            // 自动启动同样要重挂输出泵（实例停止时节点已回收泵）。
+            fireOutputReattach(instanceId);
         }
         catch (InterruptedException error) {
             Thread.currentThread().interrupt();
