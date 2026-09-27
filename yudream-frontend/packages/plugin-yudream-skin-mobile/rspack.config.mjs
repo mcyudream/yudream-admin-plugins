@@ -21,10 +21,13 @@ export default (env) => {
       path: path.join(dirname, 'dist-mobile'),
       uniqueName: 'yudream_skin',
       filename: '[name].js',
+      publicPath: 'auto',
     },
     // 宿主缓存管线 v1 按单 remoteEntry 校验/翻转：关闭 chunk 拆分
     optimization: {
       splitChunks: { cacheGroups: { default: false, vendors: false } },
+      maxAsyncRequests: 1,
+      maxInitialRequests: 1,
       runtimeChunk: false,
     },
     module: {
@@ -46,15 +49,14 @@ export default (env) => {
       }),
       new Repack.plugins.ModuleFederationPluginV2({
         name: 'yudream_skin',
-        library: { type: 'script', name: 'yudream_skin' },
         filename: 'remoteEntry.js',
         exposes: {
           './module': './src/entry.tsx',
         },
         shared: {
-          react: { singleton: true, eager: false, requiredVersion: '18.3.1' },
-          'react-native': { singleton: true, eager: false },
-          '@yudream/plugin-sdk-mobile': { singleton: true, eager: false, version: '0.1.0' },
+          react: { singleton: true, eager: true, requiredVersion: '18.3.1' },
+          'react-native': { singleton: true, eager: true },
+          '@yudream/plugin-sdk-mobile': { singleton: true, eager: true, version: '0.1.0' },
         },
       }),
     ],
