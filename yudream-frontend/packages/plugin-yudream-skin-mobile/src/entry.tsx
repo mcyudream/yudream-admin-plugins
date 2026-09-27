@@ -39,7 +39,9 @@ function SkinHome() {
     setError(null);
     try {
       const meRes = await sdk.api.request<SkinMe | { data?: SkinMe }>('/api/plugins/yudream-skin/me');
-      setMe(Array.isArray(meRes) ? null : (meRes as SkinMe));
+      // 站内响应是 Result 信封，业务数据在 data 字段
+      const envelope = meRes as { data?: SkinMe } | null;
+      setMe(Array.isArray(meRes) ? null : (envelope?.data ?? (meRes as SkinMe)));
       const playersRes = await sdk.api.request<SkinPlayer[] | { items?: SkinPlayer[]; records?: SkinPlayer[] }>(
         '/api/plugins/yudream-skin/me/players',
       );

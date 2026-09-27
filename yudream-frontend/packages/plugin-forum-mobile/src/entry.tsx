@@ -52,11 +52,11 @@ function ForumHome() {
     setError(null);
     try {
       const cats = await sdk.api.request<{ items?: Category[] } | Category[]>(
-        '/api/plugins/forum/categories',
+        '/api/plugins/forum/public/categories',
       );
       setCategories(Array.isArray(cats) ? cats : (cats.items ?? []));
       const list = await sdk.api.request<{ items?: PostSummary[]; records?: PostSummary[] } | PostSummary[]>(
-        `/api/plugins/forum/posts${keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''}`,
+         `/api/plugins/forum/public/posts${keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''}`,
       );
       setPosts(Array.isArray(list) ? list : (list.items ?? list.records ?? []));
     } catch (e) {

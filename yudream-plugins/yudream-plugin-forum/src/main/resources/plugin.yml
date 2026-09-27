@@ -7,10 +7,25 @@ version: 1.0.2
 softdepend:
   - ymcl-adapter
 
-# 移动端（YuDream Mobile 宿主）接入声明
+# 移动端（YuDream Mobile 宿主）接入声明：主页卡片与展示元数据
 mobile:
   platforms:
     - android
     - ios
   minHostVersion: 0.1.0
   requiredNativeCapabilities: []
+  name: 论坛
+  description: 社区讨论与最新动态
+  icon: chatbubbles-outline
+  home:
+    cards:
+      - id: latest-posts
+        title: 最新帖子
+        description: 社区最新发布的帖子动态
+        icon: flame-outline
+        route: /latest
+      - id: my-posts
+        title: 我的帖子
+        description: 我发布与参与的讨论
+        icon: document-text-outline
+        route: /mine

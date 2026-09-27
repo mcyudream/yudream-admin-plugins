@@ -21,7 +21,9 @@ export default (env) => {
       path: path.join(dirname, 'dist-mobile'),
       uniqueName: 'yudream_skin',
       filename: '[name].js',
-      publicPath: 'auto',
+      // RN 无 document，publicPath 'auto' 会在 eval 时抛错中断 remoteEntry；
+      // chunk 全部经宿主 ScriptManager 按文件名回源，这里必须显式留空。
+      publicPath: '',
     },
     // 宿主缓存管线 v1 按单 remoteEntry 校验/翻转：关闭 chunk 拆分
     optimization: {
