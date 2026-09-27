@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { SettlementRecord } from '../types'
-import { FaButton, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaSearchBar, FaSelect, FaTable, FaTag } from '@yudream/components'
+import { FaButton, FaCard, FaIcon, FaInput, FaPageHeader, FaPageMain, FaPagination, FaResponsiveTable, FaSearchBar, FaSelect, FaTag } from '@yudream/components'
 import { onMounted } from 'vue'
 import { createPlaytimePointsApi } from '../api/playtime-points-api'
 import { useSettlements } from '../composables/useSettlements'
@@ -45,7 +45,7 @@ onMounted(() => {
   </FaPageHeader>
 
   <FaPageMain>
-    <FaTable
+    <FaResponsiveTable
       v-loading="loading"
       row-key="id"
       table-root-class="rounded-lg overflow-hidden"
@@ -55,6 +55,7 @@ onMounted(() => {
       column-visibility
       :columns="columns"
       :data="records"
+      empty-text="暂无结算记录：玩家退出服务器并达到 1 积分后这里会出现流水。"
     >
       <template #toolbar>
         <FaSearchBar class="w-full">
@@ -98,13 +99,55 @@ onMounted(() => {
           {{ creditedLabel(row.original) }}
         </FaTag>
       </template>
+      <template #card="{ row }">
+        <FaCard class="w-full">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="min-w-0 break-words text-base font-semibold">{{ row.playerName }}</span>
+              <FaTag :variant="Number(row.credited) > 0 ? 'default' : 'secondary'">
+                {{ creditedLabel(row) }}
+              </FaTag>
+            </div>
+            <div class="flex flex-col gap-1 text-sm">
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">退出时间</span>
+                <span class="break-all">{{ formatTime(row.windowEnd) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">服务器</span>
+                <span class="break-all">{{ row.serverName }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">有效时长</span>
+                <span class="break-all">{{ row.effectiveMinutes }} 分钟</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">在线 / 挂机</span>
+                <span class="break-all">{{ formatDuration(row.onlineMillis) }} / {{ formatDuration(row.afkMillis) }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">权重</span>
+                <span class="break-all">×{{ row.weight }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">积分</span>
+                <span class="break-all">{{ row.points }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="shrink-0 text-secondary-foreground/60">货币</span>
+                <span class="break-all">{{ row.assetCode }}</span>
+              </div>
+            </div>
+          </div>
+        </FaCard>
+      </template>
       <template #empty>
         <div class="ptp-empty">
           <FaIcon name="i-ri:file-list-3-line" />
           <span>暂无结算记录：玩家退出服务器并达到 1 积分后这里会出现流水。</span>
         </div>
       </template>
-    </FaTable>
+    </FaResponsiveTable>
 
     <FaPagination
       v-model:page="pager.page"

@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn } from '@yudream/components'
 import type { EditableServerRule } from '../composables/useSettings'
-import { FaAlert, FaButton, FaIcon, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaSelect, FaSwitch, FaTable } from '@yudream/components'
+import { FaAlert, FaButton, FaCard, FaIcon, FaInput, FaNumberField, FaPageHeader, FaPageMain, FaResponsiveTable, FaSelect, FaSwitch } from '@yudream/components'
 import { computed, onMounted } from 'vue'
 import { createPlaytimePointsApi } from '../api/playtime-points-api'
 import { useSettings } from '../composables/useSettings'
@@ -93,7 +93,7 @@ onMounted(() => {
         <p class="ptp-hint">
           未出现在列表中的服务器按默认规则参与结算（权重 1）。权重支持最多两位小数，设为 0 表示该服务器不发放积分。
         </p>
-        <FaTable
+        <FaResponsiveTable
           row-key="id"
           table-root-class="rounded-lg overflow-hidden"
           table-class="ptp-table-w720"
@@ -102,6 +102,7 @@ onMounted(() => {
           :columns="serverColumns"
           :data="rules"
           :loading="loading"
+          empty-text="暂无服务器可配置：请先在 Minecraft 服务器插件中添加服务器。"
         >
           <template #cell-weight="{ row }">
             <!-- 步进 0.01：权重支持两位小数，reka-ui step 网格吸附下 step=0.1 会丢第二位小数 -->
@@ -110,13 +111,34 @@ onMounted(() => {
           <template #cell-enabled="{ row }">
             <FaSwitch v-model="row.original.enabled" />
           </template>
+          <template #card="{ row }">
+            <FaCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                  <FaSwitch v-model="row.enabled" />
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">服务器 ID</span>
+                    <span class="break-all">{{ row.id }}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">积分权重</span>
+                    <!-- 步进 0.01：权重支持两位小数，reka-ui step 网格吸附下 step=0.1 会丢第二位小数 -->
+                    <FaNumberField v-model="row.weightNumber" :min="0" :max="999" :step="0.01" class="w-36" />
+                  </div>
+                </div>
+              </div>
+            </FaCard>
+          </template>
           <template #empty>
             <div class="ptp-empty">
               <FaIcon name="i-ri:server-line" />
               <span>暂无服务器可配置：请先在 Minecraft 服务器插件中添加服务器。</span>
             </div>
           </template>
-        </FaTable>
+        </FaResponsiveTable>
       </section>
 
       <section class="ptp-section">
