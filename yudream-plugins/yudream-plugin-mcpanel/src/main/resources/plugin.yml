@@ -9,7 +9,7 @@ softdepend:
   # 可选：装了 ymcl-adapter 时把 P2P 直连能力贡献给它（YmclP2pProvider 扩展点）。
   # 方向必须是「面板 → 适配器」：反向声明会让宿主判定依赖环并静默丢弃该能力。
   - ymcl-adapter
-version: 0.19.7
+version: 0.19.8
 
 # 移动端（YuDream Mobile 宿主）接入声明：运维面板
 mobile:
