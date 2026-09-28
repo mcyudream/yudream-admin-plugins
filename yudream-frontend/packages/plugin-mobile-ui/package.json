@@ -1,0 +1,28 @@
+{
+  "name": "@yudream/plugin-mobile-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "test:typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yudream/plugin-sdk-mobile": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18.3.0",
+    "react-native": ">=0.76.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "react": "18.3.1",
+    "react-native": "0.76.6",
+    "typescript": "catalog:",
+    "@swc/helpers": "^0.5.23"
+  }
+}

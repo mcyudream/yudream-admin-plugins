@@ -13,6 +13,7 @@
     <resources>
       <resource><directory>src/main/resources</directory></resource>
       <resource><directory>../../yudream-frontend/packages/plugin-mc-wiki/dist</directory><targetPath>META-INF/yudream-plugin/frontend/mc-wiki</targetPath><filtering>false</filtering></resource>
+            <resource><directory>../../yudream-frontend/packages/plugin-mc-wiki-mobile/dist-mobile</directory><targetPath>META-INF/yudream-plugin/frontend-mobile/mc-wiki</targetPath><filtering>false</filtering></resource>
     </resources>
     <plugins>
       <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
