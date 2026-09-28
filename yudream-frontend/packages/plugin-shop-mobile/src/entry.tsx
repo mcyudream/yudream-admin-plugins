@@ -155,7 +155,7 @@ function Plaza({ onOpenProduct }: { onOpenProduct: (p: ProductRow) => void }) {
               <Badge text={p.stock > 0 ? `库存 ${p.stock}` : '售罄'} tone={p.stock > 0 ? 'default' : 'danger'} />
             </View>
             <Text numberOfLines={1} style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
-              {p.ownerLabel || '官方'}
+              {p.ownerLabel || p.owner?.nickname || '官方'}
             </Text>
           </Pressable>
         ))}

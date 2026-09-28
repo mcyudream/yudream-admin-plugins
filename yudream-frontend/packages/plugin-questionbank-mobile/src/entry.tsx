@@ -238,7 +238,10 @@ function SessionPage({ sessionId, onBack }: { sessionId: string; onBack: () => v
           <Text style={{ color: c.success ?? '#16a34a', fontSize: t.typography.sizeXs }}>{`答对 ${session.data?.correctCount ?? 0}/${questions.length}`}</Text>
         </View>
         <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', lineHeight: 23 }}>
-          {q.content}
+          {(q.content || '').split(/
+(?=[A-D][.、])/)[0].replace(/
+?
+?$$/, '')}
         </Text>
         <View style={{ gap: 8, marginTop: 2 }}>
           {(q.options ?? []).map((opt, i) => {
