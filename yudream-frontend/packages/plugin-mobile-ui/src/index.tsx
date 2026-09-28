@@ -83,9 +83,10 @@ export function useResource<T>(
 
 /* ---------------- 工具 ---------------- */
 
-export function relativeTime(ts?: number | null): string {
-  if (!ts || ts <= 0) return '';
-  const diff = Date.now() - ts;
+export function relativeTime(ts?: number | string | null): string {
+  const n = Number(ts);
+  if (!ts || !Number.isFinite(n) || n <= 0) return '';
+  const diff = Date.now() - n;
   const m = 60_000;
   const h = 60 * m;
   const d = 24 * h;
@@ -97,9 +98,10 @@ export function relativeTime(ts?: number | null): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function formatDateTime(ts?: number | null): string {
-  if (!ts || ts <= 0) return '';
-  const date = new Date(ts);
+export function formatDateTime(ts?: number | string | null): string {
+  const num = Number(ts);
+  if (!ts || !Number.isFinite(num) || num <= 0) return '';
+  const date = new Date(num);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
