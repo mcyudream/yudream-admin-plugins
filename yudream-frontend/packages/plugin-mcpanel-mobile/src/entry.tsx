@@ -341,6 +341,7 @@ function McpanelApp({ initialRoute }: { initialRoute?: string }) {
   }, [view]);
 
   const openInstance = (id: string, name: string) => {
+    console.log('[mcpanel-debug] openInstance', id, name);
     setOpsCtx({ id, name });
     setView({ name: 'instance', id, name });
   };
