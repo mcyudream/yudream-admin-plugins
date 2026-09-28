@@ -4,7 +4,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { FaButton, FaIcon, FaModal, FaTag, FaTextarea, useFaImagePreview, useFaToast } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
 import { createShopApi } from '../api/shop-api'
-import { displayOrderSeller, displayUserName, formatAmount, formatTime, hasDeliveryProof, orderStatusTag, settlementDescription, settlementTag } from '../composables/utils'
+import { displayOrderSeller, displayUserName, formatAmount, formatTime, hasDeliveryProof, hasOrderTradeFee, orderSellerAmount, orderStatusTag, settlementDescription, settlementTag } from '../composables/utils'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -43,6 +43,10 @@ const cancelReason = ref('')
 const proofFullUrls = computed(() => (props.order?.deliveryProofs ?? []).map(url => props.sdk.files.assetUrl(url)))
 const proofThumbUrls = computed(() => (props.order?.deliveryProofs ?? []).map(url => props.sdk.files.thumbUrl(url, { maxEdge: 240 })))
 const hasVoucher = computed(() => hasDeliveryProof(props.order))
+
+/** 只有真正收过交易手续费的订单（玩家市场）才显示手续费与卖家实收两行 */
+const tradeFeeApplied = computed(() => hasOrderTradeFee(props.order))
+const sellerReceived = computed(() => orderSellerAmount(props.order))
 
 /** 发货中且已有凭证（文本或图片）的订单出现核验入口；已核验或无凭证不显示 */
 const canVerify = computed(() =>
@@ -162,6 +166,13 @@ async function submitCancel() {
         <div class="shop-order-detail-grid">
           <span class="shop-order-detail-label">金额</span>
           <span>{{ formatAmount(order.totalAmount) }} {{ order.assetCode }}（单价 {{ formatAmount(order.price) }} × {{ order.quantity }}）</span>
+          <template v-if="tradeFeeApplied">
+            <span class="shop-order-detail-label">交易手续费</span>
+            <span>
+              {{ formatAmount(order.feeAmount) }} {{ order.assetCode }}
+              <span class="text-xs text-muted-foreground">（卖家实收 {{ formatAmount(sellerReceived) }} {{ order.assetCode }}，退款时手续费一并退回买家）</span>
+            </span>
+          </template>
           <span class="shop-order-detail-label">结算方式</span>
           <span class="flex flex-wrap items-center gap-2">
             <FaTag :variant="settlementTag(order.settlement).variant">

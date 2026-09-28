@@ -19,6 +19,7 @@ import online.yudream.base.plugin.shop.interfaces.res.ShopProductTypeRes;
 import online.yudream.base.plugin.shop.interfaces.res.ShopUserRes;
 import online.yudream.base.plugin.shop.interfaces.res.ShopVariantRes;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class ShopWebAssembler {
@@ -99,6 +100,7 @@ public class ShopWebAssembler {
     /**
      * 订单视图。deliveryContent 仅买家本人或管理员视角可见；发货凭证对所有相关方可见。
      * sellerLabel 用于没有卖家账号的消耗式订单（归属展示名，可在商店设置里改成任意名称或留空隐藏）。
+     * feeAmount/sellerAmount 为玩家市场订单的交易手续费与卖家实收（十进制字符串，无手续费时为 0 与成交额）。
      */
     public ShopOrderRes toRes(ShopOrder order, ShopUserRes buyer, ShopUserRes seller, boolean includeContent) {
         return new ShopOrderRes(order.id(), order.productId(), order.productTitle(), order.productImage(),
@@ -106,12 +108,19 @@ public class ShopWebAssembler {
                 order.settlement().name(), buyer, seller, sellerLabel(order),
                 order.assetCode(), order.price(), order.variantId(), order.variantName(),
                 order.quantity(), order.totalAmount(),
+                decimal(order.feeAmount()),
+                decimal(order.sellerAmount() == null ? order.totalAmount() : order.sellerAmount()),
                 order.status().name(), order.status().label(), order.walletTransactionId(),
                 order.refundTransactionId(), order.deliveryMessage(),
                 includeContent ? order.deliveryContent() : null,
                 order.deliveryVoucher(), order.deliveryProofs(), order.cancellableByBuyer(),
                 order.verifiedAt() != null,
                 order.createdAt(), order.paidAt(), order.deliveredAt());
+    }
+
+    /** 金额统一按十进制字符串出参（前端按字符串展示，避免二进制浮点尾数）。 */
+    private String decimal(BigDecimal value) {
+        return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
 
     /** 消耗式订单没有卖家账号：给出设置里的官方展示名（留空则不显示归属行）。 */

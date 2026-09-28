@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-playtime-points</artifactId>
-    <version>1.0.1</version>
+    <version>1.4.0</version>
 
     <build>
         <resources>
@@ -44,6 +44,12 @@
         <dependency>
             <groupId>online.yudream.plugins</groupId>
             <artifactId>yudream-plugin-yudream-skin</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- 软依赖：打卡积分联动。运行时缺失/旧版时全链路降级，见 ProviderPorts#projectProgress -->
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-project-progress</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>

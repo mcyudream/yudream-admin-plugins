@@ -1,8 +1,10 @@
 package online.yudream.base.plugin.playtimepoints.infrastructure.repository;
 
+import online.yudream.base.plugin.playtimepoints.domain.aggregate.CheckInReward;
 import online.yudream.base.plugin.playtimepoints.domain.aggregate.PointsSettlement;
 import online.yudream.base.plugin.playtimepoints.domain.aggregate.SettlementState;
 import online.yudream.base.plugin.playtimepoints.domain.repo.PlaytimePointsRepository;
+import online.yudream.base.plugin.playtimepoints.domain.valobj.CheckInRewardCursor;
 import online.yudream.base.plugin.playtimepoints.domain.valobj.PlaytimePointsSettings;
 
 import java.util.ArrayList;
@@ -18,6 +20,8 @@ public class FakePlaytimePointsRepository implements PlaytimePointsRepository {
     private PlaytimePointsSettings settings;
     private final Map<String, SettlementState> states = new LinkedHashMap<>();
     private final Map<String, PointsSettlement> settlements = new LinkedHashMap<>();
+    private final Map<String, CheckInReward> checkInRewards = new LinkedHashMap<>();
+    private CheckInRewardCursor cursor;
 
     @Override
     public Optional<PlaytimePointsSettings> findSettings() {
@@ -62,5 +66,57 @@ public class FakePlaytimePointsRepository implements PlaytimePointsRepository {
 
     public SettlementState state(String stateId) {
         return states.get(stateId);
+    }
+
+    /* ---------- 打卡积分发放 ---------- */
+
+    @Override
+    public Optional<CheckInRewardCursor> findCheckInRewardCursor() {
+        return Optional.ofNullable(cursor);
+    }
+
+    @Override
+    public void saveCheckInRewardCursor(CheckInRewardCursor cursor) {
+        this.cursor = cursor;
+    }
+
+    @Override
+    public Optional<CheckInReward> findCheckInReward(String checkInId) {
+        return Optional.ofNullable(checkInRewards.get(checkInId));
+    }
+
+    @Override
+    public void saveCheckInReward(CheckInReward reward) {
+        checkInRewards.put(reward.checkInId(), reward);
+    }
+
+    @Override
+    public CheckInRewardPage checkInRewards(String projectId, String userId, int page, int size) {
+        List<CheckInReward> matched = ordered(projectId, userId);
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        int from = Math.min((safePage - 1) * safeSize, matched.size());
+        int to = Math.min(from + safeSize, matched.size());
+        return new CheckInRewardPage(matched.subList(from, to), matched.size());
+    }
+
+    @Override
+    public List<CheckInReward> allCheckInRewards(String userId) {
+        return ordered(null, userId);
+    }
+
+    /** 与文档仓储一致：按验收通过时间倒序、同时间按打卡记录 id 倒序。 */
+    private List<CheckInReward> ordered(String projectId, String userId) {
+        return new ArrayList<>(checkInRewards.values()).stream()
+                .filter(item -> projectId == null || projectId.equals(item.projectId()))
+                .filter(item -> userId == null || userId.equals(item.userId()))
+                .sorted(Comparator.comparingLong(CheckInReward::acceptedAt).reversed()
+                        .thenComparing(CheckInReward::checkInId, Comparator.reverseOrder()))
+                .toList();
+    }
+
+    /** 测试辅助：某条打卡的发放金额（十进制字符串）。 */
+    public String checkInRewardPoints(String checkInId) {
+        return findCheckInReward(checkInId).map(CheckInReward::points).orElse(null);
     }
 }

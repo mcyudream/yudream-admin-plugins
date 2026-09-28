@@ -102,7 +102,7 @@
 
 @media (min-width: 640px) {
   .ptp-stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 }
 
@@ -166,10 +166,113 @@
   min-width: 720px;
 }
 
+.ptp-table-w740 {
+  min-width: 740px;
+}
+
+.ptp-table-w800 {
+  min-width: 800px;
+}
+
+.ptp-table-w1030 {
+  min-width: 1030px;
+}
+
+.ptp-table-w1700 {
+  min-width: 1700px;
+}
+
+.ptp-table-w900 {
+  min-width: 900px;
+}
+
 .ptp-table-w1000 {
   min-width: 1000px;
 }
 
 .ptp-table-w1240 {
   min-width: 1240px;
+}
+
+.ptp-table-w1360 {
+  min-width: 1360px;
+}
+
+.ptp-table-w1400 {
+  min-width: 1400px;
+}
+
+/* 服务器 / 子服设置行 */
+
+.ptp-name-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ptp-name-text {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--color-text-1);
+  overflow-wrap: anywhere;
+}
+
+.ptp-key-text {
+  font-size: 12px;
+  color: var(--color-text-3);
+  overflow-wrap: anywhere;
+}
+
+/* 结算流水的子服拆分 */
+
+.ptp-sub-list {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ptp-sub-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.ptp-sub-name {
+  font-weight: 600;
+  color: var(--color-text-1);
+  overflow-wrap: anywhere;
+}
+
+.ptp-sub-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-text-3);
+}
+
+.ptp-sub-points {
+  color: var(--color-text-2);
+}
+
+.ptp-sub-empty {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+/* 打卡积分的折算说明（固定金额 / 有效在线时长 × 时薪；跳过时是中文原因） */
+
+.ptp-calc-text {
+  display: block;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--color-text-2);
+  overflow-wrap: anywhere;
+}
+
+.ptp-calc-skipped {
+  color: var(--color-text-3);
 }

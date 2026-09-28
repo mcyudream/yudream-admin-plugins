@@ -3,6 +3,7 @@ package online.yudream.base.plugin.shop.infrastructure.repository;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopOrder;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopOrderStatus;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopTradeFeePayee;
 import online.yudream.base.plugin.shop.infrastructure.support.DocumentSupport;
 import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 
@@ -89,6 +90,10 @@ public class ShopOrderRepository {
         document.put("price", order.price() == null ? null : order.price().toPlainString());
         document.put("quantity", order.quantity());
         document.put("totalAmount", order.totalAmount() == null ? null : order.totalAmount().toPlainString());
+        document.put("feeAmount", order.feeAmount() == null ? null : order.feeAmount().toPlainString());
+        document.put("sellerAmount", order.sellerAmount() == null ? null : order.sellerAmount().toPlainString());
+        document.put("feePayee", order.feePayee() == null ? null : order.feePayee().name());
+        document.put("feePayeeUserId", order.feePayeeUserId());
         document.put("variantId", order.variantId());
         document.put("variantName", order.variantName());
         document.put("status", order.status().name());
@@ -107,6 +112,7 @@ public class ShopOrderRepository {
     }
 
     private ShopOrder toOrder(Map<String, Object> document) {
+        // 旧文档没有 feeAmount / sellerAmount / feePayee 字段：聚合的紧凑构造按「手续费 0、卖家实收 = 成交额」补齐。
         return new ShopOrder(
                 stringValue(document.get("id")),
                 stringValue(document.get("productId")),
@@ -120,6 +126,10 @@ public class ShopOrderRepository {
                 decimalValue(document.get("price")),
                 intValue(document.get("quantity"), 1),
                 decimalValue(document.get("totalAmount")),
+                decimalValue(document.get("feeAmount")),
+                decimalValue(document.get("sellerAmount")),
+                ShopTradeFeePayee.from(stringValue(document.get("feePayee"))),
+                stringValue(document.get("feePayeeUserId")),
                 stringValue(document.get("variantId")),
                 stringValue(document.get("variantName")),
                 parseStatus(document.get("status")),

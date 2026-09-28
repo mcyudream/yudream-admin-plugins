@@ -170,6 +170,30 @@ export function settlementDescription(settlement?: string | null) {
     : '转账式结算：买家支付后货款经钱包转给卖家。'
 }
 
+/** 订单是否收取过玩家市场交易手续费（旧订单、官方消耗类订单与未收费订单为 false）。 */
+export function hasOrderTradeFee(order?: { feeAmount?: string | number | null } | null) {
+  const fee = Number(order?.feeAmount ?? 0)
+  return Number.isFinite(fee) && fee > 0
+}
+
+/** 手续费金额（没有手续费时为 0）。 */
+export function orderTradeFee(order?: { feeAmount?: string | number | null } | null) {
+  const fee = Number(order?.feeAmount ?? 0)
+  return Number.isFinite(fee) ? fee : 0
+}
+
+/** 卖家实收：订单未带 sellerAmount（旧订单）时退化为成交额。 */
+export function orderSellerAmount(order?: { totalAmount?: string | number | null, sellerAmount?: string | number | null } | null) {
+  if (order?.sellerAmount !== null && order?.sellerAmount !== undefined && order.sellerAmount !== '') {
+    const seller = Number(order.sellerAmount)
+    if (Number.isFinite(seller)) {
+      return seller
+    }
+  }
+  const total = Number(order?.totalAmount ?? 0)
+  return Number.isFinite(total) ? total : 0
+}
+
 /** 商品类型展示名：内置积分兑换类型即使缺少 typeDisplayName 也显示「积分兑换」 */
 export function productTypeLabel(type?: string | null, typeDisplayName?: string | null) {
   if (typeDisplayName) {

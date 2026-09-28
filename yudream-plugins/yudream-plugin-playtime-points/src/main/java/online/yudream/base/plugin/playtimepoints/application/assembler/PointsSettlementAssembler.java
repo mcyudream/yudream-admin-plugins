@@ -1,8 +1,10 @@
 package online.yudream.base.plugin.playtimepoints.application.assembler;
 
 import online.yudream.base.plugin.playtimepoints.application.dto.SettlementView;
+import online.yudream.base.plugin.playtimepoints.application.dto.SubSettlementView;
 import online.yudream.base.plugin.playtimepoints.domain.aggregate.PointsSettlement;
 import online.yudream.base.plugin.playtimepoints.domain.service.PointsCalculator;
+import online.yudream.base.plugin.playtimepoints.domain.valobj.SubSettlement;
 
 public final class PointsSettlementAssembler {
 
@@ -26,6 +28,19 @@ public final class PointsSettlementAssembler {
                 PointsCalculator.plain(PointsCalculator.parseCarry(settlement.points())),
                 PointsCalculator.plain(PointsCalculator.parseCarry(settlement.credited())),
                 settlement.assetCode(),
-                settlement.createdAt());
+                settlement.createdAt(),
+                settlement.subServers().stream().map(PointsSettlementAssembler::toSubView).toList());
+    }
+
+    public static SubSettlementView toSubView(SubSettlement sub) {
+        return new SubSettlementView(
+                sub.subServer(),
+                sub.onlineMillis(),
+                sub.afkMillis(),
+                sub.effectiveMillis(),
+                Math.max(0L, sub.effectiveMillis()) / 60_000,
+                sub.weight(),
+                PointsCalculator.plain(PointsCalculator.parseCarry(sub.points())),
+                sub.enabled());
     }
 }
