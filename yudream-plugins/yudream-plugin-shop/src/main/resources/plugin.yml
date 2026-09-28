@@ -1,1 +1,18 @@
 version: 1.3.0
+
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 积分商城
+  description: 逛商城、买商品、管订单
+  icon: cart-outline
+  home:
+    cards:
+      - id: main
+        title: 积分商城
+        description: 逛商城、买商品、管订单
+        icon: cart-outline
+        route: /plaza

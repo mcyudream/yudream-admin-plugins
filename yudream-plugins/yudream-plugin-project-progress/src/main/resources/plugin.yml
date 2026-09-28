@@ -1,1 +1,17 @@
 version: 1.6.0
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 项目任务
+  description: 打卡、任务与验收
+  icon: list-checks-outline
+  home:
+    cards:
+      - id: main
+        title: 我的任务
+        description: 打卡、任务与验收
+        icon: list-checks-outline
+        route: /tasks

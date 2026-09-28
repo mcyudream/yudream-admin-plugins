@@ -181,6 +181,43 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
+  packages/plugin-edu-verify-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/plugin-forum:
     dependencies:
       '@yudream/components':
@@ -220,6 +257,9 @@ importers:
       '@ronradtke/react-native-markdown-display':
         specifier: ^9.0.3
         version: 9.0.3(@react-native/assets-registry@0.76.6)(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
       '@yudream/plugin-sdk-mobile':
         specifier: workspace:*
         version: link:../plugin-sdk-mobile
@@ -357,6 +397,43 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
+  packages/plugin-mc-news-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/plugin-mc-pet:
     dependencies:
       '@yudream/components':
@@ -424,6 +501,46 @@ importers:
       vue-tsc:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
+
+  packages/plugin-mc-wiki-mobile:
+    dependencies:
+      '@ronradtke/react-native-markdown-display':
+        specifier: ^9.0.3
+        version: 9.0.3(@react-native/assets-registry@0.76.6)(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/plugin-mcguess:
     dependencies:
@@ -539,6 +656,43 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
+  packages/plugin-minecraft-activity-proof-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/plugin-minecraft-server:
     dependencies:
       '@yudream/components':
@@ -578,6 +732,28 @@ importers:
       vue-tsc:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
+
+  packages/plugin-mobile-ui:
+    dependencies:
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/plugin-neco-pixel:
     dependencies:
@@ -715,6 +891,43 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
+  packages/plugin-project-progress-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/plugin-qq-binding:
     dependencies:
       '@yudream/components':
@@ -805,6 +1018,43 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
+  packages/plugin-questionbank-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/plugin-sdk-mobile:
     dependencies:
       react:
@@ -854,6 +1104,43 @@ importers:
       vue-tsc:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
+
+  packages/plugin-shop-mobile:
+    dependencies:
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
+      '@yudream/plugin-sdk-mobile':
+        specifier: workspace:*
+        version: link:../plugin-sdk-mobile
+    devDependencies:
+      '@callstack/repack':
+        specifier: ^5.3.0
+        version: 5.3.0(@babel/core@7.29.7)(@module-federation/enhanced@0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1))(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(webpack@5.111.1)
+      '@module-federation/enhanced':
+        specifier: 0.8.9
+        version: 0.8.9(@rspack/core@1.7.12(@swc/helpers@0.5.23))(react-dom@19.3.0(react@18.3.1))(react@18.3.1)(typescript@6.0.3)(vue-tsc@3.3.11(typescript@6.0.3))(webpack@5.111.1)
+      '@rspack/cli':
+        specifier: ^2.2.7
+        version: 2.2.7(@rspack/core@1.7.12(@swc/helpers@0.5.23))
+      '@rspack/core':
+        specifier: ^1.2.0
+        version: 1.7.12(@swc/helpers@0.5.23)
+      '@swc/helpers':
+        specifier: ^0.5.23
+        version: 0.5.23
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.31
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-native:
+        specifier: 0.76.6
+        version: 0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/plugin-timeline:
     dependencies:
@@ -1183,6 +1470,12 @@ importers:
 
   packages/plugin-yudream-skin-mobile:
     dependencies:
+      '@ronradtke/react-native-markdown-display':
+        specifier: ^9.0.3
+        version: 9.0.3(@react-native/assets-registry@0.76.6)(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
+      '@yudream/plugin-mobile-ui':
+        specifier: workspace:*
+        version: link:../plugin-mobile-ui
       '@yudream/plugin-sdk-mobile':
         specifier: workspace:*
         version: link:../plugin-sdk-mobile
@@ -3544,16 +3837,8 @@ packages:
     resolution: {integrity: sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw==}
     engines: {node: '>=6'}
 
-  ansi-regex@5.0.0:
-    resolution: {integrity: sha512-bY6fj56OUQ0hU1KjFNDQuJFezqKdrAyFdIevADiqrWHwSlbmBNMHp5ak2f40Pm8JTFyM2mqxkG6ngkHO11f/lg==}
-    engines: {node: '>=8'}
-
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
-    engines: {node: '>=8'}
-
-  ansi-styles@4.0.0:
-    resolution: {integrity: sha512-8zjUtFJ3db/QoPXuuEMloS2AUf79/yeyttJ7Abr3hteopJu9HK8vsgGviGUMq+zyA6cZZO6gAyZoMTF6TgaEjA==}
     engines: {node: '>=8'}
 
   ansi-styles@4.3.0:
@@ -9787,13 +10072,7 @@ snapshots:
 
   ansi-colors@4.1.3: {}
 
-  ansi-regex@5.0.0: {}
-
   ansi-regex@5.0.1: {}
-
-  ansi-styles@4.0.0:
-    dependencies:
-      color-convert: 2.0.1
 
   ansi-styles@4.3.0:
     dependencies:
@@ -10112,7 +10391,7 @@ snapshots:
 
   cliui@8.0.1:
     dependencies:
-      string-width: 4.2.0
+      string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
@@ -12087,8 +12366,8 @@ snapshots:
   pretty-format@26.6.2:
     dependencies:
       '@jest/types': 26.6.2
-      ansi-regex: 5.0.0
-      ansi-styles: 4.0.0
+      ansi-regex: 5.0.1
+      ansi-styles: 4.3.0
       react-is: 17.0.2
 
   pretty-format@28.1.3:
@@ -12185,7 +12464,7 @@ snapshots:
       '@react-native/virtualized-lists': 0.76.6(@types/react@18.3.31)(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
       abort-controller: 3.0.0
       anser: 1.4.10
-      ansi-regex: 5.0.0
+      ansi-regex: 5.0.1
       babel-jest: 29.7.0(@babel/core@7.29.7)
       babel-plugin-syntax-hermes-parser: 0.23.1
       base64-js: 1.5.1
@@ -12585,7 +12864,7 @@ snapshots:
 
   strip-ansi@6.0.0:
     dependencies:
-      ansi-regex: 5.0.0
+      ansi-regex: 5.0.1
 
   strip-ansi@6.0.1:
     dependencies:
@@ -13054,15 +13333,15 @@ snapshots:
 
   wrap-ansi@6.2.0:
     dependencies:
-      ansi-styles: 4.0.0
-      string-width: 4.2.0
-      strip-ansi: 6.0.0
+      ansi-styles: 4.3.0
+      string-width: 4.2.3
+      strip-ansi: 6.0.1
 
   wrap-ansi@7.0.0:
     dependencies:
-      ansi-styles: 4.0.0
-      string-width: 4.2.0
-      strip-ansi: 6.0.0
+      ansi-styles: 4.3.0
+      string-width: 4.2.3
+      strip-ansi: 6.0.1
 
   wrappy@1.0.2: {}
 
