@@ -269,6 +269,11 @@ public class ActivityProofHttpFacade {
         return downloadResponse(appService.downloadMyStampedPdf(pathSegment(request.path(), 2), currentUserId(request)), "application/pdf");
     }
 
+    /** 移动端通道：base64 内嵌返回盖章 PDF（SDK 无授权文件下载能力）。 */
+    public PluginHttpResponse myStampedPdfBase64(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.stampedPdfBase64(pathSegment(request.path(), 2), currentUserId(request)));
+    }
+
     // ---------------------------------------------------------------- internals
 
     private PluginHttpResponse downloadResponse(ActivityProofDownloadDTO download, String defaultContentType) {

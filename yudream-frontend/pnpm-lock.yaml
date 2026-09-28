@@ -713,6 +713,9 @@ importers:
       '@yudream/plugin-sdk-mobile':
         specifier: workspace:*
         version: link:../plugin-sdk-mobile
+      react-native-fs:
+        specifier: ^2.20.0
+        version: 2.20.0(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))
     devDependencies:
       '@callstack/repack':
         specifier: ^5.3.0
