@@ -1,0 +1,416 @@
+{
+  "id": "shop",
+  "name": "shop",
+  "metaData": {
+    "name": "shop",
+    "type": "app",
+    "buildInfo": {
+      "buildVersion": "1.0.0",
+      "buildName": "@yudream/plugin-shop-mobile"
+    },
+    "remoteEntry": {
+      "name": "remoteEntry.js",
+      "path": "",
+      "type": "global"
+    },
+    "types": {
+      "path": "",
+      "name": "",
+      "zip": "",
+      "api": ""
+    },
+    "globalName": "shop",
+    "pluginVersion": "0.8.9",
+    "prefetchInterface": false,
+    "publicPath": ""
+  },
+  "shared": [
+    {
+      "id": "shop:@react-native/assets-registry/path-support",
+      "requiredVersion": "^0.76.6",
+      "name": "@react-native/assets-registry/path-support",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:@react-native/assets-registry/registry",
+      "requiredVersion": "^0.76.6",
+      "name": "@react-native/assets-registry/registry",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:@react-native/normalize-colors",
+      "requiredVersion": "^0.76.6",
+      "name": "@react-native/normalize-colors",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:@react-native/virtualized-lists",
+      "requiredVersion": "^0.76.6",
+      "name": "@react-native/virtualized-lists",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/Image/AssetRegistry",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/Image/AssetRegistry",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/Image/AssetSourceResolver",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/Image/AssetSourceResolver",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/NativeComponent/NativeComponentRegistry",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/NativeComponent/NativeComponentRegistry",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/NativeComponent/ViewConfigIgnore",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/NativeComponent/ViewConfigIgnore",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/ReactNative/RendererProxy",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/ReactNative/RendererProxy",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/ReactPrivate/ReactNativePrivateInitializeCore",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/ReactPrivate/ReactNativePrivateInitializeCore",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/ReactPrivate/ReactNativePrivateInterface",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/ReactPrivate/ReactNativePrivateInterface",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/StyleSheet/processColor",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/StyleSheet/processColor",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/Libraries/StyleSheet/processColorArray",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/Libraries/StyleSheet/processColorArray",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "id": "shop:react-native/src/private/featureflags/ReactNativeFeatureFlags",
+      "requiredVersion": "^0.76.6",
+      "name": "react-native/src/private/featureflags/ReactNativeFeatureFlags",
+      "version": "0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": []
+    },
+    {
+      "singleton": true,
+      "requiredVersion": "^0.76.6",
+      "shareScope": "default",
+      "eager": true,
+      "name": "react-native",
+      "version": "0.76.6",
+      "id": "shop:react-native",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": [
+        "./module"
+      ]
+    },
+    {
+      "singleton": true,
+      "requiredVersion": "18.3.1",
+      "shareScope": "default",
+      "eager": true,
+      "name": "react",
+      "version": "18.3.1",
+      "id": "shop:react",
+      "assets": {
+        "js": {
+          "async": [
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      },
+      "usedIn": [
+        "./module"
+      ]
+    }
+  ],
+  "remotes": [],
+  "exposes": [
+    {
+      "path": "./module",
+      "id": "shop:module",
+      "name": "module",
+      "requires": [
+        "react",
+        "react-native"
+      ],
+      "file": "src\\entry.tsx",
+      "assets": {
+        "js": {
+          "sync": [
+            "__federation_expose_module.js"
+          ],
+          "async": []
+        },
+        "css": {
+          "sync": [],
+          "async": []
+        }
+      }
+    }
+  ]
+}

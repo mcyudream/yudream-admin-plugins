@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/shop</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-shop-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/shop</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 
