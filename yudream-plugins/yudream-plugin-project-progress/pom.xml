@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/project-progress</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-project-progress-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/project-progress</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 
