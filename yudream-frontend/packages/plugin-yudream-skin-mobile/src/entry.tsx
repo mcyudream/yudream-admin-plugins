@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Chip, Empty, Loading, Screen, Tile, UiProvider, useResource,
+  Badge, Card, Chip, Empty, Loading, Screen, Tile, UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -186,7 +186,7 @@ function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
 
 /* ---------------- 衣柜与材质 ---------------- */
 
-function SkinCloset({ onBack }: { onBack: () => void }) {
+function SkinCloset() {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
@@ -247,7 +247,6 @@ function SkinCloset({ onBack }: { onBack: () => void }) {
 
   return (
     <Screen>
-      <BackRow onBack={onBack} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Chip label="我的材质" active={tab === 'textures'} onPress={() => setTab('textures')} />
         <Chip label="衣柜皮肤" active={tab === 'closet'} onPress={() => setTab('closet')} />
@@ -335,11 +334,12 @@ function SkinApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>(initialRoute === '/closet' ? { name: 'closet' } : { name: 'home' });
   useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'home' ? '我的角色' : '衣柜与材质');
+    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setView({ name: 'home' }));
   }, [view, initialRoute]);
   return view.name === 'home' ? (
     <SkinHome onOpenCloset={() => setView({ name: 'closet' })} />
   ) : (
-    <SkinCloset onBack={() => setView({ name: 'home' })} />
+    <SkinCloset />
   );
 }
 

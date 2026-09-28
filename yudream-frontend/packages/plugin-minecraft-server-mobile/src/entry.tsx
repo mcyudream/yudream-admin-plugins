@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Empty, InfoRows, Loading, Screen, SectionTitle,
+  Badge, Card, Empty, InfoRows, Loading, Screen, SectionTitle,
   UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
@@ -134,7 +134,7 @@ function ServerList({ onOpen }: { onOpen: (s: ServerRow) => void }) {
 
 /* ---------------- 服务器详情 ---------------- */
 
-function ServerDetail({ server, onBack }: { server: ServerRow; onBack: () => void }) {
+function ServerDetail({ server }: { server: ServerRow }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
@@ -155,7 +155,6 @@ function ServerDetail({ server, onBack }: { server: ServerRow; onBack: () => voi
 
   return (
     <Screen>
-      <BackRow onBack={onBack} />
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? (c.success ?? '#16a34a') : c.textTertiary }} />
@@ -224,16 +223,12 @@ function ServerApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>({ name: 'list' });
   useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'list' ? 'MC 服务器' : '服务器详情');
+    currentSdk?.navigation?.setBackAction?.(view.name === 'list' ? null : () => setView({ name: 'list' }));
   }, [view, initialRoute]);
   return view.name === 'list' ? (
     <ServerList onOpen={(s) => setView({ name: 'detail', server: s })} />
   ) : (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-        <BackRow onBack={() => setView({ name: 'list' })} />
-      </View>
-      <ServerDetail server={view.server} onBack={() => setView({ name: 'list' })} />
-    </View>
+    <ServerDetail server={view.server} />
   );
 }
 

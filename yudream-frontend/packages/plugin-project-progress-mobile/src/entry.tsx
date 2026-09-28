@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Empty, Loading, Screen, SectionTitle, StatTile,
+  Badge, Card, Empty, Loading, Screen, SectionTitle, StatTile,
   UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
@@ -267,18 +267,14 @@ function ProgressApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>(initialRoute === '/acceptance' ? { name: 'acceptance' } : { name: 'mine' });
   useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'mine' ? '我的任务' : '验收审批');
+    currentSdk?.navigation?.setBackAction?.(view.name === 'mine' ? null : () => setView({ name: 'mine' }));
   }, [view, initialRoute]);
   return view.name === 'mine' ? (
     <View style={{ flex: 1 }}>
       <ProgressMine onOpenAcceptance={() => setView({ name: 'acceptance' })} />
     </View>
   ) : (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-        <BackRow onBack={() => setView({ name: 'mine' })} />
-      </View>
-      <AcceptanceAdmin />
-    </View>
+    <AcceptanceAdmin />
   );
 }
 

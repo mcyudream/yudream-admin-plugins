@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Empty, Loading, ProgressBar, Screen, SectionTitle,
+  Badge, Card, Empty, Loading, ProgressBar, Screen, SectionTitle,
   UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
@@ -157,7 +157,7 @@ function ActivitySquare({ onOpen }: { onOpen: (a: ActivityRow) => void }) {
 
 /* ---------------- 活动详情 ---------------- */
 
-function ActivityDetail({ activity, onBack }: { activity: ActivityRow; onBack: () => void }) {
+function ActivityDetail({ activity }: { activity: ActivityRow }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
@@ -179,7 +179,6 @@ function ActivityDetail({ activity, onBack }: { activity: ActivityRow; onBack: (
 
   return (
     <Screen>
-      <BackRow onBack={onBack} />
       {a.coverUrl ? (
         <Image
           source={{ uri: `${sdk.baseUrl}${a.coverUrl}` }}
@@ -263,16 +262,12 @@ function ActivityApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>({ name: 'square' });
   useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'square' ? '活动广场' : '活动详情');
+    currentSdk?.navigation?.setBackAction?.(view.name === 'square' ? null : () => setView({ name: 'square' }));
   }, [view, initialRoute]);
   return view.name === 'square' ? (
     <ActivitySquare onOpen={(a) => setView({ name: 'detail', activity: a })} />
   ) : (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-        <BackRow onBack={() => setView({ name: 'square' })} />
-      </View>
-      <ActivityDetail activity={view.activity} onBack={() => setView({ name: 'square' })} />
-    </View>
+    <ActivityDetail activity={view.activity} />
   );
 }
 

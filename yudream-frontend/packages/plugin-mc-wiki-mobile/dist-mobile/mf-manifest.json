@@ -33,6 +33,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -54,6 +55,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -75,6 +77,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -96,6 +99,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -117,6 +121,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -138,6 +143,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -159,6 +165,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -180,6 +187,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -201,6 +209,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -222,6 +231,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -243,6 +253,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -264,6 +275,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -285,6 +297,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -306,6 +319,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -328,6 +342,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -350,6 +365,7 @@
       "assets": {
         "js": {
           "async": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "sync": [
@@ -372,6 +388,7 @@
       "assets": {
         "js": {
           "sync": [
+            "290.js",
             "__federation_expose_module.js"
           ],
           "async": []

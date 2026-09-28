@@ -1,12 +1,15 @@
+/// <reference path="./vector-icons.d.ts" />
 /**
  * @yudream/plugin-mobile-ui —— 官方插件移动端共享 UI kit（FaTheme0 视觉）。
  *
  * 组件只消费宿主注入的 PluginMobileSdk.theme 语义 token，禁止写死色值；
  * 与宿主设计稿同构：卡片 r14、细描边、主色强调、胶囊徽章、§Section 分节。
  * react / react-native / @yudream/plugin-sdk-mobile 由宿主 MF shared 单例注入，
- * 本包不引入其它运行时依赖（无图标库；容器原生头已处理顶部安全区）。
+ * 依赖仅 react-native-vector-icons（图标字体由宿主 APK 内置，渲染为纯 Text）。
+ * 容器原生头已处理顶部安全区。
  */
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
   ActivityIndicator,
   Image,
@@ -770,4 +773,51 @@ export function BackRow({ onBack }: { onBack: () => void }) {
       <Text style={{ color: theme.colors.textPrimary, fontSize: 26, fontWeight: '600', marginTop: -4 }}>{'‹'}</Text>
     </Pressable>
   );
+}
+
+/* ---------------- 统一线性图标 ---------------- */
+
+/**
+ * 统一线性图标（Ionicons）：宿主 APK 经 fonts.gradle 内置图标字体，
+ * 插件内引用只依赖字体族名，渲染为纯 Text，无原生模块依赖。
+ * 设计稿的浏览/评论/点赞/发送等小图标统一走这里，禁止 emoji 拼凑。
+ */
+const ICON_GLYPHS: Record<string, string> = {
+  eye: 'eye-outline',
+  comment: 'chatbubble-ellipses-outline',
+  like: 'heart-outline',
+  likeFilled: 'heart',
+  bookmark: 'bookmark-outline',
+  bookmarkFilled: 'bookmark',
+  send: 'paper-plane-outline',
+  back: 'chevron-back',
+  forward: 'chevron-forward',
+  add: 'add',
+  close: 'close-outline',
+  share: 'share-social-outline',
+  search: 'search-outline',
+  refresh: 'refresh-outline',
+  trash: 'trash-outline',
+  power: 'power-outline',
+  play: 'play-outline',
+  image: 'image-outline',
+  person: 'person-outline',
+  time: 'time-outline',
+  folder: 'folder-open-outline',
+  calendar: 'calendar-outline',
+  checkmark: 'checkmark',
+  settings: 'settings-outline',
+};
+
+export function Icon({
+  name,
+  size = 16,
+  color,
+}: {
+  name: string;
+  size?: number;
+  color?: string;
+}) {
+  const { theme } = useUi();
+  return <Ionicons name={(ICON_GLYPHS[name] ?? name) as never} size={size} color={color ?? theme.colors.textTertiary} />;
 }

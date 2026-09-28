@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Empty, InfoRows, Loading, PrimaryButton, Screen,
+  Badge, Card, Empty, InfoRows, Loading, PrimaryButton, Screen,
   SearchField, SectionTitle, useResource,
 } from '@yudream/plugin-mobile-ui';
 
@@ -171,8 +171,10 @@ function Plaza({ onOpenProduct }: { onOpenProduct: (p: ProductRow) => void }) {
 
 /* ---------------- 商品详情 ---------------- */
 
-function ProductPage({ product, onBack, onOrdered }: { product: ProductRow; onBack: () => void; onOrdered: () => void }) {
+function ProductPage({ product, onOrdered }: { product: ProductRow; onOrdered: () => void }) {
   const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
   const detail = useResource<ProductRow & { typeDisplayName?: string; perUserLimit?: number }>(
     () => sdk.api.request(`${API}/plaza/products/${product.id}`),
     [product.id],
@@ -208,7 +210,6 @@ function ProductPage({ product, onBack, onOrdered }: { product: ProductRow; onBa
 
   return (
     <Screen>
-      <BackRow onBack={onBack} />
       {cover ? (
         <Image
           source={{ uri: `${sdk.baseUrl}${cover}` }}
@@ -345,6 +346,7 @@ function ShopApp({ initialRoute }: { initialRoute?: string }) {
   useEffect(() => {
     const title = view.name === 'plaza' ? '积分商城' : view.name === 'orders' ? '我的订单' : '商品详情';
     currentSdk?.navigation?.setTitle(title);
+    currentSdk?.navigation?.setBackAction?.(view.name === 'plaza' ? null : () => setView({ name: 'plaza' }));
   }, [view, initialRoute]);
 
   const goOrders = () => setView({ name: 'orders' });
@@ -369,12 +371,7 @@ function ShopApp({ initialRoute }: { initialRoute?: string }) {
   ) : view.name === 'product' ? (
     <ProductPage product={view.product} onBack={() => setView({ name: 'plaza' })} onOrdered={goOrders} />
   ) : (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-        <BackRow onBack={() => setView({ name: 'plaza' })} />
-      </View>
-      <Orders />
-    </View>
+    <Orders />
   );
 }
 

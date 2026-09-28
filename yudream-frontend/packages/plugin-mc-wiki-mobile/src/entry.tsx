@@ -252,7 +252,7 @@ function RecipeGrid({ recipe }: { recipe: WikiRecipe }) {
   );
 }
 
-function WikiItemPage({ row, onOpenItem }: { row: WikiItemRow; onBack: () => void; onOpenItem: (r: WikiItemRow) => void }) {
+function WikiItemPage({ row, onOpenItem }: { row: WikiItemRow; onOpenItem: (r: WikiItemRow) => void }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const itemId = encodeURIComponent(row.namespacedId);
@@ -355,6 +355,9 @@ type View_ = { name: 'list' } | { name: 'item'; row: WikiItemRow };
 function WikiApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>({ name: 'list' });
   useEffect(() => setView({ name: 'list' }), [initialRoute]);
+  useEffect(() => {
+    currentSdk?.navigation?.setBackAction?.(view.name === 'list' ? null : () => setView({ name: 'list' }));
+  }, [view]);
   return view.name === 'list' ? (
     <WikiHome onOpenItem={(row) => setView({ name: 'item', row })} />
   ) : (

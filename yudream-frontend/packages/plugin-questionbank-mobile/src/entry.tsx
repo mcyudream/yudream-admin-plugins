@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Badge, Card, Empty, Loading, PrimaryButton, Screen,
+  Badge, Card, Empty, Loading, PrimaryButton, Screen,
   SectionTitle, StatTile, useResource,
 } from '@yudream/plugin-mobile-ui';
 
@@ -155,7 +155,7 @@ function QuizHome({ onOpenSession }: { onOpenSession: (id: string) => void }) {
 
 /* ---------------- 作答页 ---------------- */
 
-function SessionPage({ sessionId, onBack }: { sessionId: string; onBack: () => void }) {
+function SessionPage({ sessionId, onBack }: { sessionId: string; onBack?: () => void }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
@@ -192,7 +192,7 @@ function SessionPage({ sessionId, onBack }: { sessionId: string; onBack: () => v
             .then(() => {
               setSubmitting(false);
               session.reload();
-              Alert.alert('已交卷', '判分结果以练习记录为准', [{ text: '好的', onPress: onBack }]);
+              Alert.alert('已交卷', '判分结果以练习记录为准', onBack ? [{ text: '好的', onPress: onBack }] : [{ text: '好的' }]);
             })
             .catch((e) => {
               setSubmitting(false);
@@ -335,16 +335,12 @@ function QuizApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>({ name: 'home' });
   useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'home' ? '题库练习' : '随机练习');
+    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setView({ name: 'home' }));
   }, [view, initialRoute]);
   return view.name === 'home' ? (
     <QuizHome onOpenSession={(id) => setView({ name: 'session', id })} />
   ) : (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-        <BackRow onBack={() => setView({ name: 'home' })} />
-      </View>
-      <SessionPage sessionId={view.id} onBack={() => setView({ name: 'home' })} />
-    </View>
+    <SessionPage sessionId={view.id} onBack={() => setView({ name: 'home' })} />
   );
 }
 
