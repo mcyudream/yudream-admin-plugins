@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-mcpanel</artifactId>
-    <version>0.19.2</version>
+    <version>0.19.7</version>
 
     <properties>
         <!-- SFTP 网关：内嵌 SSH 服务端/客户端（纯 Java，随插件 shade 进 JAR） -->
