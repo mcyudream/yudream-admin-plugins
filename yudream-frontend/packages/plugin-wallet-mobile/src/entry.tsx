@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  BackRow, Card, Empty, Loading, Screen, SectionTitle, UiProvider, useResource,
+  Badge, Card, Empty, Loading, Screen, SectionTitle, UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -149,7 +149,18 @@ function WalletHome({ onOpenRecharge }: { onOpenRecharge: () => void }) {
 
 /* ---------------- 充值页 ---------------- */
 
-const PRESETS = [6, 30, 68, 128];
+const PRESETS = [6, 30, 68, 128, 328, 648];
+
+interface RechargeOrder {
+  outTradeNo: string;
+  amount?: string | number;
+  status?: string;
+  createdAt?: number | string;
+  paidAt?: number | string;
+}
+const ORDER_STATUS_TEXT: Record<string, string> = {
+  PAID: '成功', CREATED: '待支付', CLOSED: '已关闭',
+};
 
 function RechargePage({ onBack }: { onBack: () => void }) {
   const sdk = useSdk();
@@ -159,8 +170,17 @@ function RechargePage({ onBack }: { onBack: () => void }) {
     () => sdk.api.request(`${API}/me/recharge/options`),
     [sdk],
   );
+  const orders = useResource<{ records?: RechargeOrder[] }>(
+    () => sdk.api.request('/api/plugins/yudream-alipay/me/orders?page=1&size=5').catch(() => ({ records: [] })),
+    [sdk],
+  );
   const channels = (options.data?.channels ?? []).filter((ch) => ch.enabled !== false);
   const rule = (options.data?.rules ?? []).find((r) => r.enabled !== false);
+  const ratio = Number(rule?.ratio ?? 0);
+  const channel = channels[0];
+  const orderList = [...(orders.data?.records ?? [])].sort(
+    (a, b) => Number(b.paidAt ?? b.createdAt ?? 0) - Number(a.paidAt ?? a.createdAt ?? 0),
+  );
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -170,7 +190,6 @@ function RechargePage({ onBack }: { onBack: () => void }) {
       Alert.alert('请选择金额', '先选择充值金额');
       return;
     }
-    const channel = channels[0];
     setBusy(true);
     void sdk.api
       .request(`${API}/me/recharges`, {
@@ -185,6 +204,7 @@ function RechargePage({ onBack }: { onBack: () => void }) {
       .then(() => {
         setBusy(false);
         Alert.alert('订单已创建', '已唤起支付流程，支付完成后到账');
+        orders.reload();
       })
       .catch((e) => {
         setBusy(false);
@@ -194,9 +214,8 @@ function RechargePage({ onBack }: { onBack: () => void }) {
 
   return (
     <Screen>
-      <BackRow onBack={onBack} />
       <SectionTitle title="选择充值金额" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {PRESETS.map((v) => {
           const on = Number(amount) === v;
           return (
@@ -204,40 +223,79 @@ function RechargePage({ onBack }: { onBack: () => void }) {
               key={v}
               onPress={() => setAmount(String(v))}
               style={{
-                flexBasis: '47%', flexGrow: 1, alignItems: 'center', paddingVertical: 14,
+                flexBasis: '30%', flexGrow: 1, alignItems: 'center', paddingVertical: 12, gap: 2,
                 borderRadius: t.radii.md,
                 backgroundColor: on ? c.accent : c.bgSurface,
                 borderWidth: 1, borderColor: on ? c.accent : c.borderSubtle,
               }}
             >
               <Text style={{ color: on ? c.onAccent : c.textPrimary, fontSize: t.typography.sizeMd, fontWeight: '700' }}>
-                ¥ {v}
+                ¥{v}
               </Text>
+              {ratio > 0 ? (
+                <Text style={{ color: on ? c.onAccent : c.textTertiary, fontSize: t.typography.sizeXs }}>
+                  送 {v * ratio} 积分
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
       </View>
 
       <SectionTitle title="支付方式" />
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: c.textPrimary, fontSize: 14 }}>支</Text>
+      {channel ? (
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: c.textPrimary, fontSize: 14 }}>支</Text>
+            </View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>{channel.name || channel.code}</Text>
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>跳转支付宝完成付款</Text>
+            </View>
+            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: c.onAccent, fontSize: t.typography.sizeXs }}>✓</Text>
+            </View>
           </View>
-          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500', flex: 1 }}>支付宝</Text>
-          <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: c.onAccent, fontSize: t.typography.sizeXs }}>✓</Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      ) : (
+        <Empty text="充值渠道未开通" />
+      )}
+
+      <SectionTitle title="充值记录" />
+      {orderList.length === 0 ? <Empty text="暂无充值记录" /> : null}
+      {orderList.length > 0 ? (
+        <Card>
+          {orderList.map((o, i) => {
+            const st = ORDER_STATUS_TEXT[o.status ?? ''] ?? o.status ?? '';
+            const when = Number(o.paidAt ?? o.createdAt ?? 0);
+            return (
+              <View key={o.outTradeNo} style={{ gap: 0 }}>
+                {i > 0 ? <View style={{ height: 1, backgroundColor: c.borderSubtle }} /> : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 }}>
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '600' }}>
+                      ¥{fmtMoney(String(o.amount ?? '0'))}
+                    </Text>
+                    <Text style={{ color: o.status === 'CLOSED' ? (c.danger ?? '#dc2626') : c.textTertiary, fontSize: t.typography.sizeXs }}>
+                      {[st, when ? fmtTime(when) : ''].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  {o.status === 'PAID' ? <Badge text="到账" tone="success" /> : null}
+                </View>
+              </View>
+            );
+          })}
+        </Card>
+      ) : null}
 
       <Pressable
         onPress={pay}
-        disabled={busy}
+        disabled={busy || !channel}
         style={{ height: 48, borderRadius: t.radii.md, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}
       >
         <Text style={{ color: c.onAccent, fontSize: t.typography.sizeMd, fontWeight: '500' }}>
-          {busy ? '处理中…' : '立即充值'}
+          {busy ? '处理中…' : `立即充值${amount ? ` ¥${amount}` : ''}`}
         </Text>
       </Pressable>
     </Screen>
@@ -252,18 +310,15 @@ function WalletApp({ initialRoute }: { initialRoute?: string }) {
   const [view, setView] = useState<View_>({ name: 'home' });
   React.useEffect(() => {
     currentSdk?.navigation?.setTitle(view.name === 'home' ? '钱包' : '充值');
+    // 充值页接管宿主返回键为应用内返回，首页恢复默认退出
+    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setView({ name: 'home' }));
   }, [view, initialRoute]);
   return (
     <UiProvider sdk={currentSdk!}>
       {view.name === 'home' ? (
         <WalletHome onOpenRecharge={() => setView({ name: 'recharge' })} />
       ) : (
-        <View style={{ flex: 1 }}>
-          <View style={{ paddingTop: 12, paddingHorizontal: 20 }}>
-            <BackRow onBack={() => setView({ name: 'home' })} />
-          </View>
-          <RechargePage onBack={() => setView({ name: 'home' })} />
-        </View>
+        <RechargePage onBack={() => setView({ name: 'home' })} />
       )}
     </UiProvider>
   );
