@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/minecraft-server</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-minecraft-server-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/minecraft-server</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
         <plugins>
             <plugin>
