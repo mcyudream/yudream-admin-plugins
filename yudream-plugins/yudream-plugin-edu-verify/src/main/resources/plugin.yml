@@ -22,3 +22,11 @@ mobile:
         description: 待审申请随身审批
         icon: clipboard-outline
         route: /review
+  admin:
+    cards:
+      - id: review
+        title: 认证审核
+        description: 待审申请随身审批
+        icon: school-outline
+        route: /review
+        permission: plugin:edu-verify:manage

@@ -22,3 +22,11 @@ mobile:
         description: 打卡、任务与验收
         icon: checkbox-outline
         route: /tasks
+  admin:
+    cards:
+      - id: acceptance
+        title: 验收审批
+        description: 任务验收的通过与驳回
+        icon: checkmark-done-outline
+        route: /acceptance
+        permission: plugin:project-progress:manage

@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, BackHandler, FlatList, Image, KeyboardAvoidingView, Pressable,
+  ActivityIndicator, Alert, BackHandler, FlatList, Image, KeyboardAvoidingView, Pressable,
   RefreshControl, ScrollView, Text, TextInput, View,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -529,6 +529,7 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
   const bodyRef = useRef<TextInput>(null);
   const selRef = useRef({ start: 0, end: 0 });
 
@@ -622,11 +623,16 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {categories.map((cat) => (
-            <Chip key={cat.id} label={cat.name} active={cat.id === categoryId} onPress={() => setCategoryId(cat.id)} />
-          ))}
-        </View>
+        <Pressable
+          onPress={() => setCatOpen(true)}
+          style={[fieldStyle, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+        >
+          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>分类</Text>
+          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, flex: 1 }}>
+            {categories.find((cat) => cat.id === categoryId)?.name ?? '请选择分类'}
+          </Text>
+          <Icon name="forward" size={14} />
+        </Pressable>
 
         {/* 工具栏：轻量 Markdown 编辑器 */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -703,25 +709,137 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
         </Text>
       </ScrollView>
 
+      {catOpen ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' }}>
+          <Pressable style={{ flex: 1 }} onPress={() => setCatOpen(false)} />
+          <View style={{ backgroundColor: c.bgSurface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: t.spacing.lg, gap: 8, maxHeight: '60%' }}>
+            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '700' }}>选择分类</Text>
+            <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+              {categories.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => { setCategoryId(cat.id); setCatOpen(false); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.borderSubtle }}
+                >
+                  <Text style={{ color: cat.id === categoryId ? c.accent : c.textPrimary, fontSize: t.typography.sizeSm, flex: 1, fontWeight: cat.id === categoryId ? '700' : '400' }}>
+                    {cat.name}
+                  </Text>
+                  {cat.id === categoryId ? <Icon name="checkmark" size={16} color={c.accent} /> : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/* ---------------- 帖子审核（管理入口） ---------------- */
+
+interface PendingPost {
+  id: string;
+  title: string;
+  authorId: string;
+  createdAt?: number | string;
+}
+
+function ModerationPage() {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const [items, setItems] = useState<PendingPost[]>([]);
+  const [authors, setAuthors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState('');
+
+  const load = useCallback(() => {
+    setLoading(true);
+    sdk.api
+      .request<{ records?: PendingPost[] }>(`${API}/admin/posts?status=pending&page=1&size=20`)
+      .then((res) => {
+        const records = res.records ?? [];
+        setItems(records);
+        [...new Set(records.map((r) => r.authorId).filter(Boolean))].forEach((id) => {
+          sdk.api
+            .request<Record<string, unknown>>(`${API}/public/users/${encodeURIComponent(id)}`)
+            .then((u) => setAuthors((prev) => ({ ...prev, [id]: String(u.nickname || u.username || '匿名') })))
+            .catch(() => undefined);
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [sdk]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const moderate = (id: string, status: 'published' | 'rejected') => {
+    if (busyId) return;
+    setBusyId(id);
+    void sdk.api
+      .request(`${API}/admin/posts/${encodeURIComponent(id)}/moderate`, { method: 'POST', body: { status } })
+      .then(() => setItems((prev) => prev.filter((item) => item.id !== id)))
+      .catch((e) => Alert.alert('操作失败', e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusyId(''));
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bgPage }}>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md, paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={c.accent} />}
+        ListEmptyComponent={loading ? <Loading /> : <Empty text="暂无待审帖子" />}
+        renderItem={({ item }) => (
+          <Card>
+            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700', marginBottom: 4 }}>
+              {item.title}
+            </Text>
+            <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1, marginBottom: 10 }}>
+              {authors[item.authorId] ?? '匿名'} · {relativeTime(Number(item.createdAt))}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={() => moderate(item.id, 'published')}
+                disabled={!!busyId}
+                style={{ flex: 1, height: 38, borderRadius: t.radii.md, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: busyId === item.id ? 0.5 : 1 }}
+              >
+                <Text style={{ color: c.onAccent, fontSize: t.typography.sizeSm, fontWeight: '500' }}>通过</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => moderate(item.id, 'rejected')}
+                disabled={!!busyId}
+                style={{ flex: 1, height: 38, borderRadius: t.radii.md, borderWidth: 1, borderColor: c.danger ?? '#dc2626', alignItems: 'center', justifyContent: 'center', opacity: busyId === item.id ? 0.5 : 1 }}
+              >
+                <Text style={{ color: c.danger ?? '#dc2626', fontSize: t.typography.sizeSm, fontWeight: '500' }}>驳回</Text>
+              </Pressable>
+            </View>
+          </Card>
+        )}
+      />
     </View>
   );
 }
 
 /* ---------------- 根组件 ---------------- */
 
-type ForumView = { name: 'list' } | { name: 'detail'; postId: string } | { name: 'compose' };
+type ForumView = { name: 'list' } | { name: 'detail'; postId: string } | { name: 'compose' } | { name: 'admin' };
+
+function parseForumRoute(route?: string): ForumView {
+  const post = route?.match(/^\/posts\/(.+)$/);
+  if (post) return { name: 'detail', postId: post[1] };
+  if (route === '/admin') return { name: 'admin' };
+  return { name: 'list' };
+}
 
 function ForumApp({ initialRoute }: { initialRoute?: string }) {
-  const [view, setView] = useState<ForumView>(() => {
-    const match = initialRoute?.match(/^\/posts\/(.+)$/);
-    return match ? { name: 'detail', postId: match[1] } : { name: 'list' };
-  });
+  const [view, setView] = useState<ForumView>(() => parseForumRoute(initialRoute));
   const [categories, setCategories] = useState<Category[]>([]);
   const [feedKey, setFeedKey] = useState(0);
 
   useEffect(() => {
-    const match = initialRoute?.match(/^\/posts\/(.+)$/);
-    setView(match ? { name: 'detail', postId: match[1] } : { name: 'list' });
+    setView(parseForumRoute(initialRoute));
   }, [initialRoute]);
 
   useEffect(() => {
@@ -732,7 +850,7 @@ function ForumApp({ initialRoute }: { initialRoute?: string }) {
   }, []);
 
   useEffect(() => {
-    const titles = { list: '论坛', detail: '帖子详情', compose: '发帖' } as const;
+    const titles = { list: '论坛', detail: '帖子详情', compose: '发帖', admin: '帖子审核' } as const;
     currentSdk?.navigation?.setTitle(titles[view.name]);
     // 子页接管宿主返回键为应用内返回，列表恢复默认退出
     currentSdk?.navigation?.setBackAction?.(

@@ -32,3 +32,11 @@ mobile:
         description: 我发布与参与的讨论
         icon: document-text-outline
         route: /mine
+  admin:
+    cards:
+      - id: moderation
+        title: 帖子审核
+        description: 待审帖子放行与驳回
+        icon: shield-checkmark-outline
+        route: /admin
+        permission: plugin:forum:manage
