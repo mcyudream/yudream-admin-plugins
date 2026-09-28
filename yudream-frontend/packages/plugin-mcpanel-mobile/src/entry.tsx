@@ -136,7 +136,12 @@ function Overview({ onOpenInstance, onOpenOps }: { onOpenInstance: (id: string, 
             </Card>
           ))}
 
-          <Card onPress={onOpenOps}>
+          <Card
+            onPress={() => {
+              const first = (d.recentInstances ?? [])[0];
+              onOpenOps(first?.id ?? '', first?.name ?? '全部实例');
+            }}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500', flex: 1 }}>
                 备份与计划任务
