@@ -65,3 +65,8 @@ export interface MobilePluginDeclaration {
 }
 
 export const __SDK_VERSION__ = '0.1.0';
+
+export { YdMarkdown, setMarkdownTheme } from './markdown.tsx';
+export type { YdMarkdownProps } from './markdown.tsx';
+
+

@@ -51,6 +51,7 @@ export default (env) => {
       }),
       new Repack.plugins.ModuleFederationPluginV2({
         name: 'forum',
+        dts: false,
         filename: 'remoteEntry.js',
         exposes: {
           './module': './src/entry.tsx',

@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { YdMarkdown } from './markdown';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -56,12 +57,6 @@ function abs(path: string | null | undefined): string {
   if (path.startsWith(http) || path.startsWith(https)) return path;
   const base = (bootSdk ?? currentSdk)!.baseUrl;
   return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
-}
-
-function stripEmphasis(text: string): string {
-  const star = String.fromCharCode(42);
-  const tick = String.fromCharCode(96);
-  return text.split(star + star).join('').split(star).join('').split(tick).join('');
 }
 
 function parseRoute(route?: string): { name: 'list' } | { name: 'detail'; postId: string } {
@@ -419,7 +414,7 @@ function PostDetailScreen({ postId, onBack }: { postId: string; onBack: () => vo
     );
   }
 
-  const paragraphs = post.body.split(/\n+/).map(stripEmphasis).filter((line) => line.trim().length > 0);
+  const body = post.body;
   const author = authors[post.authorId];
 
   return (
@@ -455,20 +450,9 @@ function PostDetailScreen({ postId, onBack }: { postId: string; onBack: () => vo
       >
         {post.title}
       </Text>
-      {paragraphs.map((para, i) => (
-        <Text
-          key={i}
-          style={{
-            color: c.textPrimary,
-            fontSize: t.typography.sizeMd ?? 15,
-            lineHeight: 25,
-            paddingHorizontal: t.spacing.lg,
-            marginTop: t.spacing.sm,
-          }}
-        >
-          {para}
-        </Text>
-      ))}
+      <View style={{ paddingHorizontal: t.spacing.lg, marginTop: t.spacing.xs }}>
+          {post.body ? <YdMarkdown source={post.body} /> : null}
+        </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg, paddingHorizontal: t.spacing.lg, marginTop: t.spacing.lg }}>
         <Pressable
