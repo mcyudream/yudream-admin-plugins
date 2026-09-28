@@ -35,6 +35,8 @@ export interface PluginMobileSdk {
     setTitle(title: string): void;
     /** 显示/隐藏导航栏；隐藏时插件自绘头部并自行处理返回。 */
     setHidden(hidden: boolean): void;
+    /** 接管头部返回键为应用内返回（子页→上一视图）；null 恢复默认退出应用。旧宿主为空实现。 */
+    setBackAction?(action: (() => void) | null): void;
   };
   api: {
     /** 已携带鉴权与 401 刷新重试的站内请求。 */
