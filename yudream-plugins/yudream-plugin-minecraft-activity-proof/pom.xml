@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/minecraft-activity-proof</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-minecraft-activity-proof-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/minecraft-activity-proof</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 

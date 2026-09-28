@@ -3,7 +3,7 @@ displayName: Minecraft 活动平台
 description: 发布和管理 Minecraft 活动，核验参与证明并支持结果导出。
 icon: i-ri:calendar-check-line
 main: online.yudream.base.plugin.activityproof.bootstrap.MinecraftActivityProofPlugin
-version: 2.7.0
+version: 2.7.1
 depend:
   - yudream-student-info
 softdepend:
@@ -11,3 +11,21 @@ softdepend:
   - questionbank
   - yudream-skin
   - ymcl-adapter
+
+# 移动端（YuDream Mobile 宿主）接入声明
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 活动广场
+  description: MC 活动报名与参与证明
+  icon: calendar-outline
+  home:
+    cards:
+      - id: square
+        title: 活动广场
+        description: 报名活动、领取证明
+        icon: flag-outline
+        route: /square
