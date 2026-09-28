@@ -50,6 +50,11 @@
                 <directory>../../yudream-frontend/packages/plugin-mc-news/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/mc-news</targetPath>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-mc-news-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/mc-news</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 </project>
