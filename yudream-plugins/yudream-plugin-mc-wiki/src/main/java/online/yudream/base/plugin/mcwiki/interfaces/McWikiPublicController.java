@@ -20,7 +20,7 @@ public final class McWikiPublicController {
     @PluginHttpEndpoint(method="GET",path="/public/recipes")
     public PluginHttpResponse recipes(PluginHttpRequest request){var page=query.recipes(first(request,"version"),first(request,"keyword"),number(request,"page",1),number(request,"size",24));return PluginHttpResponse.ok(Map.of("records",page.records(),"total",page.total()));}
     @PluginHttpEndpoint(method="GET",path="/public/items")
-    public PluginHttpResponse items(PluginHttpRequest request){var page=query.items(first(request,"version"),first(request,"keyword"),number(request,"page",1),number(request,"size",24));return PluginHttpResponse.ok(Map.of("records",page.records(),"total",page.total()));}
+    public PluginHttpResponse items(PluginHttpRequest request){var page=query.items(first(request,"version"),first(request,"keyword"),first(request,"kind"),number(request,"page",1),number(request,"size",24));return PluginHttpResponse.ok(Map.of("records",page.records(),"total",page.total()));}
     @PluginHttpEndpoint(method="GET",path="/public/items/{itemId}")
     public PluginHttpResponse itemDetail(PluginHttpRequest request){String id=path(request,3);return query.itemDetail(first(request,"version"),id).<PluginHttpResponse>map(PluginHttpResponse::ok).orElseGet(()->PluginHttpResponse.rawJson(404,Map.of("message","物品不存在或尚无已发布版本")));}
     /** 物品贴图详情：背包图标图层、方块面贴图和方块状态 JSON，供详情抽屉预览与自定义尺寸下载。 */

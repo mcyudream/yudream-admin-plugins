@@ -8,9 +8,11 @@
     "build": "rspack build"
   },
   "dependencies": {
+    "@react-native-clipboard/clipboard": "^1.16.3",
+    "@ronradtke/react-native-markdown-display": "^9.0.3",
     "@yudream/plugin-mobile-ui": "workspace:*",
     "@yudream/plugin-sdk-mobile": "workspace:*",
-    "@ronradtke/react-native-markdown-display": "^9.0.3"
+    "react-native-fs": "^2.20.0"
   },
   "devDependencies": {
     "@callstack/repack": "^5.3.0",

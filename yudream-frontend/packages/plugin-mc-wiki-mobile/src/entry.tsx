@@ -1,3 +1,5 @@
+import RNFS from 'react-native-fs';
+import Clipboard from '@react-native-clipboard/clipboard';
 /**
  * mc-wiki 移动端（设计稿 wikiHome / wikiItem）：
  * 物品图鉴（搜索 + 分类 chip + 三列宫格）与物品详情（信息行 + 3×3 合成配方 + 用于合成）。
@@ -8,7 +10,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Chip, Empty, ErrorBox, InfoRows, Loading, Screen,
+  Badge, Card, Chip, Empty, ErrorBox, Icon, Loading, Screen,
   SearchField, SectionTitle, Tile, UiProvider, useResource, asId,
 } from '@yudream/plugin-mobile-ui';
 
@@ -26,6 +28,7 @@ interface WikiItemRow {
   nameEn: string;
   nameZh: string;
   tags?: string[];
+  textureKey?: string;
 }
 interface WikiRecipe {
   id: string;
@@ -35,6 +38,7 @@ interface WikiRecipe {
   ingredients: string[];
   grid?: string[];
   resultNameZh?: string;
+  rawJson?: string | Record<string, unknown>;
 }
 interface ItemDetail {
   item: WikiItemRow;
@@ -76,6 +80,11 @@ function WikiHome({ onOpenItem }: { onOpenItem: (row: WikiItemRow) => void }) {
     [sdk],
   );
 
+  const kindsMeta = useResource<{ kinds?: Record<string, number> }>(
+    () => sdk.api.request(`${API}/public/meta`),
+    [sdk],
+  );
+
   const load = useCallback(
     async (target: number, replace: boolean) => {
       const my = ++req.current;
@@ -83,6 +92,7 @@ function WikiHome({ onOpenItem }: { onOpenItem: (row: WikiItemRow) => void }) {
       try {
         const qs = [`page=${target}`, 'size=24'];
         if (query) qs.push(`keyword=${encodeURIComponent(query)}`);
+        if (kind) qs.push(`kind=${encodeURIComponent(kind)}`);
         if (meta.data?.version) qs.push(`version=${encodeURIComponent(String(meta.data.version))}`);
         const res = await sdk.api.request<{ records?: WikiItemRow[]; total?: number }>(
           `${API}/public/items?${qs.join('&')}`,
@@ -101,14 +111,15 @@ function WikiHome({ onOpenItem }: { onOpenItem: (row: WikiItemRow) => void }) {
         if (my === req.current) { setLoading(false); setMore(false); }
       }
     },
-    [sdk, query, meta.data?.version],
+    [sdk, query, kind, meta.data?.version],
   );
 
   useEffect(() => { void load(1, true); }, [load]);
 
-  // 分类 chips：由当前结果里的 kind 归纳（不写死业务分类）
-  const kinds = Array.from(new Set(items.map((i) => i.kind).filter(Boolean))).slice(0, 6);
-  const shown = kind ? items.filter((i) => i.kind === kind) : items;
+  // 分类 chips：固定三类（物品/方块/生物），计数来自后端 meta.kinds 真实统计
+  const kindCounts = kindsMeta.data?.kinds ?? {};
+  const kinds = ['item', 'block', 'entity'].filter((k) => (kindCounts[k] ?? 0) > 0 || kind === k);
+  const shown = items;
 
   return (
     <Screen>
@@ -117,7 +128,7 @@ function WikiHome({ onOpenItem }: { onOpenItem: (row: WikiItemRow) => void }) {
         <View style={{ flexDirection: 'row', flexWrap: 'nowrap' }}>
           <Chip label="全部" active={kind === ''} onPress={() => setKind('')} />
           {kinds.map((k) => (
-            <Chip key={k} label={KIND_LABEL[k] ?? k} active={kind === k} onPress={() => setKind(kind === k ? '' : k)} />
+            <Chip key={k} label={`${KIND_LABEL[k] ?? k} ${kindCounts[k] ?? 0}`} active={kind === k} onPress={() => setKind(kind === k ? '' : k)} />
           ))}
         </View>
       ) : null}
@@ -204,50 +215,120 @@ function recipeGridOf(recipe: WikiRecipe): string[] {
   }
 }
 
-function RecipeGrid({ recipe }: { recipe: WikiRecipe }) {
-  const t = useSdk().theme;
+/** 素材下载：图标大图与原版贴图文件，经 RNFS 下载到设备 Download 目录。 */
+function MaterialDownloads({ namespacedId, version, textureKey }: { namespacedId: string; version: string; textureKey?: string }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const [busy, setBusy] = useState('');
+  const [note, setNote] = useState('');
+
+  const download = (label: string, url: string, filename: string) => {
+    if (busy) return;
+    setBusy(label);
+    setNote('');
+    const to = `${RNFS.DownloadDirectoryPath}/${filename}`;
+    RNFS.downloadFile({ fromUrl: url, toFile: to })
+      .promise.then(() => setNote(`已保存到 Download/${filename}`))
+      .catch((e) => setNote(`下载失败：${e instanceof Error ? e.message : String(e)}`))
+      .finally(() => setBusy(''));
+  };
+
+  const base = `${sdk.baseUrl}${API}`;
+  const idq = encodeURIComponent(namespacedId);
+  const vq = encodeURIComponent(version);
+  const items: { label: string; url: string; file: string }[] = [
+    { label: '物品图标 512px', url: `${base}/public/icon?id=${idq}&version=${vq}&size=512`, file: `mcwiki-${shortId(namespacedId)}-icon.png` },
+  ];
+  if (textureKey) {
+    const tk = textureKey.includes(':') ? textureKey.slice(textureKey.indexOf(':') + 1) : textureKey;
+    const slash = tk.lastIndexOf('/');
+    items.push({ label: '原版贴图', url: `${base}/public/assets/file?kind=${encodeURIComponent(tk.slice(0, slash))}&path=${encodeURIComponent(tk.slice(slash + 1))}&version=${vq}`, file: `mcwiki-${shortId(namespacedId)}-texture.png` });
+  }
+
+  return (
+    <Card>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Icon name="download-outline" size={16} color={c.accent} />
+        <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '600', marginLeft: 6, flex: 1 }}>素材下载</Text>
+      </View>
+      {items.map((it) => (
+        <Pressable
+          key={it.label}
+          onPress={() => download(it.label, it.url, it.file)}
+          disabled={busy === it.label}
+          android_ripple={{ color: c.fillHover }}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderTopWidth: 1, borderTopColor: c.borderSubtle }}
+        >
+          <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, flex: 1 }}>
+            {busy === it.label ? '下载中…' : it.label}
+          </Text>
+          <Icon name="download-outline" size={14} />
+        </Pressable>
+      ))}
+      {note ? <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs, marginTop: 6 }}>{note}</Text> : null}
+    </Card>
+  );
+}
+
+function RecipeGrid({ recipe, onOpenItem }: { recipe: WikiRecipe; onOpenItem: (namespacedId: string) => void }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
   const c = t.colors;
   const grid: string[] = recipeGridOf(recipe);
+  const iconUri = (id: string) => `${sdk.baseUrl}${API}/public/icon?id=${encodeURIComponent(id)}&size=48`;
+  const cell = (id: string, row: number, col: number) => {
+    if (!id) {
+      return (
+        <View
+          key={`${row}-${col}`}
+          style={{
+            width: 34, height: 34, borderRadius: t.radii.sm,
+            backgroundColor: c.bgPage,
+            borderWidth: 1, borderColor: c.bgPage,
+          }}
+        />
+      );
+    }
+    return (
+      <Pressable
+        key={`${row}-${col}`}
+        onPress={() => onOpenItem(id)}
+        android_ripple={{ color: c.fillHover }}
+        style={{
+          width: 34, height: 34, borderRadius: t.radii.sm,
+          backgroundColor: c.fillHover,
+          borderWidth: 1, borderColor: c.borderSubtle,
+          alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        }}
+      >
+        <Image source={{ uri: iconUri(id) }} style={{ width: 28, height: 28 }} resizeMode="contain" />
+      </Pressable>
+    );
+  };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <View style={{ gap: 4 }}>
         {[0, 1, 2].map((row) => (
           <View key={row} style={{ flexDirection: 'row', gap: 4 }}>
-            {[0, 1, 2].map((col) => {
-              const cell = grid[row * 3 + col] ?? '';
-              return (
-                <View
-                  key={`${row}-${col}`}
-                  style={{
-                    width: 34, height: 34, borderRadius: t.radii.sm,
-                    backgroundColor: cell ? c.fillHover : c.bgPage,
-                    borderWidth: 1, borderColor: cell ? c.borderSubtle : c.bgPage,
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  {cell ? (
-                    <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: 8, maxWidth: '100%', textAlign: 'center' }}>
-                      {shortId(cell)}
-                    </Text>
-                  ) : null}
-                </View>
-              );
-            })}
+            {[0, 1, 2].map((col) => cell(grid[row * 3 + col] ?? '', row, col))}
           </View>
         ))}
       </View>
       <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXl }}>{'›'}</Text>
-      <View
+      <Pressable
+        onPress={() => onOpenItem(recipe.resultId)}
+        android_ripple={{ color: c.fillHover }}
         style={{
           width: 48, height: 48, borderRadius: t.radii.md, borderWidth: 1, borderColor: c.borderSubtle,
-          backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center', gap: 0,
+          backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}
       >
-        <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: 10, fontWeight: '600', maxWidth: '90%', textAlign: 'center' }}>
-          {recipe.resultNameZh || shortId(recipe.resultId)}
-        </Text>
-        {recipe.resultCount > 1 ? <Text style={{ color: c.textTertiary, fontSize: 9 }}>×{recipe.resultCount}</Text> : null}
-      </View>
+        <Image source={{ uri: iconUri(recipe.resultId) }} style={{ width: 40, height: 40 }} resizeMode="contain" />
+        {recipe.resultCount > 1 ? (
+          <Text style={{ position: 'absolute', right: 2, bottom: 2, color: c.textPrimary, fontSize: 9, fontWeight: '700' }}>×{recipe.resultCount}</Text>
+        ) : null}
+      </Pressable>
     </View>
   );
 }
@@ -256,6 +337,7 @@ function WikiItemPage({ row, onOpenItem }: { row: WikiItemRow; onOpenItem: (r: W
   const sdk = useSdk();
   const t = sdk.theme;
   const itemId = encodeURIComponent(row.namespacedId);
+  const [copied, setCopied] = useState('');
   const { data, loading, error, reload } = useResource<ItemDetail>(
     () => sdk.api.request<ItemDetail>(`${API}/public/items/${itemId}?version=${encodeURIComponent(row.version)}`),
     [sdk, itemId],
@@ -295,12 +377,31 @@ function WikiItemPage({ row, onOpenItem }: { row: WikiItemRow; onOpenItem: (r: W
             </View>
           </Card>
 
-          <InfoRows rows={[
-            ['命名空间', item.namespacedId],
-            ['分类', KIND_LABEL[item.kind] ?? item.kind],
-            ['英文名', item.nameEn || '—'],
-            ['数据版本', item.version],
-          ]} />
+          {[
+            { label: '命名空间', value: item.namespacedId },
+            { label: '分类', value: KIND_LABEL[item.kind] ?? item.kind },
+            { label: '英文名', value: item.nameEn || '—' },
+            { label: '数据版本', value: item.version },
+          ].map((row) => (
+            <Pressable
+              key={row.label}
+              onPress={() => {
+                Clipboard.setString(row.value);
+                setCopied(row.label);
+                setTimeout(() => setCopied(''), 1200);
+              }}
+              android_ripple={{ color: t.colors.fillHover }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.colors.borderSubtle }}
+            >
+              <Text style={{ color: t.colors.textTertiary, fontSize: t.typography.sizeSm, width: 90 }}>{row.label}</Text>
+              <Text style={{ color: t.colors.textPrimary, fontSize: t.typography.sizeSm, flex: 1, textAlign: 'right' }}>{row.value}</Text>
+              <Text style={{ color: copied === row.label ? t.colors.accent : t.colors.textTertiary, fontSize: t.typography.sizeXs, marginLeft: 8, width: 26, textAlign: 'right' }}>
+                {copied === row.label ? '已复制' : '复制'}
+              </Text>
+            </Pressable>
+          ))}
+
+          <MaterialDownloads namespacedId={item.namespacedId} version={item.version} textureKey={item.textureKey} />
 
           <SectionTitle title="合成配方" />
           {producing.length === 0 ? (
@@ -312,7 +413,7 @@ function WikiItemPage({ row, onOpenItem }: { row: WikiItemRow; onOpenItem: (r: W
                   <Badge text={r.type} />
                   <Text style={{ color: t.colors.textTertiary, fontSize: t.typography.sizeXs }}>工作台合成</Text>
                 </View>
-                <RecipeGrid recipe={r} />
+                <RecipeGrid recipe={r} onOpenItem={(id) => onOpenItem({ ...row, namespacedId: id, nameZh: shortId(id) })} />
               </Card>
             ))
           )}
