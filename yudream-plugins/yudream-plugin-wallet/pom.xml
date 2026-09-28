@@ -23,6 +23,11 @@
                 <targetPath>META-INF/yudream-plugin/frontend/yudream-wallet</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-wallet-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/yudream-wallet</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 
