@@ -89,7 +89,10 @@ public final class ForumAppService {
         if (post.status() != ForumModels.Status.PUBLISHED || !allowedCategory(principal, post.categoryId(), false)) {
             throw new HttpNotFound();
         }
-        return post;
+        // 浏览数真实自增：每次公开详情读取 +1 并持久化
+        ForumModels.Post viewed = new ForumModels.Post(post.id(), post.title(), post.body(), post.summary(), post.categoryId(), post.tags(), post.authorId(), post.status(), post.rejectionReason(), post.pinned(), post.featured(), post.publishedAt(), post.createdAt(), System.currentTimeMillis(), post.views() + 1, post.likes(), post.comments(), post.bookmarks());
+        repository.save(ForumRepository.POSTS, id, viewed.doc());
+        return viewed;
     }
 
     public ForumModels.Post requirePost(String id) { return repository.find(ForumRepository.POSTS, id).map(ForumDocs::post).orElseThrow(HttpNotFound::new); }
