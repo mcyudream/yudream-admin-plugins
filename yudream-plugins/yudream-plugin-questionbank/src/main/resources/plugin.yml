@@ -3,7 +3,7 @@ displayName: 题库
 description: 管理题库、题目分类、随机作答以及导入导出。
 icon: i-ri:book-3-line
 main: online.yudream.base.plugin.questionbank.bootstrap.QuestionBankPlugin
-version: 1.4.7
+version: 1.4.8
 
 # 移动端（YuDream Mobile 宿主）接入声明
 mobile:
