@@ -50,6 +50,11 @@
                 <directory>../../yudream-frontend/packages/plugin-questionbank/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/questionbank</targetPath>
             </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-questionbank-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/questionbank</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
     </build>
 </project>

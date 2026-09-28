@@ -3,4 +3,27 @@ displayName: 题库
 description: 管理题库、题目分类、随机作答以及导入导出。
 icon: i-ri:book-3-line
 main: online.yudream.base.plugin.questionbank.bootstrap.QuestionBankPlugin
-version: 1.4.1
+version: 1.4.7
+
+# 移动端（YuDream Mobile 宿主）接入声明
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 题库练习
+  description: 随机抽题、答题卡与排行榜
+  icon: school-outline
+  home:
+    cards:
+      - id: quiz
+        title: 随机练习
+        description: 抽 10 题练一练
+        icon: bulb-outline
+        route: /quiz
+      - id: board
+        title: 排行榜
+        description: 本周答题排行
+        icon: trophy-outline
+        route: /board
