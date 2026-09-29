@@ -32,6 +32,7 @@ const steps = [
 ] as const
 
 const modeTabs = [
+  { label: '空实例', value: 'empty', icon: 'i-ri:box-line' },
   { label: '核心自动下载', value: 'core', icon: 'i-ri:download-cloud-2-line' },
   { label: '服务端模板', value: 'template', icon: 'i-ri:stack-line' },
   { label: '上传核心', value: 'jar', icon: 'i-ri:upload-2-line' },
@@ -261,11 +262,14 @@ const reviewItems = computed(() => [
   { key: 'mode', label: '创建方式', value: ({
     core: '核心自动下载',
     template: '服务端模板',
+    empty: '空实例',
     jar: '上传核心',
     modpack: '整合包',
     zip: 'ZIP 导入',
   } as Record<string, string>)[form.mode] ?? form.mode },
-  { key: 'core', label: '核心', value: form.mode === 'zip' || form.mode === 'jar'
+  { key: 'core', label: '核心', value: form.mode === 'empty'
+    ? '空实例（自行上传服务端）'
+    : form.mode === 'zip' || form.mode === 'jar'
     ? (form.mode === 'jar' ? '自备 JAR（统一为 server.jar）' : '-')
     : form.mode === 'modpack'
       ? `${modpackInfo.value?.loader || modpackInfo.value?.coreChain?.[0] || '-'}（${modpackInfo.value?.mcVersion || '-'}）`
@@ -429,7 +433,7 @@ watch(() => form.coreKind, () => {
   resolveInfo.value = null
 })
 watch(() => form.mode, (mode) => {
-  if (mode === 'zip' || mode === 'jar') {
+  if (mode === 'zip' || mode === 'jar' || mode === 'empty') {
     form.autoDownloadCore = false
   }
 })
@@ -674,7 +678,7 @@ function buildPayload() {
     id,
     nodeId: form.nodeId,
     name: form.name.trim(),
-    kind: form.mode === 'jar'
+    kind: form.mode === 'jar' || form.mode === 'empty'
       ? 'generic'
       : form.mode === 'modpack'
         ? (modpackInfo.value?.loader || modpackInfo.value?.coreChain?.[0] || 'generic')
@@ -944,6 +948,20 @@ onMounted(() => {
           </div>
 
           <FaTabs v-model="form.mode" :list="modeTabs" class="w-full" content-class="pt-4">
+            <template #empty>
+              <div class="grid gap-3">
+                <p class="text-sm text-muted-foreground">
+                  创建一个空白容器：不安装任何核心与文件，数据目录为空。
+                </p>
+                <p class="text-sm text-muted-foreground">
+                  适合自带服务端文件的用户——创建后通过「文件管理」上传服务端核心与数据，
+                  然后在实例设置里按需调整启动命令即可开服。
+                </p>
+                <p class="text-xs text-muted-foreground">
+                  提示：在安装好服务端核心之前启动实例会失败，属正常现象。
+                </p>
+              </div>
+            </template>
             <template #core>
               <div class="grid gap-4">
                 <label class="grid gap-2">
