@@ -872,6 +872,9 @@ function ForumApp({ initialRoute }: { initialRoute?: string }) {
   if (view.name === 'detail') {
     return <ForumDetail postId={view.postId} />;
   }
+  if (view.name === 'admin') {
+    return <ModerationPage />;
+  }
   return (
     <ForumList
       key={feedKey}
