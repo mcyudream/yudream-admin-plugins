@@ -124,11 +124,50 @@ public class UpdatePublicController {
         payload.put("version", value.version());
         payload.put("title", value.resolvedTitle());
         payload.put("publishedAt", value.publishedAt());
+        payload.put("pub_date", toIso(value.publishedAt()));
         payload.put("forceUpdate", value.forceUpdate());
         payload.put("notes", value.resolvedNotes());
         payload.put("changes", value.normalizedChanges());
         payload.put("externalUrl", externalOrDefault(origin, value));
+        // Tauri 更新器兼容：存量客户端的 updater 端点烘焙的就是本端点，响应
+        // 必须能反序列化成 RemoteRelease（version + platforms.signature/url），
+        // 否则报 "Could not fetch a valid release JSON from the remote"。
+        // 展示侧消费方（官网按钮/设置页渠道卡片）忽略多余字段，互不影响。
+        payload.put("platforms", updaterPlatforms(value, origin));
         return PluginHttpResponse.rawJson(200, payload);
+    }
+
+    /**
+     * kind=updater 且带签名的制品 → {platform: {signature, url}}（Tauri
+     * RemoteRelease 形态，不过滤平台）。manifest 端点在此之上做平台裁剪。
+     */
+    private Map<String, Object> updaterPlatforms(UpdateRelease release, String origin) {
+        Map<String, Object> platforms = new LinkedHashMap<>();
+        for (UpdateArtifact artifact : release.artifacts()) {
+            if (!UpdateArtifact.KIND_UPDATER.equalsIgnoreCase(artifact.kind())) {
+                continue;
+            }
+            String signature = artifact.signature();
+            if (signature == null || signature.isBlank()) {
+                continue;
+            }
+            String url = updates.resolveDownloadUrl(origin, release, artifact);
+            if (url == null || url.isBlank()) {
+                continue;
+            }
+            List<String> targets = artifact.targetPlatforms();
+            if (targets == null || targets.isEmpty()) {
+                String single = platformKey(artifact.platform(), artifact.architecture());
+                if (single != null) {
+                    platforms.put(single, Map.of("signature", signature, "url", url));
+                }
+                continue;
+            }
+            for (String target : targets) {
+                platforms.put(target, Map.of("signature", signature, "url", url));
+            }
+        }
+        return platforms;
     }
 
     /**
@@ -157,33 +196,12 @@ public class UpdatePublicController {
         }
 
         String origin = UpdateHttpSupport.normalizeOrigin(request);
-        Map<String, Object> platforms = new LinkedHashMap<>();
-        for (UpdateArtifact artifact : release.artifacts()) {
-            if (!UpdateArtifact.KIND_UPDATER.equalsIgnoreCase(artifact.kind())) {
-                continue;
-            }
-            String signature = artifact.signature();
-            if (signature == null || signature.isBlank()) {
-                continue;
-            }
-            String url = updates.resolveDownloadUrl(origin, release, artifact);
-            if (url == null || url.isBlank()) {
-                continue;
-            }
-            List<String> targets = artifact.targetPlatforms();
-            if (targets == null || targets.isEmpty()) {
-                String single = platformKey(artifact.platform(), artifact.architecture());
-                if (single != null && (platform == null || platform.isBlank() || single.equals(platform))) {
-                    platforms.put(single, Map.of("signature", signature, "url", url));
-                }
-                continue;
-            }
-            for (String target : targets) {
-                if (platform != null && !platform.isBlank() && !target.equals(platform)) {
-                    continue;
-                }
-                platforms.put(target, Map.of("signature", signature, "url", url));
-            }
+        Map<String, Object> platforms = updaterPlatforms(release, origin);
+        if (platform != null && !platform.isBlank()) {
+            Object match = platforms.get(platform);
+            platforms = match == null
+                    ? new LinkedHashMap<>()
+                    : new LinkedHashMap<>(Map.of(platform, match));
         }
         if (platforms.isEmpty() && (platform == null || platform.isBlank())) {
             // 无 platform 过滤且没有任何 updater 制品时，仍返回元数据，便于调试。

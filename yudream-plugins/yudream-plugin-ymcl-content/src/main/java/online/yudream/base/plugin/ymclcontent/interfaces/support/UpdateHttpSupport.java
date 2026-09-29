@@ -100,18 +100,33 @@ public final class UpdateHttpSupport {
 
     public static String normalizeOrigin(PluginHttpRequest request) {
         Map<String, List<String>> headers = request == null ? null : request.headers();
-        String scheme = firstHeaderValue(headers, "X-Forwarded-Proto");
-        if (scheme == null || scheme.isBlank()) {
-            scheme = "http";
-        }
         String host = firstHeaderValue(headers, "X-Forwarded-Host");
         if (host == null || host.isBlank()) {
             host = firstHeaderValue(headers, "Host");
         }
         if (host == null || host.isBlank()) {
-            return scheme + "://localhost";
+            return "http://localhost";
         }
-        return scheme + "://" + host.trim();
+        host = host.trim();
+        String scheme = firstHeaderValue(headers, "X-Forwarded-Proto");
+        if (scheme == null || scheme.isBlank()) {
+            // 反代未传 X-Forwarded-Proto 时（典型：启动器 updater 的
+            // reqwest 直连，只有 Host 头），公网域名按 https 兜底、本机
+            // 回环保持 http——下发的下载 URL 必须跟得上，公网给 http 会
+            // 让更新器拿到不可信地址。
+            scheme = isLoopbackHost(host) ? "http" : "https";
+        }
+        return scheme + "://" + host;
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        String value = host.toLowerCase(Locale.ROOT);
+        int port = value.indexOf(':');
+        if (port >= 0) {
+            value = value.substring(0, port);
+        }
+        return "localhost".equals(value) || "127.0.0.1".equals(value)
+                || "0.0.0.0".equals(value) || "[::1]".equals(value);
     }
 
     public static String absoluteUpdateFileUrl(String origin, String version, String filename) {
