@@ -337,32 +337,33 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         String name = event.userId();
         try {
             // 优先：宿主消息分发时已按发送者反查站点身份，随事件 referrer 下发（新宿主）。
+            // 昵称优先于用户名（游戏里玩家认昵称）。
             Map<String, Object> referrer = event.referrer();
             if (referrer != null) {
-                String username = textOf(referrer.get("senderUsername"));
                 String nickname = textOf(referrer.get("senderNickname"));
-                if (username != null && !username.isBlank()) {
-                    displayNames.put(key, new CachedDisplayName(username, now));
-                    return username;
-                }
+                String username = textOf(referrer.get("senderUsername"));
                 if (nickname != null && !nickname.isBlank()) {
                     displayNames.put(key, new CachedDisplayName(nickname, now));
                     return nickname;
                 }
+                if (username != null && !username.isBlank()) {
+                    displayNames.put(key, new CachedDisplayName(username, now));
+                    return username;
+                }
             }
-            // 回退：按消息身份反查站点用户（旧宿主），用户名优先、昵称兜底。
+            // 回退：按消息身份反查站点用户（旧宿主），昵称优先、用户名兜底。
             PluginUserService users = framework.users();
             if (users != null) {
                 PluginMessagingIdentity identity = new PluginMessagingIdentity(
                         event.platform(), null, event.userId(), null, null, event.connectionId());
                 name = users.findByMessagingIdentity(identity)
                         .map(profile -> {
-                            if (profile.username() != null && !profile.username().isBlank()) {
-                                return profile.username();
+                            if (profile.nickname() != null && !profile.nickname().isBlank()) {
+                                return profile.nickname();
                             }
-                            return profile.nickname() == null || profile.nickname().isBlank()
+                            return profile.username() == null || profile.username().isBlank()
                                     ? event.userId()
-                                    : profile.nickname();
+                                    : profile.username();
                         })
                         .orElse(event.userId());
             }
