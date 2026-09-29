@@ -1,0 +1,25 @@
+name: app-release
+displayName: YDAM 更新发布
+description: YDAM 移动应用更新包发布与更新日志：上传更新包、发布版本、更新公告与强制更新管理。
+icon: i-ri:rocket-2-line
+main: online.yudream.base.plugin.apprelease.bootstrap.AppReleasePlugin
+version: 1.0.1
+
+# 移动端（YDAM 宿主）接入声明：管理员更新发布管理页
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 更新发布
+  description: 上传更新包、发布版本与强制更新管理
+  icon: rocket-outline
+  admin:
+    cards:
+      - id: admin
+        title: 更新发布
+        description: 版本包发布与强制更新管理
+        icon: rocket-outline
+        route: /admin
+        permission: plugin:app-release:manage

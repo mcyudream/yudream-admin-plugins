@@ -1,0 +1,32 @@
+/* 更新发布页局部样式（只做布局微调，主题色一律走宿主变量）。 */
+.app-release-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-release-filter-input {
+  width: 200px;
+}
+
+.app-release-title {
+  font-weight: 600;
+}
+
+.app-release-subtitle {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-tertiary, var(--muted-foreground));
+}
+
+.app-release-changelog {
+  display: block;
+  max-width: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.app-release-table-w900 {
+  min-width: 900px;
+}

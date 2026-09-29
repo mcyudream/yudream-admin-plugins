@@ -1,0 +1,24 @@
+{
+  "name": "@yudream/plugin-app-release",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@arco-design/web-vue": "catalog:",
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

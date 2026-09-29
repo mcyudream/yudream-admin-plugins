@@ -68,6 +68,7 @@
         <module>yudream-plugins/yudream-plugin-shop</module>
         <module>yudream-plugins/yudream-plugin-forum</module>
         <module>yudream-plugins/yudream-plugin-playtime-points</module>
+        <module>yudream-plugins/yudream-plugin-app-release</module>
     </modules>
 
     <dependencyManagement>
