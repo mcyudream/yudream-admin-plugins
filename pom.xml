@@ -32,6 +32,7 @@
         <yudream.plugin.mcpanel.version>0.17.1</yudream.plugin.mcpanel.version>
         <yudream.plugin.shop.version>1.0.0</yudream.plugin.shop.version>
         <yudream.plugin.playtime-points.version>1.0.0</yudream.plugin.playtime-points.version>
+        <yudream.plugin.modpack-studio.version>0.2.0</yudream.plugin.modpack-studio.version>
     </properties>
 
     <modules>
@@ -67,6 +68,7 @@
         <module>yudream-plugins/yudream-plugin-shop</module>
         <module>yudream-plugins/yudream-plugin-forum</module>
         <module>yudream-plugins/yudream-plugin-playtime-points</module>
+        <module>yudream-plugins/yudream-plugin-modpack-studio</module>
     </modules>
 
     <dependencyManagement>
@@ -140,6 +142,11 @@
                 <groupId>online.yudream.plugins</groupId>
                 <artifactId>yudream-plugin-playtime-points</artifactId>
                 <version>${yudream.plugin.playtime-points.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>online.yudream.plugins</groupId>
+                <artifactId>yudream-plugin-modpack-studio</artifactId>
+                <version>${yudream.plugin.modpack-studio.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
