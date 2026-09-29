@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, BackHandler, FlatList, Image, KeyboardAvoidingView, Pressable,
-  RefreshControl, ScrollView, Text, TextInput, View,
+  RefreshControl, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
@@ -53,6 +53,22 @@ interface PostDetail {
 
 /* ---------------- 帖子卡 ---------------- */
 
+/** Flarum 式分类色板：按标识稳定派生，同一分类恒定同色。 */
+const CAT_PALETTE = ['#8d8d8d', '#e5484d', '#3b82f6', '#b3303c', '#30a46c', '#8e4ec6', '#f5a623', '#12a594'];
+
+/** 透明色附加（#rrggbb → #rrggbbaa）；非 hex 色值原样返回。 */
+function withAlpha(color: string, alpha: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? `${color}${alpha}` : color;
+}
+
+function catColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return CAT_PALETTE[h % CAT_PALETTE.length]!;
+}
+
 function PostCard({ post, onPress }: { post: FeedPost; onPress: () => void }) {
   const t = useSdk().theme;
   const c = t.colors;
@@ -86,7 +102,8 @@ function PostCard({ post, onPress }: { post: FeedPost; onPress: () => void }) {
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
         {post.tagName ? (
-          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: c.fillHover }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: c.fillHover }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: catColor(post.tagName) }} />
             <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs }}>
               {post.tagName}
             </Text>
@@ -169,13 +186,55 @@ function ForumList({ onOpenPost, onCompose }: { onOpenPost: (postId: string) => 
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
-      <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.md, gap: t.spacing.sm }}>
+      <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.md, paddingBottom: t.spacing.sm }}>
         <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索帖子" onSubmit={() => setQuery(keyword.trim())} />
-        <View style={{ flexDirection: 'row', flexWrap: 'nowrap' }}>
-          {sortedCategories.map((cat) => (
-            <Chip key={cat.id || 'all'} label={cat.name} active={cat.id === categoryId} onPress={() => setCategoryId(cat.id)} />
-          ))}
-        </View>
+      </View>
+      {/* Flarum 式分类：彩色圆点 + 名称，选中项主题底色高亮 */}
+      <View
+        style={{
+          marginHorizontal: t.spacing.lg,
+          marginBottom: t.spacing.sm,
+          borderRadius: 14,
+          backgroundColor: c.bgSurface,
+          borderWidth: 1,
+          borderColor: c.borderSubtle,
+          overflow: 'hidden',
+        }}
+      >
+        {sortedCategories.map((cat, i) => {
+          const active = cat.id === categoryId;
+          const dot = cat.id ? catColor(cat.name) : c.accent;
+          return (
+            <Pressable
+              key={cat.id || 'all'}
+              onPress={() => setCategoryId(cat.id)}
+              android_ripple={{ color: c.fillHover }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                backgroundColor: active ? withAlpha(c.accent, '14') : pressed ? c.fillHover : 'transparent',
+                borderTopWidth: i > 0 ? StyleSheet.hairlineWidth : 0,
+                borderTopColor: c.borderSubtle,
+              })}
+            >
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot }} />
+              <Text
+                style={{
+                  color: active ? c.accent : c.textPrimary,
+                  fontSize: t.typography.sizeSm + 1,
+                  fontWeight: active ? '700' : '500',
+                  flex: 1,
+                }}
+              >
+                {cat.id ? cat.name : '全部讨论'}
+              </Text>
+              {active ? <Icon name="checkmark" size={15} color={c.accent} /> : null}
+            </Pressable>
+          );
+        })}
       </View>
 
       <FlatList
@@ -337,10 +396,12 @@ function ForumDetail({ postId }: { postId: string }) {
               <View
                 key={tag}
                 style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
                   paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
                   backgroundColor: c.fillHover,
                 }}
               >
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: catColor(tag) }} />
                 <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>#{tag}</Text>
               </View>
             ))}
@@ -720,10 +781,12 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
               <View
                 key={tag}
                 style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
                   paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
                   backgroundColor: c.fillHover,
                 }}
               >
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: catColor(tag) }} />
                 <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>#{tag}</Text>
               </View>
             ))}

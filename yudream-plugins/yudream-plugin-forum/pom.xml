@@ -10,7 +10,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>yudream-plugin-forum</artifactId>
-    <version>1.0.12</version>
+    <version>1.0.13</version>
     <build>
         <plugins>
             <plugin>
