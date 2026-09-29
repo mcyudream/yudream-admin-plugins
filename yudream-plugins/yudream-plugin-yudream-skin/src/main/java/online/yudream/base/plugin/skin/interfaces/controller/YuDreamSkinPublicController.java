@@ -29,6 +29,11 @@ public class YuDreamSkinPublicController {
         return http.textureContent(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/textures/{hash}/render", wrapResult = false)
+    public PluginHttpResponse textureRender(PluginHttpRequest request) {
+        return http.textureRender(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/csl/{name}", wrapResult = false)
     public PluginHttpResponse customSkinProfile(PluginHttpRequest request) {
         return http.customSkinProfile(request);

@@ -1,14 +1,14 @@
 /**
- * yudream-skin 移动端（设计稿 skinHome / skinCloset）：
- * 我的角色（角色列表 + 设默认 + 换肤入口 + CSL 接口）与衣柜材质（材质/衣柜双页签，
- * 应用到角色、删除）。数据走 /api/plugins/yudream-skin/me/**，皮肤预览图用公开
- * /textures/{hash}；视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
+ * yudream-skin 移动端（设计稿 skinHome / skinLibrary / skinCloset）：
+ * 顶部双 Tab——「我的」（角色列表 + 正面渲染立绘 + 衣柜）与「皮肤库」（公共材质库，
+ * 皮肤/披风筛选、立绘预览、应用到角色）。皮肤预览用 64x64 材质的精灵裁剪合成正面
+ * 立绘（头/身体/双臂/双腿 + 外层），不再是 2D 展开图；数据走 /api/plugins/yudream-skin/**。
  */
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Chip, Empty, Loading, Screen, Tile, UiProvider, useResource,
+  Badge, Card, Chip, Empty, Icon, Loading, PrimaryButton, Screen, Tile, UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -23,59 +23,99 @@ interface SkinPlayer {
   name: string;
   skinHash: string | null;
   capeHash: string | null;
-  lastModified: number;
+  lastModified: number | string;
 }
-interface SkinTexture {
+interface LibraryTexture {
   hash: string;
-  name: string;
+  name?: string;
   type: string; // skin | cape
-  model?: string;
-  size?: number;
-  uploadedAt?: number;
+  model?: string; // default | slim
+  publicAccess?: boolean;
+  uploadedAt?: number | string;
 }
 interface ClosetItem {
   id: string;
   textureHash: string;
   itemName: string;
-  createdAt: number;
+  createdAt: number | string;
 }
 
-function textureUrl(hash: string | null | undefined): string {
+function textureUri(hash: string | null | undefined): string {
   if (!hash) return '';
   return `${currentSdk?.baseUrl ?? ''}${API}/textures/${hash}`;
 }
-function fmtTime(ts?: number | string): string {
+function fmtTime(ts?: number | string | null): string {
   const n = Number(ts);
   if (!ts || !Number.isFinite(n) || n <= 0) return '';
   const d = new Date(n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function SkinPreview({ hash, width = 56 }: { hash: string | null | undefined; width?: number }) {
-  const c = useSdk().theme.colors;
-  const uri = textureUrl(hash);
-  if (uri) {
-    return (
-      <Image
-        source={{ uri }}
-        style={{ width, height: Math.round(width * 1.25), borderRadius: 10, backgroundColor: c.fillHover }}
-        resizeMode="contain"
-      />
-    );
+/**
+ * 皮肤正面立绘：走皮肤站渲染端点（服务端按官方布局拼装正面像，邻近采样像素风），
+ * 坏图回退占位字符。
+ */
+function SkinRender({ hash, height = 168, style }: { hash?: string | null; height?: number; style?: object }) {
+  const sdk = useSdk();
+  const c = sdk.theme.colors;
+  const [broken, setBroken] = useState(false);
+  const uri = hash ? `${sdk.baseUrl}${API}/textures/${hash}/render?height=${Math.min(640, Math.round(height * 2))}` : '';
+  if (!uri || broken) {
+    return <Tile glyph="肤" size={Math.round(height / 2.4)} />;
   }
-  return <Tile glyph="肤" size={width} />;
+  return (
+    <Image
+      source={{ uri }}
+      onError={() => setBroken(true)}
+      style={[{ width: height / 2, height, backgroundColor: c.fillHover, borderRadius: Math.round(height / 21) }, style]}
+      resizeMode="contain"
+      fadeDuration={0}
+    />
+  );
 }
 
-/* ---------------- 我的角色 ---------------- */
+/* ---------------- 顶部 Tab ---------------- */
 
-function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
+function TabBar({ tab, onChange }: { tab: 'mine' | 'library'; onChange: (t: 'mine' | 'library') => void }) {
+  const t = useSdk().theme;
+  const c = t.colors;
+  return (
+    <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 2 }}>
+      {[
+        { key: 'mine', label: '我的', icon: 'person' },
+        { key: 'library', label: '皮肤库', icon: 'image' },
+      ].map((item) => (
+        <Pressable
+          key={item.key}
+          onPress={() => onChange(item.key as 'mine' | 'library')}
+          style={{
+            flex: 1, height: 42, borderRadius: t.radii.md, alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'row', gap: 6,
+            backgroundColor: tab === item.key ? c.accent : c.bgSurface,
+            borderWidth: 1, borderColor: tab === item.key ? c.accent : c.borderSubtle,
+          }}
+        >
+          <Icon name={item.icon} size={15} color={tab === item.key ? c.onAccent : c.textSecondary} />
+          <Text style={{ color: tab === item.key ? c.onAccent : c.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '600' }}>
+            {item.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/* ---------------- 我的 ---------------- */
+
+function MineTab({ players, onOpenCloset, gotoLibrary }: {
+  players: { data: SkinPlayer[] | null; loading: boolean; error: string | null; reload: () => void };
+  onOpenCloset: () => void;
+  gotoLibrary: () => void;
+}) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
-  const players = useResource<SkinPlayer[]>(
-    () => sdk.api.request<SkinPlayer[]>(`${API}/me/players`),
-    [sdk],
-  );
+  const [busy, setBusy] = useState('');
   const list = players.data ?? [];
 
   const setDefault = (name: string) => {
@@ -84,10 +124,11 @@ function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
       {
         text: '确定',
         onPress: () => {
+          setBusy(name);
           void sdk.api
             .request(`${API}/me/default-player`, { method: 'PUT', body: { name } })
-            .then(() => players.reload())
-            .catch((e) => Alert.alert('设置失败', e instanceof Error ? e.message : String(e)));
+            .then(() => { setBusy(''); players.reload(); })
+            .catch((e) => { setBusy(''); Alert.alert('设置失败', errText(e)); });
         },
       },
     ]);
@@ -95,68 +136,34 @@ function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
 
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1, flex: 1 }}>
-          管理皮肤站角色、默认角色与上传材质
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="打开衣柜与材质"
-          onPress={onOpenCloset}
-          style={{
-            width: 34, height: 34, borderRadius: 17,
-            backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
-            alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: c.textPrimary, fontSize: 20, marginTop: -2 }}>＋</Text>
-        </Pressable>
-      </View>
       {players.loading ? <Loading /> : null}
       {players.error ? (
-        <Card>
-          <Text style={{ color: c.danger ?? '#dc2626', fontSize: t.typography.sizeSm }}>{players.error}</Text>
-        </Card>
+        <Card><Text style={{ color: c.danger ?? '#dc2626', fontSize: t.typography.sizeSm }}>{players.error}</Text></Card>
       ) : null}
 
       {list.map((p) => (
         <Card key={p.uuid}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <SkinPreview hash={p.skinHash} width={56} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700' }}>
-                {p.name}
-              </Text>
-              <Text numberOfLines={1} style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
-                皮肤 {p.skinHash ? `${p.skinHash.slice(0, 8)}…` : '未设置'}{p.capeHash ? ' · 有披风' : ''}
-              </Text>
-              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
-                更新于 {fmtTime(p.lastModified)}
+          <View style={{ flexDirection: 'row', gap: 14 }}>
+            <SkinRender hash={p.skinHash} height={150} />
+            <View style={{ flex: 1, gap: 5, justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', flex: 1 }}>
+                  {p.name}
+                </Text>
+                {p.capeHash ? <Badge text="有披风" tone="accent" /> : null}
+              </View>
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
+                {p.skinHash ? '已设置皮肤' : '未设置皮肤'}{p.capeHash ? ' · 已设置披风' : ''} · {fmtTime(p.lastModified)}
               </Text>
               <Pressable
                 onPress={() => setDefault(p.name)}
-                style={{
-                  alignSelf: 'flex-start', marginTop: 2,
-                  paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
-                  backgroundColor: c.fillHover,
-                }}
+                disabled={busy === p.name}
+                style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: c.fillHover, marginTop: 2 }}
               >
-                <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs, fontWeight: '500' }}>
-                  设为默认
-                </Text>
+                <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs, fontWeight: '500' }}>设为默认</Text>
               </Pressable>
+              <PrimaryButton title="换肤 / 换披风" onPress={gotoLibrary} height={38} />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="换肤"
-              onPress={onOpenCloset}
-              style={{ alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: c.textPrimary, fontSize: 14 }}>衫</Text>
-              </View>
-              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>换肤</Text>
-            </Pressable>
           </View>
         </Card>
       ))}
@@ -168,15 +175,22 @@ function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
         </Card>
       ) : null}
 
+      <Card onPress={onOpenCloset}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Icon name="folder-open-outline" size={18} color={c.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '600' }}>我的衣柜</Text>
+            <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>收藏的皮肤，一键应用到角色</Text>
+          </View>
+          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeLg }}>{'›'}</Text>
+        </View>
+      </Card>
+
       {list[0]?.name ? (
         <View style={{ borderRadius: t.radii.lg, backgroundColor: c.fillHover, padding: 14, gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: c.textTertiary, fontSize: 12 }}>ⓘ</Text>
-            <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, fontWeight: '500' }}>
-              外置皮肤接口（CustomSkinAPI）
-            </Text>
-            <View style={{ flex: 1 }} />
-          </View>
+          <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, fontWeight: '500' }}>
+            外置皮肤接口（CustomSkinAPI）
+          </Text>
           <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>{`/csl/${list[0].name}`}</Text>
         </View>
       ) : null}
@@ -184,162 +198,246 @@ function SkinHome({ onOpenCloset }: { onOpenCloset: () => void }) {
   );
 }
 
-/* ---------------- 衣柜与材质 ---------------- */
+/* ---------------- 皮肤库（公共材质库） ---------------- */
 
-function SkinCloset() {
+function LibraryTab({ players, gotoMine }: { players: { data: SkinPlayer[] | null; reload: () => void }; gotoMine: () => void }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
-  const [tab, setTab] = useState<'textures' | 'closet'>('textures');
-  const textures = useResource<SkinTexture[]>(() => sdk.api.request(`${API}/me/textures`), [sdk]);
-  const closet = useResource<ClosetItem[]>(() => sdk.api.request(`${API}/me/closet`), [sdk]);
-  const players = useResource<SkinPlayer[]>(() => sdk.api.request(`${API}/me/players`), [sdk]);
-  const playersList = players.data ?? [];
+  const lib = useResource<LibraryTexture[]>(() => sdk.api.request(`${API}/textures`), [sdk]);
+  const [typeFilter, setTypeFilter] = useState<'skin' | 'cape'>('skin');
+  const [keyword, setKeyword] = useState('');
+  const [busy, setBusy] = useState('');
+  const all = lib.data ?? [];
+  const list = all
+    .filter((tex) => (tex.type ?? 'skin') === typeFilter)
+    .filter((tex) => !keyword.trim() || (tex.name ?? '').toLowerCase().includes(keyword.trim().toLowerCase()))
+    .slice(0, 60);
 
-  const applyToFirstPlayer = (tex: SkinTexture) => {
-    const target = playersList[0];
+  const apply = (tex: LibraryTexture) => {
+    const target = (players.data ?? [])[0];
     if (!target) {
-      Alert.alert('无法应用', '当前账号没有角色');
+      Alert.alert('无法应用', '当前账号没有角色，请先在皮肤站创建角色');
       return;
     }
+    setBusy(tex.hash);
     const body = tex.type === 'cape' ? { capeHash: tex.hash } : { skinHash: tex.hash };
     void sdk.api
       .request(`${API}/me/players/${encodeURIComponent(target.name)}/textures`, { method: 'PUT', body })
       .then(() => {
+        setBusy('');
         players.reload();
-        Alert.alert('已应用', `已应用到角色「${target.name}」`);
+        Alert.alert('已应用', `「${tex.name || tex.hash.slice(0, 8)}」已应用到角色「${target.name}」`, [
+          { text: '查看角色', onPress: gotoMine },
+          { text: '继续逛', style: 'cancel' },
+        ]);
       })
-      .catch((e) => Alert.alert('应用失败', e instanceof Error ? e.message : String(e)));
+      .catch((e) => { setBusy(''); Alert.alert('应用失败', errText(e)); });
   };
 
-  const removeTexture = (tex: SkinTexture) => {
-    Alert.alert('删除材质', `确定删除「${tex.name || tex.hash.slice(0, 8)}」？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除', style: 'destructive',
-        onPress: () => {
-          void sdk.api
-            .request(`${API}/me/textures/${encodeURIComponent(tex.hash)}`, { method: 'DELETE' })
-            .then(() => textures.reload())
-            .catch((e) => Alert.alert('删除失败', e instanceof Error ? e.message : String(e)));
-        },
-      },
-    ]);
+  return (
+    <Screen>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Chip label="皮肤" active={typeFilter === 'skin'} onPress={() => setTypeFilter('skin')} />
+        <Chip label="披风" active={typeFilter === 'cape'} onPress={() => setTypeFilter('cape')} />
+      </View>
+      {lib.loading ? <Loading /> : null}
+      {lib.error ? <Empty text={lib.error} /> : null}
+      {!lib.loading && all.length === 0 ? <Empty text="皮肤库还是空的" /> : null}
+      {!lib.loading && all.length > 0 && list.length === 0 ? <Empty text="没有匹配的材质" /> : null}
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.md }}>
+        {typeFilter === 'skin'
+          ? list.map((tex) => (
+            <Pressable
+              key={tex.hash}
+              onPress={() => apply(tex)}
+              disabled={busy === tex.hash}
+              android_ripple={{ color: c.fillHover }}
+              style={({ pressed }) => ({
+                width: '31%',
+                flexGrow: 1,
+                maxWidth: '31%',
+                borderRadius: t.radii.lg,
+                borderWidth: 1,
+                borderColor: c.borderSubtle,
+                backgroundColor: pressed ? c.fillHover : c.bgSurface,
+                padding: 8,
+                gap: 6,
+                alignItems: 'center',
+              })}
+            >
+              <SkinRender hash={tex.hash} height={96} />
+              <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeXs + 1, fontWeight: '600', maxWidth: '100%' }}>
+                {tex.name || tex.hash.slice(0, 8)}
+              </Text>
+              <Badge text={tex.model === 'slim' ? '纤细' : '经典'} />
+            </Pressable>
+          ))
+          : list.map((tex) => (
+            <Pressable
+              key={tex.hash}
+              onPress={() => apply(tex)}
+              disabled={busy === tex.hash}
+              android_ripple={{ color: c.fillHover }}
+              style={({ pressed }) => ({
+                width: '47.5%',
+                flexGrow: 1,
+                maxWidth: '47.5%',
+                borderRadius: t.radii.lg,
+                borderWidth: 1,
+                borderColor: c.borderSubtle,
+                backgroundColor: pressed ? c.fillHover : c.bgSurface,
+                padding: 10,
+                gap: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+              })}
+            >
+              <Image
+                source={{ uri: textureUri(tex.hash) }}
+                style={{ width: 36, height: 18, backgroundColor: c.fillHover, borderRadius: 4 }}
+                resizeMode="contain"
+              />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeXs + 1, fontWeight: '600' }}>
+                  {tex.name || tex.hash.slice(0, 8)}
+                </Text>
+                <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>披风 · 点击应用</Text>
+              </View>
+            </Pressable>
+          ))}
+      </View>
+      {all.length > list.length ? (
+        <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs, textAlign: 'center' }}>
+          仅显示前 {list.length} 项，可按名称筛选
+        </Text>
+      ) : null}
+    </Screen>
+  );
+}
+
+/* ---------------- 衣柜 ---------------- */
+
+function ClosetPage({ onBack }: { onBack: () => void }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const closet = useResource<ClosetItem[]>(() => sdk.api.request(`${API}/me/closet`), [sdk]);
+  const players = useResource<SkinPlayer[]>(() => sdk.api.request(`${API}/me/players`), [sdk]);
+  const [busy, setBusy] = useState('');
+  const list = closet.data ?? [];
+  const target = (players.data ?? [])[0];
+
+  const apply = (item: ClosetItem) => {
+    if (!target) {
+      Alert.alert('无法应用', '当前账号没有角色');
+      return;
+    }
+    setBusy(item.id);
+    void sdk.api
+      .request(`${API}/me/players/${encodeURIComponent(target.name)}/textures`, {
+        method: 'PUT',
+        body: { skinHash: item.textureHash },
+      })
+      .then(() => { setBusy(''); players.reload(); Alert.alert('已应用', `已应用到角色「${target.name}」`); })
+      .catch((e) => { setBusy(''); Alert.alert('应用失败', errText(e)); });
   };
 
-  const removeCloset = (item: ClosetItem) => {
+  const remove = (item: ClosetItem) => {
     Alert.alert('移出衣柜', `确定将「${item.itemName || '该皮肤'}」移出衣柜？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '移出', style: 'destructive',
         onPress: () => {
+          setBusy(item.id);
           void sdk.api
             .request(`${API}/me/closet/${encodeURIComponent(item.id)}`, { method: 'DELETE' })
-            .then(() => closet.reload())
-            .catch((e) => Alert.alert('操作失败', e instanceof Error ? e.message : String(e)));
+            .then(() => { setBusy(''); closet.reload(); })
+            .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
         },
       },
     ]);
   };
 
-  const equipped = (hash: string | null | undefined) =>
-    hash && playersList.some((p) => p.skinHash === hash) ? '已装备' : null;
-
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Chip label="我的材质" active={tab === 'textures'} onPress={() => setTab('textures')} />
-        <Chip label="衣柜皮肤" active={tab === 'closet'} onPress={() => setTab('closet')} />
-      </View>
-
-      {tab === 'textures' ? (
-        textures.loading ? <Loading /> :
-        (textures.data ?? []).length === 0 ? <Empty text="还没有材质，先在网页端上传" /> :
-        (textures.data ?? []).map((tex) => {
-          const applied = equipped(tex.hash);
-          return (
-            <Card key={tex.hash}>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <SkinPreview hash={tex.hash} width={52} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700', flex: 1 }}>
-                      {tex.name || tex.hash.slice(0, 8)}
-                    </Text>
-                    {applied ? <Badge text={applied} tone="accent" /> : null}
-                  </View>
-                  <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
-                    {tex.type === 'cape' ? '披风' : '皮肤'}{tex.model ? ` · ${tex.model}` : ''} · {fmtTime(tex.uploadedAt)}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable
-                      onPress={() => applyToFirstPlayer(tex)}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: c.fillHover }}
-                    >
-                      <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeXs, fontWeight: '500' }}>✓ 应用到角色</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => removeTexture(tex)}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: c.borderSubtle, backgroundColor: c.bgSurface }}
-                    >
-                      <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs }}>删除</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          );
-        })
-      ) : (
-        closet.loading ? <Loading /> :
-        (closet.data ?? []).length === 0 ? <Empty text="衣柜还是空的" /> :
-        (closet.data ?? []).map((item) => {
-          const applied = equipped(item.textureHash);
-          return (
-            <Card key={item.id}>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <SkinPreview hash={item.textureHash} width={44} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '500', flex: 1 }}>
-                      {item.itemName || item.textureHash.slice(0, 8)}
-                    </Text>
-                    {applied ? <Badge text={applied} tone="accent" /> : null}
-                  </View>
-                  <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>存入于 {fmtTime(item.createdAt)}</Text>
-                </View>
-                <Pressable onPress={() => removeCloset(item)} hitSlop={6}>
-                  <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>移出</Text>
+      {closet.loading ? <Loading /> : null}
+      {!closet.loading && list.length === 0 ? <Empty text="衣柜还是空的，在皮肤库点皮肤可收藏" /> : null}
+      {list.map((item) => (
+        <Card key={item.id}>
+          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+            <SkinRender hash={item.textureHash} height={96} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '600' }}>
+                {item.itemName || item.textureHash.slice(0, 8)}
+              </Text>
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>存入于 {fmtTime(item.createdAt)}</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+                <Pressable
+                  onPress={() => apply(item)}
+                  disabled={busy === item.id}
+                  style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: c.accent }}
+                >
+                  <Text style={{ color: c.onAccent, fontSize: t.typography.sizeXs, fontWeight: '500' }}>应用到角色</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => remove(item)}
+                  disabled={busy === item.id}
+                  style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: c.borderSubtle, backgroundColor: c.bgSurface }}
+                >
+                  <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs }}>移出</Text>
                 </Pressable>
               </View>
-            </Card>
-          );
-        })
-      )}
-
-      <View style={{ borderRadius: t.radii.lg, backgroundColor: c.fillHover, padding: 14 }}>
-        <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 18 }}>
-          衣柜皮肤保存在皮肤站，启动器与网页宠物通过 CustomSkinAPI 读取。
-        </Text>
-      </View>
+            </View>
+          </View>
+        </Card>
+      ))}
+      <View style={{ height: 8 }} />
+      <PrimaryButton title="返回我的" onPress={onBack} height={42} />
     </Screen>
   );
 }
 
 /* ---------------- 根组件 ---------------- */
 
-type View_ = { name: 'home' } | { name: 'closet' };
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
 
 function SkinApp({ initialRoute }: { initialRoute?: string }) {
-  const [view, setView] = useState<View_>(initialRoute === '/closet' ? { name: 'closet' } : { name: 'home' });
+  const [tab, setTab] = useState<'mine' | 'library'>(initialRoute === '/library' ? 'library' : 'mine');
+  const [closetOpen, setClosetOpen] = useState(false);
+  const players = useResource<SkinPlayer[]>(() => {
+    return currentSdk!.api.request<SkinPlayer[]>(`${API}/me/players`);
+  }, [tab, closetOpen]);
+
   useEffect(() => {
-    currentSdk?.navigation?.setTitle(view.name === 'home' ? '我的角色' : '衣柜与材质');
-    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setView({ name: 'home' }));
-  }, [view, initialRoute]);
-  return view.name === 'home' ? (
-    <SkinHome onOpenCloset={() => setView({ name: 'closet' })} />
-  ) : (
-    <SkinCloset />
+    currentSdk?.navigation?.setTitle(closetOpen ? '我的衣柜' : tab === 'mine' ? '皮肤站' : '皮肤库');
+    currentSdk?.navigation?.setBackAction?.(closetOpen ? () => setClosetOpen(false) : null);
+  }, [tab, closetOpen]);
+
+  if (closetOpen) {
+    return (
+      <UiProvider sdk={currentSdk!}>
+        <ClosetPage onBack={() => setClosetOpen(false)} />
+      </UiProvider>
+    );
+  }
+
+  return (
+    <UiProvider sdk={currentSdk!}>
+      <View style={{ flex: 1, backgroundColor: currentSdk!.theme.colors.bgPage, paddingTop: 8 }}>
+        <View style={{ paddingHorizontal: 16 }}>
+          <TabBar tab={tab} onChange={setTab} />
+        </View>
+        {tab === 'mine' ? (
+          <MineTab players={players} onOpenCloset={() => setClosetOpen(true)} gotoLibrary={() => setTab('library')} />
+        ) : (
+          <LibraryTab players={players} gotoMine={() => setTab('mine')} />
+        )}
+      </View>
+    </UiProvider>
   );
 }
 
@@ -351,11 +449,7 @@ const SkinModule: MobilePluginModule = {
     }
     currentSdk = sdk;
     const route = (props as { route?: string }).route;
-    return (
-      <UiProvider sdk={sdk}>
-        <SkinApp initialRoute={route} />
-      </UiProvider>
-    );
+    return <SkinApp initialRoute={route} />;
   },
 };
 
