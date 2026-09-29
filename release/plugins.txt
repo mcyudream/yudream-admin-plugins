@@ -1,1 +1,1 @@
-yudream-plugin-minecraft-server
+yudream-plugin-mcpanel
