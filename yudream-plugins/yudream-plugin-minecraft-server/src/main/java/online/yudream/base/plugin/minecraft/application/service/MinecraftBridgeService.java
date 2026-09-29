@@ -97,7 +97,8 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
         synchronized (lines) {
             lines.add(line);
         }
-        chatForwardFlusher.schedule(() -> flushChatForward(settings), chatForwardMergeMillis,
+        long windowMillis = Math.max(0, settings.forwardMergeSeconds()) * 1000L;
+        chatForwardFlusher.schedule(() -> flushChatForward(settings), windowMillis,
                 java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 

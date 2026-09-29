@@ -17,6 +17,7 @@ public record MinecraftBridgeSettings(
         boolean forwardDeath,
         boolean forwardAdvancement,
         boolean forwardStartStop,
+        int forwardMergeSeconds,
         boolean forwardToGame,
         long updatedAt
 ) {
@@ -24,7 +25,7 @@ public record MinecraftBridgeSettings(
     /** 未配置时的默认值：整体关闭、全部细分关闭。 */
     public static MinecraftBridgeSettings empty(String serverId) {
         return new MinecraftBridgeSettings(serverId, false, "", "", "",
-                false, false, false, false, false, false, 0L);
+                false, false, false, false, false, 8, false, 0L);
     }
 
     /** 转发目标已选定（启用了群服互联就必须同时配置连接与群聊）。 */
@@ -46,9 +47,15 @@ public record MinecraftBridgeSettings(
                 forwardDeath,
                 forwardAdvancement,
                 forwardStartStop,
+                normalizeMergeSeconds(forwardMergeSeconds),
                 forwardToGame,
                 at <= 0 ? System.currentTimeMillis() : at
         );
+    }
+
+    /** 合并窗口秒数：0-60，超出按边界处理（0=每条聊天即时发送）。 */
+    private static int normalizeMergeSeconds(int value) {
+        return Math.max(0, Math.min(60, value));
     }
 
     /** 启用时目标必须完整。 */

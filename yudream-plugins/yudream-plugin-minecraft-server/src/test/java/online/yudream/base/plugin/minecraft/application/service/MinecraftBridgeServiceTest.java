@@ -68,7 +68,7 @@ class MinecraftBridgeServiceTest {
     private MinecraftBridgeSettings settings(boolean enabled, boolean chat, boolean joinQuit, boolean death,
                                              boolean advancement, boolean startStop, boolean toGame) {
         return new MinecraftBridgeSettings(SERVER_ID, enabled, "conn-1", "grp-1", "测试群",
-                chat, joinQuit, death, advancement, startStop, toGame, NOW);
+                chat, joinQuit, death, advancement, startStop, 0, toGame, NOW);
     }
 
     private String capturedContent() {
@@ -94,7 +94,7 @@ class MinecraftBridgeServiceTest {
     void quitMessageSummarizesRemainingPlayers() {
         givenSettings(settings(true, false, true, false, false, false));
         service = new MinecraftBridgeService(repository, mockFrameworkWith(messaging),
-                serverId -> List.of(), () -> NOW);
+                serverId -> List.of(), () -> NOW, 0L);
 
         service.onPresence(SERVER_ID, false, "p-1", "Steve", NOW);
 
@@ -118,6 +118,9 @@ class MinecraftBridgeServiceTest {
         givenSettings(settings(true, true, false, false, false, false));
 
         service.onGameEvent(SERVER_ID, MinecraftBridgeListener.GameEventKind.CHAT, "Steve", "你好", NOW);
+        // 合并窗口（本测试 0ms）经异步冲刷线程投递：等待冲刷完成再断言
+        org.mockito.Mockito.verify(messaging, org.mockito.Mockito.timeout(1000).times(1))
+                .sendToChannel(anyString(), anyString(), any(PluginMessageContent.class));
         assertEquals("[生存服]:💬 Steve：你好", capturedContent());
 
         // 聊天开关打开但进退服开关关闭：进服事件不转发
@@ -171,7 +174,7 @@ class MinecraftBridgeServiceTest {
     void saveSettingsRejectsEnabledWithoutTarget() {
         givenSettings(settings(true, false, false, false, false, false));
         MinecraftBridgeSettings invalid = new MinecraftBridgeSettings(SERVER_ID, true, "", "", "",
-                false, false, false, false, false, false, 0L);
+                false, false, false, false, false, 0, false, 0L);
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.saveSettings(invalid));
     }

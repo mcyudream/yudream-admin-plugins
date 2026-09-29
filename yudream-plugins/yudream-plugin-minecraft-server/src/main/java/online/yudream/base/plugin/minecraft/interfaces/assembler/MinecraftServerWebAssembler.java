@@ -92,6 +92,8 @@ public class MinecraftServerWebAssembler {
                 Boolean.TRUE.equals(request.forwardDeath()),
                 Boolean.TRUE.equals(request.forwardAdvancement()),
                 Boolean.TRUE.equals(request.forwardStartStop()),
+                request.forwardMergeSeconds() == null ? 8
+                        : Math.max(0, Math.min(60, request.forwardMergeSeconds())),
                 Boolean.TRUE.equals(request.forwardToGame()),
                 0L
         );
@@ -109,6 +111,7 @@ public class MinecraftServerWebAssembler {
                 settings.forwardDeath(),
                 settings.forwardAdvancement(),
                 settings.forwardStartStop(),
+                settings.forwardMergeSeconds(),
                 settings.forwardToGame(),
                 settings.targetConfigured(),
                 settings.updatedAt()

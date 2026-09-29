@@ -288,6 +288,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
         document.put("forwardDeath", settings.forwardDeath());
         document.put("forwardAdvancement", settings.forwardAdvancement());
         document.put("forwardStartStop", settings.forwardStartStop());
+        document.put("forwardMergeSeconds", settings.forwardMergeSeconds());
         document.put("forwardToGame", settings.forwardToGame());
         document.put("updatedAt", settings.updatedAt());
         return document;
@@ -309,6 +310,7 @@ public class MinecraftServerDocumentRepository implements MinecraftServerReposit
                 Boolean.TRUE.equals(bool(document, "forwardDeath", false)),
                 Boolean.TRUE.equals(bool(document, "forwardAdvancement", false)),
                 Boolean.TRUE.equals(bool(document, "forwardStartStop", false)),
+                (int) (long) number(document, "forwardMergeSeconds", 8L),
                 Boolean.TRUE.equals(bool(document, "forwardToGame", false)),
                 number(document, "updatedAt", 0L)
         );
