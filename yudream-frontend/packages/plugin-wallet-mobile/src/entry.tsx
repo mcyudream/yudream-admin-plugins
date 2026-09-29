@@ -1,13 +1,15 @@
 /**
  * wallet 移动端（设计稿 walletHome / walletRecharge）：
- * 钱包首页（总余额 + 积分 + 四宫格 + 最近流水）与充值页（档位 + 支付宝渠道 + 下单）。
+ * 钱包首页（总余额 + 资产 + 四宫格全部可用：充值/转账/流水/明细 + 最近流水点入明细）
+ * 与充值页、转账页、流水页（收支筛选 + 资产筛选 + 加载更多）、流水明细页、资产明细页。
  * 数据走 /api/plugins/yudream-wallet/me/**；金额为字符串；视觉经 sdk.theme。
  */
 import React, { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Empty, Loading, Screen, SectionTitle, UiProvider, useResource,
+  Badge, Card, Empty, Icon, InfoRows, Loading, PrimaryButton, Screen, SectionTitle,
+  UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -22,11 +24,19 @@ interface Balance {
   balance: string;
   historicalTotalAmount?: string;
 }
+interface TxUser { id?: string; username?: string; nickname?: string; avatar?: string | null }
 interface Tx {
   id: string;
+  businessNo?: string;
   type: string;
+  source?: string;
   assetCode: string;
+  fromUser?: TxUser | null;
+  toUser?: TxUser | null;
+  direction?: string; // IN | OUT | TRANSFER
   amount: string;
+  fromBalanceAfter?: string;
+  toBalanceAfter?: string;
   remark?: string;
   createdAt?: number | string;
 }
@@ -37,38 +47,114 @@ interface RechargeOptions {
   rules?: { assetCode: string; enabled?: boolean; ratio?: string; minPayAmount?: string }[];
 }
 
-function fmtMoney(v: string | number): string {
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+function fmtMoney(v: string | number | null | undefined): string {
   const n = Number(v);
   return Number.isFinite(n) ? n.toFixed(2) : String(v ?? '0.00');
 }
-function fmtTime(ts?: number | string): string {
+function fmtTime(ts?: number | string | null): string {
   const n = Number(ts);
   if (!ts || !Number.isFinite(n) || n <= 0) return '';
   const d = new Date(n);
-  return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+const userName = (u?: TxUser | null) => u?.nickname || u?.username || '';
+
+function Field({
+  value, onChangeText, placeholder, multiline, height, keyboard,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  multiline?: boolean;
+  height?: number;
+  keyboard?: 'default' | 'numeric';
+}) {
+  const t = useSdk().theme;
+  const c = t.colors;
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={c.textTertiary}
+      multiline={multiline}
+      textAlignVertical={multiline ? 'top' : 'center'}
+      keyboardType={keyboard === 'numeric' ? 'numeric' : 'default'}
+      autoCapitalize="none"
+      autoCorrect={false}
+      style={{
+        height: height ?? (multiline ? 72 : 42),
+        borderRadius: t.radii.md,
+        borderWidth: 1,
+        borderColor: c.borderSubtle,
+        backgroundColor: c.bgPage,
+        color: c.textPrimary,
+        fontSize: t.typography.sizeSm,
+        paddingHorizontal: 10,
+        paddingVertical: multiline ? 8 : 0,
+      }}
+    />
+  );
+}
+
+/** 流水行：方向角标 + 说明 + 时间 + 金额；可点进明细。 */
+function TxRow({ tx, onPress }: { tx: Tx; onPress?: () => void }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const dir = tx.direction ?? (tx.type === 'CREDIT' ? 'IN' : tx.type === 'DEBIT' ? 'OUT' : 'TRANSFER');
+  const credit = dir === 'IN';
+  const counterpart = credit ? userName(tx.fromUser) : userName(tx.toUser);
+  const title = tx.remark || (dir === 'TRANSFER' ? '转账' : credit ? '入账' : '支出');
+  return (
+    <Pressable onPress={onPress} android_ripple={{ color: c.fillHover }} disabled={!onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }}>
+        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={credit ? 'likeFilled' : 'close'} size={13} color={credit ? (c.success ?? '#16a34a') : c.textSecondary} />
+        </View>
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>
+            {title}
+          </Text>
+          <Text numberOfLines={1} style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+            {[counterpart || (credit ? '入账' : '支出'), fmtTime(tx.createdAt), tx.assetCode].filter(Boolean).join(' · ')}
+          </Text>
+        </View>
+        <Text
+          style={{
+            color: credit ? (c.success ?? '#16a34a') : (c.danger ?? '#dc2626'),
+            fontSize: t.typography.sizeSm, fontWeight: '700',
+          }}
+        >
+          {credit ? '+' : '-'}
+          {fmtMoney(tx.amount)}
+        </Text>
+      </View>
+    </Pressable>
+  );
 }
 
 /* ---------------- 钱包首页 ---------------- */
 
-function WalletHome({ onOpenRecharge }: { onOpenRecharge: () => void }) {
+function WalletHome({ onOpen, balances, txs }: {
+  onOpen: (v: 'recharge' | 'transfer' | 'transactions' | 'assets') => void;
+  balances: { data: Balance[] | null; loading: boolean; reload: () => void };
+  txs: { data: { records?: Tx[] } | null; loading: boolean; reload: () => void };
+}) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
-  const balances = useResource<Balance[]>(
-    () => sdk.api
-      .request<Balance[] | { records?: Balance[] }>(`${API}/me/balances`)
-      .then((r) => (Array.isArray(r) ? r : (r?.records ?? []))),
-    [sdk],
-  );
-  const txs = useResource<{ records?: Tx[]; total?: number }>(
-    () => sdk.api.request(`${API}/me/transactions?page=1&size=5`),
-    [sdk],
-  );
   const list = balances.data ?? [];
   const cny = list.find((b) => b.assetCode === 'CNY');
   const point = list.find((b) => b.assetCode === 'POINT');
-  const txList = txs.data?.records ?? [];
-  const quick = ['充值', '转账', '流水', '明细'];
+  const txList = (txs.data?.records ?? []).slice(0, 6);
+  const quick: { label: string; icon: string; view: 'recharge' | 'transfer' | 'transactions' | 'assets' }[] = [
+    { label: '充值', icon: 'add', view: 'recharge' },
+    { label: '转账', icon: 'send', view: 'transfer' },
+    { label: '流水', icon: 'time', view: 'transactions' },
+    { label: '明细', icon: 'folder', view: 'assets' },
+  ];
 
   return (
     <Screen>
@@ -94,55 +180,275 @@ function WalletHome({ onOpenRecharge }: { onOpenRecharge: () => void }) {
         </View>
       </View>
 
-      {/* 四宫格快捷入口：充值接充值页，其余为占位能力位 */}
+      {/* 四宫格快捷入口：全部可用 */}
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        {quick.map((label, i) => (
+        {quick.map((item) => (
           <Pressable
-            key={label}
-            onPress={i === 0 ? onOpenRecharge : undefined}
+            key={item.label}
+            onPress={() => onOpen(item.view)}
+            android_ripple={{ color: c.fillHover }}
             style={{
               flex: 1, alignItems: 'center', gap: 6, paddingVertical: 12,
               borderRadius: t.radii.lg, borderWidth: 1, borderColor: c.borderSubtle, backgroundColor: c.bgSurface,
             }}
           >
-            <Text style={{ color: c.textPrimary, fontSize: 16 }}>{['＋', '⇄', '☰', '≡'][i]}</Text>
-            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeXs + 1 }}>{label}</Text>
+            <Icon name={item.icon} size={16} color={c.accent} />
+            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeXs + 1 }}>{item.label}</Text>
           </Pressable>
         ))}
       </View>
 
-      <SectionTitle title="最近流水" actionText="全部" />
+      <SectionTitle title="最近流水" actionText="全部" onAction={() => onOpen('transactions')} />
       {txs.loading ? <Loading /> : null}
       {!txs.loading && txList.length === 0 ? <Empty text="暂无流水" /> : null}
-      <Card>
-        {txList.map((tx, i) => {
-          const credit = tx.type === 'CREDIT';
-          return (
+      {txList.length > 0 ? (
+        <Card>
+          {txList.map((tx, i) => (
             <View key={tx.id}>
               {i > 0 ? <View style={{ height: 1, backgroundColor: c.borderSubtle }} /> : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 }}>
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>
-                    {tx.remark || (credit ? '入账' : '支出')}
-                  </Text>
-                  <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
-                    {fmtTime(tx.createdAt)} · {tx.assetCode}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    color: credit ? (c.success ?? '#16a34a') : (c.danger ?? '#dc2626'),
-                    fontSize: t.typography.sizeSm, fontWeight: '700',
-                  }}
-                >
-                  {credit ? '+' : '-'}
-                  {fmtMoney(tx.amount)}
-                </Text>
-              </View>
+              <TxRow tx={tx} onPress={() => onOpen('transactions')} />
             </View>
-          );
-        })}
+          ))}
+        </Card>
+      ) : null}
+    </Screen>
+  );
+}
+
+/* ---------------- 转账 ---------------- */
+
+function TransferPage({ balances, onDone }: { balances: Balance[] | null; onDone: () => void }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const [asset, setAsset] = useState('');
+  const [account, setAccount] = useState('');
+  const [amount, setAmount] = useState('');
+  const [remark, setRemark] = useState('');
+  const [busy, setBusy] = useState(false);
+  const active = asset || (balances ?? [])[0]?.assetCode || 'POINT';
+  const balanceOf = (balances ?? []).find((b) => b.assetCode === active);
+
+  const submit = () => {
+    const n = Number(amount);
+    if (!account.trim()) {
+      Alert.alert('请填写收款人', '支持对方用户名 / 邮箱 / 用户 ID');
+      return;
+    }
+    if (!Number.isFinite(n) || n <= 0) {
+      Alert.alert('请填写金额', '转账金额需为正数');
+      return;
+    }
+    if (balanceOf && n > Number(balanceOf.balance)) {
+      Alert.alert('余额不足', `当前 ${active} 余额 ${fmtMoney(balanceOf.balance)}`);
+      return;
+    }
+    Alert.alert('确认转账', `向「${account.trim()}」转账 ${fmtMoney(n)} ${active}？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '转账',
+        onPress: () => {
+          setBusy(true);
+          void sdk.api
+            .request(`${API}/me/transfers`, {
+              method: 'POST',
+              body: { toAccount: account.trim(), assetCode: active, amount: n, remark: remark.trim() || '移动端转账' },
+            })
+            .then(() => {
+              setBusy(false);
+              setAccount('');
+              setAmount('');
+              setRemark('');
+              Alert.alert('转账成功', '已到账对方钱包', [{ text: '好的', onPress: onDone }]);
+            })
+            .catch((e) => { setBusy(false); Alert.alert('转账失败', errText(e)); });
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Screen>
+      <Card style={{ gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Icon name="send" size={16} color={c.accent} />
+          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700', flex: 1 }}>转账</Text>
+        </View>
+        {(balances ?? []).length > 1 ? (
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+            {(balances ?? []).map((b) => (
+              <Pressable
+                key={b.assetCode}
+                onPress={() => setAsset(b.assetCode)}
+                style={{
+                  paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+                  backgroundColor: active === b.assetCode ? c.accent : c.bgSurface,
+                  borderWidth: 1, borderColor: active === b.assetCode ? c.accent : c.borderSubtle,
+                }}
+              >
+                <Text style={{ color: active === b.assetCode ? c.onAccent : c.textSecondary, fontSize: t.typography.sizeXs }}>
+                  {b.assetCode} · {fmtMoney(b.balance)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <Field value={account} onChangeText={setAccount} placeholder="收款人（用户名 / 邮箱 / 用户 ID）" />
+        <Field value={amount} onChangeText={setAmount} placeholder="转账金额" keyboard="numeric" />
+        <Field value={remark} onChangeText={setRemark} placeholder="备注（可选）" />
+        <PrimaryButton title="确认转账" onPress={submit} busy={busy} />
       </Card>
+      <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+        转账即时到账、不可撤销，请核对收款人后操作
+      </Text>
+    </Screen>
+  );
+}
+
+/* ---------------- 流水（筛选 + 加载更多） ---------------- */
+
+function TransactionsPage({ onOpenDetail }: { onOpenDetail: (tx: Tx) => void }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const [typeFilter, setTypeFilter] = useState<'' | 'CREDIT' | 'DEBIT'>('');
+  const [items, setItems] = useState<Tx[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [more, setMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const req = React.useRef(0);
+
+  const load = React.useCallback(
+    async (target: number, replace: boolean) => {
+      const my = ++req.current;
+      if (replace) setLoading(true); else setMore(true);
+      try {
+        const qs = [`page=${target}`, 'size=20'];
+        if (typeFilter) qs.push(`type=${typeFilter}`);
+        const res = await sdk.api.request<{ records?: Tx[]; total?: number }>(`${API}/me/transactions?${qs.join('&')}`);
+        if (my !== req.current) return;
+        const fresh = res.records ?? [];
+        setItems((prev) => (replace ? fresh : [...prev, ...fresh.filter((x) => !prev.some((p) => p.id === x.id))]));
+        setPage(target);
+        setHasMore(target * 20 < Number(res.total ?? 0));
+      } catch {
+        if (my === req.current) setItems([]);
+      } finally {
+        if (my === req.current) { setLoading(false); setMore(false); }
+      }
+    },
+    [sdk, typeFilter],
+  );
+
+  React.useEffect(() => { void load(1, true); }, [load]);
+
+  return (
+    <Screen>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {[
+          { key: '', label: '全部' },
+          { key: 'CREDIT', label: '收入' },
+          { key: 'DEBIT', label: '支出' },
+        ].map((f) => (
+          <Pressable
+            key={f.key}
+            onPress={() => setTypeFilter(f.key as '' | 'CREDIT' | 'DEBIT')}
+            style={{
+              flex: 1, height: 38, borderRadius: t.radii.md, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: typeFilter === f.key ? c.accent : c.bgSurface,
+              borderWidth: 1, borderColor: typeFilter === f.key ? c.accent : c.borderSubtle,
+            }}
+          >
+            <Text style={{ color: typeFilter === f.key ? c.onAccent : c.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>
+              {f.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {loading ? <Loading /> : null}
+      {!loading && items.length === 0 ? <Empty text="暂无流水记录" /> : null}
+      {items.length > 0 ? (
+        <Card>
+          {items.map((tx, i) => (
+            <View key={tx.id}>
+              {i > 0 ? <View style={{ height: 1, backgroundColor: c.borderSubtle }} /> : null}
+              <TxRow tx={tx} onPress={() => onOpenDetail(tx)} />
+            </View>
+          ))}
+        </Card>
+      ) : null}
+      {hasMore ? (
+        <Pressable onPress={() => void load(page + 1, false)} style={{ alignItems: 'center', paddingVertical: 12 }}>
+          {more ? <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>加载中…</Text> : <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm }}>加载更多</Text>}
+        </Pressable>
+      ) : null}
+    </Screen>
+  );
+}
+
+/* ---------------- 流水明细 ---------------- */
+
+function TxDetailPage({ tx }: { tx: Tx }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const dir = tx.direction ?? (tx.type === 'CREDIT' ? 'IN' : tx.type === 'DEBIT' ? 'OUT' : 'TRANSFER');
+  const credit = dir === 'IN';
+  const typeText = dir === 'TRANSFER' ? '转账' : credit ? '入账' : '支出';
+  const counterpart = credit ? userName(tx.fromUser) : userName(tx.toUser);
+  const balanceAfter = credit ? tx.toBalanceAfter : tx.fromBalanceAfter;
+  return (
+    <Screen>
+      <Card style={{ alignItems: 'center', gap: 6, paddingVertical: 22 }}>
+        <Text style={{ color: credit ? (c.success ?? '#16a34a') : (c.danger ?? '#dc2626'), fontSize: 30, fontWeight: '700' }}>
+          {credit ? '+' : '-'}
+          {fmtMoney(tx.amount)}
+        </Text>
+        <Badge text={typeText} tone={credit ? 'success' : 'warning'} solid />
+        {tx.remark ? <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm }}>{tx.remark}</Text> : null}
+      </Card>
+      <InfoRows
+        rows={[
+          ['资产', tx.assetCode],
+          ['方向', credit ? '收入' : dir === 'TRANSFER' ? '转出' : '支出'],
+          ['对方', counterpart || '—'],
+          ...(balanceAfter != null ? [['变动后余额', fmtMoney(balanceAfter)] as [string, string]] : []),
+          ...(tx.source ? [['来源', tx.source] as [string, string]] : []),
+          ['时间', fmtTime(tx.createdAt)],
+          ...(tx.businessNo ? [['业务单号', tx.businessNo] as [string, string]] : []),
+        ]}
+      />
+    </Screen>
+  );
+}
+
+/* ---------------- 资产明细 ---------------- */
+
+function AssetsPage({ balances }: { balances: Balance[] | null }) {
+  const t = useSdk().theme;
+  const c = t.colors;
+  const list = balances ?? [];
+  return (
+    <Screen>
+      {list.length === 0 ? <Empty text="暂无资产" /> : null}
+      {list.map((b) => (
+        <Card key={b.assetCode}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: c.textPrimary, fontSize: 15, fontWeight: '700' }}>{b.assetCode.slice(0, 2)}</Text>
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700' }}>{b.assetCode}</Text>
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+                {b.historicalTotalAmount ? `累计 ${fmtMoney(b.historicalTotalAmount)}` : '累计 —'}
+              </Text>
+            </View>
+            <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeMd, fontWeight: '700' }}>{fmtMoney(b.balance)}</Text>
+          </View>
+        </Card>
+      ))}
     </Screen>
   );
 }
@@ -162,7 +468,7 @@ const ORDER_STATUS_TEXT: Record<string, string> = {
   PAID: '成功', CREATED: '待支付', CLOSED: '已关闭',
 };
 
-function RechargePage({ onBack }: { onBack: () => void }) {
+function RechargePage() {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
@@ -171,7 +477,7 @@ function RechargePage({ onBack }: { onBack: () => void }) {
     [sdk],
   );
   const orders = useResource<{ records?: RechargeOrder[] }>(
-    () => sdk.api.request('/api/plugins/yudream-alipay/me/orders?page=1&size=5').catch(() => ({ records: [] })),
+    () => sdk.api.request<{ records?: RechargeOrder[] }>('/api/plugins/yudream-alipay/me/orders?page=1&size=5').catch(() => ({ records: [] } as { records?: RechargeOrder[] })),
     [sdk],
   );
   const channels = (options.data?.channels ?? []).filter((ch) => ch.enabled !== false);
@@ -208,7 +514,7 @@ function RechargePage({ onBack }: { onBack: () => void }) {
       })
       .catch((e) => {
         setBusy(false);
-        Alert.alert('下单失败', e instanceof Error ? e.message : String(e));
+        Alert.alert('下单失败', errText(e));
       });
   };
 
@@ -304,21 +610,58 @@ function RechargePage({ onBack }: { onBack: () => void }) {
 
 /* ---------------- 根组件 ---------------- */
 
-type View_ = { name: 'home' } | { name: 'recharge' };
+type View_ =
+  | { name: 'home' }
+  | { name: 'recharge' }
+  | { name: 'transfer' }
+  | { name: 'transactions' }
+  | { name: 'txDetail'; tx: Tx }
+  | { name: 'assets' };
+
+const TITLES: Record<View_['name'], string> = {
+  home: '钱包', recharge: '充值', transfer: '转账', transactions: '流水',
+  txDetail: '流水明细', assets: '资产明细',
+};
 
 function WalletApp({ initialRoute }: { initialRoute?: string }) {
-  const [view, setView] = useState<View_>({ name: 'home' });
+  const [stack, setStack] = useState<View_[]>([{ name: 'home' }]);
+  const view = stack[stack.length - 1];
+  const balances = useResource<Balance[]>(
+    () => currentSdk!.api
+      .request<Balance[] | { records?: Balance[] }>(`${API}/me/balances`)
+      .then((r) => (Array.isArray(r) ? r : (r?.records ?? []))),
+    [stack.length === 1],
+  );
+  const txs = useResource<{ records?: Tx[] }>(
+    () => currentSdk!.api.request(`${API}/me/transactions?page=1&size=6`),
+    [stack.length === 1],
+  );
+
   React.useEffect(() => {
-    currentSdk?.navigation?.setTitle(view.name === 'home' ? '钱包' : '充值');
-    // 充值页接管宿主返回键为应用内返回，首页恢复默认退出
-    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setView({ name: 'home' }));
+    currentSdk?.navigation?.setTitle(TITLES[view.name]);
+    currentSdk?.navigation?.setBackAction?.(view.name === 'home' ? null : () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)));
   }, [view, initialRoute]);
+
+  const push = (next: View_) => setStack((prev) => [...prev, next]);
+
   return (
     <UiProvider sdk={currentSdk!}>
       {view.name === 'home' ? (
-        <WalletHome onOpenRecharge={() => setView({ name: 'recharge' })} />
+        <WalletHome
+          onOpen={(v) => push({ name: v } as View_)}
+          balances={balances}
+          txs={txs}
+        />
+      ) : view.name === 'recharge' ? (
+        <RechargePage />
+      ) : view.name === 'transfer' ? (
+        <TransferPage balances={balances.data} onDone={() => setStack((prev) => prev.slice(0, -1))} />
+      ) : view.name === 'transactions' ? (
+        <TransactionsPage onOpenDetail={(tx) => push({ name: 'txDetail', tx })} />
+      ) : view.name === 'txDetail' ? (
+        <TxDetailPage tx={view.tx} />
       ) : (
-        <RechargePage onBack={() => setView({ name: 'home' })} />
+        <AssetsPage balances={balances.data} />
       )}
     </UiProvider>
   );
