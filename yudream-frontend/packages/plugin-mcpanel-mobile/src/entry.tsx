@@ -58,6 +58,11 @@ interface InstanceDto {
   mcVersion?: string;
   state: string;
   lastExitCode?: number | null;
+  /** 总览聚合的容器实时指标（overview 专用；详情页走 metrics 接口） */
+  cpuPercent?: number | null;
+  memUsedMb?: number | null;
+  memTotalMb?: number | null;
+  /** 详情接口的规格内存上限（未配置为 0/缺省，展示时须判 0） */
   memoryMb?: number;
   diskMb?: number;
   cpuMillis?: number;
@@ -107,7 +112,7 @@ interface ProxyGroup {
 
 const stateTone = (s: string): 'success' | 'danger' | 'warning' | 'default' =>
   s === 'running' ? 'success' : s === 'exited' ? 'danger' : 'default';
-const stateText = (s: string) => (s === 'running' ? '运行中' : s === 'exited' ? '已终止' : s === 'stopped' ? '已停止' : s);
+const stateText = (s: string) => (s === 'running' ? '运行中' : s === 'exited' ? '已终止' : s === 'stopped' ? '已停止' : s === 'unknown' ? '状态未知' : s === 'starting' ? '启动中' : s);
 /** 节点离线判定：插件错误体消息被宿主 httpClient 吞成「请求失败（HTTP 409/502）」，需按状态兜底。 */
 const isOfflineError = (e: unknown) => {
   const msg = e instanceof Error ? e.message : String(e);
@@ -249,7 +254,7 @@ function Overview({ onOpenInstance, onOpenOps }: { onOpenInstance: (id: string, 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ color: c.danger ?? '#dc2626', fontSize: 14 }}>⚠</Text>
                 <Text style={{ color: c.danger ?? '#dc2626', fontSize: t.typography.sizeSm, fontWeight: '500', flex: 1 }}>
-                  {abnormal} 个实例异常终止
+                  {abnormal} 个实例状态异常
                 </Text>
               </View>
             </Card>
@@ -275,9 +280,19 @@ function Overview({ onOpenInstance, onOpenOps }: { onOpenInstance: (id: string, 
                   <Icon name={inst.state === 'running' ? 'power' : 'play'} size={15} color={inst.state === 'running' ? (c.danger ?? '#dc2626') : (c.success ?? '#16a34a')} />
                 </Pressable>
               </View>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                <Badge text={inst.mcVersion || '—'} />
-                <Badge text={`${Math.round((inst.memoryMb ?? 0) / 1024)}G 内存`} />
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {inst.mcVersion ? <Badge text={`MC ${inst.mcVersion}`} /> : null}
+                {inst.cpuPercent != null ? <Badge text={`CPU ${Number(inst.cpuPercent).toFixed(1)}%`} /> : null}
+                {/* 后端字段是 memUsedMb/memTotalMb（容器实时用量/规格上限）；两者皆缺时不渲染内存，禁止出现 0G */}
+                {inst.memUsedMb != null ? (
+                  <Badge
+                    text={
+                      inst.memTotalMb != null
+                        ? `${(Number(inst.memUsedMb) / 1024).toFixed(1)}G/${Math.round(Number(inst.memTotalMb) / 1024)}G 内存`
+                        : `${(Number(inst.memUsedMb) / 1024).toFixed(1)}G 内存`
+                    }
+                  />
+                ) : null}
               </View>
             </Card>
           ))}
@@ -643,7 +658,7 @@ function InstancePage({
             <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
               {nodeOffline
                 ? '节点离线 · 状态可能已过期'
-                : `节点 ${d.nodeId?.slice(0, 8)} · ${d.mcVersion || '版本未知'} · ${Math.round((d.memoryMb ?? 0) / 1024)}G 内存`}
+                : `节点 ${d.nodeId?.slice(0, 8)} · ${d.mcVersion || '版本未知'}${(d.memoryMb ?? 0) > 0 ? ` · 规格 ${Math.round(Number(d.memoryMb) / 1024)}G 内存` : ''}`}
               <UptimeText instanceId={instanceId} running={running} />
               {d.autoRestart ? ' · 自动重启' : ''}
             </Text>
