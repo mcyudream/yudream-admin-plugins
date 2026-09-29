@@ -176,6 +176,7 @@ function Plaza({ onOpenProduct, onOpenOrders, onOpenSell, onOpenAdmin }: {
   const c = t.colors;
   const [keyword, setKeyword] = useState('');
   const [query, setQuery] = useState('');
+  const [settlement, setSettlement] = useState<'SELLER' | 'BURN'>('SELLER');
   const [items, setItems] = useState<ProductRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -188,7 +189,7 @@ function Plaza({ onOpenProduct, onOpenOrders, onOpenSell, onOpenAdmin }: {
       const my = ++req.current;
       if (replace) setLoading(true); else setMore(true);
       try {
-        const qs = [`page=${target}`, 'size=20'];
+        const qs = [`page=${target}`, 'size=20', `settlement=${settlement}`];
         if (query) qs.push(`keyword=${encodeURIComponent(query)}`);
         const res = await sdk.api.request<{ records?: ProductRow[]; total?: number }>(
           `${API}/plaza/products?${qs.join('&')}`,
@@ -204,7 +205,7 @@ function Plaza({ onOpenProduct, onOpenOrders, onOpenSell, onOpenAdmin }: {
         if (my === req.current) { setLoading(false); setMore(false); }
       }
     },
-    [sdk, query],
+    [sdk, query, settlement],
   );
 
   useEffect(() => { void load(1, true); }, [load]);
@@ -212,6 +213,26 @@ function Plaza({ onOpenProduct, onOpenOrders, onOpenSell, onOpenAdmin }: {
   return (
     <Screen>
       <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索商品…" onSubmit={() => setQuery(keyword.trim())} />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {([
+          { key: 'SELLER', label: '玩家市场' },
+          { key: 'BURN', label: '积分兑换' },
+        ] as const).map((st) => (
+          <Pressable
+            key={st.key}
+            onPress={() => setSettlement(st.key)}
+            style={{
+              flex: 1, height: 40, borderRadius: t.radii.md, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: settlement === st.key ? t.colors.accent : t.colors.bgSurface,
+              borderWidth: 1, borderColor: settlement === st.key ? t.colors.accent : t.colors.borderSubtle,
+            }}
+          >
+            <Text style={{ color: settlement === st.key ? t.colors.onAccent : t.colors.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>
+              {st.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Card onPress={onOpenOrders} style={{ flex: 1, alignItems: 'center', paddingVertical: 11, gap: 3 }}>
           <Icon name="time" size={18} color={c.accent} />
