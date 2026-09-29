@@ -37,7 +37,7 @@ interface FeedPost {
   viewCount?: number;
   createTime: number;
 }
-interface CommentItem { id: string; authorId: string; body: string; createdAt: number }
+interface CommentItem { id: string; authorId: string; body: string; createdAt: number; parentId?: string | null }
 interface PostDetail {
   id: string;
   title: string;
@@ -57,20 +57,26 @@ function PostCard({ post, onPress }: { post: FeedPost; onPress: () => void }) {
   const t = useSdk().theme;
   const c = t.colors;
   return (
-    <Card onPress={onPress} style={{ gap: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Avatar uri={post.author.avatar} name={post.author.name} size={36} />
-        <View style={{ flex: 1, gap: 1 }}>
-          <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>
-            {post.author.name || '匿名'}
-          </Text>
-          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
-            {relativeTime(post.createTime)}
-          </Text>
-        </View>
-        {post.tagName ? <Badge text={post.tagName} /> : null}
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: c.fillHover }}
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? c.fillHover : 'transparent',
+        paddingHorizontal: t.spacing.lg,
+        paddingVertical: 12,
+        gap: 8,
+      })}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Avatar uri={post.author.avatar} name={post.author.name} size={32} />
+        <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '500', flexShrink: 1 }}>
+          {post.author.name || '匿名'}
+        </Text>
+        <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
+          · {relativeTime(post.createTime)}
+        </Text>
       </View>
-      <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd, fontWeight: '700', lineHeight: 22 }}>
+      <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', lineHeight: 23 }}>
         {post.title}
       </Text>
       {post.summary ? (
@@ -78,21 +84,29 @@ function PostCard({ post, onPress }: { post: FeedPost; onPress: () => void }) {
           {post.summary}
         </Text>
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+        {post.tagName ? (
+          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: c.fillHover }}>
+            <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs }}>
+              {post.tagName}
+            </Text>
+          </View>
+        ) : null}
+        <View style={{ flex: 1 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Icon name="eye" size={14} />
+          <Icon name="eye-outline" size={13} color={c.textTertiary} />
           <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>{formatCount(post.viewCount)}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Icon name="comment" size={14} />
+          <Icon name="chatbubble-outline" size={13} color={c.textTertiary} />
           <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>{formatCount(post.commentCount)}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Icon name="like" size={14} />
+          <Icon name="thumbs-up-outline" size={13} color={c.textTertiary} />
           <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>{formatCount(post.likeCount)}</Text>
         </View>
       </View>
-    </Card>
+    </Pressable>
   );
 }
 
@@ -154,7 +168,7 @@ function ForumList({ onOpenPost, onCompose }: { onOpenPost: (postId: string) => 
   const sortedCategories = [{ id: '', name: '全部' }, ...categories];
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bgPage }}>
+    <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
       <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.md, gap: t.spacing.sm }}>
         <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索帖子" onSubmit={() => setQuery(keyword.trim())} />
         <View style={{ flexDirection: 'row', flexWrap: 'nowrap' }}>
@@ -167,13 +181,15 @@ function ForumList({ onOpenPost, onCompose }: { onOpenPost: (postId: string) => 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl refreshing={loading && !loadingMore} onRefresh={() => void load(1, true)} tintColor={c.accent} />
         }
         onEndReachedThreshold={0.3}
         onEndReached={() => hasMore && !loadingMore && void load(page + 1, false)}
-        ItemSeparatorComponent={() => <View style={{ height: t.spacing.md }} />}
+        ItemSeparatorComponent={() => (
+          <View style={{ height: 1, backgroundColor: c.borderSubtle, marginHorizontal: t.spacing.lg, opacity: 0.7 }} />
+        )}
         renderItem={({ item }) => <PostCard post={item} onPress={() => onOpenPost(item.id)} />}
         ListEmptyComponent={loading ? <Loading /> : <Empty text={query ? '没有匹配的帖子' : '暂无帖子'} />}
         ListFooterComponent={loadingMore ? <ActivityIndicator color={c.accent} style={{ paddingVertical: 12 }} /> : null}
@@ -277,7 +293,7 @@ function ForumDetail({ postId }: { postId: string }) {
 
   if (error) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.bgPage, padding: t.spacing.lg }}>
+      <View style={{ flex: 1, backgroundColor: c.bgSurface, padding: t.spacing.lg }}>
         <Empty text={error} />
       </View>
     );
@@ -287,10 +303,10 @@ function ForumDetail({ postId }: { postId: string }) {
   const author = authors[post.authorId];
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bgPage }}>
+    <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: 10, paddingBottom: 24 }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Avatar uri={author?.avatar ?? ''} name={author?.name ?? ''} size={40} />
@@ -321,8 +337,8 @@ function ForumDetail({ postId }: { postId: string }) {
               <View
                 key={tag}
                 style={{
-                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
-                  backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
+                  backgroundColor: c.fillHover,
                 }}
               >
                 <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>#{tag}</Text>
@@ -355,28 +371,52 @@ function ForumDetail({ postId }: { postId: string }) {
         {comments.length === 0 ? (
           <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>还没有评论，来抢沙发</Text>
         ) : (
-          comments.map((cm) => {
-            const ca = authors[cm.authorId];
-            return (
-              <View key={cm.id} style={{ flexDirection: 'row', gap: 10 }}>
-                <Avatar uri={ca?.avatar ?? ''} name={ca?.name ?? ''} size={32} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '600' }}>
-                      {ca?.name || '匿名'}
+          comments
+            .filter((cm) => !cm.parentId)
+            .map((cm) => {
+              const ca = authors[cm.authorId];
+              const replies = comments.filter((r) => r.parentId === cm.id);
+              return (
+                <View key={cm.id} style={{ flexDirection: 'row', gap: 10 }}>
+                  <Avatar uri={ca?.avatar ?? ''} name={ca?.name ?? ''} size={32} />
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, fontWeight: '600' }}>
+                        {ca?.name || '匿名'}
+                      </Text>
+                      <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{relativeTime(cm.createdAt)}</Text>
+                    </View>
+                    <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, lineHeight: 20 }}>
+                      {cm.body}
                     </Text>
-                    <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{relativeTime(cm.createdAt)}</Text>
+                    {replies.length > 0 ? (
+                      <View style={{ marginTop: 4, borderRadius: 8, backgroundColor: c.fillHover, padding: 8, gap: 6 }}>
+                        {replies.map((r) => {
+                          const ra = authors[r.authorId];
+                          return (
+                            <Pressable
+                              key={r.id}
+                              onPress={() => setReplyTo({ name: ra?.name || '匿名', parentId: cm.id })}
+                              style={{ gap: 1 }}
+                            >
+                              <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>
+                                {ra?.name || '匿名'}：{r.body}
+                              </Text>
+                              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+                                {relativeTime(r.createdAt)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                    <Pressable onPress={() => setReplyTo({ name: ca?.name || '匿名', parentId: cm.id })} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
+                      <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>回复</Text>
+                    </Pressable>
                   </View>
-                  <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, lineHeight: 20 }}>
-                    {cm.body}
-                  </Text>
-                  <Pressable onPress={() => setReplyTo({ name: ca?.name || '匿名', parentId: cm.id })} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
-                    <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>回复</Text>
-                  </Pressable>
                 </View>
-              </View>
-            );
-          })
+              );
+            })
         )}
       </ScrollView>
 
@@ -426,7 +466,7 @@ function Composer({
   };
 
   return (
-    <View style={{ backgroundColor: c.bgPage, borderTopWidth: 1, borderTopColor: c.borderSubtle }}>
+    <View style={{ backgroundColor: c.bgSurface, borderTopWidth: 1, borderTopColor: c.borderSubtle }}>
       {replyTo ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: t.spacing.lg, paddingTop: 8 }}>
           <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, flex: 1 }}>
@@ -446,13 +486,13 @@ function Composer({
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="说点什么..."
+          placeholder="来说点什么吧!"
           placeholderTextColor={c.textTertiary}
           editable={!busy}
           multiline
           style={{
             flex: 1, minHeight: 40, maxHeight: 96, paddingHorizontal: 14, paddingVertical: 9,
-            borderRadius: 20, backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
+            borderRadius: 20, backgroundColor: c.fillHover,
             color: c.textPrimary, fontSize: t.typography.sizeSm,
           }}
         />
@@ -606,7 +646,7 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
     <View style={{ flex: 1, backgroundColor: c.bgPage }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
         {/* 标题（30 字上限，右下角计数，设计稿同构） */}
@@ -678,8 +718,8 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
               <View
                 key={tag}
                 style={{
-                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
-                  backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
+                  backgroundColor: c.fillHover,
                 }}
               >
                 <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1 }}>#{tag}</Text>
@@ -788,7 +828,7 @@ function ModerationPage() {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: t.spacing.lg, gap: t.spacing.md, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={c.accent} />}
         ListEmptyComponent={loading ? <Loading /> : <Empty text="暂无待审帖子" />}
         renderItem={({ item }) => (

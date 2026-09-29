@@ -3,7 +3,7 @@ displayName: MC 新闻推送
 description: 轮询 Minecraft 官网新闻与反馈隧道版本文章，AI 整合后推送到机器人群聊、Webhook 与订阅用户。
 icon: i-ri:newspaper-line
 main: online.yudream.base.plugin.mcnews.bootstrap.McNewsPlugin
-version: 1.4.6
+version: 1.4.7
 
 # 移动端（YuDream Mobile 宿主）接入声明：管理员新闻列表
 mobile:

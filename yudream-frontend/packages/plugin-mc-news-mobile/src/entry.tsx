@@ -127,25 +127,20 @@ function NewsDetail({ item }: { item: FeedItem }) {
   };
 
   return (
-    <Screen>
+    <Screen style={{ backgroundColor: c.bgSurface }}>
       <CoverImage uri={(item.images ?? [])[0]} height={170} />
       <View style={{ gap: 6 }}>
         <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeXl - 1, fontWeight: '700', lineHeight: 26 }}>
           {item.title}
         </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {item.author?.name ? <Badge text={item.author.name} /> : null}
-          {item.tagName ? <Badge text={item.tagName} /> : null}
-          <View style={{ flex: 1 }} />
-          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{fmtTime(item.createTime)}</Text>
-        </View>
+        <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
+          {[item.author?.name, item.tagName, fmtTime(item.createTime)].filter(Boolean).join(' · ')}
+        </Text>
       </View>
       {item.summary ? (
-        <Card>
-          <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, lineHeight: 21 }}>
-            {item.summary}
-          </Text>
-        </Card>
+        <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, lineHeight: 21 }}>
+          {item.summary}
+        </Text>
       ) : null}
       <PrimaryButton title="阅读官方原文" onPress={openOriginal} />
       <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
@@ -272,7 +267,7 @@ function NewsApp({ initialRoute }: { initialRoute?: string }) {
   return view.name === 'plaza' ? (
     <NewsPlaza onOpenDetail={openDetail} />
   ) : view.name === 'detail' ? (
-    <ScrollView style={{ flex: 1, backgroundColor: currentSdk!.theme.colors.bgPage }}>
+    <ScrollView style={{ flex: 1, backgroundColor: currentSdk!.theme.colors.bgSurface }}>
       <NewsDetail key={detailKey} item={view.item} />
     </ScrollView>
   ) : (
