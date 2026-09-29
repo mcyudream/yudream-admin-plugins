@@ -1,1 +1,2 @@
-yudream-plugin-ymcl-content
+yudream-plugin-shop
+yudream-plugin-playtime-points
