@@ -546,7 +546,7 @@ function ToolButton({ label, icon, onPress }: { label?: string; icon?: string; o
       hitSlop={4}
       style={{
         minWidth: 34, height: 30, paddingHorizontal: 6, borderRadius: t.radii.sm,
-        backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
+        backgroundColor: c.fillHover,
         alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -637,16 +637,15 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
   };
 
   const fieldStyle = {
-    backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle,
-    borderRadius: t.radii.md, paddingHorizontal: 14, paddingVertical: 10,
+    paddingHorizontal: 0, paddingVertical: 8,
     color: c.textPrimary, fontSize: t.typography.sizeSm,
   } as const;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bgPage }}>
+    <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: t.spacing.lg, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
         {/* 标题（30 字上限，右下角计数，设计稿同构） */}
@@ -656,23 +655,25 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
             onChangeText={(v) => setTitle(v.slice(0, 30))}
             placeholder="填写标题"
             placeholderTextColor={c.textTertiary}
-            style={[fieldStyle, { fontWeight: '700', fontSize: t.typography.sizeMd + 1, paddingRight: 44 }]}
+            style={[fieldStyle, { fontWeight: '700', fontSize: t.typography.sizeLg, paddingRight: 44 }]}
           />
-          <Text style={{ position: 'absolute', right: 12, bottom: 10, color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+          <Text style={{ position: 'absolute', right: 0, bottom: 12, color: c.textTertiary, fontSize: t.typography.sizeXs }}>
             {30 - title.length}
           </Text>
         </View>
+        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
 
         <Pressable
           onPress={() => setCatOpen(true)}
           style={[fieldStyle, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
         >
           <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>分类</Text>
-          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, flex: 1 }}>
+          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, flex: 1, fontWeight: '500' }}>
             {categories.find((cat) => cat.id === categoryId)?.name ?? '请选择分类'}
           </Text>
           <Icon name="forward" size={14} />
         </Pressable>
+        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
 
         {/* 工具栏：轻量 Markdown 编辑器 */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -689,9 +690,9 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
         </View>
 
         {preview ? (
-          <Card>
+          <View>
             {body.trim() ? <YdMarkdown source={body} /> : <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>暂无内容</Text>}
-          </Card>
+          </View>
         ) : (
           <TextInput
             ref={bodyRef}
@@ -701,10 +702,11 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
             placeholder="添加正文（支持 Markdown，图片可穿插文字间）"
             placeholderTextColor={c.textTertiary}
             multiline
-            style={[fieldStyle, { minHeight: 200, lineHeight: 21, textAlignVertical: 'top' }]}
+            style={[fieldStyle, { minHeight: 200, lineHeight: 21, textAlignVertical: 'top', fontSize: t.typography.sizeSm + 1 }]}
           />
         )}
 
+        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
         <TextInput
           value={tagText}
           onChangeText={setTagText}

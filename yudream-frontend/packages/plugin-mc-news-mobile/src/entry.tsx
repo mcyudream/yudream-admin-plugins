@@ -41,7 +41,7 @@ function fmtTime(ts?: number | string | null): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
 }
 
-function CoverImage({ uri, height }: { uri?: string | null; height: number }) {
+function CoverImage({ uri, height, style }: { uri?: string | null; height: number; style?: object }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const [broken, setBroken] = useState(false);
@@ -56,7 +56,7 @@ function CoverImage({ uri, height }: { uri?: string | null; height: number }) {
     <Image
       source={{ uri: resolved }}
       onError={() => setBroken(true)}
-      style={{ width: '100%', height, backgroundColor: t.colors.fillHover }}
+      style={[{ width: '100%', height, backgroundColor: t.colors.fillHover }, style]}
       resizeMode="cover"
     />
   );
@@ -79,34 +79,71 @@ function NewsPlaza({ onOpenDetail }: { onOpenDetail: (item: FeedItem) => void })
     (item) => !query.trim() || (item.title ?? '').toLowerCase().includes(query.trim().toLowerCase()),
   );
 
+  // 首页同款内容页布局：白底通栏条目 + 细分割线，封面作右侧缩略图
   return (
-    <Screen>
-      <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索新闻…" onSubmit={() => setQuery(keyword.trim())} />
-      {news.loading ? <Loading /> : null}
-      {!news.loading && list.length === 0 ? <Empty text={query ? '没有匹配的新闻' : '暂无新闻，等待源抓取'} /> : null}
-      {list.map((item) => (
-        <Card key={item.id} onPress={() => onOpenDetail(item)}>
-          <CoverImage uri={(item.images ?? [])[0]} height={96} />
-          <View style={{ gap: 4 }}>
-            <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700', lineHeight: 19 }}>
-              {item.title}
-            </Text>
-            {item.summary ? (
-              <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 16 }}>
-                {item.summary}
-              </Text>
-            ) : null}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {item.author?.name ? <Badge text={item.author.name} /> : null}
-              {item.tagName ? <Badge text={item.tagName} /> : null}
-              <View style={{ flex: 1 }} />
-              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{fmtTime(item.createTime)}</Text>
-              <Icon name="forward" size={13} color={c.textTertiary} />
+    <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
+      <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.md, paddingBottom: t.spacing.sm }}>
+        <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索新闻…" onSubmit={() => setQuery(keyword.trim())} />
+      </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+        {news.loading ? <Loading /> : null}
+        {!news.loading && list.length === 0 ? <Empty text={query ? '没有匹配的新闻' : '暂无新闻，等待源抓取'} /> : null}
+        {list.map((item, idx) => {
+          const cover = (item.images ?? [])[0];
+          return (
+            <View key={item.id}>
+              {idx > 0 ? <View style={{ height: 1, backgroundColor: c.borderSubtle, marginHorizontal: t.spacing.lg, opacity: 0.7 }} /> : null}
+              <Pressable
+                onPress={() => onOpenDetail(item)}
+                android_ripple={{ color: c.fillHover }}
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? c.fillHover : 'transparent',
+                  paddingHorizontal: t.spacing.lg,
+                  paddingVertical: 12,
+                  gap: 7,
+                })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.author?.name ? (
+                    <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, fontWeight: '500', flexShrink: 1 }}>
+                      {item.author.name}
+                    </Text>
+                  ) : null}
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{fmtTime(item.createTime)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 2, fontWeight: '700', lineHeight: 21 }}>
+                      {item.title}
+                    </Text>
+                    {item.summary ? (
+                      <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 17 }}>
+                        {item.summary}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {cover ? (
+                    <CoverImage uri={cover} height={72} style={{ width: 96, borderRadius: 10 }} />
+                  ) : null}
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.tagName ? (
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: c.fillHover }}>
+                      <Text numberOfLines={1} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs }}>
+                        {item.tagName}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={{ flex: 1 }} />
+                  <Icon name="chevron-forward" size={13} color={c.textTertiary} />
+                </View>
+              </Pressable>
             </View>
-          </View>
-        </Card>
-      ))}
-    </Screen>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 

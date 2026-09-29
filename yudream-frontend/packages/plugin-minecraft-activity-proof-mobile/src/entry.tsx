@@ -6,7 +6,7 @@
  * me/practice/sessions**；视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View, ScrollView } from 'react-native';
 import RNFS from 'react-native-fs';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
@@ -144,16 +144,29 @@ function ActivitySquare({ onOpen }: { onOpen: (id: string, title: string) => voi
     ]);
   };
 
+  // 首页同款内容页布局：白底通栏条目 + 细分割线
   return (
-    <Screen>
+    <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
       {acts.loading ? <Loading /> : null}
       {!acts.loading && list.length === 0 ? <Empty text="暂无活动" /> : null}
-      {list.map((a) => {
+      {list.map((a, idx) => {
         const joined = a.participationStatus === 'JOINED' || a.participationStatus === 'ATTENDED';
         const signupOpen = a.status === 'SIGNUP' || a.status === 'ONGOING';
         const hasQuiz = (a.requirementDetails ?? []).some((r) => r.type === 'QUIZ');
         return (
-          <Card key={a.id} onPress={() => onOpen(a.id, a.title)}>
+          <View key={a.id}>
+          {idx > 0 ? <View style={{ height: 1, backgroundColor: c.borderSubtle, marginHorizontal: t.spacing.lg, opacity: 0.7 }} /> : null}
+          <Pressable
+            onPress={() => onOpen(a.id, a.title)}
+            android_ripple={{ color: c.fillHover }}
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? c.fillHover : 'transparent',
+              paddingHorizontal: t.spacing.lg,
+              paddingVertical: 12,
+              gap: 10,
+            })}
+          >
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <CoverImage coverUrl={a.coverUrl} style={{ width: 74, height: 64, borderRadius: 10 }} />
               <View style={{ flex: 1, gap: 4 }}>
@@ -199,10 +212,12 @@ function ActivitySquare({ onOpen }: { onOpen: (id: string, title: string) => voi
                 <Badge text="已结束" />
               )}
             </View>
-          </Card>
+          </Pressable>
+          </View>
         );
       })}
-    </Screen>
+      </ScrollView>
+    </View>
   );
 }
 
