@@ -6,7 +6,6 @@ import { FaAlert, FaButton, FaCard, FaDescriptions, FaIcon, FaInput, FaModal, Fa
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra.ts'
-import { createMcPanelApi } from '../../api/mcpanel-api.ts'
 import FileBrowserPanel from '../../components/FileBrowserPanel.vue'
 import FileEditorModal from '../../components/FileEditorModal.vue'
 import MetricTrendChart from '../../components/MetricTrendChart.vue'
@@ -41,7 +40,6 @@ import { withTimeout } from '../../utils/fileContent.ts'
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 
 const extra = createMcPanelExtra(props.sdk)
-const panelApi = createMcPanelApi(props.sdk)
 const toast = useFaToast()
 const modal = useFaModal()
 const router = useRouter()
@@ -124,7 +122,7 @@ const liveMemSeries = ref<number[]>([])
 const containerState = ref('')
 let streamNodeId = ''
 
-const { latestStats, start: startNodeStream, stop: stopNodeStream } = useNodeEventsStream({
+const { latestStats, begin: beginNodeStream, stop: stopNodeStream, ingest: ingestNodeEvent } = useNodeEventsStream({
   onStats: onNodeStats,
 })
 
@@ -333,7 +331,7 @@ watch(instance, (inst) => {
     return
   }
   streamNodeId = nodeId
-  startNodeStream(panelApi.nodeEventsUrl(nodeId), nodeId)
+  beginNodeStream(nodeId)
 })
 
 // ---------- 文件浏览器（点击打开统一编辑器弹窗） ----------
@@ -860,6 +858,10 @@ const outputTransport = createSseTransport({
     if (!id) {
       return
     }
+    // 统一事件流：节点统计/实例状态帧先交给节点流消费（命中即返回）。
+    if (ingestNodeEvent(frame)) {
+      return
+    }
     const event = unwrapStreamEvent(frame, {
       events: ['instance.output'],
       idKey: 'instanceId',
@@ -912,7 +914,13 @@ const outputTransport = createSseTransport({
 
 function openOutputStream() {
   if (!instanceId.value || !canUse.value || !running.value || disposed) return
-  outputTransport.start(extra.outputEventsUrl(instanceId.value))
+  // 统一事件流：控制台输出 + 实例状态 + 节点统计合并为一条 SSE。
+  const scopes = [
+    `instance.output:${instanceId.value}`,
+    `instance.state:${instanceId.value}`,
+    `node.stats:${instanceId.value}`,
+  ].join(',')
+  outputTransport.start(extra.instanceEventsUrl(scopes))
 }
 
 /** 只断本地 SSE；不调用 outputUnsubscribe（实例级 attach 泵被全部订阅者共享）。 */
@@ -1072,7 +1080,14 @@ async function refreshInstanceState() {
   stateRefreshing = true
   try {
     const result = await withTimeout(extra.instanceDetail(id), 12_000, '状态刷新超时') as Record<string, unknown>
-    if (epoch === viewGeneration && !disposed) instance.value = result
+    if (epoch === viewGeneration && !disposed) {
+      instance.value = result
+      // 自愈：页面认为实例在运行而实时输出流未连接（鉴权终止/偶发断开后未恢复）
+      // 时，随 10 秒状态刷新周期重连——connect 时读取最新 token，重新登录即恢复。
+      if (running.value && outputReady && !outputConnected.value) {
+        openOutputStream()
+      }
+    }
   }
   catch { /* 保留上次快照，下一次轮询恢复。 */ }
   finally { if (epoch === viewGeneration) stateRefreshing = false }

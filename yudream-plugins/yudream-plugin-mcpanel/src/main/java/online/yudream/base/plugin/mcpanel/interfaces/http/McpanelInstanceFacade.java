@@ -2,6 +2,7 @@ package online.yudream.base.plugin.mcpanel.interfaces.http;
 
 import online.yudream.base.plugin.mcpanel.application.service.McpanelInstanceAppService;
 import online.yudream.base.plugin.mcpanel.bootstrap.McpanelPlugin;
+import online.yudream.base.plugin.mcpanel.domain.McpanelBusinessException;
 import online.yudream.base.plugin.mcpanel.domain.aggregate.McpanelInstance;
 import online.yudream.base.plugin.mcpanel.infrastructure.support.McpanelJson;
 import online.yudream.base.plugin.spi.http.PluginHttpPart;
@@ -31,10 +32,65 @@ public class McpanelInstanceFacade {
 
     /** 实例输出 attach 引用计数池：最后一个 SSE 订阅离开才异步 detach（防多浏览器互踢）。 */
     private final OutputAttachPool outputPool;
+    /** 事件总线泛化视图开启器（instance.state / node.stats 等统一事件流使用）。 */
+    private OutputEventsOpener topicOpener;
 
     /** 实例输出 SSE 流开启器（bootstrap 注入节点事件总线的过滤视图）。 */
     public interface OutputEventsOpener {
         PluginSseStream open(String nodeId, String instanceId);
+
+        /** 泛化主题视图：instance.state / node.stats 等按节点或实例过滤。 */
+        PluginSseStream openTopic(String nodeId, String eventType, String matchKey, String matchValue);
+    }
+
+    /**
+     * 实例统一事件流：控制台输出（attach 泵）+ 实例状态 + 节点统计合并为一条 SSE。
+     *
+     * <p>作用域经 {@code scopes} 查询参数声明（逗号分隔的 {@code topic:instanceId}，
+     * topic ∈ instance.output / instance.state / node.stats，node.stats 取该实例所在
+     * 节点）；每个作用域都过数据边界校验，帧事件名与旧单流完全一致，前端按事件名
+     * 分发。连接关闭即整体拆除（输出源经 attach 池引用计数递减）。
+     */
+    public PluginHttpResponse instanceEvents(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.USE_PERMISSION, () -> {
+            String scopesParam = query(request, "scopes");
+            if (scopesParam == null || scopesParam.isBlank()) {
+                throw new McpanelBusinessException("events.scopes-required", 400,
+                        "缺少 scopes 参数（topic:instanceId 逗号分隔）");
+            }
+            record Scope(String topic, String instanceId) {
+            }
+            java.util.LinkedHashMap<String, Scope> scopes = new java.util.LinkedHashMap<>();
+            for (String raw : scopesParam.split(",")) {
+                String scope = raw.trim();
+                int sep = scope.indexOf(':');
+                String topic = sep <= 0 ? "" : scope.substring(0, sep);
+                String instanceId = sep <= 0 ? "" : scope.substring(sep + 1);
+                if (!List.of("instance.output", "instance.state", "node.stats").contains(topic)
+                        || instanceId.isBlank()) {
+                    throw new McpanelBusinessException("events.bad-scope", 400, "非法事件作用域：" + scope);
+                }
+                scopes.putIfAbsent(topic + ":" + instanceId, new Scope(topic, instanceId));
+            }
+            List<PluginSseStream> sources = new java.util.ArrayList<>();
+            for (Scope scope : scopes.values()) {
+                // 数据边界：每个作用域的实例都必须在调用方可见范围内。
+                McpanelInstance instance = instances.accessibleInstance(scope(request), scope.instanceId());
+                String nodeId = instances.nodeInstanceOf(scope(request), scope.instanceId());
+                switch (scope.topic()) {
+                    case "instance.output" -> sources.add(outputPool.open(nodeId, instance.id()));
+                    case "instance.state" ->
+                            sources.add(topicOpener.openTopic(nodeId, "instance.state", "instanceId", instance.id()));
+                    case "node.stats" ->
+                            sources.add(topicOpener.openTopic(nodeId, "node.stats", "nodeId", nodeId));
+                    default -> throw new McpanelBusinessException("events.bad-topic", 400, "不支持的事件类型");
+                }
+            }
+            PluginSseStream merged = InstanceEventStreamMux.merge(sources.toArray(new PluginSseStream[0]));
+            return new PluginHttpResponse(200,
+                    Map.of("Cache-Control", "no-cache", "Connection", "keep-alive", "X-Accel-Buffering", "no"),
+                    "text/event-stream", merged, false);
+        });
     }
 
     public McpanelInstanceFacade(McpanelInstanceAppService instances, PluginSecurityService security,
@@ -54,6 +110,7 @@ public class McpanelInstanceFacade {
         this.installTracker = installTracker;
         this.stateResolver = stateResolver;
         this.outputPool = new OutputAttachPool(instances, outputEvents::open);
+        this.topicOpener = outputEvents;
         // 实例（重）启动后为存活订阅重挂节点输出泵（实例停止时节点回收泵，浏览器不刷新就没有实时输出）。
         instances.setOutputReattachListener(outputPool::reattachIfSubscribed);
     }

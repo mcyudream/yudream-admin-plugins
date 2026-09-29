@@ -1,4 +1,5 @@
 import type { McpNodeStateEvent, McpNodeStats } from '../types'
+import type { SseFrame } from './sse-frames.ts'
 import { classifyNodeEvent } from './sse-frames.ts'
 import { createSseTransport } from './sseTransport.ts'
 import type { SseTransportDeps } from './sseTransport.ts'
@@ -35,6 +36,9 @@ export interface NodeEventsClientDeps extends SseTransportDeps {
 export interface NodeEventsClient {
   start(url: string, expectedNodeId: string): void
   stop(): void
+  setExpectedNodeId(nodeId: string): void
+  /** 统一事件流消费：由外部传输层转发帧，这里只做分类校验与分发。返回是否为本流事件。 */
+  ingest(frame: unknown): boolean
   /** 401/403 终态后为 true：继续重连无意义。 */
   isTerminal(): boolean
 }
@@ -61,6 +65,18 @@ export function createNodeEventsStream(callbacks: NodeEventsClientCallbacks, dep
     start(url: string, nodeId: string) {
       expectedNodeId = nodeId
       transport.start(url)
+    },
+    setExpectedNodeId(nodeId: string) {
+      expectedNodeId = nodeId
+    },
+    /** 统一事件流消费：由外部传输层转发帧，这里只做分类校验与分发。 */
+    ingest(frame: unknown): boolean {
+      const classified = classifyNodeEvent(frame as SseFrame, expectedNodeId)
+      if (!classified) {
+        return false
+      }
+      callbacks.onEvent?.(classified as NodeStreamEvent)
+      return true
     },
     stop: () => transport.stop(),
     isTerminal: () => transport.isTerminal(),

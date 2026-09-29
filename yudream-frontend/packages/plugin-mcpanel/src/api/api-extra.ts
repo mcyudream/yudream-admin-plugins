@@ -49,6 +49,8 @@ export function createMcPanelApi(sdk: YuDreamPluginSdk) {
     outputSubscribe: (id: string) => sdk.http.post(`${inst(id)}/output/subscribe`, {}),
     outputUnsubscribe: (id: string) => sdk.http.post(`${inst(id)}/output/unsubscribe`, {}),
     outputEventsUrl: (id: string) => sdk.http.url(`/${inst(id)}/output/events`),
+    /** 实例统一事件流：控制台输出 + 实例状态 + 节点统计合并为一条 SSE（scopes=topic:instanceId,...）。 */
+    instanceEventsUrl: (scopes: string) => sdk.http.url('/events') + `?scopes=${encodeURIComponent(scopes)}`,
     /** 在线玩家探测：面板侧对实例端口做 MC Java server list ping（服务端缓存）。 */
     instancePlayers: (id: string) => sdk.http.get(`${inst(id)}/players`),
     /** 目录列表：page/size 缺省 = 整目录返回（目录树用）；keyword 按名称过滤。 */

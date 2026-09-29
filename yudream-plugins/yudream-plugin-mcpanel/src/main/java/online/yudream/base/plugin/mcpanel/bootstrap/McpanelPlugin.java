@@ -39,6 +39,7 @@ import online.yudream.base.plugin.mcpanel.interfaces.controller.McpanelOpsContro
 import online.yudream.base.plugin.mcpanel.interfaces.controller.McpanelP2pController;
 import online.yudream.base.plugin.mcpanel.interfaces.http.McpanelHttpFacade;
 import online.yudream.base.plugin.mcpanel.interfaces.http.McpanelInstanceFacade;
+import online.yudream.base.plugin.spi.http.PluginSseStream;
 import online.yudream.base.plugin.spi.annotation.PluginDashboardCard;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -583,12 +584,24 @@ public class McpanelPlugin implements YuDreamPlugin {
             final McpanelInstanceFacade instanceFacade = new McpanelInstanceFacade(instanceService,
                     framework.security(), templateService, dockerImageService, playersService,
                     // 请求期才执行：eventBus 字段此时必然就绪（onEnable 已完成装配）。
-                    (nodeId, instanceId) -> {
-                        NodeEventBus eventBusRef = eventBus;
-                        if (eventBusRef == null) {
-                            throw new IllegalStateException("节点事件总线未就绪");
+                    new McpanelInstanceFacade.OutputEventsOpener() {
+                        @Override
+                        public PluginSseStream open(String nodeId, String instanceId) {
+                            NodeEventBus eventBusRef = eventBus;
+                            if (eventBusRef == null) {
+                                throw new IllegalStateException("节点事件总线未就绪");
+                            }
+                            return eventBusRef.openFiltered(nodeId, "instance.output", "instanceId", instanceId);
                         }
-                        return eventBusRef.openFiltered(nodeId, "instance.output", "instanceId", instanceId);
+
+                        @Override
+                        public PluginSseStream openTopic(String nodeId, String eventType, String matchKey, String matchValue) {
+                            NodeEventBus eventBusRef = eventBus;
+                            if (eventBusRef == null) {
+                                throw new IllegalStateException("节点事件总线未就绪");
+                            }
+                            return eventBusRef.openFiltered(nodeId, eventType, matchKey, matchValue);
+                        }
                     }, proxyGroupService, installTracker, stateResolver);
             // 事件任务自动启动成功后同样重挂输出泵（实例停止时节点回收泵）。
             eventTaskService.setOutputReattachListener(instanceFacade::reattachOutput);

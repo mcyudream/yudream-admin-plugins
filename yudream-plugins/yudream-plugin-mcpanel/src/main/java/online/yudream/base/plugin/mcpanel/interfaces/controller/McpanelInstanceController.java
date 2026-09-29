@@ -234,4 +234,10 @@ public class McpanelInstanceController {
     public PluginHttpResponse outputEvents(PluginHttpRequest request) {
         return facade.outputEvents(request);
     }
+
+    /** 实例统一事件流：控制台输出 + 实例状态 + 节点统计合并为一条 SSE（作用域经 scopes 参数声明）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/admin/events", permission = McpanelPlugin.USE_PERMISSION)
+    public PluginHttpResponse instanceEvents(PluginHttpRequest request) {
+        return facade.instanceEvents(request);
+    }
 }

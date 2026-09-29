@@ -64,6 +64,16 @@ export function useNodeEventsStream(options: UseNodeEventsStreamOptions = {}) {
     client.start(url, nodeId)
   }
 
+  /** 统一事件流模式：不自建连接，只登记期望节点并复位快照（帧由外部传输层 ingest）。 */
+  function begin(nodeId: string) {
+    reset()
+    client.setExpectedNodeId(nodeId)
+  }
+
+  function ingest(frame: unknown): boolean {
+    return client.ingest(frame)
+  }
+
   function stop() {
     client.stop()
     reset()
@@ -73,5 +83,5 @@ export function useNodeEventsStream(options: UseNodeEventsStreamOptions = {}) {
     client.stop()
   })
 
-  return { state, latestStats, latestState, frames, authFailed, start, stop }
+  return { state, latestStats, latestState, frames, authFailed, start, stop, begin, ingest }
 }
