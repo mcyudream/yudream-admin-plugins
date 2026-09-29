@@ -174,6 +174,10 @@ public class UpdatePublicController {
      * Tauri updater 兼容清单。
      * Headers：X-YMCL-Channel / X-YMCL-Platform / X-YMCL-Version
      * Query 等价：channel / platform / version
+     *
+     * 「无更新」必须回 204 No Content：Tauri 插件把一切非 2xx 都当作
+     * "拉不到合法 release JSON"（ReleaseNotFound），404 会让已是最新版本
+     * 的用户点检查更新直接报错。
      */
     @PluginHttpEndpoint(method = "GET", path = "/v1/update/manifest", wrapResult = false)
     public PluginHttpResponse manifest(PluginHttpRequest request) {
@@ -182,17 +186,12 @@ public class UpdatePublicController {
         String currentVersion = UpdateHttpSupport.queryOrHeader(request, "version", "X-YMCL-Version", null);
         Optional<UpdateRelease> latest = updates.latestForChannel(channel);
         if (latest.isEmpty()) {
-            return PluginHttpResponse.rawJson(404, Map.of(
-                    "message", "no published update",
-                    "channel", UpdateHttpSupport.normalizeChannel(channel)));
+            return PluginHttpResponse.noContent();
         }
         UpdateRelease release = latest.get();
         if (currentVersion != null && !currentVersion.isBlank()
                 && !UpdateHttpSupport.isNewerVersion(release.version(), currentVersion)) {
-            return PluginHttpResponse.rawJson(404, Map.of(
-                    "message", "already up to date",
-                    "version", release.version(),
-                    "currentVersion", currentVersion));
+            return PluginHttpResponse.noContent();
         }
 
         String origin = UpdateHttpSupport.normalizeOrigin(request);
@@ -203,17 +202,10 @@ public class UpdatePublicController {
                     ? new LinkedHashMap<>()
                     : new LinkedHashMap<>(Map.of(platform, match));
         }
-        if (platforms.isEmpty() && (platform == null || platform.isBlank())) {
-            // 无 platform 过滤且没有任何 updater 制品时，仍返回元数据，便于调试。
-            return PluginHttpResponse.rawJson(404, Map.of(
-                    "message", "no signed updater artifact for platform",
-                    "version", release.version()));
-        }
-        if (platform != null && !platform.isBlank() && !platforms.containsKey(platform)) {
-            return PluginHttpResponse.rawJson(404, Map.of(
-                    "message", "no signed updater artifact for platform",
-                    "platform", platform,
-                    "version", release.version()));
+        if (platforms.isEmpty()) {
+            // 该渠道没有带签名的 updater 制品（或当前平台没有）：同样按
+            // 无更新处理，不能 404。
+            return PluginHttpResponse.noContent();
         }
 
         String pubDate = toIso(release.publishedAt());
