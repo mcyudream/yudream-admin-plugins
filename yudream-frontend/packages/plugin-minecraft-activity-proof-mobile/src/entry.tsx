@@ -6,12 +6,13 @@
  * me/practice/sessions**；视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, ProgressBar, Screen, SectionTitle,
-  UiProvider, useResource,
+  UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -127,10 +128,10 @@ function ActivitySquare({ onOpen }: { onOpen: (id: string, title: string) => voi
     void sdk.api
       .request(`${API}/me/activities/${encodeURIComponent(a.id)}/join`, { method: 'POST' })
       .then(() => acts.reload())
-      .catch((e) => Alert.alert('报名失败', errText(e)));
+      .catch((e) => uiAlert('报名失败', errText(e)));
   };
   const cancelSignup = (a: ActivityRow) => {
-    Alert.alert('取消报名', `取消「${a.title}」的报名？`, [
+    uiAlert('取消报名', `取消「${a.title}」的报名？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确认取消', style: 'destructive',
@@ -138,7 +139,7 @@ function ActivitySquare({ onOpen }: { onOpen: (id: string, title: string) => voi
           void sdk.api
             .request(`${API}/me/activities/${encodeURIComponent(a.id)}/cancel`, { method: 'POST' })
             .then(() => acts.reload())
-            .catch((e) => Alert.alert('取消失败', errText(e)));
+            .catch((e) => uiAlert('取消失败', errText(e)));
         },
       },
     ]);
@@ -224,7 +225,7 @@ function QuizSession({ sessionId, onDone }: { sessionId: string; onDone: () => v
   const answeredCount = Object.keys(answers).length;
 
   const submit = () => {
-    Alert.alert('交卷', `已答 ${answeredCount}/${questions.length} 题，确定交卷？`, [
+    uiAlert('交卷', `已答 ${answeredCount}/${questions.length} 题，确定交卷？`, [
       { text: '继续作答', style: 'cancel' },
       {
         text: '交卷',
@@ -238,11 +239,11 @@ function QuizSession({ sessionId, onDone }: { sessionId: string; onDone: () => v
             })
             .then(() => {
               setSubmitting(false);
-              Alert.alert('已交卷', '判分结果以活动任务状态为准', [{ text: '好的', onPress: onDone }]);
+              uiAlert('已交卷', '判分结果以活动任务状态为准', [{ text: '好的', onPress: onDone }]);
             })
             .catch((e) => {
               setSubmitting(false);
-              Alert.alert('交卷失败', errText(e));
+              uiAlert('交卷失败', errText(e));
             });
         },
       },
@@ -375,7 +376,7 @@ function QuizPage({ activityId, onBack }: { activityId: string; onBack: () => vo
       })
       .catch((e) => {
         setStarting(false);
-        Alert.alert('无法开始作答', errText(e));
+        uiAlert('无法开始作答', errText(e));
       });
   };
 
@@ -451,7 +452,7 @@ function ProofPage({ activity, onBack }: { activity: ActivityRow; onBack: () => 
       })
       .catch((e) => {
         setVerifying(false);
-        Alert.alert('核验失败', errText(e));
+        uiAlert('核验失败', errText(e));
       });
   };
 
@@ -466,7 +467,7 @@ function ProofPage({ activity, onBack }: { activity: ActivityRow; onBack: () => 
         );
         if (!record) {
           setDlState('');
-          Alert.alert('暂无可下载的证明', '管理员尚未生成本活动的盖章证明，生成后可在此下载');
+          uiAlert('暂无可下载的证明', '管理员尚未生成本活动的盖章证明，生成后可在此下载');
           return;
         }
         setDlState('下载中');
@@ -477,13 +478,13 @@ function ProofPage({ activity, onBack }: { activity: ActivityRow; onBack: () => 
             const to = `${RNFS.DownloadDirectoryPath}/${filename}`;
             return RNFS.writeFile(to, String(payload.base64 ?? ''), 'base64').then(() => {
               setDlState('');
-              Alert.alert('已保存', `证明已保存到 Download/${filename}`);
+              uiAlert('已保存', `证明已保存到 Download/${filename}`);
             });
           });
       })
       .catch((e) => {
         setDlState('');
-        Alert.alert('下载失败', errText(e));
+        uiAlert('下载失败', errText(e));
       });
   };
 
@@ -560,7 +561,7 @@ function ActivityDetail({
     void sdk.api
       .request(`${API}/me/activities/${encodeURIComponent(a.id)}/join`, { method: 'POST' })
       .then(() => { setBusy(false); detail.reload(); })
-      .catch((e) => { setBusy(false); Alert.alert('报名失败', errText(e)); });
+      .catch((e) => { setBusy(false); uiAlert('报名失败', errText(e)); });
   };
 
   if (detail.loading && !a) return <Screen><Loading /></Screen>;

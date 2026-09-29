@@ -5,11 +5,12 @@
  * 数据走 /api/plugins/yudream-wallet/me/**；金额为字符串；视觉经 sdk.theme。
  */
 import React, { useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, InfoRows, Loading, PrimaryButton, Screen, SectionTitle,
-  UiProvider, useResource,
+  UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -232,18 +233,18 @@ function TransferPage({ balances, onDone }: { balances: Balance[] | null; onDone
   const submit = () => {
     const n = Number(amount);
     if (!account.trim()) {
-      Alert.alert('请填写收款人', '支持对方用户名 / 邮箱 / 用户 ID');
+      uiAlert('请填写收款人', '支持对方用户名 / 邮箱 / 用户 ID');
       return;
     }
     if (!Number.isFinite(n) || n <= 0) {
-      Alert.alert('请填写金额', '转账金额需为正数');
+      uiAlert('请填写金额', '转账金额需为正数');
       return;
     }
     if (balanceOf && n > Number(balanceOf.balance)) {
-      Alert.alert('余额不足', `当前 ${active} 余额 ${fmtMoney(balanceOf.balance)}`);
+      uiAlert('余额不足', `当前 ${active} 余额 ${fmtMoney(balanceOf.balance)}`);
       return;
     }
-    Alert.alert('确认转账', `向「${account.trim()}」转账 ${fmtMoney(n)} ${active}？`, [
+    uiAlert('确认转账', `向「${account.trim()}」转账 ${fmtMoney(n)} ${active}？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '转账',
@@ -259,9 +260,9 @@ function TransferPage({ balances, onDone }: { balances: Balance[] | null; onDone
               setAccount('');
               setAmount('');
               setRemark('');
-              Alert.alert('转账成功', '已到账对方钱包', [{ text: '好的', onPress: onDone }]);
+              uiAlert('转账成功', '已到账对方钱包', [{ text: '好的', onPress: onDone }]);
             })
-            .catch((e) => { setBusy(false); Alert.alert('转账失败', errText(e)); });
+            .catch((e) => { setBusy(false); uiAlert('转账失败', errText(e)); });
         },
       },
     ]);
@@ -493,7 +494,7 @@ function RechargePage() {
   const pay = () => {
     const payAmount = Number(amount);
     if (!payAmount || payAmount <= 0) {
-      Alert.alert('请选择金额', '先选择充值金额');
+      uiAlert('请选择金额', '先选择充值金额');
       return;
     }
     setBusy(true);
@@ -509,12 +510,12 @@ function RechargePage() {
       })
       .then(() => {
         setBusy(false);
-        Alert.alert('订单已创建', '已唤起支付流程，支付完成后到账');
+        uiAlert('订单已创建', '已唤起支付流程，支付完成后到账');
         orders.reload();
       })
       .catch((e) => {
         setBusy(false);
-        Alert.alert('下单失败', errText(e));
+        uiAlert('下单失败', errText(e));
       });
   };
 

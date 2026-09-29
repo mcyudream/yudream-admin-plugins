@@ -5,10 +5,11 @@
  * 视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Avatar, Badge, Card, Chip, Empty, Loading, Screen, SectionTitle, UiProvider, useResource,
+  Avatar, Badge, Card, Chip, Empty, Loading, Screen, SectionTitle, UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -61,7 +62,7 @@ function ReviewPage() {
     const body = accept
       ? { realName: row.realName ?? '', schoolName: row.schoolName ?? '' }
       : { reason: '移动端驳回' };
-    Alert.alert(accept ? '通过认证' : '驳回认证', `${accept ? '通过' : '驳回'}「${row.realName || row.email}」的${row.channelName || '学历'}认证？`, [
+    uiAlert(accept ? '通过认证' : '驳回认证', `${accept ? '通过' : '驳回'}「${row.realName || row.email}」的${row.channelName || '学历'}认证？`, [
       { text: '取消', style: 'cancel' },
       {
         text: accept ? '通过' : '驳回',
@@ -73,7 +74,7 @@ function ReviewPage() {
               body,
             })
             .then(() => verifications.reload())
-            .catch((e) => Alert.alert('操作失败', e instanceof Error ? e.message : String(e)));
+            .catch((e) => uiAlert('操作失败', e instanceof Error ? e.message : String(e)));
         },
       },
     ]);

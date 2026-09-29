@@ -5,11 +5,12 @@
  * 视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Loading, PrimaryButton, Screen,
-  SectionTitle, StatTile, useResource,
+  SectionTitle, StatTile, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -83,7 +84,7 @@ function QuizHome({ onOpenSession }: { onOpenSession: (id: string) => void }) {
       })
       .catch((e) => {
         setCreating(false);
-        Alert.alert('抽题失败', e instanceof Error ? e.message : String(e));
+        uiAlert('抽题失败', e instanceof Error ? e.message : String(e));
       });
   };
 
@@ -177,7 +178,7 @@ function SessionPage({ sessionId, onBack }: { sessionId: string; onBack?: () => 
   };
 
   const submit = () => {
-    Alert.alert('交卷', `已答 ${answeredCount}/${questions.length} 题，确定交卷？`, [
+    uiAlert('交卷', `已答 ${answeredCount}/${questions.length} 题，确定交卷？`, [
       { text: '继续作答', style: 'cancel' },
       {
         text: '交卷',
@@ -192,11 +193,11 @@ function SessionPage({ sessionId, onBack }: { sessionId: string; onBack?: () => 
             .then(() => {
               setSubmitting(false);
               session.reload();
-              Alert.alert('已交卷', '判分结果以练习记录为准', onBack ? [{ text: '好的', onPress: onBack }] : [{ text: '好的' }]);
+              uiAlert('已交卷', '判分结果以练习记录为准', onBack ? [{ text: '好的', onPress: onBack }] : [{ text: '好的' }]);
             })
             .catch((e) => {
               setSubmitting(false);
-              Alert.alert('交卷失败', e instanceof Error ? e.message : String(e));
+              uiAlert('交卷失败', e instanceof Error ? e.message : String(e));
             });
         },
       },

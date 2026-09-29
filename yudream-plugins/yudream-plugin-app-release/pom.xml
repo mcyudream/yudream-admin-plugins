@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-app-release</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <name>YuDream Plugin - App Release</name>
     <description>YDAM 移动应用更新发布：上传更新包、发布版本、更新日志与强制更新管理。</description>
 

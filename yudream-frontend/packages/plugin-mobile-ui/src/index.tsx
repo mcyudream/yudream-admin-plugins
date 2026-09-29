@@ -22,6 +22,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import type { PluginMobileSdk, PluginThemeTokens } from '@yudream/plugin-sdk-mobile';
+import { DialogHost } from './dialog';
 
 /* ---------------- 上下文 ---------------- */
 
@@ -39,7 +40,12 @@ export function UiProvider({
   sdk: PluginMobileSdk;
   children: React.ReactNode;
 }) {
-  return <UiContext.Provider value={{ sdk, theme: sdk.theme }}>{children}</UiContext.Provider>;
+  return (
+    <UiContext.Provider value={{ sdk, theme: sdk.theme }}>
+      {children}
+      <DialogHost theme={sdk.theme} />
+    </UiContext.Provider>
+  );
 }
 
 export function useUi(): UiContextValue {
@@ -821,3 +827,4 @@ export function Icon({
   const { theme } = useUi();
   return <Ionicons name={(ICON_GLYPHS[name] ?? name) as never} size={size} color={color ?? theme.colors.textTertiary} />;
 }
+export { uiAlert, type UiDialogButton } from './dialog';

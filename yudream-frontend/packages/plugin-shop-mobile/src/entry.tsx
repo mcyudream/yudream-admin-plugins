@@ -7,11 +7,12 @@
  * 视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SearchField, SectionTitle,
-  UiProvider, useResource,
+  UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -319,12 +320,12 @@ function ProductPage({ productId, onOrdered }: { productId: string; onOrdered: (
     if (!p || busy) return;
     if (soldOut(p)) return;
     if (p.variants && p.variants.length > 0 && !variantId) {
-      Alert.alert('请选择型号');
+      uiAlert('请选择型号');
       return;
     }
     const bal = balance.data;
     const enough = bal?.available === false ? true : Number(bal?.balance ?? 0) >= Number(p.price);
-    Alert.alert(
+    uiAlert(
       '确认购买',
       `使用 ${money(p.price)} 积分购买「${p.title}」${p.variants?.length ? `（${p.variants.find((v) => v.id === variantId)?.name ?? ''}）` : ''}？${bal?.available === false ? '\n（钱包暂不可用，以下单时系统校验为准）' : enough ? '' : '\n（余额不足）'}`,
       [
@@ -340,12 +341,12 @@ function ProductPage({ productId, onOrdered }: { productId: string; onOrdered: (
               })
               .then(() => {
                 setBusy(false);
-                Alert.alert('下单成功', '可在「我的订单」查看发货与核销', [
+                uiAlert('下单成功', '可在「我的订单」查看发货与核销', [
                   { text: '查看订单', onPress: onOrdered },
                   { text: '继续逛', style: 'cancel' },
                 ]);
               })
-              .catch((e) => { setBusy(false); Alert.alert('购买失败', errText(e)); });
+              .catch((e) => { setBusy(false); uiAlert('购买失败', errText(e)); });
           },
         },
       ],
@@ -463,7 +464,7 @@ function OrdersPage() {
   const list = orders.data ?? [];
 
   const cancel = (o: OrderRow) => {
-    Alert.alert('取消订单', `取消「${o.productTitle}」？积分将原路退回。`, [
+    uiAlert('取消订单', `取消「${o.productTitle}」？积分将原路退回。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确认取消', style: 'destructive',
@@ -472,14 +473,14 @@ function OrdersPage() {
           void sdk.api
             .request(`${API}/me/orders/${encodeURIComponent(o.id)}/cancel`, { method: 'POST', body: { reason: '买家取消' } })
             .then(() => { setBusy(''); orders.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert('取消失败', errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert('取消失败', errText(e)); });
         },
       },
     ]);
   };
 
   const verify = (o: OrderRow) => {
-    Alert.alert('确认收货', `确认已收到「${o.productTitle}」的发货？核验后订单完成。`, [
+    uiAlert('确认收货', `确认已收到「${o.productTitle}」的发货？核验后订单完成。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确认核验',
@@ -487,8 +488,8 @@ function OrdersPage() {
           setBusy(o.id);
           void sdk.api
             .request(`${API}/me/orders/${encodeURIComponent(o.id)}/verify`, { method: 'POST' })
-            .then(() => { setBusy(''); orders.reload(); Alert.alert('已完成', '订单核验完成'); })
-            .catch((e) => { setBusy(''); Alert.alert('核验失败', errText(e)); });
+            .then(() => { setBusy(''); orders.reload(); uiAlert('已完成', '订单核验完成'); })
+            .catch((e) => { setBusy(''); uiAlert('核验失败', errText(e)); });
         },
       },
     ]);
@@ -496,7 +497,7 @@ function OrdersPage() {
 
   const submitVoucher = (o: OrderRow) => {
     if (!voucher.trim()) {
-      Alert.alert('请填写发货说明', '发货凭证需要文字说明（如卡密、领取方式）');
+      uiAlert('请填写发货说明', '发货凭证需要文字说明（如卡密、领取方式）');
       return;
     }
     setBusy(o.id);
@@ -510,9 +511,9 @@ function OrdersPage() {
         setDelivering('');
         setVoucher('');
         orders.reload();
-        Alert.alert('已提交发货', '等待买家核验收货');
+        uiAlert('已提交发货', '等待买家核验收货');
       })
-      .catch((e) => { setBusy(''); Alert.alert('发货失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('发货失败', errText(e)); });
   };
 
   const isBuyerTab = tab === 'buy';
@@ -591,7 +592,7 @@ function OrdersPage() {
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {o.deliveryVoucher ? (
                 <Pressable
-                  onPress={() => Alert.alert('核销码 / 发货凭证', o.deliveryVoucher ?? '', [{ text: '好的' }])}
+                  onPress={() => uiAlert('核销码 / 发货凭证', o.deliveryVoucher ?? '', [{ text: '好的' }])}
                   style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: c.accent }}
                 >
                   <Text style={{ color: c.onAccent, fontSize: t.typography.sizeXs, fontWeight: '500' }}>查看核销码</Text>
@@ -691,7 +692,7 @@ function ProductFormCard({
         onPress={() => {
           const n = Number(price);
           if (!title.trim() || !Number.isFinite(n) || n <= 0) {
-            Alert.alert('请检查', '标题必填，价格需为正数');
+            uiAlert('请检查', '标题必填，价格需为正数');
             return;
           }
           const st = Number(stock);
@@ -732,8 +733,8 @@ function SellPage() {
     setBusy('create');
     void sdk.api
       .request(`${API}/me/products`, { method: 'POST', body })
-      .then(() => { setBusy(''); products.reload(); Alert.alert('已上架', '商品已进入商城'); })
-      .catch((e) => { setBusy(''); Alert.alert('上架失败', errText(e)); });
+      .then(() => { setBusy(''); products.reload(); uiAlert('已上架', '商品已进入商城'); })
+      .catch((e) => { setBusy(''); uiAlert('上架失败', errText(e)); });
   };
 
   const toggleShelf = (p: ProductRow) => {
@@ -742,11 +743,11 @@ function SellPage() {
     void sdk.api
       .request(`${API}/me/products/${encodeURIComponent(p.id)}/shelf`, { method: 'POST', body: { onShelf: on } })
       .then(() => { setBusy(''); products.reload(); })
-      .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('操作失败', errText(e)); });
   };
 
   const remove = (p: ProductRow) => {
-    Alert.alert('删除商品', `删除「${p.title}」？删除后不可恢复。`, [
+    uiAlert('删除商品', `删除「${p.title}」？删除后不可恢复。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除', style: 'destructive',
@@ -755,7 +756,7 @@ function SellPage() {
           void sdk.api
             .request(`${API}/me/products/${encodeURIComponent(p.id)}`, { method: 'DELETE' })
             .then(() => { setBusy(''); products.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert('删除失败', errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert('删除失败', errText(e)); });
         },
       },
     ]);
@@ -845,11 +846,11 @@ function AdminPage() {
         body: { onShelf: p.status !== 'ON_SHELF' },
       })
       .then(() => { setBusy(''); products.reload(); })
-      .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('操作失败', errText(e)); });
   };
 
   const remove = (p: ProductRow) => {
-    Alert.alert('删除商品', `删除「${p.title}」？删除后不可恢复。`, [
+    uiAlert('删除商品', `删除「${p.title}」？删除后不可恢复。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除', style: 'destructive',
@@ -858,7 +859,7 @@ function AdminPage() {
           void sdk.api
             .request(`${API}/admin/products/${encodeURIComponent(p.id)}`, { method: 'DELETE' })
             .then(() => { setBusy(''); products.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert('删除失败', errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert('删除失败', errText(e)); });
         },
       },
     ]);
@@ -868,12 +869,12 @@ function AdminPage() {
     setBusy('create');
     void sdk.api
       .request(`${API}/admin/products`, { method: 'POST', body })
-      .then(() => { setBusy(''); setCreating(false); products.reload(); Alert.alert('已上架', '官方商品已进入商城'); })
-      .catch((e) => { setBusy(''); Alert.alert('上架失败', errText(e)); });
+      .then(() => { setBusy(''); setCreating(false); products.reload(); uiAlert('已上架', '官方商品已进入商城'); })
+      .catch((e) => { setBusy(''); uiAlert('上架失败', errText(e)); });
   };
 
   const orderAction = (o: OrderRow, action: 'redeliver' | 'refund') => {
-    Alert.alert(
+    uiAlert(
       action === 'refund' ? '确认退款' : '补发商品',
       action === 'refund' ? `对「${o.productTitle}」订单退款？积分将退回买家。` : `对「${o.productTitle}」重新执行发货？`,
       [
@@ -886,7 +887,7 @@ function AdminPage() {
             void sdk.api
               .request(`${API}/admin/orders/${encodeURIComponent(o.id)}/${action}`, { method: 'POST' })
               .then(() => { setBusy(''); orders.reload(); })
-              .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
+              .catch((e) => { setBusy(''); uiAlert('操作失败', errText(e)); });
           },
         },
       ],
@@ -895,7 +896,7 @@ function AdminPage() {
 
   const adminDeliver = (o: OrderRow) => {
     if (!voucher.trim()) {
-      Alert.alert('请填写发货说明');
+      uiAlert('请填写发货说明');
       return;
     }
     setBusy(o.id);
@@ -909,9 +910,9 @@ function AdminPage() {
         setDelivering('');
         setVoucher('');
         orders.reload();
-        Alert.alert('已代发货', '等待买家核验收货');
+        uiAlert('已代发货', '等待买家核验收货');
       })
-      .catch((e) => { setBusy(''); Alert.alert('发货失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('发货失败', errText(e)); });
   };
 
   return (

@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-yudream-skin</artifactId>
-    <version>1.4.5</version>
+    <version>1.4.6</version>
 
     <build>
         <resources>

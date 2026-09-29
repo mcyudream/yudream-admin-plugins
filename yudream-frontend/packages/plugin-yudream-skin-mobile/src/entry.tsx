@@ -5,10 +5,11 @@
  * 立绘（头/身体/双臂/双腿 + 外层），不再是 2D 展开图；数据走 /api/plugins/yudream-skin/**。
  */
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Chip, Empty, Icon, Loading, PrimaryButton, Screen, Tile, UiProvider, useResource,
+  Badge, Card, Chip, Empty, Icon, Loading, PrimaryButton, Screen, Tile, UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -120,7 +121,7 @@ function MineTab({ players, onOpenCloset, gotoLibrary }: {
   const list = players.data ?? [];
 
   const setDefault = (name: string) => {
-    Alert.alert('设为默认角色', `将「${name}」设为默认角色？`, [
+    uiAlert('设为默认角色', `将「${name}」设为默认角色？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确定',
@@ -129,7 +130,7 @@ function MineTab({ players, onOpenCloset, gotoLibrary }: {
           void sdk.api
             .request(`${API}/me/default-player`, { method: 'PUT', body: { name } })
             .then(() => { setBusy(''); players.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert('设置失败', errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert('设置失败', errText(e)); });
         },
       },
     ]);
@@ -218,7 +219,7 @@ function LibraryTab({ players, gotoMine }: { players: { data: SkinPlayer[] | nul
   const apply = (tex: LibraryTexture) => {
     const target = (players.data ?? [])[0];
     if (!target) {
-      Alert.alert('无法应用', '当前账号没有角色，请先在皮肤站创建角色');
+      uiAlert('无法应用', '当前账号没有角色，请先在皮肤站创建角色');
       return;
     }
     setBusy(tex.hash);
@@ -228,12 +229,12 @@ function LibraryTab({ players, gotoMine }: { players: { data: SkinPlayer[] | nul
       .then(() => {
         setBusy('');
         players.reload();
-        Alert.alert('已应用', `「${tex.name || tex.hash.slice(0, 8)}」已应用到角色「${target.name}」`, [
+        uiAlert('已应用', `「${tex.name || tex.hash.slice(0, 8)}」已应用到角色「${target.name}」`, [
           { text: '查看角色', onPress: gotoMine },
           { text: '继续逛', style: 'cancel' },
         ]);
       })
-      .catch((e) => { setBusy(''); Alert.alert('应用失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('应用失败', errText(e)); });
   };
 
   return (
@@ -332,7 +333,7 @@ function ClosetPage({ onBack }: { onBack: () => void }) {
 
   const apply = (item: ClosetItem) => {
     if (!target) {
-      Alert.alert('无法应用', '当前账号没有角色');
+      uiAlert('无法应用', '当前账号没有角色');
       return;
     }
     const cape = (item.textureType ?? 'skin') === 'cape';
@@ -350,13 +351,13 @@ function ClosetPage({ onBack }: { onBack: () => void }) {
       .then(() => {
         setBusy('');
         players.reload();
-        Alert.alert('已应用', `已将${cape ? '披风' : '皮肤'}应用到角色「${target.name}」`);
+        uiAlert('已应用', `已将${cape ? '披风' : '皮肤'}应用到角色「${target.name}」`);
       })
-      .catch((e) => { setBusy(''); Alert.alert('应用失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('应用失败', errText(e)); });
   };
 
   const remove = (item: ClosetItem) => {
-    Alert.alert('移出衣柜', `确定将「${item.itemName || '该物品'}」移出衣柜？`, [
+    uiAlert('移出衣柜', `确定将「${item.itemName || '该物品'}」移出衣柜？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '移出', style: 'destructive',
@@ -365,7 +366,7 @@ function ClosetPage({ onBack }: { onBack: () => void }) {
           void sdk.api
             .request(`${API}/me/closet/${encodeURIComponent(item.id)}`, { method: 'DELETE' })
             .then(() => { setBusy(''); closet.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert('操作失败', errText(e)); });
         },
       },
     ]);

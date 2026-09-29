@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, BackHandler, FlatList, Image, KeyboardAvoidingView, Pressable,
+  ActivityIndicator, BackHandler, FlatList, Image, KeyboardAvoidingView, Pressable,
   RefreshControl, ScrollView, Text, TextInput, View,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -15,7 +15,8 @@ import { YdMarkdown } from './markdown';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Avatar, Badge, Card, Chip, Empty, Icon, Loading, SearchField,
-  UiProvider, relativeTime, formatCount,
+  UiProvider, relativeTime, formatCount,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -819,7 +820,7 @@ function ModerationPage() {
     void sdk.api
       .request(`${API}/admin/posts/${encodeURIComponent(id)}/moderate`, { method: 'POST', body: { status } })
       .then(() => setItems((prev) => prev.filter((item) => item.id !== id)))
-      .catch((e) => Alert.alert('操作失败', e instanceof Error ? e.message : String(e)))
+      .catch((e) => uiAlert('操作失败', e instanceof Error ? e.message : String(e)))
       .finally(() => setBusyId(''));
   };
 

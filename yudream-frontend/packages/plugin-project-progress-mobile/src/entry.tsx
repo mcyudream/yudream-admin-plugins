@@ -5,13 +5,14 @@
  * Minecraft 时长打卡一键直发；视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import RNFS from 'react-native-fs';
 import { launchImageLibrary } from 'react-native-image-picker';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SectionTitle, StatTile,
-  UiProvider, useResource,
+  UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -278,9 +279,9 @@ function TaskPage({ taskId, projectId, onBack }: { taskId: string; projectId?: s
         setBusy('');
         setSummary('');
         reloadAll();
-        Alert.alert('打卡成功', '已记录本次打卡');
+        uiAlert('打卡成功', '已记录本次打卡');
       })
-      .catch((e) => { setBusy(''); Alert.alert('打卡失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('打卡失败', errText(e)); });
   };
 
   const minecraftCheckIn = () => {
@@ -288,13 +289,13 @@ function TaskPage({ taskId, projectId, onBack }: { taskId: string; projectId?: s
     setBusy('mc');
     void sdk.api
       .request(`${API}/me/tasks/${encodeURIComponent(a.id)}/check-ins/minecraft`, { method: 'POST' })
-      .then(() => { setBusy(''); reloadAll(); Alert.alert('打卡成功', 'Minecraft 在线时长已计入'); })
-      .catch((e) => { setBusy(''); Alert.alert('打卡失败', errText(e)); });
+      .then(() => { setBusy(''); reloadAll(); uiAlert('打卡成功', 'Minecraft 在线时长已计入'); })
+      .catch((e) => { setBusy(''); uiAlert('打卡失败', errText(e)); });
   };
 
   const submitAcceptance = () => {
     if (busy || !a) return;
-    Alert.alert('提交验收', '提交后由验收人审核，确定提交？', [
+    uiAlert('提交验收', '提交后由验收人审核，确定提交？', [
       { text: '取消', style: 'cancel' },
       {
         text: '提交',
@@ -305,8 +306,8 @@ function TaskPage({ taskId, projectId, onBack }: { taskId: string; projectId?: s
               method: 'POST',
               body: { type: 'IMAGE', summary: acceptSummary.trim() || '移动端提交验收' },
             })
-            .then(() => { setBusy(''); setAcceptSummary(''); setAcceptFiles([]); task.reload(); Alert.alert('已提交', '等待验收人审核'); })
-            .catch((e) => { setBusy(''); Alert.alert('提交失败', errText(e)); });
+            .then(() => { setBusy(''); setAcceptSummary(''); setAcceptFiles([]); task.reload(); uiAlert('已提交', '等待验收人审核'); })
+            .catch((e) => { setBusy(''); uiAlert('提交失败', errText(e)); });
         },
       },
     ]);
@@ -488,10 +489,10 @@ function ClaimPage() {
       .request(`${API}/me/tasks/${encodeURIComponent(task.id)}/claim`, { method: 'POST' })
       .then(() => {
         setClaiming('');
-        Alert.alert('认领成功', `「${task.title}」已加入我的任务`);
+        uiAlert('认领成功', `「${task.title}」已加入我的任务`);
         claimable.reload();
       })
-      .catch((e) => { setClaiming(''); Alert.alert('认领失败', errText(e)); });
+      .catch((e) => { setClaiming(''); uiAlert('认领失败', errText(e)); });
   };
 
   return (
@@ -757,7 +758,7 @@ function AcceptancePage() {
     const detailId = row.id ?? '';
     if (!detailId || busy) return;
     if (!accept && !reason.trim()) {
-      Alert.alert('请填写驳回原因', '驳回需要说明原因，负责人才能整改重交');
+      uiAlert('请填写驳回原因', '驳回需要说明原因，负责人才能整改重交');
       return;
     }
     setBusy(accept ? 'accept' : 'reject');
@@ -771,9 +772,9 @@ function AcceptancePage() {
         setRejecting('');
         setReason('');
         pending.reload();
-        Alert.alert(accept ? '已通过' : '已驳回', accept ? '任务标记完成' : '已通知负责人整改');
+        uiAlert(accept ? '已通过' : '已驳回', accept ? '任务标记完成' : '已通知负责人整改');
       })
-      .catch((e) => { setBusy(''); Alert.alert('操作失败', errText(e)); });
+      .catch((e) => { setBusy(''); uiAlert('操作失败', errText(e)); });
   };
 
   return (
@@ -878,7 +879,7 @@ function PublishPage() {
     const target = projectId || list[0]?.id;
     if (!target || busy) return;
     if (!title.trim()) {
-      Alert.alert('请填写任务标题');
+      uiAlert('请填写任务标题');
       return;
     }
     const requireCount = Number(count) > 0 ? Number(count) : 1;
@@ -904,10 +905,10 @@ function PublishPage() {
           setBusy(false);
           setTitle('');
           setDescription('');
-          Alert.alert('已发布', '任务已进入认领中心');
+          uiAlert('已发布', '任务已进入认领中心');
         });
       })
-      .catch((e) => { setBusy(false); Alert.alert('发布失败', errText(e)); });
+      .catch((e) => { setBusy(false); uiAlert('发布失败', errText(e)); });
   };
 
   return (

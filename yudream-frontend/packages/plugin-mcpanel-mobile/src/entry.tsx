@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View,
+  KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View,
 } from 'react-native';
 
 /** 内页渲染错误兜底：插件内无原生导航栈，崩溃会白屏；记录日志并给出返回入口。 */
@@ -36,7 +36,8 @@ class ViewBoundary extends React.Component<
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, ProgressBar, Screen, SectionTitle,
-  SecondaryButton, StatTile, UiProvider, useResource,
+  SecondaryButton, StatTile, UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -454,7 +455,7 @@ function ConsoleCard({ instanceId, running, onOfflineChange }: { instanceId: str
         setInput('');
         setTimeout(() => { void poll().catch(() => undefined); }, 500);
       })
-      .catch((e) => Alert.alert('命令发送失败', errText(e)))
+      .catch((e) => uiAlert('命令发送失败', errText(e)))
       .finally(() => setSending(false));
   };
 
@@ -604,7 +605,7 @@ function InstancePage({
   const memTotalMb = d?.memoryMb ?? 0;
 
   const power = (action: string, label: string) => {
-    Alert.alert(label, `对「${name}」执行${label}？`, [
+    uiAlert(label, `对「${name}」执行${label}？`, [
       { text: '取消', style: 'cancel' },
       {
         text: label, style: action === 'kill' ? 'destructive' : 'default',
@@ -613,7 +614,7 @@ function InstancePage({
           void sdk.api
             .request(`${API}/admin/instances/${encodeURIComponent(instanceId)}/${action}`, { method: 'POST' })
             .then(() => { setBusy(''); runningSince.delete(instanceId); inst.reload(); players.reload(); })
-            .catch((e) => { setBusy(''); Alert.alert(`${label}失败`, errText(e)); });
+            .catch((e) => { setBusy(''); uiAlert(`${label}失败`, errText(e)); });
         },
       },
     ]);
@@ -886,13 +887,13 @@ function FilesPage({ instanceId }: { instanceId: string }) {
       })
       .catch((e) => {
         setSaving(false);
-        Alert.alert('保存失败', errText(e));
+        uiAlert('保存失败', errText(e));
       });
   };
 
   const removeFile = (entry: FileEntry) => {
     const full = entry.path ?? (path ? `${path}/${entry.name}` : entry.name);
-    Alert.alert('删除确认', `删除${entry.isDir ? '目录' : '文件'}「${entry.name}」？该操作不可恢复。`, [
+    uiAlert('删除确认', `删除${entry.isDir ? '目录' : '文件'}「${entry.name}」？该操作不可恢复。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除', style: 'destructive',
@@ -900,7 +901,7 @@ function FilesPage({ instanceId }: { instanceId: string }) {
           sdk.api
             .request(`${API}/admin/instances/${id}/files/delete`, { method: 'POST', body: { path: full } })
             .then(() => load(path))
-            .catch((e) => Alert.alert('删除失败', errText(e)));
+            .catch((e) => uiAlert('删除失败', errText(e)));
         },
       },
     ]);
@@ -913,7 +914,7 @@ function FilesPage({ instanceId }: { instanceId: string }) {
     sdk.api
       .request(`${API}/admin/instances/${id}/files/mkdir`, { method: 'POST', body: { path: full } })
       .then(() => { setMkdirMode(false); setMkdirName(''); load(path); })
-      .catch((e) => Alert.alert('新建失败', errText(e)));
+      .catch((e) => uiAlert('新建失败', errText(e)));
   };
 
   if (editing) {
@@ -921,7 +922,7 @@ function FilesPage({ instanceId }: { instanceId: string }) {
     return (
       <Screen scroll={false} padded>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: t.spacing.sm }}>
-          <Pressable onPress={() => { if (dirty) { Alert.alert('放弃修改？', '未保存的修改将丢失', [{ text: '继续编辑', style: 'cancel' }, { text: '放弃', style: 'destructive', onPress: () => setEditing(null) }]); } else { setEditing(null); } }} hitSlop={8}>
+          <Pressable onPress={() => { if (dirty) { uiAlert('放弃修改？', '未保存的修改将丢失', [{ text: '继续编辑', style: 'cancel' }, { text: '放弃', style: 'destructive', onPress: () => setEditing(null) }]); } else { setEditing(null); } }} hitSlop={8}>
             <Icon name="back" size={20} color={c.textPrimary} />
           </Pressable>
           <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '600', flex: 1 }}>
@@ -945,7 +946,7 @@ function FilesPage({ instanceId }: { instanceId: string }) {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: t.spacing.sm }}>
           <Pressable
-            onPress={() => Alert.alert('删除文件', `删除「${editing.path}」？该操作不可恢复。`, [
+            onPress={() => uiAlert('删除文件', `删除「${editing.path}」？该操作不可恢复。`, [
               { text: '取消', style: 'cancel' },
               {
                 text: '删除', style: 'destructive',
@@ -953,7 +954,7 @@ function FilesPage({ instanceId }: { instanceId: string }) {
                   sdk.api
                     .request(`${API}/admin/instances/${id}/files/delete`, { method: 'POST', body: { path: editing.path } })
                     .then(() => { setEditing(null); load(''); })
-                    .catch((e) => Alert.alert('删除失败', errText(e)));
+                    .catch((e) => uiAlert('删除失败', errText(e)));
                 },
               },
             ])}
@@ -1119,7 +1120,7 @@ function ConfigPage({ instanceId }: { instanceId: string }) {
       })
       .catch((e) => {
         setSaving(false);
-        Alert.alert('保存失败', errText(e));
+        uiAlert('保存失败', errText(e));
       });
   };
 
@@ -1209,7 +1210,7 @@ function ProxyPage({ instanceId, instanceName }: { instanceId: string; instanceN
         body: { kind, servers: servers.map((s) => ({ name: s.name.trim(), address: s.address.trim(), ...(s.boundInstanceId ? { boundInstanceId: s.boundInstanceId } : {}) })), defaultServer, forwarding: loaded?.forwarding ?? '' },
       })
       .then(() => { setSaving(false); res.reload(); })
-      .catch((e) => { setSaving(false); Alert.alert('保存失败', errText(e)); });
+      .catch((e) => { setSaving(false); uiAlert('保存失败', errText(e)); });
   };
 
   const detect = () => {
@@ -1227,14 +1228,14 @@ function ProxyPage({ instanceId, instanceName }: { instanceId: string; instanceN
           })));
           setDefaultServer(d.defaultServer ?? '');
         } else {
-          Alert.alert('未识别到代理配置', d.reason ?? '实例根目录没有 velocity.toml / config.yml 特征');
+          uiAlert('未识别到代理配置', d.reason ?? '实例根目录没有 velocity.toml / config.yml 特征');
         }
       })
-      .catch((e) => Alert.alert('识别失败', errText(e)));
+      .catch((e) => uiAlert('识别失败', errText(e)));
   };
 
   const unbind = () => {
-    Alert.alert('解除纳管', `解除「${instanceName}」的代理组纳管？只删除面板记录，不改实例文件。`, [
+    uiAlert('解除纳管', `解除「${instanceName}」的代理组纳管？只删除面板记录，不改实例文件。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '解除', style: 'destructive',
@@ -1242,7 +1243,7 @@ function ProxyPage({ instanceId, instanceName }: { instanceId: string; instanceN
           sdk.api
             .request(`${API}/admin/instances/${id}/proxy-group`, { method: 'DELETE' })
             .then(() => res.reload())
-            .catch((e) => Alert.alert('解除失败', errText(e)));
+            .catch((e) => uiAlert('解除失败', errText(e)));
         },
       },
     ]);
@@ -1362,10 +1363,10 @@ function OpsPage({ instanceId, instanceName, onBack }: { instanceId: string; ins
     void sdk.api
       .request(`${API}/admin/instances/${encodeURIComponent(instanceId)}/backups`, { method: 'POST' })
       .then(() => {
-        Alert.alert('已触发', '备份任务已创建，完成后可在列表查看');
+        uiAlert('已触发', '备份任务已创建，完成后可在列表查看');
         backups.reload();
       })
-      .catch((e) => Alert.alert('备份失败', errText(e)));
+      .catch((e) => uiAlert('备份失败', errText(e)));
   };
 
   return (

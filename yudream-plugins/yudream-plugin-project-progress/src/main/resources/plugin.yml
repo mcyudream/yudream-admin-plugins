@@ -3,7 +3,7 @@ displayName: 项目任务
 description: 打卡、任务与验收
 icon: checkbox-outline
 main: online.yudream.base.plugin.projectprogress.bootstrap.ProjectProgressPlugin
-version: 1.6.2
+version: 1.6.3
 
 # 移动端（YuDream Mobile 宿主）接入声明：项目任务
 mobile:

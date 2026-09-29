@@ -6,11 +6,12 @@
  * 无题图条目使用内置 MC 风格默认封面；视觉经 sdk.theme 与 plugin-mobile-ui。
  */
 import React, { useState } from 'react';
-import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SearchField,
-  SectionTitle, UiProvider, useResource,
+  SectionTitle, UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -120,10 +121,10 @@ function NewsDetail({ item }: { item: FeedItem }) {
 
   const openOriginal = () => {
     if (!url) {
-      Alert.alert('暂无原文链接', '该新闻没有可跳转的原始页面');
+      uiAlert('暂无原文链接', '该新闻没有可跳转的原始页面');
       return;
     }
-    Linking.openURL(url).catch((e) => Alert.alert('打开失败', e instanceof Error ? e.message : String(e)));
+    Linking.openURL(url).catch((e) => uiAlert('打开失败', e instanceof Error ? e.message : String(e)));
   };
 
   return (
@@ -163,7 +164,7 @@ function PushPage() {
     void sdk.api
       .request(`${API}/me/subscription/direct`, { method: 'PUT', body: { enabled: !directOn } })
       .then(() => sub.reload())
-      .catch((e) => Alert.alert('操作失败', e instanceof Error ? e.message : String(e)));
+      .catch((e) => uiAlert('操作失败', e instanceof Error ? e.message : String(e)));
   };
 
   return (

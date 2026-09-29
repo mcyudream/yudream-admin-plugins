@@ -5,10 +5,11 @@
  * 数据走 /api/plugins/app-release/**；视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
  */
 import React, { useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Empty, Loading, PrimaryButton, Screen, SectionTitle, UiProvider, useResource,
+  Badge, Card, Empty, Loading, PrimaryButton, Screen, SectionTitle, UiProvider, useResource,,
+  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -103,11 +104,11 @@ function ReleaseCard({ row, onChanged }: { row: ReleaseRow; onChanged: () => voi
       .then(() => {
         setBusy('');
         onChanged();
-        Alert.alert(action === 'publish' ? '已发布' : '已下架', action === 'publish' ? '客户端将收到更新提示' : '客户端不再提示该版本');
+        uiAlert(action === 'publish' ? '已发布' : '已下架', action === 'publish' ? '客户端将收到更新提示' : '客户端不再提示该版本');
       })
       .catch((e) => {
         setBusy('');
-        Alert.alert('操作失败', errText(e));
+        uiAlert('操作失败', errText(e));
       });
   };
 
@@ -115,7 +116,7 @@ function ReleaseCard({ row, onChanged }: { row: ReleaseRow; onChanged: () => voi
     if (busy) {
       return;
     }
-    Alert.alert('删除版本包', `确定删除 ${row.versionName}（versionCode ${row.versionCode}）？文件将一并删除，不可恢复。`, [
+    uiAlert('删除版本包', `确定删除 ${row.versionName}（versionCode ${row.versionCode}）？文件将一并删除，不可恢复。`, [
       { text: '取消', style: 'cancel' },
       {
         text: '删除',
@@ -130,7 +131,7 @@ function ReleaseCard({ row, onChanged }: { row: ReleaseRow; onChanged: () => voi
             })
             .catch((e) => {
               setBusy('');
-              Alert.alert('删除失败', errText(e));
+              uiAlert('删除失败', errText(e));
             });
         },
       },
@@ -140,7 +141,7 @@ function ReleaseCard({ row, onChanged }: { row: ReleaseRow; onChanged: () => voi
   const download = () => {
     // 匿名下载端点：交给系统浏览器下载 APK（浏览器侧完成安装确认）
     void sdk.deeplink.open(`${sdk.baseUrl}${API}/public/download/${encodeURIComponent(row.id)}`).catch((e) => {
-      Alert.alert('无法打开下载', errText(e));
+      uiAlert('无法打开下载', errText(e));
     });
   };
 
@@ -244,11 +245,11 @@ function AdminPage() {
       .request(`${API}/admin/settings`, { method: 'PUT', body: { minVersionCode: parsed } })
       .then(() => {
         setSaving(false);
-        Alert.alert('已保存', parsed > 0 ? `低于 versionCode ${parsed} 的客户端将强制更新` : '已关闭强制更新线');
+        uiAlert('已保存', parsed > 0 ? `低于 versionCode ${parsed} 的客户端将强制更新` : '已关闭强制更新线');
       })
       .catch((e) => {
         setSaving(false);
-        Alert.alert('保存失败', errText(e));
+        uiAlert('保存失败', errText(e));
       });
   };
 
