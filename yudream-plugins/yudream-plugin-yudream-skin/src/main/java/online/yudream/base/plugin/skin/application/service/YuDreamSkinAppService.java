@@ -317,6 +317,11 @@ public class YuDreamSkinAppService implements PluginSkinService {
         return hasText(userId) ? repository.findClosetByUser(userId.trim(), page, size) : repository.listClosetItems(page, size);
     }
 
+    /** 衣柜列表视图（带派生 textureType）：/me/closet 等用户侧端点使用。 */
+    public List<PluginSkinClosetItem> listClosetItemViews(String userId, int page, int size) {
+        return listCloset(userId, page, size).stream().map(this::toClosetItemView).toList();
+    }
+
     public SkinClosetItem saveClosetItem(ClosetItemSaveCmd cmd, Long currentUserId) {
         String userId = hasText(cmd.userId()) ? cmd.userId().trim() : currentUserId == null ? "system" : String.valueOf(currentUserId);
         String textureHash = requireText(cmd.textureHash(), "材质不能为空");
@@ -443,7 +448,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
             return List.of();
         }
         return repository.findAllClosetByUser(ownerId.trim()).stream()
-                .map(item -> new PluginSkinClosetItem(item.id(), item.textureHash(), item.itemName(), item.createdAt()))
+                .map(this::toClosetItemView)
                 .toList();
     }
 
@@ -453,7 +458,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
         // type 置空让 SkinTextureType.from 按 model（slim/classic）解析
         SkinTexture texture = uploadOwnTexture(
                 new TextureUploadCmd(name, null, model, "image/png", base64, false), userId, null);
-        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis());
+        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis(), texture.type());
     }
 
     @Override
@@ -461,7 +466,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
         String userId = requireText(ownerId, "用户不能为空");
         SkinTexture texture = uploadOwnTexture(
                 new TextureUploadCmd(name, "cape", "default", "image/png", base64, false), userId, null);
-        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis());
+        return new PluginSkinClosetItem(userId + ":" + texture.hash(), texture.hash(), texture.name(), System.currentTimeMillis(), texture.type());
     }
 
     @Override
@@ -489,7 +494,16 @@ public class YuDreamSkinAppService implements PluginSkinService {
         String userId = requireText(ownerId, "用户不能为空");
         SkinClosetItem item = saveOwnClosetItem(
                 new ClosetItemSaveCmd(userId, requireText(textureHash, "材质不能为空"), itemName), userId, null);
-        return new PluginSkinClosetItem(item.id(), item.textureHash(), item.itemName(), item.createdAt());
+        return toClosetItemView(item);
+    }
+
+    /** 衣柜条目视图：textureType 按材质库实时派生（旧条目无类型字段也能正确区分披风/皮肤）。 */
+    private PluginSkinClosetItem toClosetItemView(SkinClosetItem item) {
+        String textureType = repository.findTextureByHash(item.textureHash())
+                .map(SkinTexture::type)
+                .filter(type -> type != null && !type.isBlank())
+                .orElse("skin");
+        return new PluginSkinClosetItem(item.id(), item.textureHash(), item.itemName(), item.createdAt(), textureType);
     }
 
     @Override

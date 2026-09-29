@@ -7,11 +7,13 @@ package online.yudream.base.plugin.skin.api;
  * @param textureHash texture hash usable with the anonymous texture endpoint
  * @param itemName   display name chosen by the owner
  * @param createdAt  epoch millis
+ * @param textureType "skin" | "cape"（按材质库派生；未知材质回落 skin）
  */
 public record PluginSkinClosetItem(
         String id,
         String textureHash,
         String itemName,
-        Long createdAt
+        Long createdAt,
+        String textureType
 ) {
 }

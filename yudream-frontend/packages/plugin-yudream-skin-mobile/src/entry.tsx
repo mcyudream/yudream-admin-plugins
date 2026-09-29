@@ -38,6 +38,7 @@ interface ClosetItem {
   textureHash: string;
   itemName: string;
   createdAt: number | string;
+  textureType?: string; // skin | cape（后端按材质库实时派生）
 }
 
 function textureUri(hash: string | null | undefined): string {
@@ -334,18 +335,28 @@ function ClosetPage({ onBack }: { onBack: () => void }) {
       Alert.alert('无法应用', '当前账号没有角色');
       return;
     }
+    const cape = (item.textureType ?? 'skin') === 'cape';
+    // 后端 PUT 语义是整档替换（缺省槽清空）：必须双槽位一起提交，
+    // 否则应用披风会把皮肤槽清掉（反之亦然）。
+    const body = cape
+      ? { skinHash: target.skinHash ?? undefined, capeHash: item.textureHash }
+      : { skinHash: item.textureHash, capeHash: target.capeHash ?? undefined };
     setBusy(item.id);
     void sdk.api
       .request(`${API}/me/players/${encodeURIComponent(target.name)}/textures`, {
         method: 'PUT',
-        body: { skinHash: item.textureHash },
+        body,
       })
-      .then(() => { setBusy(''); players.reload(); Alert.alert('已应用', `已应用到角色「${target.name}」`); })
+      .then(() => {
+        setBusy('');
+        players.reload();
+        Alert.alert('已应用', `已将${cape ? '披风' : '皮肤'}应用到角色「${target.name}」`);
+      })
       .catch((e) => { setBusy(''); Alert.alert('应用失败', errText(e)); });
   };
 
   const remove = (item: ClosetItem) => {
-    Alert.alert('移出衣柜', `确定将「${item.itemName || '该皮肤'}」移出衣柜？`, [
+    Alert.alert('移出衣柜', `确定将「${item.itemName || '该物品'}」移出衣柜？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '移出', style: 'destructive',
@@ -367,7 +378,18 @@ function ClosetPage({ onBack }: { onBack: () => void }) {
       {list.map((item) => (
         <Card key={item.id}>
           <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-            <SkinRender hash={item.textureHash} height={96} />
+            {(item.textureType ?? 'skin') === 'cape' ? (
+              <View style={{ width: 96, height: 96, borderRadius: 8, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <Image
+                  source={{ uri: textureUri(item.textureHash) }}
+                  style={{ width: 72, height: 36 }}
+                  resizeMode="contain"
+                />
+                <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>披风</Text>
+              </View>
+            ) : (
+              <SkinRender hash={item.textureHash} height={96} />
+            )}
             <View style={{ flex: 1, gap: 4 }}>
               <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '600' }}>
                 {item.itemName || item.textureHash.slice(0, 8)}

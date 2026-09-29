@@ -295,7 +295,8 @@ public class YuDreamSkinHttpFacade {
         graphics.drawImage(skin, dx * unit, dy * unit, dx * unit + w * unit, dy * unit + h * unit,
                 sx, sy, sx + w, sy + h, null);
     }
-
+
+
 
     public PluginHttpResponse customSkinProfile(PluginHttpRequest request) {
         String name = lastPathSegment(request.path());
@@ -320,7 +321,7 @@ public class YuDreamSkinHttpFacade {
     }
 
     public PluginHttpResponse myCloset(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.listCloset(ownerId(request), page(request), size(request)));
+        return PluginHttpResponse.ok(appService.listClosetItemViews(ownerId(request), page(request), size(request)));
     }
 
     public PluginHttpResponse saveClosetItem(PluginHttpRequest request) {
