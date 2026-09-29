@@ -161,7 +161,7 @@ public class McNewsHttpFacade {
     /** 首页动态源（已登录可读）：新闻按发布时间倒序，映射为宿主 MobileFeedItem。 */
     public PluginHttpResponse mobileFeed(PluginHttpRequest request) {
         int page = HttpSupport.pageParam(request);
-        int size = HttpSupport.sizeParam(request, 20);
+        int size = Math.min(HttpSupport.sizeParam(request, 20), 50);
         var result = feed.pageNews(page, size, null, null);
         List<Map<String, Object>> items = new java.util.ArrayList<>();
         for (var article : result.records()) {
