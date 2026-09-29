@@ -182,59 +182,74 @@ function ForumList({ onOpenPost, onCompose }: { onOpenPost: (postId: string) => 
 
   useEffect(() => { void load(1, true); }, [load]);
 
-  const sortedCategories = [{ id: '', name: '全部' }, ...categories];
+  const sortedCategories = [{ id: '', name: '全部讨论' }, ...categories];
+  const [catOpen, setCatOpen] = useState(false);
+  const activeCatName = sortedCategories.find((cat) => cat.id === categoryId)?.name ?? '全部讨论';
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
       <View style={{ paddingHorizontal: t.spacing.lg, paddingTop: t.spacing.md, paddingBottom: t.spacing.sm }}>
         <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索帖子" onSubmit={() => setQuery(keyword.trim())} />
       </View>
-      {/* Flarum 式分类：彩色圆点 + 名称，选中项主题底色高亮 */}
-      <View
-        style={{
-          marginHorizontal: t.spacing.lg,
-          marginBottom: t.spacing.sm,
-          borderRadius: 14,
-          backgroundColor: c.bgSurface,
-          borderWidth: 1,
-          borderColor: c.borderSubtle,
-          overflow: 'hidden',
-        }}
-      >
-        {sortedCategories.map((cat, i) => {
-          const active = cat.id === categoryId;
-          const dot = cat.id ? catColor(cat.name) : c.accent;
-          return (
-            <Pressable
-              key={cat.id || 'all'}
-              onPress={() => setCategoryId(cat.id)}
-              android_ripple={{ color: c.fillHover }}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                backgroundColor: active ? withAlpha(c.accent, '14') : pressed ? c.fillHover : 'transparent',
-                borderTopWidth: i > 0 ? StyleSheet.hairlineWidth : 0,
-                borderTopColor: c.borderSubtle,
-              })}
-            >
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot }} />
-              <Text
-                style={{
-                  color: active ? c.accent : c.textPrimary,
-                  fontSize: t.typography.sizeSm + 1,
-                  fontWeight: active ? '700' : '500',
-                  flex: 1,
-                }}
-              >
-                {cat.id ? cat.name : '全部讨论'}
-              </Text>
-              {active ? <Icon name="checkmark" size={15} color={c.accent} /> : null}
-            </Pressable>
-          );
-        })}
+      {/* 分类选择器：默认收起为一行，点开分类列表，选中后自动收起 */}
+      <View style={{ marginHorizontal: t.spacing.lg, marginBottom: t.spacing.sm }}>
+        <Pressable
+          onPress={() => setCatOpen((v) => !v)}
+          android_ripple={{ color: c.fillHover }}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 9,
+            paddingHorizontal: 12,
+            height: 42,
+            borderRadius: 12,
+            backgroundColor: pressed ? c.fillHover : c.fillHover,
+          })}
+        >
+          <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: categoryId ? catColor(activeCatName) : c.accent }} />
+          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+            {activeCatName}
+          </Text>
+          <Icon name={catOpen ? 'chevron-up' : 'chevron-down'} size={15} color={c.textSecondary} />
+        </Pressable>
+        {catOpen ? (
+          <View style={{ marginTop: 6, borderRadius: 14, backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.borderSubtle, overflow: 'hidden' }}>
+            {sortedCategories.map((cat, i) => {
+              const active = cat.id === categoryId;
+              const dot = cat.id ? catColor(cat.name || cat.id) : c.accent;
+              return (
+                <Pressable
+                  key={cat.id || 'all'}
+                  onPress={() => { setCategoryId(cat.id); setCatOpen(false); }}
+                  android_ripple={{ color: c.fillHover }}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    backgroundColor: active ? withAlpha(c.accent, '14') : pressed ? c.fillHover : 'transparent',
+                    borderTopWidth: i > 0 ? StyleSheet.hairlineWidth : 0,
+                    borderTopColor: c.borderSubtle,
+                  })}
+                >
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dot }} />
+                  <Text
+                    style={{
+                      color: active ? c.accent : c.textPrimary,
+                      fontSize: t.typography.sizeSm + 1,
+                      fontWeight: active ? '700' : '500',
+                      flex: 1,
+                    }}
+                  >
+                    {cat.id ? cat.name : '全部讨论'}
+                  </Text>
+                  {active ? <Icon name="checkmark" size={15} color={c.accent} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       <FlatList
@@ -607,7 +622,7 @@ function ToolButton({ label, icon, onPress }: { label?: string; icon?: string; o
       hitSlop={4}
       style={{
         minWidth: 34, height: 30, paddingHorizontal: 6, borderRadius: t.radii.sm,
-        backgroundColor: c.fillHover,
+        backgroundColor: withAlpha(c.textSecondary, '14'),
         alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -706,7 +721,7 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
     <View style={{ flex: 1, backgroundColor: c.bgSurface }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: t.spacing.lg, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: t.spacing.lg, paddingBottom: 40, gap: 14, paddingTop: 8 }}
         keyboardShouldPersistTaps="handled"
       >
         {/* 标题（30 字上限，右下角计数，设计稿同构） */}
@@ -722,22 +737,26 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
             {30 - title.length}
           </Text>
         </View>
-        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
 
+        {/* 分类选择器：浅灰胶囊，点开底部抽屉 */}
         <Pressable
           onPress={() => setCatOpen(true)}
-          style={[fieldStyle, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+          android_ripple={{ color: c.fillHover }}
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 9,
+            paddingHorizontal: 12, height: 44, borderRadius: 12, backgroundColor: c.fillHover,
+          }}
         >
-          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>分类</Text>
-          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, flex: 1, fontWeight: '500' }}>
+          <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: catColor(categories.find((cat) => cat.id === categoryId)?.name || 'category') }} />
+          <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '500', flex: 1 }} numberOfLines={1}>
             {categories.find((cat) => cat.id === categoryId)?.name ?? '请选择分类'}
           </Text>
-          <Icon name="forward" size={14} />
+          <Icon name="chevron-forward" size={14} color={c.textTertiary} />
         </Pressable>
-        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
 
-        {/* 工具栏：轻量 Markdown 编辑器 */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        {/* 正文编辑器容器：工具栏并入顶部，浅灰圆角底提供容器感 */}
+        <View style={{ borderRadius: 14, backgroundColor: c.fillHover, overflow: 'hidden' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, alignItems: 'center', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 2 }}>
           <ToolButton label="B" onPress={() => apply((x, a, b) => wrapSelection(x, a, b, '**', '粗体'))} />
           <ToolButton label="I" onPress={() => apply((x, a, b) => wrapSelection(x, a, b, '*', '斜体'))} />
           <ToolButton label="H2" onPress={() => apply((x, a) => prefixLine(x, a, '## '))} />
@@ -751,7 +770,7 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
         </View>
 
         {preview ? (
-          <View>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
             {body.trim() ? <YdMarkdown source={body} /> : <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeSm }}>暂无内容</Text>}
           </View>
         ) : (
@@ -763,17 +782,20 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
             placeholder="添加正文（支持 Markdown，图片可穿插文字间）"
             placeholderTextColor={c.textTertiary}
             multiline
-            style={[fieldStyle, { minHeight: 200, lineHeight: 21, textAlignVertical: 'top', fontSize: t.typography.sizeSm + 1 }]}
+            style={{ minHeight: 170, lineHeight: 21, textAlignVertical: 'top', fontSize: t.typography.sizeSm + 1, paddingHorizontal: 12, paddingBottom: 10, color: c.textPrimary }}
           />
         )}
+        </View>
 
-        <View style={{ height: 1, backgroundColor: c.borderSubtle, opacity: 0.7 }} />
         <TextInput
           value={tagText}
           onChangeText={setTagText}
           placeholder="标签（逗号或空格分隔，可加 #）"
           placeholderTextColor={c.textTertiary}
-          style={fieldStyle}
+          style={{
+            paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: c.fillHover,
+            color: c.textPrimary, fontSize: t.typography.sizeSm,
+          }}
         />
         {tags.length > 0 ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -817,16 +839,17 @@ function ComposePage({ categories, onDone }: { categories: Category[]; onDone: (
       {catOpen ? (
         <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' }}>
           <Pressable style={{ flex: 1 }} onPress={() => setCatOpen(false)} />
-          <View style={{ backgroundColor: c.bgSurface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: t.spacing.lg, gap: 8, maxHeight: '60%' }}>
+          <View style={{ backgroundColor: c.bgSurface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: t.spacing.lg, gap: 6, maxHeight: '60%' }}>
             <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '700' }}>选择分类</Text>
             <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
               {categories.map((cat) => (
                 <Pressable
                   key={cat.id}
                   onPress={() => { setCategoryId(cat.id); setCatOpen(false); }}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.borderSubtle }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 }}
                 >
-                  <Text style={{ color: cat.id === categoryId ? c.accent : c.textPrimary, fontSize: t.typography.sizeSm, flex: 1, fontWeight: cat.id === categoryId ? '700' : '400' }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: catColor(cat.name) }} />
+                  <Text style={{ color: cat.id === categoryId ? c.accent : c.textPrimary, fontSize: t.typography.sizeSm + 1, flex: 1, fontWeight: cat.id === categoryId ? '700' : '400' }}>
                     {cat.name}
                   </Text>
                   {cat.id === categoryId ? <Icon name="checkmark" size={16} color={c.accent} /> : null}
