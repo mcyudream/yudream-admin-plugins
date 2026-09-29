@@ -239,6 +239,11 @@ public class YuDreamSkinHttpFacade {
         if (skin == null) {
             return PluginHttpResponse.rawJson(400, Map.of("message", "不是有效的皮肤材质图片"));
         }
+        return binaryPng(renderFrontView(skin, height));
+    }
+
+    /** 正面立绘拼装（包私有以便单测）：64x64 新版布局 / 64x32 旧版（左肢镜像右肢、仅帽层）。 */
+    static BufferedImage renderFrontView(BufferedImage skin, int height) {
         boolean legacy = skin.getHeight() <= 32;
         int unit = Math.max(2, height / 32);
         BufferedImage out = new BufferedImage(16 * unit, 32 * unit, BufferedImage.TYPE_INT_ARGB);
@@ -261,22 +266,29 @@ public class YuDreamSkinHttpFacade {
             drawPart(graphics, skin, unit, 52, 52, 4, 12, 12, 8);
         }
         graphics.dispose();
+        return out;
+    }
+
+    private static byte[] pngBytes(BufferedImage image) {
         try (var bos = new ByteArrayOutputStream()) {
-            ImageIO.write(out, "png", bos);
-            return new PluginHttpResponse(
-                    200,
-                    Map.of("Cache-Control", "public, max-age=31536000"),
-                    "image/png",
-                    bos.toByteArray(),
-                    false
-            );
+            ImageIO.write(image, "png", bos);
+            return bos.toByteArray();
         } catch (IOException e) {
-            return PluginHttpResponse.rawJson(500, Map.of("message", "立绘渲染失败：" + e.getMessage()));
+            throw new IllegalStateException("PNG 编码失败：" + e.getMessage(), e);
         }
     }
 
+    private PluginHttpResponse binaryPng(BufferedImage image) {
+        return new PluginHttpResponse(
+                200,
+                Map.of("Cache-Control", "public, max-age=31536000"),
+                "image/png",
+                pngBytes(image),
+                false
+    );}
+
     /** 把材质的 (sx,sy,w,h) 区域邻近缩放画到画布 (dx,dy) 格位（格 = 渲染高的 1/32）。 */
-    private void drawPart(Graphics2D graphics, BufferedImage skin, int unit, int sx, int sy, int w, int h, int dx, int dy) {
+    private static void drawPart(Graphics2D graphics, BufferedImage skin, int unit, int sx, int sy, int w, int h, int dx, int dy) {
         if (sy + h > skin.getHeight() || sx + w > skin.getWidth()) {
             return;
         }

@@ -991,6 +991,9 @@ importers:
       '@yudream/plugin-sdk-mobile':
         specifier: workspace:*
         version: link:../plugin-sdk-mobile
+      react-native-image-picker:
+        specifier: ^8.2.1
+        version: 8.2.1(react-native@0.76.6(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.3.31)(react@18.3.1))(react@18.3.1)
     devDependencies:
       '@callstack/repack':
         specifier: ^5.3.0

@@ -681,7 +681,7 @@ function ProductFormCard({
             price: n,
             stock: Number.isFinite(st) ? st : -1,
             perUserLimit: 0,
-            type: 'GENERIC',
+            type: 'POINTS_REDEEM',
             images: [],
             variants: [],
           });

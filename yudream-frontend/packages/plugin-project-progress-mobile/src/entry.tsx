@@ -255,6 +255,7 @@ function TaskPage({ taskId, projectId, onBack }: { taskId: string; projectId?: s
   const [type, setType] = useState('');
   const [busy, setBusy] = useState('');
   const [acceptSummary, setAcceptSummary] = useState('');
+  const [acceptFiles, setAcceptFiles] = useState<{ filename: string; contentType: string; base64: string; image: boolean }[]>([]);
 
   const allowed = (project.data?.allowedCheckInTypes ?? []).filter((x) => x !== 'MINECRAFT_ONLINE');
   const activeType = type || allowed[0] || 'IMAGE';
@@ -301,7 +302,7 @@ function TaskPage({ taskId, projectId, onBack }: { taskId: string; projectId?: s
               method: 'POST',
               body: { type: 'IMAGE', summary: acceptSummary.trim() || '移动端提交验收' },
             })
-            .then(() => { setBusy(''); setAcceptSummary(''); task.reload(); Alert.alert('已提交', '等待验收人审核'); })
+            .then(() => { setBusy(''); setAcceptSummary(''); setAcceptFiles([]); task.reload(); Alert.alert('已提交', '等待验收人审核'); })
             .catch((e) => { setBusy(''); Alert.alert('提交失败', errText(e)); });
         },
       },
