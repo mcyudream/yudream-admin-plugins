@@ -157,6 +157,34 @@ public class McNewsHttpFacade {
 
     // ---------- 管理端：新闻动态 / 推送记录 / 轮询 ----------
 
+    /** 首页动态源（已登录可读）：新闻按发布时间倒序，映射为宿主 MobileFeedItem。 */
+    public PluginHttpResponse mobileFeed(PluginHttpRequest request) {
+        int page = HttpSupport.pageParam(request);
+        int size = HttpSupport.sizeParam(request, 20);
+        var result = feed.pageNews(page, size, null, null);
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        for (var article : result.records()) {
+            Map<String, Object> author = new LinkedHashMap<>();
+            author.put("name", article.sourceName() == null || article.sourceName().isBlank() ? "MC 新闻" : article.sourceName());
+            author.put("avatar", "");
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", article.id());
+            item.put("route", "");
+            item.put("title", article.title());
+            item.put("summary", article.summary() == null ? "" : article.summary());
+            item.put("images", article.imageUrl() == null || article.imageUrl().isBlank() ? List.of() : List.of(article.imageUrl()));
+            item.put("author", author);
+            item.put("tagName", article.category() == null ? "" : article.category());
+            item.put("createTime", article.publishedAt() > 0 ? article.publishedAt() : article.discoveredAt());
+            items.add(item);
+        }
+        boolean hasMore = (long) page * size < result.total();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("items", items);
+        body.put("hasMore", hasMore);
+        return PluginHttpResponse.ok(body);
+    }
+
     public PluginHttpResponse pageNews(PluginHttpRequest request) {
         var result = feed.pageNews(HttpSupport.pageParam(request), HttpSupport.sizeParam(request, PAGE_FALLBACK),
                 HttpSupport.first(request, "sourceId"), HttpSupport.first(request, "keyword"));

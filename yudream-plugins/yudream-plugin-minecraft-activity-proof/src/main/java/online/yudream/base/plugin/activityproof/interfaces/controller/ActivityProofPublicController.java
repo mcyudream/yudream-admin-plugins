@@ -20,4 +20,9 @@ public class ActivityProofPublicController {
     public PluginHttpResponse publicActivity(PluginHttpRequest request) {
         return http.publicActivity(request);
     }
+
+    @PluginHttpEndpoint(method = "GET", path = "/public/mobile-feed")
+    public PluginHttpResponse publicMobileFeed(PluginHttpRequest request) {
+        return http.publicMobileFeed(request);
+    }
 }
