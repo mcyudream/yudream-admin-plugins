@@ -3,6 +3,9 @@ package online.yudream.base.plugin.minecraft.application.service;
 import online.yudream.base.plugin.minecraft.domain.aggregate.MinecraftServer;
 import online.yudream.base.plugin.minecraft.domain.repo.MinecraftServerRepository;
 import online.yudream.base.plugin.minecraft.domain.valobj.MinecraftBridgeSettings;
+import online.yudream.base.plugin.spi.system.user.PluginMessagingIdentity;
+import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
+import online.yudream.base.plugin.spi.system.user.PluginUserService;
 import online.yudream.base.plugin.spi.http.PluginSseStream;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
 import online.yudream.base.plugin.spi.system.messaging.PluginEvent;
@@ -71,6 +74,14 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     /** 每台游戏服务器的 SSE 实时订阅：群消息写入队列时同步推送。 */
     private final Map<String, List<InboundStream>> inboundStreams = new ConcurrentHashMap<>();
     private final SetWithCapacity deduplication = new SetWithCapacity(DEDUP_CAPACITY);
+
+    /** 群消息发送者显示名缓存（消息平台 ID -> 站点昵称/用户名），10 分钟过期、超限整体清空。 */
+    private final Map<String, CachedDisplayName> displayNames = new ConcurrentHashMap<>();
+    private static final long DISPLAY_NAME_TTL_MILLIS = 10L * 60 * 1000;
+    private static final int DISPLAY_NAME_CACHE_LIMIT = 1000;
+
+    private record CachedDisplayName(String name, long at) {
+    }
     private volatile ScheduledExecutorService inboundHeartbeatExecutor;
 
     public MinecraftBridgeService(MinecraftServerRepository repository, FrameworkServices framework,
@@ -297,6 +308,7 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
                 || event.channelId() == null || event.channelId().isBlank()) {
             return;
         }
+        String sender = resolveDisplayName(event);
         for (String serverId : enabledServerIds()) {
             MinecraftBridgeSettings settings = cachedSettings(serverId);
             if (!settings.forwardToGame() || !settings.targetConfigured()) {
@@ -306,8 +318,63 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
                     || !settings.channelId().equals(event.channelId())) {
                 continue;
             }
-            enqueueInbound(serverId, event.userId(), content);
+            enqueueInbound(serverId, sender, content);
         }
+    }
+
+    /**
+     * 群消息发送者显示名：消息平台 ID 反查站点用户（QQ 绑定/官方 openid 均可），
+     * 取站点昵称（缺省回退用户名），未绑定回退平台 ID。结果缓存 10 分钟，
+     * 避免每条群消息都触发一次身份反查。
+     */
+    private String resolveDisplayName(PluginEvent event) {
+        String key = event.platform() + ":" + event.userId();
+        long now = clock.getAsLong();
+        CachedDisplayName cached = displayNames.get(key);
+        if (cached != null && now - cached.at() < DISPLAY_NAME_TTL_MILLIS) {
+            return cached.name();
+        }
+        String name = event.userId();
+        try {
+            // 优先：宿主消息分发时已按发送者反查站点身份，随事件 referrer 下发（新宿主）。
+            Map<String, Object> referrer = event.referrer();
+            if (referrer != null) {
+                String username = textOf(referrer.get("senderUsername"));
+                String nickname = textOf(referrer.get("senderNickname"));
+                if (username != null && !username.isBlank()) {
+                    displayNames.put(key, new CachedDisplayName(username, now));
+                    return username;
+                }
+                if (nickname != null && !nickname.isBlank()) {
+                    displayNames.put(key, new CachedDisplayName(nickname, now));
+                    return nickname;
+                }
+            }
+            // 回退：按消息身份反查站点用户（旧宿主），用户名优先、昵称兜底。
+            PluginUserService users = framework.users();
+            if (users != null) {
+                PluginMessagingIdentity identity = new PluginMessagingIdentity(
+                        event.platform(), null, event.userId(), null, null, event.connectionId());
+                name = users.findByMessagingIdentity(identity)
+                        .map(profile -> {
+                            if (profile.username() != null && !profile.username().isBlank()) {
+                                return profile.username();
+                            }
+                            return profile.nickname() == null || profile.nickname().isBlank()
+                                    ? event.userId()
+                                    : profile.nickname();
+                        })
+                        .orElse(event.userId());
+            }
+        } catch (RuntimeException | LinkageError e) {
+            LOGGER.fine("群消息发送者名称解析失败：" + rootMessage(e));
+        }
+        if (displayNames.size() > DISPLAY_NAME_CACHE_LIMIT) {
+            displayNames.clear();
+        }
+        displayNames.put(key, new CachedDisplayName(name, now));
+        LOGGER.fine("群消息发送者解析：" + event.userId() + " -> " + name);
+        return name;
     }
 
     private List<String> enabledServerIds() {
@@ -590,6 +657,14 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
             throw new IllegalArgumentException(message);
         }
         return value.trim();
+    }
+
+    private static String textOf(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value);
+        return text.isBlank() ? null : text;
     }
 
     private static String rootMessage(Throwable error) {
