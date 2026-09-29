@@ -10,7 +10,8 @@
   "dependencies": {
     "@yudream/plugin-mobile-ui": "workspace:*",
     "@yudream/plugin-sdk-mobile": "workspace:*",
-    "react-native-image-picker": "^8.2.1"
+    "react-native-image-picker": "^8.2.1",
+    "react-native-fs": "^2.20.0"
   },
   "devDependencies": {
     "@callstack/repack": "^5.3.0",

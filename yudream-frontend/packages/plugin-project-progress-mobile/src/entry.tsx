@@ -6,6 +6,8 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Pressable, Text, TextInput, View } from 'react-native';
+import RNFS from 'react-native-fs';
+import { launchImageLibrary } from 'react-native-image-picker';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SectionTitle, StatTile,
@@ -70,13 +72,14 @@ interface CheckInRow {
 }
 interface PendingRow {
   id?: string;
-  detailId?: string;
+  projectId?: string;
   title?: string;
-  projectName?: string;
-  submitterName?: string;
+  description?: string;
+  statusCode?: string;
+  assigneeUserIds?: string[];
   acceptanceSummary?: string;
-  acceptanceFiles?: { objectKey?: string; filename?: string }[];
-  createdAt?: number | string;
+  acceptanceFiles?: { objectKey?: string; filename?: string; image?: boolean }[];
+  updatedAt?: number | string;
 }
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -688,6 +691,44 @@ function ProjectDashboard({ projectId, onOpenTask }: { projectId: string; onOpen
   );
 }
 
+/** 鉴权图片：经 sdk.api.download 落盘后以 file:// 展示（站内受保护图片无法直接进 Image）。 */
+function AuthedImage({ path, style }: { path: string; style?: object }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const [uri, setUri] = useState('');
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setFailed(false);
+    if (!sdk.api.download) {
+      setFailed(true);
+      return undefined;
+    }
+    const toFile = `${RNFS.CachesDirectoryPath}/pp-${Math.abs(hashCode(path))}.img`;
+    sdk.api
+      .download(path, toFile)
+      .then(() => { if (alive) setUri(`file://${toFile}`); })
+      .catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, [path, sdk]);
+  if (failed || !uri) {
+    return (
+      <View style={[style, { backgroundColor: t.colors.fillHover, alignItems: 'center', justifyContent: 'center' }]}>
+        <Text style={{ color: t.colors.textTertiary, fontSize: t.typography.sizeXs }}>{failed ? '加载失败' : '…'}</Text>
+      </View>
+    );
+  }
+  return <Image source={{ uri }} style={style} resizeMode="cover" fadeDuration={0} />;
+}
+
+function hashCode(text: string): number {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) {
+    h = (h * 31 + text.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
 /* ---------------- 验收审批（acceptor / 管理员） ---------------- */
 
 function AcceptancePage() {
@@ -703,10 +744,17 @@ function AcceptancePage() {
   const [rejecting, setRejecting] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState('');
+  const projects = useResource<ProjectRow[]>(
+    () => sdk.api
+      .request<ProjectRow[] | { records?: ProjectRow[] }>(`${API}/projects?page=1&size=50`)
+      .then((r) => (Array.isArray(r) ? r : (r?.records ?? []))),
+    [sdk],
+  );
   const list = pending.data ?? [];
+  const projectName = (id?: string) => (projects.data ?? []).find((p) => p.id === id)?.name ?? '';
 
   const review = (row: PendingRow, accept: boolean) => {
-    const detailId = row.detailId ?? row.id ?? '';
+    const detailId = row.id ?? '';
     if (!detailId || busy) return;
     if (!accept && !reason.trim()) {
       Alert.alert('请填写驳回原因', '驳回需要说明原因，负责人才能整改重交');
@@ -737,7 +785,7 @@ function AcceptancePage() {
       {pending.loading ? <Loading /> : null}
       {!pending.loading && list.length === 0 ? <Empty text="暂无待验收提交" /> : null}
       {list.map((row, i) => {
-        const detailId = row.detailId ?? row.id ?? '';
+        const detailId = row.id ?? '';
         const files = (row.acceptanceFiles ?? []).slice(0, 2);
         const isRejecting = rejecting === detailId;
         return (
@@ -753,27 +801,30 @@ function AcceptancePage() {
                   {row.title || '任务'}
                 </Text>
                 <Text numberOfLines={1} style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
-                  {[row.projectName, row.submitterName, fmtDateTime(row.createdAt)].filter(Boolean).join(' · ')}
+                  {[projectName(row.projectId), fmtDateTime(row.updatedAt)].filter(Boolean).join(' · ')}
                 </Text>
               </View>
             </View>
             {row.acceptanceSummary ? (
-              <Text numberOfLines={3} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 17 }}>
-                {row.acceptanceSummary}
+              <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 18 }}>
+                验收说明：{row.acceptanceSummary}
               </Text>
-            ) : null}
+            ) : (
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>未填写验收说明</Text>
+            )}
             {files.length > 0 ? (
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {files.map((f, fi) => f.objectKey ? (
-                  <Image
+                  <AuthedImage
                     key={fi}
-                    source={{ uri: `${sdk.baseUrl}${API}/files/download?objectKey=${encodeURIComponent(f.objectKey)}` }}
-                    style={{ width: '47.5%', height: 72, borderRadius: 10, backgroundColor: c.fillHover }}
-                    resizeMode="cover"
+                    path={`${API}/files/download?objectKey=${encodeURIComponent(f.objectKey)}`}
+                    style={{ width: '47.5%', height: 150, borderRadius: 10 }}
                   />
                 ) : null)}
               </View>
-            ) : null}
+            ) : (
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>本次提交未附图片</Text>
+            )}
             {isRejecting ? (
               <Field value={reason} onChangeText={setReason} placeholder="驳回原因（必填，将通知负责人）" multiline height={60} />
             ) : null}
