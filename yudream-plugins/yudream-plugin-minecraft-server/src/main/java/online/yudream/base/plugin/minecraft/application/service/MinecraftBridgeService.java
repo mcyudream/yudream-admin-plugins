@@ -80,7 +80,38 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
     private static final long DISPLAY_NAME_TTL_MILLIS = 10L * 60 * 1000;
     private static final int DISPLAY_NAME_CACHE_LIMIT = 1000;
 
+    /** 群聊转发合并窗口：窗口内的多条游戏聊天合并为一条 QQ 消息（官方机器人频限友好），0=不合并。 */
+    private final long chatForwardMergeMillis;
+
     private record CachedDisplayName(String name, long at) {
+    }
+
+    /** 待合并的群聊转发行（按服务器分组）+ 首条入缓冲的时间戳（冲刷定时基准）。 */
+    private final Map<String, List<String>> pendingChatForward = new ConcurrentHashMap<>();
+    private final Map<String, Long> chatForwardWindowStart = new ConcurrentHashMap<>();
+    private final java.util.concurrent.ScheduledExecutorService chatForwardFlusher;
+
+    /** 将一行群聊转发加入合并缓冲；窗口首条入队时调度冲刷。 */
+    private void enqueueChatForward(MinecraftBridgeSettings settings, String line) {
+        List<String> lines = pendingChatForward.computeIfAbsent(settings.serverId(), key -> new ArrayList<>());
+        synchronized (lines) {
+            lines.add(line);
+        }
+        chatForwardFlusher.schedule(() -> flushChatForward(settings), chatForwardMergeMillis,
+                java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    /** 冲刷：把缓冲内的群聊行合并为一条多行消息投递到消息连接。 */
+    private void flushChatForward(MinecraftBridgeSettings settings) {
+        List<String> lines;
+        synchronized (settings.serverId().intern()) {
+            lines = pendingChatForward.remove(settings.serverId());
+        }
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
+        String merged = String.join("\n", lines);
+        send(settings, merged);
     }
     private volatile ScheduledExecutorService inboundHeartbeatExecutor;
 
@@ -91,10 +122,22 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
 
     MinecraftBridgeService(MinecraftServerRepository repository, FrameworkServices framework,
                            Function<String, List<String>> onlinePlayers, LongSupplier clock) {
+        this(repository, framework, onlinePlayers, clock, 8_000L);
+    }
+
+    MinecraftBridgeService(MinecraftServerRepository repository, FrameworkServices framework,
+                           Function<String, List<String>> onlinePlayers, LongSupplier clock,
+                           long chatForwardMergeMillis) {
         this.repository = repository;
         this.framework = framework;
         this.onlinePlayers = onlinePlayers == null ? serverId -> List.of() : onlinePlayers;
         this.clock = clock;
+        this.chatForwardMergeMillis = chatForwardMergeMillis;
+        this.chatForwardFlusher = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "minecraft-server-chat-forward-flush");
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     // ---------------------------------------------------------------- 配置
@@ -204,6 +247,11 @@ public class MinecraftBridgeService implements MinecraftBridgeListener {
             case ADVANCEMENT -> "🏆 " + name + " 达成了成就：" + clamp(content.trim(), MAX_INBOUND_CONTENT);
         };
         if (staleOrDuplicate(serverId, kind.name(), name + "/" + text, eventAt)) {
+            return;
+        }
+        if (kind == GameEventKind.CHAT) {
+            // 聊天高频：走合并窗口（官方机器人频限友好），死亡/成就保持即时。
+            enqueueChatForward(settings, text);
             return;
         }
         send(settings, text);

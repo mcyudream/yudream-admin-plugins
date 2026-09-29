@@ -53,7 +53,7 @@ class MinecraftBridgeServiceTest {
         when(repository.list(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyBoolean()))
                 .thenReturn(List.of(server));
-        service = new MinecraftBridgeService(repository, framework, serverId -> List.of(), () -> NOW);
+        service = new MinecraftBridgeService(repository, framework, serverId -> List.of(), () -> NOW, 0L);
     }
 
     private void givenSettings(MinecraftBridgeSettings settings) {
@@ -231,5 +231,9 @@ class MinecraftBridgeServiceTest {
         FrameworkServices framework = mock(FrameworkServices.class);
         when(framework.messaging()).thenReturn(messagingService);
         return framework;
+    }
+
+    private MinecraftBridgeService serviceWithMerge(long mergeMillis) {
+        return new MinecraftBridgeService(repository, mockFrameworkWith(messaging), serverId -> List.of(), () -> NOW, mergeMillis);
     }
 }
