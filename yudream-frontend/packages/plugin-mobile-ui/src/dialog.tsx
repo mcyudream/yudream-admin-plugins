@@ -10,10 +10,12 @@
  *   ]);
  *
  * DialogHost 由 UiProvider 渲染（每页一个），imperative api 通过模块级
- * emitter 投递；入场上浮缩放弹簧，按钮分「取消(次级) / 破坏(红) / 默认(主色)」。
+ * emitter 投递；主题图标圆徽（信息=主色 / 破坏=警示红）+ 居中排版 +
+ * 胶囊按钮（取消=浅灰底 / 破坏=浅红底红字 / 默认=主色实底），大圆角 24。
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, Text, View } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { PluginThemeTokens } from '@yudream/plugin-sdk-mobile';
 
 export interface UiDialogButton {
@@ -40,10 +42,14 @@ export function uiAlert(title: string, message?: string, buttons?: UiDialogButto
   if (emitDialog) {
     emitDialog(req);
   } else {
-    // DialogHost 未挂载（理论不可达）：兜底不丢交互
     const [primary] = req.buttons.slice(-1);
     primary?.onPress?.();
   }
+}
+
+/** 透明色附加（#rrggbb → #rrggbbaa）；非 hex 色值原样返回。 */
+function withAlpha(color: string, alpha: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? `${color}${alpha}` : color;
 }
 
 /** 供 UiProvider 渲染的全局弹窗宿主。 */
@@ -58,8 +64,8 @@ export function DialogHost({ theme }: { theme: PluginThemeTokens }) {
       setVisible(true);
       anim.setValue(0);
       Animated.parallel([
-        Animated.timing(anim, { toValue: 1, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.spring(anim, { toValue: 1, friction: 7, tension: 180, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(anim, { toValue: 1, friction: 7, tension: 170, useNativeDriver: true }),
       ]).start();
     };
     return () => {
@@ -74,6 +80,9 @@ export function DialogHost({ theme }: { theme: PluginThemeTokens }) {
   };
 
   const c = theme.colors;
+  const destructive = !!req?.buttons.some((b) => b.style === 'destructive');
+  const tint = destructive ? (c.danger ?? '#dc2626') : c.accent;
+  const glyph = destructive ? 'alert-circle' : 'information-circle';
   const single = req && req.buttons.length === 1;
 
   return (
@@ -82,11 +91,11 @@ export function DialogHost({ theme }: { theme: PluginThemeTokens }) {
         <Animated.View
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.45)',
+            backgroundColor: 'rgba(0,0,0,0.5)',
             opacity: anim,
             alignItems: 'center',
             justifyContent: 'center',
-            paddingHorizontal: 32,
+            paddingHorizontal: 30,
           }}
         >
           <Pressable
@@ -96,22 +105,36 @@ export function DialogHost({ theme }: { theme: PluginThemeTokens }) {
           <Animated.View
             style={{
               width: '100%',
-              maxWidth: 340,
-              borderRadius: 18,
+              maxWidth: 330,
+              borderRadius: 24,
               backgroundColor: c.bgSurface,
-              paddingTop: 20,
-              paddingBottom: 6,
-              paddingHorizontal: 18,
+              paddingTop: 24,
+              paddingBottom: 20,
+              paddingHorizontal: 20,
+              alignItems: 'center',
               opacity: anim,
               transform: [
-                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) },
-                { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+                { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }) },
+                { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
               ],
             }}
           >
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                backgroundColor: withAlpha(tint, '1F'),
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 14,
+              }}
+            >
+              <Ionicons name={glyph} size={28} color={tint} />
+            </View>
             <Text
               numberOfLines={2}
-              style={{ color: c.textPrimary, fontSize: theme.typography.sizeMd + 1, fontWeight: '700', lineHeight: 24 }}
+              style={{ color: c.textPrimary, fontSize: theme.typography.sizeMd + 2, fontWeight: '700', lineHeight: 25, textAlign: 'center' }}
             >
               {req.title}
             </Text>
@@ -122,35 +145,43 @@ export function DialogHost({ theme }: { theme: PluginThemeTokens }) {
                   fontSize: theme.typography.sizeSm,
                   lineHeight: 20,
                   marginTop: 8,
-                  marginBottom: 4,
+                  textAlign: 'center',
                 }}
               >
                 {req.message}
               </Text>
-            ) : (
-              <View style={{ height: 8 }} />
-            )}
-            <View style={{ flexDirection: 'row', marginTop: 14, gap: single ? 0 : 8 }}>
+            ) : null}
+            <View style={{ flexDirection: 'row', marginTop: 18, gap: 10, width: '100%' }}>
               {req.buttons.map((b, i) => {
-                const destructive = b.style === 'destructive';
-                const cancel = b.style === 'cancel';
-                const color = destructive ? (c.danger ?? '#dc2626') : cancel ? c.textSecondary : c.accent;
+                const isDestructive = b.style === 'destructive';
+                const isCancel = b.style === 'cancel';
+                const isPrimary = !single && i === req.buttons.length - 1 && !isDestructive && !isCancel;
+                const bg = isDestructive
+                  ? withAlpha(c.danger ?? '#dc2626', '1A')
+                  : isPrimary || (single && !isCancel)
+                    ? c.accent
+                    : c.fillHover;
+                const fg = isDestructive
+                  ? (c.danger ?? '#dc2626')
+                  : isPrimary || (single && !isCancel)
+                    ? c.onAccent
+                    : c.textSecondary;
                 return (
                   <Pressable
                     key={`${b.text}-${i}`}
                     onPress={() => dismiss(b)}
-                    android_ripple={{ color: c.fillHover, radius: 60 }}
+                    android_ripple={{ color: c.fillHover, radius: 70 }}
                     style={({ pressed }) => ({
-                      flex: single ? undefined : 1,
-                      alignSelf: single ? 'flex-end' : 'auto',
-                      paddingVertical: 10,
-                      paddingHorizontal: single ? 14 : 6,
-                      borderRadius: 12,
-                      backgroundColor: pressed ? c.fillHover : 'transparent',
+                      flex: 1,
+                      height: 46,
+                      borderRadius: 16,
+                      backgroundColor: pressed ? c.fillHover : bg,
                       alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.8 : 1,
                     })}
                   >
-                    <Text style={{ color, fontSize: theme.typography.sizeSm + 1, fontWeight: '600' }}>
+                    <Text style={{ color: fg, fontSize: theme.typography.sizeSm + 1, fontWeight: '600' }}>
                       {b.text}
                     </Text>
                   </Pressable>

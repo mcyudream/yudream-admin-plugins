@@ -9,8 +9,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, InfoRows, Loading, PrimaryButton, Screen, SectionTitle,
-  UiProvider, useResource,,
-  uiAlert,
+  UiProvider, useResource,  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;

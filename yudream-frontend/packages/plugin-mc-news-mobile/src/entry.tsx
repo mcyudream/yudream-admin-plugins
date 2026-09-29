@@ -10,8 +10,7 @@ import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native'
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
   Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SearchField,
-  SectionTitle, UiProvider, useResource,,
-  uiAlert,
+  SectionTitle, UiProvider, useResource,  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;

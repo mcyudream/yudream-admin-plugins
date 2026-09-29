@@ -8,8 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Chip, Empty, Icon, Loading, PrimaryButton, Screen, Tile, UiProvider, useResource,,
-  uiAlert,
+  Badge, Card, Chip, Empty, Icon, Loading, PrimaryButton, Screen, Tile, UiProvider, useResource,  uiAlert,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
