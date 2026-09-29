@@ -1,14 +1,16 @@
 /**
- * mc-news 移动端（新闻动态管理员列表）：
- * 聚合新闻列表（来源徽章/标题/摘要/推送状态）+ 直推订阅开关。
- * 数据走 /api/plugins/mc-news/admin/news 与 /me/subscription；
- * 视觉经 sdk.theme 与 plugin-mobile-ui，不写死色值。
+ * mc-news 移动端（设计稿 newsPlaza / newsDetail / newsPush）：
+ * 顶部双 Tab——「新闻广场」（聚合新闻列表，点进图文详情并可跳转官方原文）与
+ * 「推送设置」（QQ 直推订阅开关）。深链 /detail?d=<URI编码JSON> 直开详情。
+ * 数据走 /api/plugins/mc-news/public/mobile-feed 与 /me/subscription；
+ * 无题图条目使用内置 MC 风格默认封面；视觉经 sdk.theme 与 plugin-mobile-ui。
  */
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MobilePluginModule, PluginMobileSdk } from '@yudream/plugin-sdk-mobile';
 import {
-  Badge, Card, Empty, Loading, Screen, SearchField, SectionTitle, UiProvider, useResource,
+  Badge, Card, Empty, Icon, Loading, PrimaryButton, Screen, SearchField,
+  SectionTitle, UiProvider, useResource,
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
@@ -17,35 +19,149 @@ function useSdk(): PluginMobileSdk {
 }
 
 const API = '/api/plugins/mc-news';
+/** 无题图条目的内置默认封面（随 JAR 资产下发，匿名可访问）。 */
+const DEFAULT_COVER = '/api/plugins/mc-news/assets/mobile/news-cover.jpg';
 
-interface NewsRow {
+interface FeedItem {
   id: string;
-  sourceName?: string;
+  route?: string;
   title: string;
   summary?: string;
-  category?: string;
-  imageUrl?: string | null;
-  publishedAtLabel?: string;
-  pushState?: string;
-}
-interface Subscription {
-  directEnabled?: boolean;
-  maxWebhooks?: number;
+  images?: string[];
+  url?: string;
+  author?: { name?: string; avatar?: string } | null;
+  tagName?: string;
+  createTime?: number | string;
 }
 
-function NewsPage() {
+function fmtTime(ts?: number | string | null): string {
+  const n = Number(ts);
+  if (!ts || !Number.isFinite(n) || n <= 0) return '';
+  const d = new Date(n);
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+function CoverImage({ uri, height }: { uri?: string | null; height: number }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const [broken, setBroken] = useState(false);
+  let resolved = '';
+  if (!broken && uri) {
+    resolved = uri.startsWith('http://') || uri.startsWith('https://') ? uri : `${sdk.baseUrl}${uri}`;
+  }
+  if (!resolved) {
+    resolved = `${sdk.baseUrl}${DEFAULT_COVER}`;
+  }
+  return (
+    <Image
+      source={{ uri: resolved }}
+      onError={() => setBroken(true)}
+      style={{ width: '100%', height, backgroundColor: t.colors.fillHover }}
+      resizeMode="cover"
+    />
+  );
+}
+
+/* ---------------- 新闻广场 ---------------- */
+
+function NewsPlaza({ onOpenDetail }: { onOpenDetail: (item: FeedItem) => void }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const c = t.colors;
   const [keyword, setKeyword] = useState('');
   const [query, setQuery] = useState('');
-  const news = useResource<{ records?: NewsRow[]; total?: number; subscribers?: number }>(
+  const news = useResource<{ items?: FeedItem[]; hasMore?: boolean }>(
     () => sdk.api
-      .request<{ records?: NewsRow[]; total?: number }>(`${API}/admin/news?page=1&size=20${query ? `&keyword=${encodeURIComponent(query)}` : ''}`),
+      .request<{ items?: FeedItem[]; hasMore?: boolean }>(`${API}/public/mobile-feed?page=1&size=30${query ? `&keyword=${encodeURIComponent(query)}` : ''}`),
     [sdk, query],
   );
-  const sub = useResource<Subscription>(() => sdk.api.request(`${API}/me/subscription`), [sdk]);
-  const list = news.data?.records ?? [];
+  const list = (news.data?.items ?? []).filter(
+    (item) => !query.trim() || (item.title ?? '').toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  return (
+    <Screen>
+      <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索新闻…" onSubmit={() => setQuery(keyword.trim())} />
+      {news.loading ? <Loading /> : null}
+      {!news.loading && list.length === 0 ? <Empty text={query ? '没有匹配的新闻' : '暂无新闻，等待源抓取'} /> : null}
+      {list.map((item) => (
+        <Card key={item.id} onPress={() => onOpenDetail(item)}>
+          <CoverImage uri={(item.images ?? [])[0]} height={96} />
+          <View style={{ gap: 4 }}>
+            <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm + 1, fontWeight: '700', lineHeight: 19 }}>
+              {item.title}
+            </Text>
+            {item.summary ? (
+              <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs + 1, lineHeight: 16 }}>
+                {item.summary}
+              </Text>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {item.author?.name ? <Badge text={item.author.name} /> : null}
+              {item.tagName ? <Badge text={item.tagName} /> : null}
+              <View style={{ flex: 1 }} />
+              <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{fmtTime(item.createTime)}</Text>
+              <Icon name="forward" size={13} color={c.textTertiary} />
+            </View>
+          </View>
+        </Card>
+      ))}
+    </Screen>
+  );
+}
+
+/* ---------------- 新闻详情 ---------------- */
+
+function NewsDetail({ item }: { item: FeedItem }) {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const url = item.url ?? '';
+
+  const openOriginal = () => {
+    if (!url) {
+      Alert.alert('暂无原文链接', '该新闻没有可跳转的原始页面');
+      return;
+    }
+    Linking.openURL(url).catch((e) => Alert.alert('打开失败', e instanceof Error ? e.message : String(e)));
+  };
+
+  return (
+    <Screen>
+      <CoverImage uri={(item.images ?? [])[0]} height={170} />
+      <View style={{ gap: 6 }}>
+        <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeXl - 1, fontWeight: '700', lineHeight: 26 }}>
+          {item.title}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {item.author?.name ? <Badge text={item.author.name} /> : null}
+          {item.tagName ? <Badge text={item.tagName} /> : null}
+          <View style={{ flex: 1 }} />
+          <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{fmtTime(item.createTime)}</Text>
+        </View>
+      </View>
+      {item.summary ? (
+        <Card>
+          <Text style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, lineHeight: 21 }}>
+            {item.summary}
+          </Text>
+        </Card>
+      ) : null}
+      <PrimaryButton title="阅读官方原文" onPress={openOriginal} />
+      <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+        原文为外部页面，将在浏览器中打开
+      </Text>
+    </Screen>
+  );
+}
+
+/* ---------------- 推送设置 ---------------- */
+
+function PushPage() {
+  const sdk = useSdk();
+  const t = sdk.theme;
+  const c = t.colors;
+  const sub = useResource<{ directEnabled?: boolean }>(() => sdk.api.request(`${API}/me/subscription`), [sdk]);
   const directOn = sub.data?.directEnabled === true;
 
   const toggleDirect = () => {
@@ -57,12 +173,10 @@ function NewsPage() {
 
   return (
     <Screen>
-      <SearchField value={keyword} onChangeText={setKeyword} placeholder="搜索新闻…" onSubmit={() => setQuery(keyword.trim())} />
-
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 34, height: 34, borderRadius: t.radii.sm, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: c.textPrimary, fontSize: 14 }}>🔔</Text>
+            <Icon name="share" size={15} color={c.accent} />
           </View>
           <View style={{ flex: 1, gap: 1 }}>
             <Text style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '500' }}>QQ 直推</Text>
@@ -82,47 +196,87 @@ function NewsPage() {
           </Pressable>
         </View>
       </Card>
-
-      <SectionTitle title="聚合新闻" actionText={news.data?.total ? `共 ${news.data.total}` : undefined} />
-      {news.loading ? <Loading /> : null}
-      {!news.loading && list.length === 0 ? <Empty text={query ? '没有匹配的新闻' : '暂无新闻，等待源抓取'} /> : null}
-      {list.map((n) => (
-        <Card key={n.id}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {n.imageUrl ? (
-              <Image
-                source={{ uri: `${sdk.baseUrl}${n.imageUrl}` }}
-                style={{ width: 76, height: 56, borderRadius: 8, backgroundColor: c.fillHover }}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={{ width: 76, height: 56, borderRadius: 8, backgroundColor: c.fillHover, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: c.textTertiary, fontSize: 16 }}>📰</Text>
-              </View>
-            )}
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeSm, fontWeight: '700', lineHeight: 18 }}>
-                {n.title}
-              </Text>
-              {n.summary ? (
-                <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeXs, lineHeight: 15 }}>
-                  {n.summary}
-                </Text>
-              ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {n.sourceName ? <Badge text={n.sourceName} /> : null}
-                {n.category ? <Badge text={n.category} /> : null}
-                <View style={{ flex: 1 }} />
-                {n.pushState ? <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{n.pushState}</Text> : null}
-              </View>
-              {n.publishedAtLabel ? (
-                <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>{n.publishedAtLabel}</Text>
-              ) : null}
-            </View>
-          </View>
-        </Card>
-      ))}
+      <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs }}>
+        开启后新聚合的新闻会通过 QQ 私聊推送给你；Webhook 推送请在网页端配置
+      </Text>
     </Screen>
+  );
+}
+
+/* ---------------- 根组件 ---------------- */
+
+type View_ =
+  | { name: 'plaza' }
+  | { name: 'detail'; item: FeedItem }
+  | { name: 'push' };
+
+/** 深链 /detail?d=<URI编码JSON>：首页动态直开新闻详情。 */
+function seed(route?: string): { stack: View_[]; initialKey: string } {
+  if (route && route.startsWith('/detail?')) {
+    // 后端 feed 深链：/detail?t=&s=&u=&img=&src=&cat=&time=
+    // Hermes 无 URLSearchParams，手工解析（URLEncoder 的 + 号即空格）
+    const params = new Map<string, string>();
+    route
+      .slice('/detail?'.length)
+      .split('&')
+      .forEach((pair) => {
+        const eq = pair.indexOf('=');
+        if (eq > 0) {
+          const key = pair.slice(0, eq);
+          const value = pair.slice(eq + 1).replace(/\+/g, ' ');
+          try {
+            params.set(key, decodeURIComponent(value));
+          } catch {
+            params.set(key, value);
+          }
+        }
+      });
+    const title = params.get('t') ?? '';
+    if (title) {
+      const item: FeedItem = {
+        id: `deep-${title}`,
+        title,
+        summary: params.get('s') ?? '',
+        url: params.get('u') ?? '',
+        images: params.get('img') ? [params.get('img') as string] : [],
+        author: { name: params.get('src') ?? '', avatar: '' },
+        tagName: params.get('cat') ?? '',
+        createTime: Number(params.get('time') ?? 0),
+      };
+      return { stack: [{ name: 'plaza' }, { name: 'detail', item }], initialKey: String(item.id) };
+    }
+  }
+  if (route === '/push') {
+    return { stack: [{ name: 'plaza' }, { name: 'push' }], initialKey: 'default' };
+  }
+  return { stack: [{ name: 'plaza' }], initialKey: 'default' };
+}
+
+function NewsApp({ initialRoute }: { initialRoute?: string }) {
+  const [seeded] = useState(() => seed(initialRoute));
+  const [stack, setStack] = useState<View_[]>(seeded.stack);
+  const view = stack[stack.length - 1];
+  const [detailKey, setDetailKey] = useState(seeded.initialKey);
+
+  React.useEffect(() => {
+    const title = view.name === 'plaza' ? 'MC 新闻' : view.name === 'detail' ? '新闻详情' : '推送设置';
+    currentSdk?.navigation?.setTitle(title);
+    currentSdk?.navigation?.setBackAction?.(view.name === 'plaza' ? null : () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)));
+  }, [view, initialRoute]);
+
+  const openDetail = (item: FeedItem) => {
+    setDetailKey(String(item.id));
+    setStack((prev) => [...prev, { name: 'detail', item }]);
+  };
+
+  return view.name === 'plaza' ? (
+    <NewsPlaza onOpenDetail={openDetail} />
+  ) : view.name === 'detail' ? (
+    <ScrollView style={{ flex: 1, backgroundColor: currentSdk!.theme.colors.bgPage }}>
+      <NewsDetail key={detailKey} item={view.item} />
+    </ScrollView>
+  ) : (
+    <PushPage />
   );
 }
 
@@ -136,7 +290,7 @@ const NewsModule: MobilePluginModule = {
     const route = (props as { route?: string }).route;
     return (
       <UiProvider sdk={sdk}>
-        <NewsPage key={route ?? 'default'} />
+        <NewsApp initialRoute={route} />
       </UiProvider>
     );
   },

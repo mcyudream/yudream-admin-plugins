@@ -40,8 +40,13 @@ import {
 } from '@yudream/plugin-mobile-ui';
 
 let currentSdk: PluginMobileSdk | null = null;
+/** 宿主注入的 manifest 条目：adminCards 已按当前用户权限过滤（空 = 无管理权限）。 */
+let currentEntry: { adminCards?: unknown[] } | null = null;
 function useSdk(): PluginMobileSdk {
   return currentSdk!;
+}
+function useManageGranted(): boolean {
+  return (currentEntry?.adminCards?.length ?? 0) > 0;
 }
 
 const API = '/api/plugins/mcpanel';
@@ -343,7 +348,7 @@ function MetricCell({ label, value, fraction, tone }: { label: string; value: st
   );
 }
 
-function ConsoleCard({ instanceId, running }: { instanceId: string; running: boolean }) {
+function ConsoleCard({ instanceId, running, onOfflineChange }: { instanceId: string; running: boolean; onOfflineChange?: (offline: boolean) => void }) {
   const sdk = useSdk();
   const t = sdk.theme;
   const [lines, setLines] = useState<string[]>([]);
@@ -364,6 +369,7 @@ function ConsoleCard({ instanceId, running }: { instanceId: string; running: boo
       const chunk = typeof res.data === 'string' && res.data ? decodeContent(res.data) : (res.text ?? '');
       setConnected(true);
       setOffline(false);
+      onOfflineChange?.(false);
       if (chunk) {
         const incoming = chunk.replace(/\r/g, '').split('\n').filter((l) => l.trim().length > 0);
         if (incoming.length) {
@@ -528,6 +534,24 @@ function InstancePage({
   );
   const d = inst.data;
   const [busy, setBusy] = useState('');
+  // 节点离线：以控制台轮询的真实调用结果为准（注册表 connected 不可信）
+  const [nodeOffline, setNodeOffline] = useState(false);
+  // 挂载即探测一次输出通道：节点离线立刻在状态卡呈现，不等控制台轮询
+  useEffect(() => {
+    let alive = true;
+    sdk.api
+      .request(`${API}/admin/instances/${encodeURIComponent(instanceId)}/output?tail=1`)
+      .then(() => { if (alive) setNodeOffline(false); })
+      .catch((e) => {
+        if (!alive) return;
+        const msg = e instanceof Error ? e.message : String(e);
+        const status = (e as { status?: number }).status;
+        if (/节点未在线|node\.offline/i.test(msg) || status === 409 || status === 502) {
+          setNodeOffline(true);
+        }
+      });
+    return () => { alive = false; };
+  }, [sdk, instanceId]);
   const state = d?.state ?? '';
   const running = state === 'running';
 
@@ -584,13 +608,18 @@ function InstancePage({
   const online = playersData?.reachable ? Number(playersData.online ?? 0) : null;
   const maxPlayers = playersData?.max != null ? Number(playersData.max) : null;
 
+  const manageGranted = useManageGranted();
   const quickEntries: { key: 'players' | 'files' | 'ops' | 'config' | 'proxy'; icon: string; label: string; sub: string }[] = [
     { key: 'players', icon: 'people-outline', label: '玩家', sub: '在线列表' },
     { key: 'files', icon: 'folder-open-outline', label: '文件', sub: '管理与编辑' },
     { key: 'ops', icon: 'archive-outline', label: '备份', sub: '归档与任务' },
     { key: 'ops', icon: 'time-outline', label: '计划任务', sub: '定时运维' },
-    { key: 'config', icon: 'options-outline', label: '实例配置', sub: 'server.properties' },
-    { key: 'proxy', icon: 'globe-outline', label: '域名解析', sub: '代理组纳管' },
+    ...(manageGranted
+      ? [
+          { key: 'config' as const, icon: 'options-outline', label: '实例配置', sub: 'server.properties' },
+          { key: 'proxy' as const, icon: 'globe-outline', label: '域名解析', sub: '代理组纳管' },
+        ]
+      : []),
   ];
 
   return (
@@ -605,17 +634,30 @@ function InstancePage({
               <Text numberOfLines={1} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', flex: 1 }}>
                 {name}
               </Text>
-              <Badge text={state ? stateText(state) : '未知'} tone={stateTone(state)} solid={running} />
+              {nodeOffline ? (
+                <Badge text="节点离线" tone="danger" solid />
+              ) : (
+                <Badge text={state ? stateText(state) : '未知'} tone={stateTone(state)} solid={running} />
+              )}
             </View>
             <Text style={{ color: c.textTertiary, fontSize: t.typography.sizeXs + 1 }}>
-              {`节点 ${d.nodeId?.slice(0, 8)} · ${d.mcVersion || '版本未知'} · ${Math.round((d.memoryMb ?? 0) / 1024)}G 内存`}
+              {nodeOffline
+                ? '节点离线 · 状态可能已过期'
+                : `节点 ${d.nodeId?.slice(0, 8)} · ${d.mcVersion || '版本未知'} · ${Math.round((d.memoryMb ?? 0) / 1024)}G 内存`}
               <UptimeText instanceId={instanceId} running={running} />
               {d.autoRestart ? ' · 自动重启' : ''}
             </Text>
           </Card>
 
           {/* 电源操作 */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          {nodeOffline ? (
+            <Card style={{ borderColor: c.warning ?? '#d97706', borderWidth: 1 }}>
+              <Text style={{ color: c.warning ?? '#d97706', fontSize: t.typography.sizeXs + 1 }}>
+                节点离线，状态可能已过期；电源与命令操作暂不可用，待节点恢复后自动开放
+              </Text>
+            </Card>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8, opacity: nodeOffline ? 0.45 : 1 }} pointerEvents={nodeOffline ? 'none' : 'auto'}>
             {running ? (
               <>
                 <View style={{ flex: 1 }}>
@@ -674,7 +716,7 @@ function InstancePage({
           </Card>
 
           {/* 黑底控制台 */}
-          <ConsoleCard instanceId={instanceId} running={running} />
+          <ConsoleCard instanceId={instanceId} running={running} onOfflineChange={setNodeOffline} />
 
           {/* 快捷入口（六宫格） */}
           <SectionTitle title="快捷入口" />
@@ -1485,6 +1527,7 @@ const McpanelModule: MobilePluginModule = {
       throw new Error('mcpanel: 宿主未注入 sdk');
     }
     currentSdk = sdk;
+    currentEntry = (props as { entry?: { adminCards?: unknown[] } }).entry ?? null;
     const route = (props as { route?: string }).route;
     return (
       <UiProvider sdk={sdk}>

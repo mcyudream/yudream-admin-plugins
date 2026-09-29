@@ -682,7 +682,7 @@ type View_ =
 
 function seedStack(route?: string): View_[] {
   if (!route) return [{ name: 'square' }];
-  const [head, ...rest] = route.split('/');
+  const [head, ...rest] = route.replace(/^\/+/, '').split('/');
   const dec = (s?: string) => {
     try { return decodeURIComponent(s ?? ''); } catch { return s ?? ''; }
   };

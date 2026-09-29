@@ -225,7 +225,8 @@ public class ActivityProofHttpFacade {
             item.put("title", dto.title());
             item.put("summary", dto.summary() == null ? "" : dto.summary());
             item.put("images", dto.coverUrl() == null || dto.coverUrl().isBlank()
-                    ? List.of() : List.of(dto.coverUrl()));
+                    ? List.of("/api/plugins/minecraft-activity-proof/assets/mobile/activity-placeholder.jpg")
+                    : List.of(dto.coverUrl()));
             item.put("author", author);
             item.put("tagName", dto.statusText());
             item.put("createTime", Math.max(dto.activityStart(), dto.signupStart()));
