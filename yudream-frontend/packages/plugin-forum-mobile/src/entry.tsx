@@ -30,6 +30,7 @@ interface FeedPost {
   id: string;
   title: string;
   summary?: string;
+  images?: string[];
   author: { name: string; avatar: string };
   tagName?: string;
   commentCount?: number;
@@ -92,13 +93,36 @@ function PostCard({ post, onPress }: { post: FeedPost; onPress: () => void }) {
           · {relativeTime(post.createTime)}
         </Text>
       </View>
-      <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', lineHeight: 23 }}>
-        {post.title}
-      </Text>
-      {post.summary ? (
-        <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, lineHeight: 19 }}>
-          {post.summary}
-        </Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text numberOfLines={2} style={{ color: c.textPrimary, fontSize: t.typography.sizeMd + 1, fontWeight: '700', lineHeight: 23 }}>
+            {post.title}
+          </Text>
+          {post.summary ? (
+            <Text numberOfLines={2} style={{ color: c.textSecondary, fontSize: t.typography.sizeSm, lineHeight: 19 }}>
+              {post.summary}
+            </Text>
+          ) : null}
+        </View>
+        {(post.images ?? []).length === 1 ? (
+          <Image
+            source={{ uri: (post.images ?? [])[0] }}
+            style={{ width: 96, height: 72, borderRadius: 10, backgroundColor: c.fillHover }}
+            resizeMode="cover"
+          />
+        ) : null}
+      </View>
+      {(post.images ?? []).length > 1 ? (
+        <View style={{ flexDirection: 'row', gap: 5 }}>
+          {(post.images ?? []).slice(0, 3).map((uri, i) => (
+            <Image
+              key={`${post.id}-${i}`}
+              source={{ uri }}
+              style={{ flex: 1, aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: c.fillHover }}
+              resizeMode="cover"
+            />
+          ))}
+        </View>
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
         {post.tagName ? (

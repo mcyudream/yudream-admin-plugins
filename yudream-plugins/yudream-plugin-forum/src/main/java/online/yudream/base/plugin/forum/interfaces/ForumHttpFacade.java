@@ -22,6 +22,30 @@ public final class ForumHttpFacade {
     public PluginHttpResponse categories(PluginHttpRequest r) { return HttpSupport.guard(() -> PluginHttpResponse.ok(Map.of("records", service.categories(r.principal(), false).stream().map(this::categoryView).toList()))); }
 
     /** 移动端首页内容源：标准条目模式（作者/标签/计数/路由），供宿主 App 聚合渲染。 */
+
+    /** 从帖子 Markdown 正文提取前 n 张图片 URL（供列表条目缩略图）。 */
+    private static java.util.List<String> extractImages(String body, int limit) {
+        java.util.List<String> urls = new ArrayList<>();
+        if (body == null || body.isBlank()) return urls;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("![\\[^\\]]*\\]\\(([^)]+)\\)")
+                .matcher(body);
+        while (m.find() && urls.size() < limit) {
+            String url = m.group(1);
+            if (url != null && !url.isBlank()) urls.add(url);
+        }
+        return urls;
+    }
+
+    /** 摘要清洗：剔除图片/链接残留的裸 URL 行与空行（存档摘要系发帖时剥离语法生成，可能含 URL 残片）。 */
+    private static String scrubSummary(String summary) {
+        if (summary == null || summary.isBlank()) return "";
+        return summary
+                .replaceAll("(?im)^\\s*https?:\\S+\\s*$", "")
+                .replaceFirst("^\\s*https?:\\S+", "")
+                .trim();
+    }
+
     public PluginHttpResponse mobileFeed(PluginHttpRequest r) { return HttpSupport.guard(() -> {
         int page = parseInt(text(r, "page"), 1);
         int size = parseInt(text(r, "size"), 20);
@@ -47,8 +71,8 @@ public final class ForumHttpFacade {
             item.put("id", p.id());
             item.put("route", "/posts/" + p.id());
             item.put("title", p.title());
-            item.put("summary", p.summary() == null ? "" : p.summary());
-            item.put("images", List.of());
+            item.put("summary", scrubSummary(p.summary()));
+            item.put("images", extractImages(p.body(), 3));
             item.put("author", authorInfo);
             item.put("tagName", category == null ? "" : category.name());
             item.put("commentCount", p.comments());
