@@ -69,6 +69,7 @@ public class ProjectProgressAppService {
     private final PluginContext pluginContext;
     private final ProjectProgressNotificationService notifications;
     private final ProjectProgressMinecraftService minecraft;
+    private final ProjectProgressRewardService rewards;
     private final ProjectProgressEventStream eventStream = new ProjectProgressEventStream();
     private final ProjectAssignmentService assignmentService = new ProjectAssignmentService();
     private final ProjectProgressAppAssembler assembler = new ProjectProgressAppAssembler();
@@ -81,6 +82,12 @@ public class ProjectProgressAppService {
         this.pluginContext = pluginContext;
         this.notifications = new ProjectProgressNotificationService(framework);
         this.minecraft = new ProjectProgressMinecraftService(framework, pluginContext);
+        this.rewards = new ProjectProgressRewardService(repository, pluginContext);
+    }
+
+    /** 打卡验收通过的对外只读契约实现，由 bootstrap 经 {@code exposeService} 注册。 */
+    public ProjectProgressRewardService rewards() {
+        return rewards;
     }
 
     public ProjectProgressStatusDTO status() {
@@ -397,6 +404,9 @@ public class ProjectProgressAppService {
         ProjectAcceptanceRecord record = repository.saveAcceptanceRecord(ProjectAcceptanceRecord.create(project.id(), detail.id(),
                 operatorUserId, ProjectAcceptanceResult.ACCEPTED, fromStatus, saved.statusCode(), cmd.reason()));
         event(project.id(), detail.id(), operatorUserId, ProjectProgressEventType.DETAIL_ACCEPTED, "工作细节验收通过", Map.of("toStatusCode", saved.statusCode()));
+        // 验收结果与验收记录都已落库，再逐条通知积分等实时订阅者。派发内部逐个监听者隔离异常并只记日志，
+        // 不会影响本次验收的返回值与事务；没有监听者时不做任何额外读取。
+        rewards.dispatchAccepted(project, saved, record);
         return assembler.toDTO(record);
     }
 

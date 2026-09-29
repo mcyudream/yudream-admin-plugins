@@ -27,7 +27,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = ShopPlugin.CODE,
         name = "shop",
-        version = "1.2.0",
+        version = "1.3.0",
         description = "玩家市场与积分商城分离呈现，多图与 Markdown 详情、钱包支付购买，开放商品类型与自动发货扩展点。"
 )
 @PluginPermissions({
@@ -182,7 +182,7 @@ public class ShopPlugin implements YuDreamPlugin {
         ShopCatalogService catalogService = new ShopCatalogService(productRepository, orderRepository,
                 typeRegistry, walletPort, settingsService);
         ShopOrderService orderService = new ShopOrderService(orderRepository, productRepository,
-                typeRegistry, walletPort);
+                typeRegistry, walletPort, settingsService);
         context.exposeService(PluginShopService.class,
                 new PluginShopServiceImpl(catalogService, orderService, typeRegistry));
 

@@ -17,9 +17,14 @@ import java.util.Optional;
 
 /**
  * 测试用的钱包：复刻真实实现对业务单号的幂等语义（同一 businessNo 只动一次账并返回首笔流水），
- * 支持转账、扣减与入账，并允许制造扣减/入账失败。
+ * 支持转账、扣减与入账，并允许制造扣减/入账/转账失败或按业务单号前缀失败（用于手续费两腿编排的失败注入）。
  */
 public class FakeWalletService implements PluginWalletService {
+
+    /** 一次账务变更的完整快照，便于断言「哪一腿、多少钱、从谁到谁」。 */
+    public record Movement(String type, String businessNo, String fromUserId, String toUserId,
+                           String assetCode, BigDecimal amount) {
+    }
 
     private final Map<String, PluginWalletAsset> assets = new LinkedHashMap<>();
     private final Map<String, BigDecimal> balances = new HashMap<>();
@@ -27,6 +32,8 @@ public class FakeWalletService implements PluginWalletService {
     private final List<String> debits = new ArrayList<>();
     private final List<String> credits = new ArrayList<>();
     private final List<String> transfers = new ArrayList<>();
+    private final List<Movement> movements = new ArrayList<>();
+    private final List<String> failingBusinessNoPrefixes = new ArrayList<>();
     private boolean failDebits;
     private boolean failCredits;
     private boolean failTransfers;
@@ -67,6 +74,35 @@ public class FakeWalletService implements PluginWalletService {
         this.failCredits = true;
     }
 
+    /** 让接下来的转账（买家付款、卖家退款、手续费转账）直接抛错。 */
+    public void failTransfers() {
+        this.failTransfers = true;
+    }
+
+    /**
+     * 指定业务单号前缀的账务操作抛错，用于精确制造「一腿成功、另一腿失败」：
+     * 例如 {@code failBusinessNoStartingWith("shop:fee:")} 只让手续费腿失败，
+     * {@code "shop:net-revert:"} 让卖家货款腿的冲正失败。
+     */
+    public FakeWalletService failBusinessNoStartingWith(String prefix) {
+        failingBusinessNoPrefixes.add(prefix);
+        return this;
+    }
+
+    /** 清空全部失败开关（含前缀失败），回到健康钱包。 */
+    public FakeWalletService recover() {
+        failDebits = false;
+        failCredits = false;
+        failTransfers = false;
+        failingBusinessNoPrefixes.clear();
+        return this;
+    }
+
+    /** 全部账务变更（按发生顺序），用于断言两腿金额与对冲单号。 */
+    public List<Movement> movements() {
+        return List.copyOf(movements);
+    }
+
     @Override
     public List<PluginWalletAsset> assets() {
         return List.copyOf(assets.values());
@@ -103,6 +139,7 @@ public class FakeWalletService implements PluginWalletService {
         if (existing != null) {
             return existing;
         }
+        requireNoInjectedFailure(request.businessNo());
         if (failCredits) {
             throw new IllegalStateException("钱包暂时不可用");
         }
@@ -117,6 +154,7 @@ public class FakeWalletService implements PluginWalletService {
         if (existing != null) {
             return existing;
         }
+        requireNoInjectedFailure(request.businessNo());
         if (failDebits) {
             throw new IllegalStateException("钱包暂时不可用");
         }
@@ -134,6 +172,7 @@ public class FakeWalletService implements PluginWalletService {
         if (existing != null) {
             return existing;
         }
+        requireNoInjectedFailure(request.businessNo());
         if (failTransfers) {
             throw new IllegalStateException("钱包暂时不可用");
         }
@@ -147,6 +186,19 @@ public class FakeWalletService implements PluginWalletService {
         return applyChange(new PluginWalletChangeRequest(request.fromUserId(), request.assetCode(),
                         request.amount(), request.businessNo(), request.remark()),
                 "TRANSFER", request.fromUserId(), request.toUserId(), fromAfter, toAfter, transfers);
+    }
+
+    /** 注入的按单号前缀失败：命中即抛错（金额与账户都不动）。 */
+    private void requireNoInjectedFailure(String businessNo) {
+        if (businessNo == null) {
+            return;
+        }
+        String trimmed = businessNo.trim();
+        for (String prefix : failingBusinessNoPrefixes) {
+            if (trimmed.startsWith(prefix)) {
+                throw new IllegalStateException("钱包暂时不可用（注入失败：" + prefix + "）");
+            }
+        }
     }
 
     @Override
@@ -167,6 +219,8 @@ public class FakeWalletService implements PluginWalletService {
         if (request.businessNo() != null) {
             applied.put(request.businessNo().trim(), transaction);
         }
+        movements.add(new Movement(type, request.businessNo(), fromUserId, toUserId, request.assetCode(),
+                request.amount()));
         log.add(String.valueOf(request.businessNo()));
         return transaction;
     }

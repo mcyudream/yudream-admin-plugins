@@ -12,6 +12,8 @@ import online.yudream.base.plugin.shop.domain.aggregate.ShopProduct;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopVariant;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopOrderStatus;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopTradeFeePayee;
+import online.yudream.base.plugin.shop.domain.valobj.ShopSettings;
 import online.yudream.base.plugin.shop.infrastructure.repository.ShopOrderRepository;
 import online.yudream.base.plugin.shop.infrastructure.repository.ShopProductRepository;
 import online.yudream.base.plugin.shop.infrastructure.wallet.ShopWalletPort;
@@ -24,22 +26,38 @@ import java.util.UUID;
 
 /**
  * 订单用例：购买支付、发货编排（含商品类型扩展点回调与自动退款）、买卖双方与管理员订单查询。
+ *
+ * <p>玩家市场（{@link ShopSettlement#SELLER}）订单可能带交易手续费：买家总支出始终是成交额，
+ * 其中卖家实收 net = 成交额 − 手续费，手续费按商店设置销毁或转给平台用户。钱包只支持单收款方，
+ * 因此有手续费时拆成「卖家腿 + 手续费腿」两次调用，任何一腿失败都用固定对冲单号把已成功的另一腿转回买家。
+ * 官方消耗类（{@link ShopSettlement#BURN}）订单不收手续费，链路与改动前完全一致。
  */
 public class ShopOrderService {
 
     private static final int MAX_QUANTITY = 99;
+    /** 手续费腿业务单号前缀（对账口径：shop:fee:&lt;订单号&gt;）。 */
+    private static final String FEE_LEG_PREFIX = "shop:fee:";
+    /** 购买失败时卖家货款腿的对冲单号前缀。 */
+    private static final String NET_REVERT_PREFIX = "shop:net-revert:";
+    /** 购买失败时手续费腿的对冲单号前缀。 */
+    private static final String FEE_REVERT_PREFIX = "shop:fee-revert:";
+    /** 退款时手续费腿的业务单号前缀。 */
+    private static final String FEE_REFUND_PREFIX = "shop:fee-refund:";
 
     private final ShopOrderRepository orderRepository;
     private final ShopProductRepository productRepository;
     private final ShopProductTypeRegistry typeRegistry;
     private final ShopWalletPort walletPort;
+    private final ShopSettingsService settingsService;
 
     public ShopOrderService(ShopOrderRepository orderRepository, ShopProductRepository productRepository,
-                            ShopProductTypeRegistry typeRegistry, ShopWalletPort walletPort) {
+                            ShopProductTypeRegistry typeRegistry, ShopWalletPort walletPort,
+                            ShopSettingsService settingsService) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.typeRegistry = typeRegistry;
         this.walletPort = walletPort;
+        this.settingsService = settingsService;
     }
 
     // ---------- 购买（use 权限） ----------
@@ -75,6 +93,12 @@ public class ShopOrderService {
         requireWithinPerUserLimit(product, buyerId, quantity);
         ShopSettlement settlement = settlementOf(handler);
 
+        // 支付口径（成交额与手续费快照）在占库存之前确定：读取商店设置出错时不会先扣库存再抛错。
+        BigDecimal total = (variant == null ? product.price() : variant.price())
+                .multiply(BigDecimal.valueOf(quantity));
+        ShopTradeFee fee = tradeFeeOf(product, total, settlement);
+        String orderId = UUID.randomUUID().toString().replace("-", "");
+
         // 先占库存后扣款；扣款失败回滚库存。库存读写与钱包扣款均为读改写，均无跨存储事务，
         // 极端并发下以钱包扣款结果为准人工兜底（管理端可退款）。
         ShopProduct claimed;
@@ -86,24 +110,149 @@ public class ShopOrderService {
         }
         productRepository.save(claimed);
 
-        BigDecimal total = (variant == null ? claimed.price() : variant.price())
-                .multiply(BigDecimal.valueOf(quantity));
-        String orderId = UUID.randomUUID().toString().replace("-", "");
-        ShopWalletPort.WalletPayment payment;
-        try {
-            payment = settlement == ShopSettlement.BURN
-                    ? walletPort.burn(buyerId, claimed.assetCode(), total, "shop:" + orderId,
-                            "兑换商品：" + claimed.title())
-                    : walletPort.transfer(buyerId, claimed.ownerId(), claimed.assetCode(), total,
-                            "shop:" + orderId, "购买商品：" + claimed.title());
-        } catch (RuntimeException ex) {
-            productRepository.save(claimed.purchaseRolledBack(quantity, variantId));
-            throw ex;
+        // 无手续费（关闭 / 费率为 0 / 算出的手续费为 0）：保持改动前的单腿链路，不多发 0 金额的钱包操作。
+        if (!fee.applied()) {
+            ShopWalletPort.WalletPayment payment;
+            try {
+                payment = settlement == ShopSettlement.BURN
+                        ? walletPort.burn(buyerId, claimed.assetCode(), total, "shop:" + orderId,
+                                "兑换商品：" + claimed.title())
+                        : walletPort.transfer(buyerId, claimed.ownerId(), claimed.assetCode(), total,
+                                "shop:" + orderId, "购买商品：" + claimed.title());
+            } catch (RuntimeException ex) {
+                productRepository.save(claimed.purchaseRolledBack(quantity, variantId));
+                throw ex;
+            }
+            ShopOrder order = orderRepository.save(ShopOrder.paid(orderId, claimed, variant, buyerId, quantity, total,
+                    payment.transactionId(), settlement, BigDecimal.ZERO, ShopTradeFeePayee.BURN, null));
+            return deliver(order, claimed, handler);
         }
 
+        String walletTransactionId = payWithTradeFee(buyerId, claimed, orderId, fee,
+                claimed.purchaseRolledBack(quantity, variantId));
         ShopOrder order = orderRepository.save(ShopOrder.paid(orderId, claimed, variant, buyerId, quantity, total,
-                payment.transactionId(), settlement));
+                walletTransactionId, settlement, fee.amount(), fee.payee(), fee.payeeUserId()));
         return deliver(order, claimed, handler);
+    }
+
+    /**
+     * 两腿支付：卖家腿（{@code shop:<订单号>}，保持既有幂等语义与对账口径）走 net，
+     * 手续费腿（{@code shop:fee:<订单号>}）按收款方式销毁或转给平台用户。
+     *
+     * <p>任一腿失败都先把已成功的另一腿按固定对冲单号转回买家、回滚库存，再抛出原异常，
+     * 使买家账户回到交易前状态且订单不落成已支付；对冲本身也失败时抛出管理员可见的异常。
+     */
+    private String payWithTradeFee(String buyerId, ShopProduct product, String orderId, ShopTradeFee fee,
+                                   ShopProduct rolledBack) {
+        String netLegNo = "shop:" + orderId;
+        String feeLegNo = FEE_LEG_PREFIX + orderId;
+        String sellerLegTxId = null;
+        String feeLegTxId = null;
+        try {
+            if (fee.sellerAmount().signum() > 0) {
+                sellerLegTxId = walletPort.transfer(buyerId, product.ownerId(), product.assetCode(),
+                        fee.sellerAmount(), netLegNo, "购买商品：" + product.title()).transactionId();
+            }
+            if (fee.amount().signum() > 0) {
+                feeLegTxId = payFeeLeg(buyerId, product.assetCode(), fee, feeLegNo, product.title()).transactionId();
+            }
+        } catch (RuntimeException | LinkageError ex) {
+            productRepository.save(rolledBack);
+            String revertFailure = revertPaidLegs(buyerId, product, orderId, fee, sellerLegTxId != null, feeLegTxId != null);
+            if (revertFailure != null) {
+                IllegalStateException visible = new IllegalStateException(
+                        "购买失败且自动冲正未完成：" + revertFailure + "；原失败原因：" + ex.getMessage()
+                                + "。订单未支付，请管理员核对买家、卖家与平台账户流水");
+                visible.addSuppressed(ex);
+                throw visible;
+            }
+            if (ex instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new IllegalStateException("购买失败，已冲正：" + ex.getMessage(), ex);
+        }
+        return sellerLegTxId != null ? sellerLegTxId : feeLegTxId;
+    }
+
+    /** 手续费腿：销毁（从买家账户扣减）或转给平台用户。 */
+    private ShopWalletPort.WalletPayment payFeeLeg(String buyerId, String assetCode, ShopTradeFee fee,
+                                                   String businessNo, String productTitle) {
+        if (fee.payee() != ShopTradeFeePayee.PLATFORM) {
+            return walletPort.burn(buyerId, assetCode, fee.amount(), businessNo, "交易手续费：" + productTitle);
+        }
+        if (fee.payeeUserId() == null || fee.payeeUserId().isBlank()) {
+            throw new IllegalStateException("交易手续费收款方式为平台用户，但未配置平台用户 ID，请联系管理员");
+        }
+        return walletPort.transfer(buyerId, fee.payeeUserId(), assetCode, fee.amount(), businessNo,
+                "交易手续费：" + productTitle);
+    }
+
+    /**
+     * 购买失败时把已成功的那一腿按固定对冲单号转回买家（幂等、可重试）：
+     * 卖家腿 {@code shop:net-revert:<订单号>}；手续费腿 {@code shop:fee-revert:<订单号>}
+     * （销毁方式把手续费加回买家，平台方式从平台用户转回买家）。
+     *
+     * @return 全部冲正成功返回 null，否则返回可直接展示的失败说明
+     */
+    private String revertPaidLegs(String buyerId, ShopProduct product, String orderId, ShopTradeFee fee,
+                                  boolean sellerLegPaid, boolean feeLegPaid) {
+        String failure = null;
+        if (sellerLegPaid && fee.sellerAmount().signum() > 0) {
+            try {
+                walletPort.transfer(product.ownerId(), buyerId, product.assetCode(), fee.sellerAmount(),
+                        NET_REVERT_PREFIX + orderId, "购买失败冲正：" + product.title());
+            } catch (RuntimeException | LinkageError ex) {
+                failure = "卖家货款腿冲正失败（" + ex.getMessage() + "）";
+            }
+        }
+        if (feeLegPaid && fee.amount().signum() > 0) {
+            try {
+                if (fee.payee() == ShopTradeFeePayee.PLATFORM) {
+                    walletPort.transfer(fee.payeeUserId(), buyerId, product.assetCode(), fee.amount(),
+                            FEE_REVERT_PREFIX + orderId, "购买失败冲正手续费：" + product.title());
+                } else {
+                    walletPort.refund(buyerId, product.assetCode(), fee.amount(), FEE_REVERT_PREFIX + orderId,
+                            "购买失败冲正手续费：" + product.title());
+                }
+            } catch (RuntimeException | LinkageError ex) {
+                failure = failure == null ? "手续费腿冲正失败（" + ex.getMessage() + "）" : failure + "；手续费腿冲正失败（"
+                        + ex.getMessage() + "）";
+            }
+        }
+        return failure;
+    }
+
+    /**
+     * 本单的手续费快照：只对玩家市场（SELLER）订单计费，官方消耗类商品一律 0。
+     *
+     * <p>小数位取该商品计价货币在钱包里的 scale；货币已不存在（钱包查不到）时回退到成交额自身的小数位，
+     * 保证手续费不会出现比成交额更细的尾数。
+     */
+    private ShopTradeFee tradeFeeOf(ShopProduct product, BigDecimal total, ShopSettlement settlement) {
+        BigDecimal zero = BigDecimal.ZERO;
+        if (settlement != ShopSettlement.SELLER) {
+            return new ShopTradeFee(zero, zero, ShopTradeFeePayee.BURN, null);
+        }
+        ShopSettings settings = settingsService.current();
+        if (!settings.chargesTradeFee()) {
+            return new ShopTradeFee(zero, total, ShopTradeFeePayee.BURN, null);
+        }
+        int scale = walletPort.assetScale(product.assetCode()).orElseGet(() -> Math.max(total.scale(), 0));
+        BigDecimal amount = settings.tradeFee(total, scale);
+        if (amount.signum() <= 0) {
+            return new ShopTradeFee(zero, total, ShopTradeFeePayee.BURN, null);
+        }
+        return new ShopTradeFee(amount, total.subtract(amount), settings.tradeFeePayee(),
+                settings.tradeFeePayeeUserId());
+    }
+
+    /** 一次购买的钱包拆分：手续费金额、卖家实收、手续费收款方式与收款用户。 */
+    private record ShopTradeFee(BigDecimal amount, BigDecimal sellerAmount, ShopTradeFeePayee payee,
+                                String payeeUserId) {
+
+        boolean applied() {
+            return amount != null && amount.signum() > 0;
+        }
     }
 
     /**
@@ -165,7 +314,8 @@ public class ShopOrderService {
         return new ShopOrder(cancelled.id(), cancelled.productId(), cancelled.productTitle(),
                 cancelled.productImage(), cancelled.productType(), cancelled.settlement(), cancelled.buyerId(),
                 cancelled.sellerId(), cancelled.assetCode(), cancelled.price(), cancelled.quantity(),
-                cancelled.totalAmount(), cancelled.variantId(), cancelled.variantName(), cancelled.status(),
+                cancelled.totalAmount(), cancelled.feeAmount(), cancelled.sellerAmount(), cancelled.feePayee(),
+                cancelled.feePayeeUserId(), cancelled.variantId(), cancelled.variantName(), cancelled.status(),
                 cancelled.walletTransactionId(), refundTxId,
                 cancelled.deliveryMessage(), cancelled.deliveryContent(), cancelled.deliveryVoucher(),
                 cancelled.deliveryProofs(), cancelled.verifiedAt(), cancelled.createdAt(), cancelled.paidAt(),
@@ -203,21 +353,46 @@ public class ShopOrderService {
     }
 
     /**
-     * 原路退款；返回退款流水号，钱包不可用或退款失败返回 null。业务单号固定为
-     * {@code shop:refund:<订单号>}，钱包按它对账，重复退款不会重复入账。
+     * 原路退款；返回退款流水号，钱包不可用或退款失败返回 null。
      *
-     * <p>{@link ShopSettlement#SELLER} 由卖家转回买家（依赖卖家余额）；
+     * <p>单腿订单（{@link ShopSettlement#BURN} 消耗式，以及没有手续费的 {@link ShopSettlement#SELLER} 订单，
+     * 含全部历史订单）保持既有口径：业务单号 {@code shop:refund:<订单号>}、金额为订单成交额。
+     * {@link ShopSettlement#SELLER} 由卖家转回买家（依赖卖家余额）；
      * {@link ShopSettlement#BURN} 直接把买家当初被扣减的资产加回买家，不依赖任何收款方。
+     *
+     * <p>带手续费的玩家市场订单要收回两腿，买家最终拿回完整成交额：
+     * 手续费腿先按订单快照反向收回（销毁方式 {@code credit} 买家、平台方式从平台用户转回买家），
+     * 单号 {@code shop:fee-refund:<订单号>}；卖家腿按 sellerAmount 转回买家，单号仍是
+     * {@code shop:refund:<订单号>}。两腿单号固定且钱包按单号幂等，因此部分成功后重试不会重复收款：
+     * 已成功的那一腿会被钱包直接返回原流水，未完成的那一腿继续推进。
      */
     private String refundToBuyer(ShopOrder order) {
         try {
             String businessNo = "shop:refund:" + order.id();
             String remark = "订单退款：" + order.productTitle();
-            ShopWalletPort.WalletPayment refund = order.settlement() == ShopSettlement.BURN
-                    ? walletPort.refund(order.buyerId(), order.assetCode(), order.totalAmount(), businessNo, remark)
-                    : walletPort.transfer(order.sellerId(), order.buyerId(), order.assetCode(),
-                            order.totalAmount(), businessNo, remark);
-            return refund.transactionId();
+            if (order.settlement() == ShopSettlement.BURN) {
+                return walletPort.refund(order.buyerId(), order.assetCode(), order.totalAmount(), businessNo, remark)
+                        .transactionId();
+            }
+            if (!order.hasTradeFee()) {
+                return walletPort.transfer(order.sellerId(), order.buyerId(), order.assetCode(),
+                        order.totalAmount(), businessNo, remark).transactionId();
+            }
+            String feeTxId = null;
+            if (order.feeAmount().signum() > 0) {
+                String feeBusinessNo = FEE_REFUND_PREFIX + order.id();
+                feeTxId = order.feePayee() == ShopTradeFeePayee.PLATFORM
+                        ? walletPort.transfer(order.feePayeeUserId(), order.buyerId(), order.assetCode(),
+                                order.feeAmount(), feeBusinessNo, remark).transactionId()
+                        : walletPort.refund(order.buyerId(), order.assetCode(), order.feeAmount(),
+                                feeBusinessNo, remark).transactionId();
+            }
+            String sellerTxId = null;
+            if (order.sellerAmount().signum() > 0) {
+                sellerTxId = walletPort.transfer(order.sellerId(), order.buyerId(), order.assetCode(),
+                        order.sellerAmount(), businessNo, remark).transactionId();
+            }
+            return sellerTxId != null ? sellerTxId : feeTxId;
         } catch (RuntimeException | LinkageError ignored) {
             return null;
         }
@@ -372,7 +547,9 @@ public class ShopOrderService {
         if (refundTxId == null) {
             throw new IllegalStateException(order.settlement() == ShopSettlement.BURN
                     ? "退款失败：钱包插件不可用或退款未成功"
-                    : "退款失败：钱包插件不可用或卖家余额不足");
+                    : order.hasTradeFee()
+                            ? "退款失败：钱包插件不可用、卖家余额不足或手续费收款账户余额不足，请核对后重试"
+                            : "退款失败：钱包插件不可用或卖家余额不足");
         }
         return orderRepository.save(order.markRefunded(refundTxId, "管理员退款"));
     }

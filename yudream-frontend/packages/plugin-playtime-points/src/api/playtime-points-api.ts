@@ -1,5 +1,6 @@
 import type {
   AdminOptions,
+  CheckInRewardRecord,
   LastScanInfo,
   MySummary,
   PageResult,
@@ -25,6 +26,9 @@ export function createPlaytimePointsApi(sdk: YuDreamPluginSdk) {
         sdk.http.request('/admin/settings', { method: 'PUT', data }),
       settlements: (params: { serverId?: string, keyword?: string, page?: number, size?: number }): Promise<PageResult<SettlementRecord>> =>
         sdk.http.get<PageResult<SettlementRecord>>(`/admin/settlements${query(params)}`),
+      /** 打卡积分发放流水（跨用户，可按项目 / 用户筛选）。 */
+      checkInRewards: (params: { projectId?: string, userId?: string, page?: number, size?: number }): Promise<PageResult<CheckInRewardRecord>> =>
+        sdk.http.get<PageResult<CheckInRewardRecord>>(`/admin/check-in-rewards${query(params)}`),
       run: (): Promise<ScanResult> => sdk.http.post<ScanResult>('/admin/run'),
       lastScan: (): Promise<LastScanInfo> => sdk.http.get<LastScanInfo>('/admin/last-scan'),
     },

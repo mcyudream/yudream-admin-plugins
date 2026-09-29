@@ -6,6 +6,7 @@ import online.yudream.base.plugin.shop.application.service.ShopSettingsService;
 import online.yudream.base.plugin.shop.bootstrap.ShopPlugin;
 import online.yudream.base.plugin.shop.domain.aggregate.ShopProduct;
 import online.yudream.base.plugin.shop.domain.enumerate.ShopSettlement;
+import online.yudream.base.plugin.shop.domain.enumerate.ShopTradeFeePayee;
 import online.yudream.base.plugin.shop.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.shop.infrastructure.wallet.ShopWalletPort;
 import online.yudream.base.plugin.shop.interfaces.assembler.ShopWebAssembler;
@@ -223,14 +224,61 @@ public class ShopCatalogFacade {
 
     public PluginHttpResponse saveAdminSettings(PluginHttpRequest request) {
         ShopSettingsSaveRequest body = JsonSupport.read(request.body(), ShopSettingsSaveRequest.class);
+        requireTradeFeePayeeUser(body.tradeFeePayee(), body.tradeFeePayeeUserId());
         ShopSettings saved = settingsService.save(new ShopSettings(
                 body.allowUserPublish() == null || body.allowUserPublish(),
                 body.publishAssetCode(),
                 body.publishMinBalance() == null ? BigDecimal.ZERO : body.publishMinBalance(),
                 body.allowedAssetCodes(),
                 body.platformOwnerName(),
-                body.platformOwnerAvatar()));
+                body.platformOwnerAvatar(),
+                body.tradeFeeEnabled() != null && body.tradeFeeEnabled(),
+                decimal(body.tradeFeeRate(), "交易手续费费率"),
+                decimal(body.tradeFeeMinAmount(), "最低手续费"),
+                ShopTradeFeePayee.from(body.tradeFeePayee()),
+                body.tradeFeePayeeUserId()));
         return PluginHttpResponse.ok(toSettingsRes(saved));
+    }
+
+    /**
+     * 十进制字符串入参 → BigDecimal；空值按 0 处理，非法数字给出中文报错。
+     * 金额一律以十进制字符串跨接口传输，避免前端浮点尾数直接落库。
+     */
+    private BigDecimal decimal(String value, String label) {
+        if (value == null || value.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(label + "必须是数字：" + value);
+        }
+    }
+
+    /**
+     * 手续费收款方式为「平台用户」时，除了领域层的非空校验，还尽量校验该用户确实存在。
+     *
+     * <p>宿主用户端口（{@code context.framework().users()}）只在接口层可达，application/domain 不依赖 SPI，
+     * 所以存在性校验放在这里做尽力而为的一层：查询失败（端口异常、ID 不是数字、用户已删除）都按「不存在」处理，
+     * 给出可直接展示的中文提示。真正决定手续费去向的是订单快照里的用户 ID，保存时校验只是防错。
+     */
+    private void requireTradeFeePayeeUser(String payee, String userId) {
+        if (ShopTradeFeePayee.from(payee) != ShopTradeFeePayee.PLATFORM) {
+            return;
+        }
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("手续费收款方式选择「平台用户」时，必须填写平台用户 ID");
+        }
+        String trimmed = userId.trim();
+        boolean exists;
+        try {
+            exists = context.framework().users().findById(Long.parseLong(trimmed)).isPresent();
+        } catch (RuntimeException | LinkageError ex) {
+            exists = false;
+        }
+        if (!exists) {
+            throw new IllegalArgumentException("手续费收款用户不存在：" + trimmed + "，请通过用户选择器指定有效的平台用户");
+        }
     }
 
     /** 管理端用户选项（归属用户选择器取数）：searchUsers 1-based 分页且无总数，用 hasMore 兜底。 */
@@ -272,8 +320,18 @@ public class ShopCatalogFacade {
         return new ShopSettingsRes(settings.allowUserPublish(), settings.publishAssetCode(),
                 settings.publishMinBalance(), settings.allowedAssetCodes(), settings.platformOwnerName(),
                 settings.platformOwnerAvatar(),
+                settings.tradeFeeEnabled(),
+                decimal(settings.tradeFeeRate()),
+                decimal(settings.tradeFeeMinAmount()),
+                settings.tradeFeePayee() == null ? ShopTradeFeePayee.BURN.name() : settings.tradeFeePayee().name(),
+                settings.tradeFeePayeeUserId(),
                 walletPort.available(),
                 walletPort.enabledAssets().stream().map(assembler::toRes).toList());
+    }
+
+    /** 金额出参统一十进制字符串（去掉无意义的尾随 0）。 */
+    private String decimal(BigDecimal value) {
+        return value == null ? "0" : value.stripTrailingZeros().toPlainString();
     }
 
     /**

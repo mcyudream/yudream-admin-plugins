@@ -76,11 +76,15 @@ export function useSettlements(api: PlaytimePointsApi) {
         running.value = true
         try {
           const result = await api.admin.run()
+          const checkInText = result.checkInRewards
+            ? `；打卡积分发放 ${result.checkInRewards.credited} 笔` +
+              (result.checkInRewards.retried > 0 ? `（${result.checkInRewards.retried} 笔待重试）` : '')
+            : ''
           if (result.message && result.message !== 'OK') {
-            toast.warning(`本轮结算 ${result.sessions} 笔（入账 ${result.credited} 笔）：${result.message}`)
+            toast.warning(`本轮结算 ${result.sessions} 笔（入账 ${result.credited} 笔）：${result.message}${checkInText}`)
           }
           else {
-            toast.success(`本轮结算 ${result.sessions} 笔，入账 ${result.credited} 笔`)
+            toast.success(`本轮结算 ${result.sessions} 笔，入账 ${result.credited} 笔${checkInText}`)
           }
           await load()
         }

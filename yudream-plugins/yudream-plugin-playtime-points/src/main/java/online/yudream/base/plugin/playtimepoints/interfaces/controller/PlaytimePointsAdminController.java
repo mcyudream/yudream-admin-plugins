@@ -6,7 +6,7 @@ import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 
-/** 管理端：结算设置、服务器权重、结算流水与手动结算。 */
+/** 管理端：结算设置（含打卡积分联动）、服务器权重、结算流水、打卡积分流水与手动结算。 */
 public class PlaytimePointsAdminController {
 
     private final PlaytimePointsHttpFacade http;
@@ -33,6 +33,12 @@ public class PlaytimePointsAdminController {
     @PluginHttpEndpoint(method = "GET", path = "/admin/settlements", permission = PlaytimePointsPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse settlements(PluginHttpRequest request) {
         return http.adminSettlements(request);
+    }
+
+    /** 打卡积分发放流水（跨用户，可按项目/用户筛选）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/admin/check-in-rewards", permission = PlaytimePointsPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse checkInRewards(PluginHttpRequest request) {
+        return http.adminCheckInRewards(request);
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/run", permission = PlaytimePointsPlugin.MANAGE_PERMISSION)
