@@ -150,6 +150,30 @@
   font-weight: 700;
 }
 
+/* 标签（#tag）成分格：虚线边框 + 右上角 # 角标，图标为标签代表成员的替代渲染 */
+.mc-wiki-craft-cell.is-tag {
+  border: 1px dashed color-mix(in srgb, var(--primary, #7c7c7c) 55%, transparent);
+}
+
+.mc-wiki-craft-tagmark {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
+  border-radius: 7px;
+  background: var(--primary, #7c7c7c);
+  color: var(--primary-foreground, #fff);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .mc-wiki-recipe-link {
   display: flex;
   align-items: center;
@@ -482,6 +506,17 @@ html:has(.neco-chrome) .mc-wiki-public-drawer :is(.mc-wiki-craft-table, .mc-wiki
   border: 1px solid var(--yb-site-border, #555555);
   border-radius: 0;
   color: var(--yb-site-text, #f7f5ee);
+}
+
+html:has(.neco-chrome) .mc-wiki-public-drawer .mc-wiki-craft-cell.is-tag {
+  border-style: dashed;
+  border-color: var(--yb-site-primary, #6cc349);
+}
+
+html:has(.neco-chrome) .mc-wiki-public-drawer .mc-wiki-craft-tagmark {
+  border-radius: 0;
+  background: var(--yb-site-primary, #6cc349);
+  color: #1c1c1c;
 }
 
 html:has(.neco-chrome) .mc-wiki-public-drawer .mc-wiki-craft-arrow {

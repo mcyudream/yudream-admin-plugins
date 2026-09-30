@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { recipeTypeLabel } from '../types'
 import RecipeGrid from './RecipeGrid.vue'
 import WikiIcon from './WikiIcon.vue'
+import { parseRecipeCells } from '../utils/recipeCells'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -21,6 +22,8 @@ const drawerClass = computed(() => [
 
 const title = computed(() => props.recipe ? (props.recipe.resultNameZh || props.recipe.resultNameEn || props.recipe.resultId) : '配方详情')
 
+const parsed = computed(() => props.recipe ? parseRecipeCells(props.recipe) : null)
+
 function ingredientLabel(value: string): string {
   if (value.startsWith('#')) {
     return `标签 ${value.slice(1)}`
@@ -31,8 +34,22 @@ function ingredientLabel(value: string): string {
   return value
 }
 
+function ingredientExample(value: string): string | null {
+  if (!value.startsWith('#')) {
+    return null
+  }
+  return parsed.value?.tagExamples.get(value) ?? null
+}
+
 function ingredientIcon(value: string): string | null {
-  return value.startsWith('#') || value.startsWith('ore:') ? null : props.iconUrl(value)
+  if (value.startsWith('ore:')) {
+    return null
+  }
+  if (value.startsWith('#')) {
+    const example = ingredientExample(value)
+    return example ? props.iconUrl(example) : null
+  }
+  return props.iconUrl(value)
 }
 
 function close(value: boolean) {
@@ -60,7 +77,10 @@ function close(value: boolean) {
         <ul class="m-0 flex list-none flex-col gap-2 p-0">
           <li v-for="ingredient in recipe.ingredients" :key="ingredient" class="flex items-center gap-2">
             <WikiIcon :src="ingredientIcon(ingredient)" :label="ingredientLabel(ingredient)" :size="24" />
-            <span class="break-all text-sm">{{ ingredientLabel(ingredient) }}</span>
+            <span class="min-w-0 flex flex-col">
+              <span class="break-all text-sm">{{ ingredientLabel(ingredient) }}</span>
+              <span v-if="ingredientExample(ingredient)" class="break-all text-xs text-secondary-foreground/60">任选其一，示例 {{ ingredientExample(ingredient) }}</span>
+            </span>
           </li>
         </ul>
       </section>

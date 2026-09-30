@@ -65,6 +65,8 @@ export interface WikiRecipe {
   resultId: string
   resultCount: number
   ingredients: string[]
+  /** 3x3 九宫格（行优先，null 为空格），tag 成分已解析为代表成员物品；旧导入数据可能缺失 */
+  grid?: (string | null)[]
   rawJson: string
   resultNameZh?: string | null
   resultNameEn?: string | null
