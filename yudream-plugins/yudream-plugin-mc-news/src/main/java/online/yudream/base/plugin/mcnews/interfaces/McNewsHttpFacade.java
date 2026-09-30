@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.mcnews.interfaces;
 
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -156,6 +157,43 @@ public class McNewsHttpFacade {
     }
 
     // ---------- 管理端：新闻动态 / 推送记录 / 轮询 ----------
+
+    /** 首页动态源（已登录可读）：新闻按发布时间倒序，映射为宿主 MobileFeedItem。 */
+    public PluginHttpResponse mobileFeed(PluginHttpRequest request) {
+        int page = HttpSupport.pageParam(request);
+        int size = Math.min(HttpSupport.sizeParam(request, 20), 50);
+        var result = feed.pageNews(page, size, null, null);
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        for (var article : result.records()) {
+            Map<String, Object> author = new LinkedHashMap<>();
+            author.put("name", article.sourceName() == null || article.sourceName().isBlank() ? "MC 新闻" : article.sourceName());
+            author.put("avatar", "");
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", article.id());
+            item.put("route", "/detail?t=" + enc(article.title())
+                    + "&s=" + enc(article.summary() == null ? "" : article.summary())
+                    + "&u=" + enc(article.url() == null ? "" : article.url())
+                    + "&img=" + enc(article.imageUrl() == null ? "" : article.imageUrl())
+                    + "&src=" + enc(article.sourceName() == null ? "" : article.sourceName())
+                    + "&cat=" + enc(article.category() == null ? "" : article.category())
+                    + "&time=" + (article.publishedAt() > 0 ? article.publishedAt() : article.discoveredAt()));
+            item.put("title", article.title());
+            item.put("summary", article.summary() == null ? "" : article.summary());
+            item.put("images", article.imageUrl() == null || article.imageUrl().isBlank()
+                    ? List.of("/api/plugins/mc-news/assets/mobile/news-cover.jpg")
+                    : List.of(article.imageUrl()));
+            item.put("url", article.url() == null ? "" : article.url());
+            item.put("author", author);
+            item.put("tagName", article.category() == null ? "" : article.category());
+            item.put("createTime", article.publishedAt() > 0 ? article.publishedAt() : article.discoveredAt());
+            items.add(item);
+        }
+        boolean hasMore = (long) page * size < result.total();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("items", items);
+        body.put("hasMore", hasMore);
+        return PluginHttpResponse.ok(body);
+    }
 
     public PluginHttpResponse pageNews(PluginHttpRequest request) {
         var result = feed.pageNews(HttpSupport.pageParam(request), HttpSupport.sizeParam(request, PAGE_FALLBACK),
@@ -536,6 +574,11 @@ public class McNewsHttpFacade {
         view.put("headers", headers);
         view.put("markdown", target.markdown());
         return view;
+    }
+
+    /** 深链参数编码（首页动态 → 新闻详情）。 */
+    private static String enc(String value) {
+        return URLEncoder.encode(value == null ? "" : value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static Map<String, Object> articleView(online.yudream.base.plugin.mcnews.domain.NewsArticle article) {

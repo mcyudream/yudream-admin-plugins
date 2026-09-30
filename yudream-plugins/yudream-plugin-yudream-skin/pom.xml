@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-yudream-skin</artifactId>
-    <version>1.4.0</version>
+    <version>1.4.6</version>
 
     <build>
         <resources>
@@ -21,6 +21,11 @@
             <resource>
                 <directory>../../yudream-frontend/packages/plugin-yudream-skin/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/yudream-skin</targetPath>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-yudream-skin-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/yudream-skin</targetPath>
                 <filtering>false</filtering>
             </resource>
         </resources>
@@ -35,5 +40,6 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.11.4</version><scope>test</scope></dependency>
     </dependencies>
 </project>

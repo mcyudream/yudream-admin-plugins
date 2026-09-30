@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-minecraft-activity-proof</artifactId>
-    <version>2.7.0</version>
+    <version>2.7.7</version>
 
     <build>
         <resources>
@@ -21,6 +21,11 @@
             <resource>
                 <directory>../../yudream-frontend/packages/plugin-minecraft-activity-proof/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/minecraft-activity-proof</targetPath>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-minecraft-activity-proof-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/minecraft-activity-proof</targetPath>
                 <filtering>false</filtering>
             </resource>
         </resources>

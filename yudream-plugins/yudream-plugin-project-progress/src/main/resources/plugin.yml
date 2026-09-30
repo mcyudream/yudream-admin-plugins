@@ -1,9 +1,38 @@
 name: project-progress
-displayName: 项目协作
-description: 管理项目、成员和任务，支持分配、打卡、统计与验收。
-icon: i-ri:task-line
+displayName: 项目任务
+description: 打卡、任务与验收
+icon: checkbox-outline
 main: online.yudream.base.plugin.projectprogress.bootstrap.ProjectProgressPlugin
-version: 1.6.0
-softdepend:
-  - minecraft-server
-  - ymcl-adapter
+version: 1.6.3
+
+# 移动端（YuDream Mobile 宿主）接入声明：项目任务
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 项目任务
+  description: 打卡、任务与验收
+  icon: checkbox-outline
+  home:
+    cards:
+      - id: main
+        title: 我的任务
+        description: 打卡、任务与验收
+        icon: checkbox-outline
+        route: /tasks
+  admin:
+    cards:
+      - id: acceptance
+        title: 验收审批
+        description: 任务验收的通过与驳回
+        icon: checkmark-done-outline
+        route: /acceptance
+        permission: plugin:project-progress:manage
+      - id: publish
+        title: 发布任务
+        description: 为项目发布新的认领任务
+        icon: add-circle-outline
+        route: /publish
+        permission: plugin:project-progress:manage

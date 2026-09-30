@@ -1,0 +1,404 @@
+{
+  "id": "mc_news",
+  "name": "mc_news",
+  "metaData": {
+    "name": "mc_news",
+    "type": "app",
+    "buildInfo": {
+      "buildVersion": "1.0.0",
+      "buildName": "@yudream/plugin-mc-news-mobile"
+    },
+    "remoteEntry": {
+      "name": "remoteEntry.js",
+      "path": "",
+      "type": "global"
+    },
+    "types": {
+      "path": "",
+      "name": "",
+      "zip": "",
+      "api": ""
+    },
+    "globalName": "mc_news",
+    "pluginVersion": "0.8.9",
+    "prefetchInterface": false,
+    "publicPath": ""
+  },
+  "shared": [
+    {
+      "id": "mc_news:@react-native/assets-registry/path-support",
+      "name": "@react-native/assets-registry/path-support",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:@react-native/assets-registry/registry",
+      "name": "@react-native/assets-registry/registry",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:@react-native/normalize-colors",
+      "name": "@react-native/normalize-colors",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:@react-native/virtualized-lists",
+      "name": "@react-native/virtualized-lists",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/Image/AssetRegistry",
+      "name": "react-native/Libraries/Image/AssetRegistry",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/Image/AssetSourceResolver",
+      "name": "react-native/Libraries/Image/AssetSourceResolver",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/NativeComponent/NativeComponentRegistry",
+      "name": "react-native/Libraries/NativeComponent/NativeComponentRegistry",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/NativeComponent/ViewConfigIgnore",
+      "name": "react-native/Libraries/NativeComponent/ViewConfigIgnore",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/ReactNative/RendererProxy",
+      "name": "react-native/Libraries/ReactNative/RendererProxy",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/ReactPrivate/ReactNativePrivateInitializeCore",
+      "name": "react-native/Libraries/ReactPrivate/ReactNativePrivateInitializeCore",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/ReactPrivate/ReactNativePrivateInterface",
+      "name": "react-native/Libraries/ReactPrivate/ReactNativePrivateInterface",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/StyleSheet/processColor",
+      "name": "react-native/Libraries/StyleSheet/processColor",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/Libraries/StyleSheet/processColorArray",
+      "name": "react-native/Libraries/StyleSheet/processColorArray",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native/src/private/featureflags/ReactNativeFeatureFlags",
+      "name": "react-native/src/private/featureflags/ReactNativeFeatureFlags",
+      "version": "0.76.6",
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react-native",
+      "name": "react-native",
+      "version": "0.76.6",
+      "singleton": true,
+      "requiredVersion": "^0.76.6",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    },
+    {
+      "id": "mc_news:react",
+      "name": "react",
+      "version": "18.3.1",
+      "singleton": true,
+      "requiredVersion": "18.3.1",
+      "assets": {
+        "js": {
+          "async": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "sync": [
+            "remoteEntry.js",
+            "main.js"
+          ]
+        },
+        "css": {
+          "async": [],
+          "sync": []
+        }
+      }
+    }
+  ],
+  "remotes": [],
+  "exposes": [
+    {
+      "id": "mc_news:module",
+      "name": "module",
+      "assets": {
+        "js": {
+          "sync": [
+            "290.js",
+            "__federation_expose_module.js"
+          ],
+          "async": []
+        },
+        "css": {
+          "sync": [],
+          "async": []
+        }
+      },
+      "path": "./module"
+    }
+  ]
+}

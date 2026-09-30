@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-questionbank</artifactId>
-    <version>1.4.1</version>
+    <version>1.4.9</version>
     <name>YuDream Plugin - QuestionBank</name>
     <description>题库插件：选择/判断/填空/简答，在线抽题作答、标签分类与导入导出。</description>
 
@@ -49,6 +49,11 @@
             <resource>
                 <directory>../../yudream-frontend/packages/plugin-questionbank/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/questionbank</targetPath>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-questionbank-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/questionbank</targetPath>
+                <filtering>false</filtering>
             </resource>
         </resources>
     </build>

@@ -14,6 +14,11 @@ public class McNewsUserController {
         this.http = http;
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/public/mobile-feed", permission = McNewsPlugin.USE_PERMISSION)
+    public PluginHttpResponse mobileFeed(PluginHttpRequest request) {
+        return http.mobileFeed(request);
+    }
+
     @PluginHttpEndpoint(method = "GET", path = "/me/subscription", permission = McNewsPlugin.USE_PERMISSION)
     public PluginHttpResponse mySubscription(PluginHttpRequest request) {
         return http.mySubscription(request);

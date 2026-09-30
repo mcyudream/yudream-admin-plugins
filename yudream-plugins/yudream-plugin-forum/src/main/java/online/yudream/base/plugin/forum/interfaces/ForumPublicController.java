@@ -14,6 +14,8 @@ public final class ForumPublicController {
     public PluginHttpResponse categories(PluginHttpRequest r) { return http.categories(r); }
     @PluginHttpEndpoint(method="GET", path="/public/posts", permission=ForumPlugin.VIEW_PERMISSION)
     public PluginHttpResponse posts(PluginHttpRequest r) { return http.posts(r, false); }
+    @PluginHttpEndpoint(method="GET", path="/public/mobile-feed", permission=ForumPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse mobileFeed(PluginHttpRequest r) { return http.mobileFeed(r); }
     @PluginHttpEndpoint(method="GET", path="/public/posts/{id}", permission=ForumPlugin.VIEW_PERMISSION)
     public PluginHttpResponse post(PluginHttpRequest r) { return http.post(r, HttpSupport.segmentAfter(r.path(), "posts")); }
     @PluginHttpEndpoint(method="GET", path="/public/posts/{id}/comments", permission=ForumPlugin.VIEW_PERMISSION)

@@ -10,3 +10,21 @@ softdepend:
   # 方向必须是「面板 → 适配器」：反向声明会让宿主判定依赖环并静默丢弃该能力。
   - ymcl-adapter
 version: 0.22.0
+
+# 移动端（YuDream Mobile 宿主）接入声明：运维面板
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 运维面板
+  description: 实例电源/日志与备份任务
+  icon: construct-outline
+  home:
+    cards:
+      - id: overview
+        title: 运维面板
+        description: 实例状态与电源速操作
+        icon: speedometer-outline
+        route: /overview

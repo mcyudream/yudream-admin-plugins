@@ -17,7 +17,7 @@ public final class DefaultMcWikiApi implements McWikiApi {
     public List<McVersionInfo> listVersions(boolean releaseOnly){return versions.list(1,200).records().stream().filter(v->!releaseOnly||"release".equals(v.type())).toList();}
     public Optional<McItemEntry> getItem(String version,String id){return resources.item(version,id);}
     /** 名称模糊匹配与总数走按版本内存索引，避免逐行 findById 回查与整表计数扫描。 */
-    public Page<McItemEntry> searchItems(String version,String keyword,int page,int size){WikiCatalogIndex.VersionIndex index=catalogs.get(version);return new Page<>(index.search(keyword,page,size),index.count(keyword),page,size);}
+    public Page<McItemEntry> searchItems(String version,String keyword,int page,int size){WikiCatalogIndex.VersionIndex index=catalogs.get(version);return new Page<>(index.search(keyword,null,page,size),index.count(keyword,null),page,size);}
     public List<McItemEntry> items(String version){return catalogs.get(version).items();}
     public List<McRecipe> recipes(String version){return catalogs.get(version).recipes();}
     public List<McRecipe> getRecipesProducing(String version,String id){return resources.recipesProducing(version,id);}

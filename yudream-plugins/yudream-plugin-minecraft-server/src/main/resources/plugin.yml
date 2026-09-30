@@ -3,8 +3,30 @@ displayName: Minecraft 服务器
 description: 管理 Minecraft 服务器、线路与周目，展示在线状态和玩家统计。
 icon: i-ri:server-line
 main: online.yudream.base.plugin.minecraft.bootstrap.MinecraftServerPlugin
+<<<<<<< HEAD
 version: 1.13.0
+=======
+version: 1.8.2
+>>>>>>> worktree-plugin-mobile
 softdepend:
   - yudream-wallet
   - yudream-skin
   - ymcl-adapter
+
+# 移动端（YuDream Mobile 宿主）接入声明
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: MC 服务器
+  description: 服务器状态与在线趋势
+  icon: server-outline
+  home:
+    cards:
+      - id: servers
+        title: 服务器状态
+        description: 在线人数与历史趋势
+        icon: server-outline
+        route: /servers

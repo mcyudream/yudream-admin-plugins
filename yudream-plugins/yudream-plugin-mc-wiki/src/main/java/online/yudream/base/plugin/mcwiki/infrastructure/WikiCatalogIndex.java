@@ -49,17 +49,29 @@ public final class WikiCatalogIndex {
      */
     public record VersionIndex(String version, List<McItemEntry> items, List<McRecipe> recipes,
                                Map<String, List<McRecipe>> recipesByResult) {
-        public List<McItemEntry> search(String keyword, int page, int size) {
+        public List<McItemEntry> search(String keyword, String kind, int page, int size) {
             int capped = Math.min(Math.max(size, 1), 200);
-            return filtered(keyword).skip((long) (Math.max(page, 1) - 1) * capped).limit(capped).toList();
+            return filtered(keyword, kind).skip((long) (Math.max(page, 1) - 1) * capped).limit(capped).toList();
         }
 
-        public long count(String keyword) { return filtered(keyword).count(); }
+        public long count(String keyword, String kind) { return filtered(keyword, kind).count(); }
 
-        private Stream<McItemEntry> filtered(String keyword) {
-            if (keyword == null || keyword.isBlank()) return items.stream();
+        /** 各分类（kind）条目计数：供分类 chips 显示真实数量。 */
+        public Map<String, Long> kindCounts() {
+            return items.stream().collect(java.util.stream.Collectors.groupingBy(
+                    item -> item.kind() == null ? "misc" : item.kind(),
+                    java.util.LinkedHashMap::new,
+                    java.util.stream.Collectors.counting()));
+        }
+
+        private Stream<McItemEntry> filtered(String keyword, String kind) {
+            Stream<McItemEntry> stream = items.stream();
+            if (kind != null && !kind.isBlank()) {
+                stream = stream.filter(item -> kind.equalsIgnoreCase(item.kind()));
+            }
+            if (keyword == null || keyword.isBlank()) return stream;
             String q = keyword.toLowerCase(Locale.ROOT);
-            return items.stream().filter(item -> contains(item.namespacedId(), q) || contains(item.nameZh(), q) || contains(item.nameEn(), q));
+            return stream.filter(item -> contains(item.namespacedId(), q) || contains(item.nameZh(), q) || contains(item.nameEn(), q));
         }
 
         private static boolean contains(String value, String q) {

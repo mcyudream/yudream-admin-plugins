@@ -23,13 +23,13 @@ class WikiCatalogIndexTest {
         repository.saveItem(item("1.20.6", "minecraft:stick", "Stick", "木棍"));
         WikiCatalogIndex index = new WikiCatalogIndex(repository);
         WikiCatalogIndex.VersionIndex view = index.get("1.20.6");
-        assertEquals(3, view.count(null));
-        assertEquals(2, view.count("log"));
-        assertEquals(2, view.search("原木", 1, 200).size());
-        assertEquals(List.of("minecraft:spruce_log"), view.search("SPRUCE", 1, 200).stream().map(McItemEntry::namespacedId).toList());
+        assertEquals(3, view.count(null, null));
+        assertEquals(2, view.count("log", null));
+        assertEquals(2, view.search("原木", null, 1, 200).size());
+        assertEquals(List.of("minecraft:spruce_log"), view.search("SPRUCE", null, 1, 200).stream().map(McItemEntry::namespacedId).toList());
         // 分页：size 上限 200，第二页取余数
-        assertEquals(2, view.search(null, 1, 2).size());
-        assertEquals(1, view.search(null, 2, 2).size());
+        assertEquals(2, view.search(null, null, 1, 2).size());
+        assertEquals(1, view.search(null, null, 2, 2).size());
     }
 
     @Test
@@ -53,11 +53,11 @@ class WikiCatalogIndexTest {
         WikiResourceRepository repository = new WikiResourceRepository(store);
         repository.saveItem(item("1.20.6", "minecraft:oak_log", "Oak Log", "橡木原木"));
         WikiCatalogIndex index = new WikiCatalogIndex(repository);
-        assertEquals(1, index.get("1.20.6").count(null));
+        assertEquals(1, index.get("1.20.6").count(null, null));
         repository.saveItem(item("1.20.6", "minecraft:stick", "Stick", "木棍"));
         // 未失效前仍是旧快照
-        assertEquals(1, index.get("1.20.6").count(null));
+        assertEquals(1, index.get("1.20.6").count(null, null));
         index.invalidate("1.20.6");
-        assertEquals(2, index.get("1.20.6").count(null));
+        assertEquals(2, index.get("1.20.6").count(null, null));
     }
 }

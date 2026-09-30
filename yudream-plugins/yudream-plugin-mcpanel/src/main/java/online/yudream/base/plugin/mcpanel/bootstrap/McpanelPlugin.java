@@ -219,7 +219,7 @@ import java.util.List;
 public class McpanelPlugin implements YuDreamPlugin {
 
     public static final String CODE = "mcpanel";
-    public static final String VERSION = "0.17.1";
+    public static final String VERSION = "0.19.14";
 
     public static final String VIEW_PERMISSION = "plugin:mcpanel:view";
     public static final String USE_PERMISSION = "plugin:mcpanel:use";

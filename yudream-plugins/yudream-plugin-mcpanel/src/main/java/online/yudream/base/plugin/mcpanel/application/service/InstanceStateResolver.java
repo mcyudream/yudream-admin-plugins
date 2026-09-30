@@ -25,13 +25,39 @@ public class InstanceStateResolver {
         this.nodes = nodes;
     }
 
-    /** 单实例展示状态：快照优先、DB 回退。 */
+    /** 快照新鲜度界：30s 采样三倍周期，超界即节点控制信道已失效（VM 挂起/断电等静默掉线不触发关闭回调）。 */
+    public static final long SNAPSHOT_FRESH_MS = 90_000L;
+
+    /** 快照是否仍新鲜：stats 停止上报超过 {@link #SNAPSHOT_FRESH_MS} 即视为失效。 */
+    public static boolean snapshotFresh(NodeStatsSnapshot stats) {
+        return stats != null
+                && stats.reportedAtMs() > 0
+                && System.currentTimeMillis() - stats.reportedAtMs() <= SNAPSHOT_FRESH_MS;
+    }
+
+    /** 单实例展示状态：新鲜快照优先、DB 回退；running 在无可信依据时降级 unknown。 */
     public String resolve(McpanelInstance instance) {
-        return nodes.findById(instance.nodeId())
-                .map(McpanelNode::lastStats)
-                .map(stats -> fromSnapshot(instance.id(), stats))
-                .filter(live -> live != null)
-                .orElse(String.valueOf(instance.state()));
+        McpanelNode node = nodes.findById(instance.nodeId()).orElse(null);
+        NodeStatsSnapshot stats = node == null ? null : node.lastStats();
+        String dbState = String.valueOf(instance.state());
+        if (snapshotFresh(stats)) {
+            String live = fromSnapshot(instance.id(), stats);
+            if (live != null) {
+                return live;
+            }
+            // 快照正常上报容器清单却不见此实例：stats 只报运行系容器，running 不可信
+            if (stats.containers() != null && !stats.containers().isEmpty()
+                    && "running".equalsIgnoreCase(dbState)) {
+                return "unknown";
+            }
+            return dbState;
+        }
+        // 快照过期（节点离线/静默掉线）：running 展示为 unknown（设计 §3.4 语义）。
+        // 只动展示不动 DB，stats 恢复新鲜后自动回到真实状态。
+        if ("running".equalsIgnoreCase(dbState)) {
+            return "unknown";
+        }
+        return dbState;
     }
 
     /** 列表结果装饰：每条 record 追加 liveState（节点查询按 nodeId 去重）。 */

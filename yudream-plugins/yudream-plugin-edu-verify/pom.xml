@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-edu-verify</artifactId>
-    <version>1.5.4</version>
+    <version>1.5.9</version>
 
     <build>
         <resources>
@@ -21,6 +21,11 @@
             <resource>
                 <directory>../../yudream-frontend/packages/plugin-edu-verify/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/edu-verify</targetPath>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-edu-verify-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/edu-verify</targetPath>
                 <filtering>false</filtering>
             </resource>
         </resources>

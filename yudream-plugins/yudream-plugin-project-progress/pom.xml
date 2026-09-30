@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-project-progress</artifactId>
-    <version>1.6.0</version>
+    <version>1.6.3</version>
 
     <build>
         <resources>
@@ -21,6 +21,11 @@
             <resource>
                 <directory>../../yudream-frontend/packages/plugin-project-progress/dist</directory>
                 <targetPath>META-INF/yudream-plugin/frontend/project-progress</targetPath>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-project-progress-mobile/dist-mobile</directory>
+                <targetPath>META-INF/yudream-plugin/frontend-mobile/project-progress</targetPath>
                 <filtering>false</filtering>
             </resource>
         </resources>

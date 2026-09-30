@@ -48,7 +48,9 @@ public class OverviewService {
         int onlineNodes = 0;
         List<Map<String, Object>> nodeRows = new ArrayList<>();
         for (McpanelNode node : nodeList) {
-            boolean online = "online".equalsIgnoreCase(String.valueOf(node.status()));
+            // 在线 = 控制信道登记 online 且 stats 快照仍新鲜（静默掉线时 DB status 会滞留 online）
+            boolean online = "online".equalsIgnoreCase(String.valueOf(node.status()))
+                    && InstanceStateResolver.snapshotFresh(node.lastStats());
             if (online) {
                 onlineNodes++;
             }
@@ -215,7 +217,8 @@ public class OverviewService {
         out.put("containerCount", 0);
         out.put("containers", List.of());
         var stats = node.lastStats();
-        if (stats != null) {
+        // 过期快照的指标一并失效（节点静默掉线时残留值会误导面板），与在线判定同一新鲜度口径
+        if (stats != null && InstanceStateResolver.snapshotFresh(stats)) {
             out.put("cpuPercent", stats.cpuPercent());
             out.put("memUsedMb", stats.memUsedMb());
             out.put("memTotalMb", stats.memTotalMb());

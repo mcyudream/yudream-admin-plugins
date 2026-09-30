@@ -75,8 +75,14 @@ public class McpanelInstanceAppService {
             System.err.println("[mcpanel] 输出泵重挂回调失败（" + instanceId + "）：" + error.getMessage());
         }
     }
+
+    /** 停机侧回读对账的最小间隔：stats 快照 30s 一拍，限流放宽到一倍周期。 */
+    private static final long READBACK_THROTTLE_MS = 60_000L;
     /** 每实例至多一个在途节点备份打包（受理 → 完成/失败），列表轮询消费。 */
     private final java.util.concurrent.ConcurrentHashMap<String, BackupCreation> pendingBackups =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    /** 停机侧怀疑触发的回读限流（每节点 60s 一次），防 stats 快照周期打爆节点。 */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> suspectReadbackAt =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /** 挂接备份保留策略存储（bootstrap 装配期调用）。 */
@@ -861,6 +867,12 @@ public class McpanelInstanceAppService {
             return 0;
         }
         int updated = 0;
+        // 停机侧纠偏：面板仍记 running、但在线节点的 stats 快照没有该容器 → instance.state
+        // 事件大概率丢失（面板/节点一直在线时没有上线回读兜底，停机状态会长期滞留）。
+        // 限流触发一次节点 instance.list 回读对账，由权威侧状态覆盖面板存量。
+        if (!rows.isEmpty() && stopSideSuspected(nodeId, rows)) {
+            updated += syncStatesFromNode(nodeId);
+        }
         for (Object row : rows) {
             if (!(row instanceof Map<?, ?> record)) {
                 continue;
@@ -887,6 +899,32 @@ public class McpanelInstanceAppService {
             }
         }
         return updated;
+    }
+
+    /** 停机侧怀疑判定：节点有实例 DB 记 running、但不在本次 stats 容器清单里；60s 限流内返回 false。 */
+    private boolean stopSideSuspected(String nodeId, List<?> rows) {
+        long now = System.currentTimeMillis();
+        Long last = suspectReadbackAt.get(nodeId);
+        if (last != null && now - last < READBACK_THROTTLE_MS) {
+            return false;
+        }
+        java.util.Set<String> snapshotIds = new java.util.HashSet<>();
+        for (Object row : rows) {
+            if (row instanceof Map<?, ?> record) {
+                String id = text(record.get("instanceId"), null);
+                if (id != null) {
+                    snapshotIds.add(id);
+                }
+            }
+        }
+        boolean suspected = instanceRepository.findAll().stream()
+                .anyMatch(instance -> nodeId.equals(instance.nodeId())
+                        && "running".equalsIgnoreCase(String.valueOf(instance.state()))
+                        && !snapshotIds.contains(instance.id()));
+        if (suspected) {
+            suspectReadbackAt.put(nodeId, now);
+        }
+        return suspected;
     }
 
     /**

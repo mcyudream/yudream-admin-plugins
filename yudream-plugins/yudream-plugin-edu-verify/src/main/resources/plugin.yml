@@ -3,4 +3,24 @@ displayName: 学历认证
 description: 提供教育邮箱、在线验证码和人工审核等学历认证方式。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.eduverify.bootstrap.EduVerifyPlugin
-version: 1.5.4
+version: 1.5.9
+
+# 移动端（YuDream Mobile 宿主）接入声明
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 学历认证审批
+  description: 手机审批学历认证申请
+  icon: school-outline
+  home: {}
+  admin:
+    cards:
+      - id: review
+        title: 认证审核
+        description: 待审申请随身审批
+        icon: school-outline
+        route: /review
+        permission: plugin:edu-verify:manage

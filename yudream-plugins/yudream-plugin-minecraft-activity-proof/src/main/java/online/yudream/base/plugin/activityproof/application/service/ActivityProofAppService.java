@@ -80,6 +80,7 @@ import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoProfile;
 import online.yudream.base.plugin.studentinfo.api.PluginStudentInfoService;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -1762,6 +1763,28 @@ public class ActivityProofAppService {
             throw new IllegalArgumentException("该盖章证明不属于当前用户");
         }
         return new ActivityProofDownloadDTO(record.stampedPdfFilename(), PDF_CONTENT_TYPE, files.get(record.stampedPdfObjectKey()));
+    }
+
+    /**
+     * 移动端通道：盖章 PDF 以 base64 内嵌 JSON 返回。移动端 SDK 的 api 请求自带鉴权
+     * 与 401 刷新，但没有暴露带 Authorization 头的文件下载能力，明文 token 不能交给
+     * 第三方下载器，故小体积证明文件（数百 KB）走 base64 内嵌由端上落盘。
+     */
+    public Map<String, Object> stampedPdfBase64(String id, String userId) {
+        ActivityProofDownloadDTO download = downloadMyStampedPdf(id, userId);
+        byte[] content;
+        try (var inputStream = download.file().inputStream()) {
+            content = inputStream.readAllBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("证明文件读取失败：" + e.getMessage(), e);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", id);
+        payload.put("filename", download.filename());
+        payload.put("contentType", download.contentType());
+        payload.put("size", content.length);
+        payload.put("base64", Base64.getEncoder().encodeToString(content));
+        return payload;
     }
 
     // ---------------------------------------------------------------- internals: lookups

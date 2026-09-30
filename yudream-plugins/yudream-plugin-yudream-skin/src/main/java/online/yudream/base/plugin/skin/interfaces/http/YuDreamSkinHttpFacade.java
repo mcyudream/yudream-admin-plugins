@@ -22,6 +22,11 @@ import online.yudream.base.plugin.skin.api.PluginSkinProfile;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
 
+import java.io.ByteArrayOutputStream;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -210,6 +215,89 @@ public class YuDreamSkinHttpFacade {
                 .orElseGet(() -> PluginHttpResponse.rawJson(404, Map.of("message", "材质文件不存在")));
     }
 
+    /**
+     * 皮肤正面立绘渲染（公开，/textures/{hash}/render?height=）：
+     * 按 Minecraft 官方布局把 64x64（或旧版 64x32）材质的正面区域拼装为全身像，
+     * 邻近采样保持像素风；移动端等无 WebGL 的端直接以图片消费。
+     */
+    public PluginHttpResponse textureRender(PluginHttpRequest request) {
+        String[] segments = request.path().trim().split("/");
+        String hash = segments.length >= 2 ? decode(segments[segments.length - 2]) : "";
+        int height = Math.min(Math.max(intQuery(request, "height", 320), 64), 1024);
+        return appService.readTexture(hash)
+                .map(file -> renderFrontView(file, height))
+                .orElseGet(() -> PluginHttpResponse.rawJson(404, Map.of("message", "材质文件不存在")));
+    }
+
+    private PluginHttpResponse renderFrontView(PluginStoredFile file, int height) {
+        BufferedImage skin;
+        try (var inputStream = file.inputStream()) {
+            skin = ImageIO.read(inputStream);
+        } catch (IOException e) {
+            return PluginHttpResponse.rawJson(500, Map.of("message", "材质读取失败：" + e.getMessage()));
+        }
+        if (skin == null) {
+            return PluginHttpResponse.rawJson(400, Map.of("message", "不是有效的皮肤材质图片"));
+        }
+        return binaryPng(renderFrontView(skin, height));
+    }
+
+    /** 正面立绘拼装（包私有以便单测）：64x64 新版布局 / 64x32 旧版（左肢镜像右肢、仅帽层）。 */
+    static BufferedImage renderFrontView(BufferedImage skin, int height) {
+        boolean legacy = skin.getHeight() <= 32;
+        int unit = Math.max(2, height / 32);
+        BufferedImage out = new BufferedImage(16 * unit, 32 * unit, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = out.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        // 正面部件（源区域 → 画布格位）；旧版 64x32 无独立左肢/下半外层，左肢镜像右肢区域
+        drawPart(graphics, skin, unit, 44, 20, 4, 12, 0, 8);
+        drawPart(graphics, skin, unit, legacy ? 44 : 36, legacy ? 20 : 52, 4, 12, 12, 8);
+        drawPart(graphics, skin, unit, 20, 20, 8, 12, 4, 8);
+        drawPart(graphics, skin, unit, 4, 20, 4, 12, 4, 20);
+        drawPart(graphics, skin, unit, legacy ? 4 : 20, legacy ? 20 : 52, 4, 12, 8, 20);
+        drawPart(graphics, skin, unit, 8, 8, 8, 8, 4, 0);
+        // 外层（帽层等）：旧版仅帽层
+        drawPart(graphics, skin, unit, 40, 8, 8, 8, 4, 0);
+        if (!legacy) {
+            drawPart(graphics, skin, unit, 44, 36, 4, 12, 0, 8);
+            drawPart(graphics, skin, unit, 20, 36, 8, 12, 4, 8);
+            drawPart(graphics, skin, unit, 4, 36, 4, 12, 4, 20);
+            drawPart(graphics, skin, unit, 4, 52, 4, 12, 8, 20);
+            drawPart(graphics, skin, unit, 52, 52, 4, 12, 12, 8);
+        }
+        graphics.dispose();
+        return out;
+    }
+
+    private static byte[] pngBytes(BufferedImage image) {
+        try (var bos = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "png", bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("PNG 编码失败：" + e.getMessage(), e);
+        }
+    }
+
+    private PluginHttpResponse binaryPng(BufferedImage image) {
+        return new PluginHttpResponse(
+                200,
+                Map.of("Cache-Control", "public, max-age=31536000"),
+                "image/png",
+                pngBytes(image),
+                false
+    );}
+
+    /** 把材质的 (sx,sy,w,h) 区域邻近缩放画到画布 (dx,dy) 格位（格 = 渲染高的 1/32）。 */
+    private static void drawPart(Graphics2D graphics, BufferedImage skin, int unit, int sx, int sy, int w, int h, int dx, int dy) {
+        if (sy + h > skin.getHeight() || sx + w > skin.getWidth()) {
+            return;
+        }
+        graphics.drawImage(skin, dx * unit, dy * unit, dx * unit + w * unit, dy * unit + h * unit,
+                sx, sy, sx + w, sy + h, null);
+    }
+
+
+
     public PluginHttpResponse customSkinProfile(PluginHttpRequest request) {
         String name = lastPathSegment(request.path());
         PluginSkinProfile profile = appService.findProfileByName(name.replace(".json", ""))
@@ -233,7 +321,7 @@ public class YuDreamSkinHttpFacade {
     }
 
     public PluginHttpResponse myCloset(PluginHttpRequest request) {
-        return PluginHttpResponse.ok(appService.listCloset(ownerId(request), page(request), size(request)));
+        return PluginHttpResponse.ok(appService.listClosetItemViews(ownerId(request), page(request), size(request)));
     }
 
     public PluginHttpResponse saveClosetItem(PluginHttpRequest request) {

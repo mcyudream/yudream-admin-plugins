@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -208,6 +210,35 @@ public class ActivityProofHttpFacade {
         return PluginHttpResponse.ok(appService.publicSquareActivity(pathSegment(request.path(), 2)));
     }
 
+    /** 首页动态源（匿名可达）：公开活动按开始时间倒序，映射为宿主 MobileFeedItem。 */
+    public PluginHttpResponse publicMobileFeed(PluginHttpRequest request) {
+        int limit = Math.min(Math.max(intQuery(request, "size", 10), 1), 24);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (var activity : appService.publicSquareActivities(limit)) {
+            var dto = appService.toPublicDTO(activity, false);
+            Map<String, Object> author = new LinkedHashMap<>();
+            author.put("name", "活动广场");
+            author.put("avatar", "");
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", dto.id());
+            item.put("route", "/detail/" + dto.id());
+            item.put("title", dto.title());
+            item.put("summary", dto.summary() == null ? "" : dto.summary());
+            item.put("images", dto.coverUrl() == null || dto.coverUrl().isBlank()
+                    ? List.of("/api/plugins/minecraft-activity-proof/assets/mobile/activity-placeholder.jpg")
+                    : List.of(dto.coverUrl()));
+            item.put("author", author);
+            item.put("tagName", dto.statusText());
+            item.put("createTime", Math.max(dto.activityStart(), dto.signupStart()));
+            items.add(item);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("items", items);
+        body.put("hasMore", false);
+        return PluginHttpResponse.ok(body);
+    }
+
+
     // ---------------------------------------------------------------- user: square & participation
 
     public PluginHttpResponse myActivities(PluginHttpRequest request) {
@@ -267,6 +298,11 @@ public class ActivityProofHttpFacade {
 
     public PluginHttpResponse downloadMyStampedPdf(PluginHttpRequest request) {
         return downloadResponse(appService.downloadMyStampedPdf(pathSegment(request.path(), 2), currentUserId(request)), "application/pdf");
+    }
+
+    /** 移动端通道：base64 内嵌返回盖章 PDF（SDK 无授权文件下载能力）。 */
+    public PluginHttpResponse myStampedPdfBase64(PluginHttpRequest request) {
+        return PluginHttpResponse.ok(appService.stampedPdfBase64(pathSegment(request.path(), 2), currentUserId(request)));
     }
 
     // ---------------------------------------------------------------- internals

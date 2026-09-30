@@ -63,4 +63,9 @@ public class ActivityProofUserController {
     public PluginHttpResponse downloadMyStampedPdf(PluginHttpRequest request) {
         return http.downloadMyStampedPdf(request);
     }
+
+    @PluginHttpEndpoint(method = "GET", path = "/me/exports/{id}/stamped-pdf/base64", permission = MinecraftActivityProofPlugin.ACCESS_USER_PERMISSION)
+    public PluginHttpResponse myStampedPdfBase64(PluginHttpRequest request) {
+        return http.myStampedPdfBase64(request);
+    }
 }

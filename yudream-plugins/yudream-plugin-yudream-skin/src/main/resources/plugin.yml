@@ -3,4 +3,22 @@ displayName: Minecraft 皮肤
 description: 管理 Minecraft 角色、皮肤、披风和衣柜。
 icon: i-ri:t-shirt-2-line
 main: online.yudream.base.plugin.skin.bootstrap.YuDreamSkinPlugin
-version: 1.4.0
+version: 1.4.6
+
+# 移动端（YuDream Mobile 宿主）接入声明：主页卡片与展示元数据
+mobile:
+  platforms:
+    - android
+    - ios
+  minHostVersion: 0.1.0
+  requiredNativeCapabilities: []
+  name: 皮肤站
+  description: 角色皮肤管理与预览
+  icon: person-circle-outline
+  home:
+    cards:
+      - id: my-profile
+        title: 我的皮肤
+        description: 查看与管理角色皮肤
+        icon: happy-outline
+        route: /profile
