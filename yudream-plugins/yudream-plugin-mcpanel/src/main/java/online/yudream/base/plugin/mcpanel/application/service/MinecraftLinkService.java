@@ -125,18 +125,61 @@ public class MinecraftLinkService {
      * 提供方缺少新增契约方法）必须在此吞掉，否则会穿透事件监听链杀掉连接线程。
      */
     public void writebackState(online.yudream.base.plugin.mcpanel.domain.aggregate.McpanelInstance instance) {
+        writebackState(instance, 0);
+    }
+
+    /**
+     * 状态回写（带人数上限）：ping 不可达时（同机部署的 NAT 回环）提供方仍能按
+     * 「在线/上限」展示人数，上限取面板读到的实例 server.properties max-players。
+     * 提供方为旧版本（无五参重载）时退回四参回写，只计一次失败不丢状态。
+     */
+    public void writebackState(online.yudream.base.plugin.mcpanel.domain.aggregate.McpanelInstance instance,
+                               int maxPlayers) {
         if (instance == null || instance.mcServerId() == null || instance.mcServerId().isBlank()) {
             return;
         }
         provider().ifPresentOrElse(service -> {
+            long atMs = System.currentTimeMillis();
             try {
-                service.notifyPanelInstanceState(instance.mcServerId(), instance.id(),
-                        String.valueOf(instance.state()), System.currentTimeMillis());
+                notifyWithMaxPlayers(service, instance, atMs, maxPlayers);
                 writebackSuccesses++;
             } catch (RuntimeException | LinkageError error) {
                 writebackFailures++;
             }
         }, () -> writebackFailures++);
+    }
+
+    /**
+     * 回写（含人数上限）：五参重载是提供方后加的能力，消费方不与其绑定编译期版本，
+     * 走反射探测——提供方为旧版本（无该方法）时退回四参回写，状态照常送达、仅缺上限。
+     */
+    private void notifyWithMaxPlayers(PluginMinecraftService service,
+                                      online.yudream.base.plugin.mcpanel.domain.aggregate.McpanelInstance instance,
+                                      long atMs, int maxPlayers) {
+        String state = String.valueOf(instance.state());
+        java.lang.reflect.Method withMax;
+        try {
+            withMax = PluginMinecraftService.class.getMethod("notifyPanelInstanceState",
+                    String.class, String.class, String.class, long.class, int.class);
+        } catch (NoSuchMethodException outdated) {
+            service.notifyPanelInstanceState(instance.mcServerId(), instance.id(), state, atMs);
+            return;
+        }
+        try {
+            withMax.invoke(service, instance.mcServerId(), instance.id(), state, atMs, Math.max(maxPlayers, 0));
+        } catch (java.lang.reflect.InvocationTargetException wrapped) {
+            Throwable cause = wrapped.getCause() == null ? wrapped : wrapped.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(cause);
+        } catch (IllegalAccessException unreachable) {
+            // 接口方法必然可访问：真发生则退回四参，不让回写整体失败
+            service.notifyPanelInstanceState(instance.mcServerId(), instance.id(), state, atMs);
+        }
     }
 
     public long writebackFailureCount() {

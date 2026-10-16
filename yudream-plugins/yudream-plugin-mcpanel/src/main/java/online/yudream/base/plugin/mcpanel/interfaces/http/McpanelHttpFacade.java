@@ -153,9 +153,8 @@ public class McpanelHttpFacade {
     }
 
     private PluginHttpResponse error(McpanelBusinessException error) {
-        return PluginHttpResponse.rawJson(error.httpStatus(), Map.of(
-                "code", error.code(),
-                "message", error.getMessage() == null ? "" : error.getMessage()));
+        // 统一出口：节点文件系统权限拒绝等原始 syscall 文案在这里归一为处置指引
+        return HttpGuards.error(error);
     }
 
     private String stringQuery(PluginHttpRequest request, String key) {

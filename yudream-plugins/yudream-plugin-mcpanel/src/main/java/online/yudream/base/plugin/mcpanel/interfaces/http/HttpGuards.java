@@ -83,8 +83,47 @@ public final class HttpGuards {
     public static PluginHttpResponse error(McpanelBusinessException error) {
         return PluginHttpResponse.rawJson(error.httpStatus(), java.util.Map.of(
                 "code", error.code(),
-                "message", error.getMessage() == null ? "" : error.getMessage()));
+                "message", described(error)));
     }
+
+    /**
+     * 面向管理员的错误文案：节点文件操作撞上「容器内进程写入的文件属主/权限与节点
+     * 程序不一致」时，节点程序回的是 syscall 原文（open/unlinkat … /data/…:
+     * permission denied），管理员无从下手；此处统一补上成因与处置步骤。
+     * 其余错误一律原样透出。
+     */
+    static String described(McpanelBusinessException error) {
+        String message = error.getMessage() == null ? "" : error.getMessage();
+        if (!isNodeFilesystemDenied(message)) {
+            return message;
+        }
+        return message + "\n（节点程序无权读写该文件：容器内进程写入的文件，其属主/权限与节点程序不一致。"
+                + "① 在实例停止后重新启动一次，让节点（0.7.1+）在启动前自动修复数据目录属主与权限，再重试；"
+                + "② 或经「节点终端」以 root 身份修正属主（chown -R）后重试；③ 节点程序版本过旧请升级。）";
+    }
+
+    /** 节点侧文件系统权限拒绝：权限错误文案 + 绝对路径 + 文件类 syscall 三重佐证，避免误判网络等其它 permission denied。 */
+    private static boolean isNodeFilesystemDenied(String message) {
+        String lowered = message.toLowerCase(java.util.Locale.ROOT);
+        boolean denied = lowered.contains("permission denied")
+                || lowered.contains("operation not permitted")
+                || lowered.contains("eacces")
+                || lowered.contains("eperm");
+        if (!denied || !lowered.contains("/")) {
+            return false;
+        }
+        for (String syscall : FILE_SYSCALLS) {
+            if (lowered.contains(syscall)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 节点程序（Go）文件操作的 syscall 文案前缀。 */
+    private static final java.util.List<String> FILE_SYSCALLS = java.util.List.of(
+            "open ", "unlinkat", "unlink", "mkdir", "rmdir", "rename", "read ", "stat ",
+            "chmod", "chown", "remove ");
 
     public static Long principalUserId(PluginHttpRequest request) {
         PluginPrincipal principal = request.principal();

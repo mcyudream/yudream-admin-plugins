@@ -622,7 +622,25 @@ public class McpanelInstanceAppService {
                 }
                 return toDto(exited);
             }
-            throw error;
+            // 节点侧声明缺失（外部删除/数据卷被清空）：启动即重建声明，再原样重试一次启动。
+            if (("start".equals(action) || "restart".equals(action))
+                    && error instanceof McpanelBusinessException business
+                    && isInstanceNotFound(business)) {
+                rebuildNodeDeclaration(actor, node, instance, business);
+                try {
+                    result = call(node.id(), "instance." + action,
+                            withIk(payload, "panel-" + action + "-" + id + "-" + System.currentTimeMillis()));
+                } catch (McpanelBusinessException retryError) {
+                    // 重建后仍缺失：提示带上"已重建"这一事实，便于区分"没重建成功"与"重建了也起不来"
+                    if (isInstanceNotFound(retryError)) {
+                        throw new McpanelBusinessException(retryError.code(), retryError.httpStatus(),
+                                retryError.getMessage() + "（已自动重建仍不可用）");
+                    }
+                    throw retryError;
+                }
+            } else {
+                throw error;
+            }
         }
         String targetState = text(result.get("state"), action.equals("start") ? "running" : "exited");
         Integer exitCode = intOrNull(result.get("exitCode"));
@@ -660,6 +678,141 @@ public class McpanelInstanceAppService {
                         + "，自动启动=" + (autoStart ? "开" : "关"),
                 instance.tenantId());
         return toDto(updated);
+    }
+
+    /**
+     * 实例在节点侧的声明/容器缺失时，按当前规格令节点重建声明（启动交由调用方重试），
+     * 三级阶梯逐级降级：
+     * <ol>
+     *   <li>instance.create——节点已完全丢失该实例（目录都没了）时重建声明；</li>
+     *   <li>instance.update——节点登记记录还在、只是容器没了时按规格重建容器；</li>
+     *   <li>回收站往返——节点同时留着数据目录（create 拒覆盖）又丢了登记记录
+     *       （update 报缺失）的残缺态：delete 把目录移入 trash，create 带 fromTrash
+     *       挪回原位并重建容器（与「回收站找回」同一条节点路径，存档原样保留）。</li>
+     * </ol>
+     * 各级都不可行时抛出原始 instance.notFound 并附节点原因（审计记
+     * instance.rebuild.failed）；回收站往返中途失败时数据停在节点回收站，
+     * 落面板快照供「回收站」页手动找回。
+     */
+    private void rebuildNodeDeclaration(String actor, McpanelNode node, McpanelInstance instance,
+                                        McpanelBusinessException cause) {
+        Map<String, Object> spec = withLinkEnv(instance.toNodePayload());
+        String stamp = String.valueOf(System.currentTimeMillis());
+        String method;
+        try {
+            call(node.id(), "instance.create",
+                    withIk(spec, "panel-rebuild-" + instance.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+            method = "instance.create";
+        } catch (RuntimeException createError) {
+            if (!isInstanceExistsRefusal(createError)) {
+                throw createError;
+            }
+            try {
+                call(node.id(), "instance.update",
+                        withIk(spec, "panel-rebuild-update-" + instance.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+                method = "instance.update";
+            } catch (RuntimeException updateError) {
+                if (!isInstanceNotFound(updateError) || !nodeSupports(node.id(), "trash.list")) {
+                    throw rebuildFailure(actor, instance, cause, updateError);
+                }
+                method = rebuildThroughTrash(actor, node, instance, cause, spec, stamp);
+            }
+        }
+        audit.record(actor, "instance.rebuild", "instance", instance.id(),
+                instance.name() + "（节点声明缺失，启动时重建：" + method + "）", instance.tenantId());
+    }
+
+    /**
+     * 重建阶梯最后一级——回收站往返：delete 把数据目录移入节点 trash（数据保留），
+     * 再以 fromTrash 让节点把目录挪回 instances/&lt;id&gt; 并重建容器。挪回失败时
+     * 目录仍在节点回收站，落一份面板快照，用户可经「回收站」页手动找回。
+     *
+     * @return 审计用重建方式描述
+     */
+    private String rebuildThroughTrash(String actor, McpanelNode node, McpanelInstance instance,
+                                       McpanelBusinessException cause, Map<String, Object> spec, String stamp) {
+        Map<String, Object> deletePayload = new LinkedHashMap<>();
+        deletePayload.put("instanceId", instance.id());
+        Map<String, Object> deleted;
+        try {
+            deleted = call(node.id(), "instance.delete",
+                    withIk(deletePayload, "panel-rebuild-trash-" + instance.id() + "-" + stamp));
+        } catch (RuntimeException deleteError) {
+            throw rebuildFailure(actor, instance, cause, deleteError);
+        }
+        // trashed=false 说明目录本就不在（数据已被清）：退回无 fromTrash 的 create 重建空实例。
+        String trashId = Boolean.TRUE.equals(deleted.get("trashed"))
+                ? findTrashId(node.id(), instance.id())
+                : null;
+        Map<String, Object> restore = new LinkedHashMap<>(spec);
+        if (trashId != null) {
+            restore.put("fromTrash", trashId);
+        }
+        try {
+            call(node.id(), "instance.create",
+                    withIk(restore, "panel-rebuild-restore-" + instance.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+        } catch (RuntimeException restoreError) {
+            if (trashId != null && trashSink != null) {
+                try {
+                    trashSink.record(instance, "system");
+                } catch (RuntimeException ignored) {
+                    // 快照写入失败不掩盖主因：目录仍在节点回收站，可经节点文件管理清理
+                }
+            }
+            throw rebuildFailure(actor, instance, cause, restoreError);
+        }
+        return trashId != null ? "回收站往返（delete+fromTrash）" : "重建声明（数据目录已不存在）";
+    }
+
+    /** 节点回收站里该实例的 trashId（trash.list 按删除时间倒序，取首个即最新）。 */
+    private String findTrashId(String nodeId, String instanceId) {
+        try {
+            Map<String, Object> listed = call(nodeId, "trash.list", Map.of());
+            if (listed.get("items") instanceof List<?> items) {
+                for (Object item : items) {
+                    if (item instanceof Map<?, ?> row
+                            && instanceId.equals(String.valueOf(row.get("instanceId")))) {
+                        Object trashId = row.get("trashId");
+                        if (trashId != null && !String.valueOf(trashId).isBlank()) {
+                            return String.valueOf(trashId);
+                        }
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 列表读取失败按未找到处理：退回无 fromTrash 的 create
+        }
+        return null;
+    }
+
+    /** 重建失败统一出口：审计留痕 + 原始 notFound 语义附节点原因。 */
+    private McpanelBusinessException rebuildFailure(String actor, McpanelInstance instance,
+                                                    McpanelBusinessException cause, RuntimeException error) {
+        String reason = error.getMessage() == null ? "未知原因" : error.getMessage();
+        audit.record(actor, "instance.rebuild.failed", "instance", instance.id(),
+                "重建容器失败：" + reason, instance.tenantId());
+        return new McpanelBusinessException(cause.code(), cause.httpStatus(),
+                cause.getMessage() + "（自动重建未完成：" + reason + "）");
+    }
+
+    /**
+     * 节点侧的实例缺失语义：标准 notFound 码，或已由 call() 按消息归一为 notFound 文案
+     * （节点可能以自定义码上报，如状态 missing 对应的私有错误码——只认标准码会漏判，
+     * 重建不会触发）。
+     */
+    private static boolean isInstanceNotFound(RuntimeException error) {
+        if (error instanceof McpanelBusinessException business
+                && McpanelBusinessException.CODE_INSTANCE_NOT_FOUND.equals(business.code())) {
+            return true;
+        }
+        String message = error.getMessage() == null ? "" : error.getMessage();
+        return message.contains(McpanelBusinessException.CODE_INSTANCE_NOT_FOUND);
+    }
+
+    /** 节点因实例声明/数据目录仍在而拒绝 create 覆盖（节点侧"实例已存在"）。 */
+    private static boolean isInstanceExistsRefusal(RuntimeException error) {
+        String message = error.getMessage() == null ? "" : error.getMessage();
+        return message.contains("已存在") || message.contains("already exist");
     }
 
     public Map<String, Object> delete(String actor, String scopeKey, String id, boolean purge) {

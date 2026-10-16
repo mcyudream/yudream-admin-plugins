@@ -425,7 +425,284 @@ class McpanelInstanceAppServiceTest {
         assertTrue(((List<?>) listed.get("backups")).isEmpty());
     }
 
+    // ---------- 启动时重建节点声明 ----------
+
+    @Test
+    void startRecreatesNodeDeclarationAndRetriesWhenNodeLostInstance() {
+        onlineNode();
+        instances.save(spec("inst-r1", "paper"));
+        List<String> starts = new java.util.ArrayList<>();
+        List<String> creates = new java.util.ArrayList<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.start".equals(method)) {
+                starts.add(String.valueOf(payload.get("ik")));
+                if (starts.size() == 1) {
+                    throw new McpanelBusinessException(
+                            McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                            "instance.notFound：节点上不存在该实例的容器/数据。");
+                }
+                return Map.of("state", "running");
+            }
+            if ("instance.create".equals(method)) {
+                creates.add(String.valueOf(payload.get("ik")));
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+
+        Map<String, Object> started = service.action("user:1", "user:1", "inst-r1", "start", null);
+
+        // 节点声明缺失：启动先重发 instance.create 重建声明，再原样重试一次启动成功
+        assertEquals("running", started.get("state"));
+        assertEquals(2, starts.size());
+        assertEquals(1, creates.size());
+        assertTrue(creates.get(0).startsWith("panel-rebuild-inst-r1"));
+    }
+
+    @Test
+    void startStillReportsNotFoundWhenRebuiltStartFailsAgain() {
+        onlineNode();
+        instances.save(spec("inst-r2", "paper"));
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.start".equals(method)) {
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            return Map.of("state", "created");
+        });
+
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.action("user:1", "user:1", "inst-r2", "start", null));
+        // 重建后启动仍失败：按原语义上报，并标注已重建，便于与未重建的报错区分
+        assertEquals(McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, error.code());
+        assertTrue(error.getMessage().contains("已自动重建仍不可用"));
+    }
+
+    @Test
+    void startRebuildsWhenNodeReportsMissingUnderPrivateCode() {
+        onlineNode();
+        instances.save(spec("inst-r7", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        AtomicInteger starts = new AtomicInteger();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.start".equals(method)) {
+                if (starts.incrementAndGet() == 1) {
+                    // 节点以私有码上报缺失（如状态 missing 对应码），消息含 instance.notFound：
+                    // 经 call() 归一后 code 非标准码，重建仍须触发
+                    throw new McpanelBusinessException("instance.missing", 409,
+                            "instance.notFound：节点上不存在该实例的容器/数据。可能创建未完成、外部删除或数据卷被清空。");
+                }
+                return Map.of("state", "running");
+            }
+            return Map.of("state", "created");
+        });
+
+        Map<String, Object> started = service.action("user:1", "user:1", "inst-r7", "start", null);
+
+        // 非标准码但消息即 notFound 文案：同样重建并重试启动
+        assertEquals("running", started.get("state"));
+        assertEquals(List.of("instance.start", "instance.create", "instance.start"), methods);
+    }
+
+    @Test
+    void startDoesNotRebuildForOtherNodeErrors() {
+        onlineNode();
+        instances.save(spec("inst-r3", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            throw new McpanelBusinessException("node.timeout", 504, "节点响应超时");
+        });
+
+        assertThrows(McpanelBusinessException.class,
+                () -> service.action("user:1", "user:1", "inst-r3", "start", null));
+        // 非声明缺失错误不触发重建，避免误发 create
+        assertEquals(List.of("instance.start"), methods);
+    }
+
+    @Test
+    void startFallsBackToUpdateWhenNodeRefusesToOverwriteDeclaration() {
+        onlineNode();
+        instances.save(spec("inst-r4", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        AtomicInteger starts = new AtomicInteger();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.start".equals(method)) {
+                if (starts.incrementAndGet() == 1) {
+                    throw new McpanelBusinessException(
+                            McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                            "instance.notFound：节点上不存在该实例的容器/数据。");
+                }
+                return Map.of("state", "running");
+            }
+            if ("instance.create".equals(method)) {
+                // 节点仍保留声明/数据目录：拒绝覆盖（不丢数据）
+                throw new McpanelBusinessException("instance.exists", 409, "实例已存在");
+            }
+            if ("instance.update".equals(method)) {
+                return Map.of("state", "exited");
+            }
+            return Map.of();
+        });
+
+        Map<String, Object> started = service.action("user:1", "user:1", "inst-r4", "start", null);
+
+        // create 被拒 → 退回 update 重建容器 → 重试启动成功
+        assertEquals("running", started.get("state"));
+        assertEquals(List.of("instance.start", "instance.create", "instance.update", "instance.start"), methods);
+    }
+
+    @Test
+    void startKeepsNotFoundSemanticsWhenRebuildImpossible() {
+        onlineNode();
+        instances.save(spec("inst-r5", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.start".equals(method)) {
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            if ("instance.create".equals(method)) {
+                throw new McpanelBusinessException("instance.exists", 409, "实例已存在");
+            }
+            throw new McpanelBusinessException("node.error", 409, "镜像不存在，请重新拉取");
+        });
+
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.action("user:1", "user:1", "inst-r5", "start", null));
+        // 重建两条路径都不可行：保留原始 notFound 语义，并附上节点原因供诊断
+        assertEquals(McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, error.code());
+        assertTrue(error.getMessage().contains("自动重建未完成"));
+        assertTrue(error.getMessage().contains("镜像不存在，请重新拉取"));
+        assertEquals(List.of("instance.start", "instance.create", "instance.update"), methods);
+    }
+
+    @Test
+    void startRestoresThroughTrashWhenNodeLostRegistryButKeptData() {
+        onlineNode();
+        nodeWithTrashListCap();
+        instances.save(spec("inst-r8", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        Map<String, Object> restored = new java.util.concurrent.ConcurrentHashMap<>();
+        AtomicInteger starts = new AtomicInteger();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.start".equals(method)) {
+                if (starts.incrementAndGet() == 1) {
+                    throw new McpanelBusinessException(
+                            McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                            "instance.notFound：节点上不存在该实例的容器/数据。");
+                }
+                return Map.of("state", "running");
+            }
+            if ("instance.create".equals(method)) {
+                if (payload.get("fromTrash") == null) {
+                    // 数据目录还在：节点拒绝覆盖
+                    throw new McpanelBusinessException("instance.exists", 409, "实例已存在");
+                }
+                restored.putAll(payload);
+                return Map.of("state", "created");
+            }
+            if ("instance.update".equals(method)) {
+                // 登记记录丢失：节点找不到可更新的实例
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            if ("instance.delete".equals(method)) {
+                return Map.of("deleted", true, "trashed", true);
+            }
+            if ("trash.list".equals(method)) {
+                return Map.of("items", List.of(
+                        Map.of("trashId", "inst-r8-m1", "instanceId", "inst-r8")));
+            }
+            return Map.of();
+        });
+
+        Map<String, Object> started = service.action("user:1", "user:1", "inst-r8", "start", null);
+
+        // create 拒覆盖 + update 报缺失 → 回收站往返（delete → trash.list → fromTrash create）→ 启动成功
+        assertEquals("running", started.get("state"));
+        assertEquals(List.of("instance.start", "instance.create", "instance.update",
+                "instance.delete", "trash.list", "instance.create", "instance.start"), methods);
+        assertEquals("inst-r8-m1", restored.get("fromTrash"));
+    }
+
+    @Test
+    void startReportsRestoreFailureAfterTrashRoundTrip() {
+        onlineNode();
+        nodeWithTrashListCap();
+        instances.save(spec("inst-r9", "paper"));
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.start".equals(method)) {
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            if ("instance.create".equals(method)) {
+                if (payload.get("fromTrash") == null) {
+                    throw new McpanelBusinessException("instance.exists", 409, "实例已存在");
+                }
+                throw new McpanelBusinessException("node.error", 409, "磁盘空间不足");
+            }
+            if ("instance.update".equals(method)) {
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            if ("instance.delete".equals(method)) {
+                return Map.of("deleted", true, "trashed", true);
+            }
+            if ("trash.list".equals(method)) {
+                return Map.of("items", List.of(
+                        Map.of("trashId", "inst-r9-m1", "instanceId", "inst-r9")));
+            }
+            return Map.of();
+        });
+
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.action("user:1", "user:1", "inst-r9", "start", null));
+        // 回收站往返中途失败：保留 notFound 语义并附原因（数据停在节点回收站，可手动找回）
+        assertEquals(McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, error.code());
+        assertTrue(error.getMessage().contains("自动重建未完成"));
+        assertTrue(error.getMessage().contains("磁盘空间不足"));
+    }
+
+    @Test
+    void startSurfacesCreateFailureWhenRebuildCannotStart() {
+        onlineNode();
+        instances.save(spec("inst-r6", "paper"));
+        List<String> methods = new java.util.ArrayList<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            if ("instance.start".equals(method)) {
+                throw new McpanelBusinessException(
+                        McpanelBusinessException.CODE_INSTANCE_NOT_FOUND, 409,
+                        "instance.notFound：节点上不存在该实例的容器/数据。");
+            }
+            throw new McpanelBusinessException("node.unreachable", 502, "节点调用失败：连接被拒绝");
+        });
+
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.action("user:1", "user:1", "inst-r6", "start", null));
+        // create 本身失败（节点不可达）：如实上报该失败，不谎报 notFound，也不误试 update
+        assertEquals("node.unreachable", error.code());
+        assertEquals(List.of("instance.start", "instance.create"), methods);
+    }
+
     // ---------- 附加端口开放/回收 ----------
+
+    /** 让节点上报 trash.list 能力（回收站往返重建按能力门禁）。 */
+    private void nodeWithTrashListCap() {
+        nodes.save(nodes.findById("node-1").orElseThrow().withRuntime(
+                online.yudream.base.plugin.mcpanel.domain.enumerate.NodeStatus.ONLINE,
+                "0.7.5", "h", "sess", List.of("trash.list"), "27", null, 1L, 1L));
+    }
 
     /** 让节点上报 port.check 能力（探测门禁按节点 caps 判定）。 */
     private void nodeWithPortCheckCap() {

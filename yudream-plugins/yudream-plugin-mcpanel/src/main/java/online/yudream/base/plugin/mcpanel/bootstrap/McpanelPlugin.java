@@ -730,6 +730,13 @@ public class McpanelPlugin implements YuDreamPlugin {
                             return instanceService.files(scopeKey, instanceId, "write", args);
                         }
                     });
+            // 联动状态心跳：minecraft-server 用「面板确认实例在运行」兜底线路探测不可达
+            // （面板与节点同机的 NAT 回环），回推必须周期性刷新才持续有效；顺带回推
+            // server.properties 的 max-players，ping 不可达时人数仍能按「在线/上限」展示。
+            var linkHeartbeat = new online.yudream.base.plugin.mcpanel.application.service.MinecraftLinkHeartbeat(
+                    instanceRepository, link, serverConfigService);
+            linkHeartbeat.start();
+            context.onDispose(linkHeartbeat);
             // PROXY protocol 跟随接入方式：入口模式自动开、其它模式自动关（实例被直连时不能被 PROXY 头拒掉）。
             var proxyProtocolSync = new online.yudream.base.plugin.mcpanel.application.service.ProxyProtocolSyncService(
                     nodeId -> instanceService.allInstances().stream()
