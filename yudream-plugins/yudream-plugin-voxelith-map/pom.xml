@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>online.yudream.plugins</groupId>
+        <artifactId>yudream-admin-plugins</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>yudream-plugin-voxelith-map</artifactId>
+    <version>2.1.71</version>
+    <name>yudream-plugin-voxelith-map</name>
+    <description>基于 Voxelith 渲染核心的 Minecraft 世界地图插件</description>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- 前端 remote 产物随插件打包：META-INF/yudream-plugin/frontend/voxelith-map/** -->
+            <resource>
+                <directory>../../yudream-frontend/packages/plugin-voxelith-map/dist</directory>
+                <targetPath>META-INF/yudream-plugin/frontend/voxelith-map</targetPath>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>online.yudream.base:yudream-plugin-spi</exclude>
+                                </excludes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>online.yudream.base</groupId>
+            <artifactId>yudream-plugin-spi</artifactId>
+        </dependency>
+        <!--
+          不声明 mcpanel 依赖：当前面板 0.22.6 尚未发布实例文件契约，地图插件若引用其类型会依赖
+          未发布版本。运行时先 dependencyAvailable("mcpanel")，再按稳定类名反射查找契约；
+          面板没有契约时自动退回浏览器搬运，插件主体不受影响（plugin.yml 里仍是 softdepend）。
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

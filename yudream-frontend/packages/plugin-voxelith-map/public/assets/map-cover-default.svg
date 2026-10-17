@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="暂无封面">
+  <rect width="1280" height="720" fill="#0b0f1a"/>
+  <g opacity="0.14" stroke="#7d8aa5" stroke-width="1">
+    <path d="M0 180H1280M0 360H1280M0 540H1280M320 0V720M640 0V720M960 0V720"/>
+  </g>
+  <g transform="translate(640 340)">
+    <path d="M-56 -18 L0 -46 L56 -18 L0 10 Z" fill="none" stroke="#7d8aa5" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M-56 -18 V26 L0 54 V10 Z" fill="none" stroke="#7d8aa5" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M56 -18 V26 L0 54" fill="none" stroke="#7d8aa5" stroke-width="6" stroke-linejoin="round"/>
+  </g>
+  <text x="640" y="452" text-anchor="middle" font-family="'PingFang SC','Microsoft YaHei',sans-serif" font-size="34" fill="#9aa7c1">暂无封面</text>
+</svg>

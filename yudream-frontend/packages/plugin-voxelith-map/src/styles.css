@@ -1,0 +1,1315 @@
+/**
+ * Voxelith 地图插件样式。
+ * 使用宿主（@yudream/components）提供的 CSS 变量，自动适配浅色 / 深色主题：
+ *   --color-bg-1/2/3   背景层级
+ *   --color-fill-1/2/3 填充层级（卡片 / 输入框等）
+ *   --color-border-1/2 边框
+ *   --color-text-1/2   主 / 次文字
+ *   --color-primary     主题色
+ * 变量不存在时回退到与默认浅色主题接近的取值。
+ */
+
+.voxelith-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* 宿主公开站点页把插件根节点放进 column-flex 容器（.plugin-site-page），
+     纯 height:100% 在那里解析成 0（画布 absolute 悬空 + overflow:hidden → 全黑）。
+     补 flex 自适应：站点页吃满剩余空间；普通块级父容器（管理页）两行都不碍事。 */
+  flex: none;
+  /* 地图展示区独立：高度 = 视口 − 主题顶部页签 − 主题底部页签（运行时量测回填），
+     不被页签压缩、也不会把页脚顶出屏幕；480px 为可用性兜底 */
+  height: calc(100vh - var(--voxelith-top-offset, 64px) - var(--voxelith-bottom-offset, 0px));
+  min-height: 480px;
+  overflow: hidden;
+  /* 预留宿主主题页签位置：默认值仅为兜底，实际由运行时量测回填 */
+  --voxelith-top-offset: 64px;
+  --voxelith-bottom-offset: 0px;
+  background: var(--color-bg-1, #f5f7fa);
+  color: var(--color-text-1, #1f2329);
+}
+
+/* 全屏展示：根节点自身即全屏元素，铺满整屏（偏移已由 applyChromeOffsets 归零）。
+   480px 的可用性兜底在矮屏全屏下会顶出视口，这里必须 reset。 */
+.voxelith-viewer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+}
+
+.voxelith-viewer:fullscreen::backdrop {
+  background: #000;
+}
+
+/* 全屏下偏移归零，菜单按钮会贴住屏幕边缘：补一点内缩（不改 var，避免影响展示区高度） */
+.voxelith-viewer:fullscreen .voxelith-menu-toggle-row {
+  transform: translateY(8px);
+}
+
+/* 菜单显隐按钮：位于菜单（功能条）正上方，与菜单同宽 */
+.voxelith-menu-toggle-row {
+  position: absolute;
+  top: var(--voxelith-top-offset, 64px);
+  left: 12px;
+  width: 46px;
+  z-index: 31;
+}
+
+.voxelith-menu-toggle {
+  width: 100%;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  color: var(--color-text-1, #1f2329);
+  cursor: pointer;
+}
+
+/* 菜单右侧窗口区：地图切换 / 设置 / 标注图层。
+   改为**自然堆叠**（flex 列 + 8px 间距）：只展开的窗口占位，总高度＝各窗口高度之和。
+   原先用固定槽位（胶囊 0-48 / 设置 60-260 / 图层 272 起）是为了「开关一个不移动另一个」，
+   但会为未展开的窗口留出整段空白，单独打开图层时窗口还悬在 272px 之下。
+   位置稳定性改由「设置与图层互斥」保证（见 Viewer 的 toggleSettingsPanel/toggleLayersPanel）：
+   同时只可能有一个大窗口，自然堆叠就不会有挤压跳动。 */
+.voxelith-menu-panels {
+  position: absolute;
+  top: calc(var(--voxelith-top-offset, 64px) + 46px);
+  left: 78px;
+  width: 300px;
+  z-index: 30;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voxelith-menu-panels > * {
+  pointer-events: auto;
+  /* 静态定位：各自的 top 值不再参与布局（槽位已废弃） */
+  position: static;
+  width: 100%;
+}
+
+/* 地图切换胶囊（窗口区第一行，由功能条第 1 键控制显隐）：选择框占满且垂直居中 */
+.voxelith-map-switch {
+  height: 44px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+}
+
+.voxelith-map-switch-select,
+.voxelith-map-switch .arco-select-view,
+.voxelith-map-switch-title {
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   真正的 2D 地图（LOD 航拍图集，纯图片）：覆盖三维画布，z-index 低于侧栏(31)与窗口区(30)，
+   菜单收起后整面都是地图；全屏态同样适用（inset 相对 viewer 根元素）。
+--------------------------------------------------------------------------- */
+.voxelith-map2d {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--color-fill-1, rgba(0, 0, 0, 0.04));
+  overflow: hidden;
+}
+
+/* 视口（承载指针交互）与图集图片：平移/缩放作用在 img 的 transform 上 */
+.voxelith-map2d-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* 取点态十字、拖拽态抓取、默认箭头 */
+  cursor: crosshair;
+}
+
+/* 拖拽中：抓取 */
+.voxelith-map2d-viewport.voxelith-map2d-panning {
+  cursor: grabbing;
+}
+
+/* 非取点态：默认箭头（拖拽平移，不取点） */
+.voxelith-map2d-viewport:not(.voxelith-map2d-crosshair):not(.voxelith-map2d-panning) {
+  cursor: grab;
+}
+
+.voxelith-map2d-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  transform-origin: 0 0;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* 1px = 1 方块的栅格：缩放时保持方块边缘清晰，不插值发糊 */
+  image-rendering: pixelated;
+  /* 宿主全局样式里有 `img, svg, canvas, video { max-width: 100% }`，会把这张
+     绝对定位、靠 transform 缩放的图按视口宽度夹住。地图坐标换算（取点/框选/标注）
+     全部以图片原始像素为基准，图片布局盒一旦被夹，框选就会整体错位。
+     图片比视口宽的大地图会直接命中，故显式恢复原始尺寸（类选择器优先级高于元素选择器）。 */
+  max-width: none;
+  max-height: none;
+}
+
+.voxelith-map2d-status {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+  white-space: nowrap;
+}
+
+.voxelith-map2d-hud {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.85));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  font-size: 12px;
+  color: var(--color-text-2, #646a73);
+  pointer-events: none;
+  white-space: nowrap;
+  /* 对齐说明是第二行长文案：给个上限宽度，别让它把胶囊撑出视口 */
+  max-width: min(640px, 92vw);
+  text-align: center;
+}
+
+/* 底图对齐说明：只在浏览器缩放比非 25% 整数倍时出现（见 Viewer 的 subPixelCaveat） */
+.voxelith-map2d-hud-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-3, #8f959e);
+  white-space: normal;
+}
+
+/* 2D 地图上的范围多边形预览与 POI 标注点（纯展示，不拦截拖拽） */
+.voxelith-map2d-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.voxelith-map2d-range-line {
+  fill: rgba(225, 60, 60, 0.15);
+  stroke: #e13c3c;
+  stroke-width: 2;
+}
+
+/* 闭合边提示（虚线）：告诉用户多边形会怎么合上 */
+.voxelith-map2d-range-close {
+  stroke: #e13c3c;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.7;
+}
+
+/* 已选角的编号徽标；最后一个（当前点）高亮并轻微脉冲 */
+.voxelith-map2d-vertex {
+  position: absolute;
+  z-index: 3;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e13c3c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.voxelith-map2d-vertex-current {
+  background: #fff;
+  color: #e13c3c;
+  border: 2px solid #e13c3c;
+  animation: voxelith-vertex-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes voxelith-vertex-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 60, 60, 0.55); }
+  50% { box-shadow: 0 0 0 7px rgba(225, 60, 60, 0); }
+}
+
+/* 方块框选：贴着方块边界的整格高亮（预选＝光标格，已选＝已取点格） */
+.voxelith-map2d-cell {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 预选（光标所在格）：高亮蓝 + 白色内描边，在任意底图上都看得清 */
+.voxelith-map2d-cell-hover {
+  border: 2px solid rgba(25, 118, 210, 0.95);
+  background: rgba(25, 118, 210, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+}
+
+/* 已选（已取点所在格）：红色整格 */
+.voxelith-map2d-cell-selected {
+  border: 2px solid #e13c3c;
+  background: rgba(225, 60, 60, 0.22);
+}
+
+/* 当前格（最后取的那个）：反色描边，与其它已选格区分 */
+.voxelith-map2d-cell-current {
+  border-color: #fff;
+  background: rgba(225, 60, 60, 0.45);
+  box-shadow: 0 0 0 2px #e13c3c;
+}
+
+/* 范围取点的橡皮筋虚线：从最后一个角拉到光标，预览将要新增的边 */
+.voxelith-map2d-range-rubber {
+  stroke: #e13c3c;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  opacity: 0.85;
+}
+
+/* 取点实时坐标读数：贴在光标右下，不挡落点 */
+.voxelith-map2d-readout {
+  position: absolute;
+  z-index: 4;
+  margin: 14px 0 0 12px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(31, 35, 41, 0.86);
+  color: #fff;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 取点状态面板：当前模式 + 已选点数 + 取消键，标注反馈的主入口 */
+.voxelith-map2d-picking {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(31, 35, 41, 0.9);
+  color: #fff;
+  font-size: 12.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.voxelith-map2d-picking b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.voxelith-map2d-picking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5252;
+  animation: voxelith-vertex-pulse 1.1s ease-in-out infinite;
+}
+
+.voxelith-map2d-picking-key {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 11.5px;
+}
+
+.voxelith-map2d-marker {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -18px 0 0 -9px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  color: #e13c3c;
+  font-size: 18px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.voxelith-map2d-log {
+
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: 60%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.88));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--color-text-2, #646a73);
+  pointer-events: none;
+}
+
+.voxelith-map2d-log {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: 60%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.88));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--color-text-2, #646a73);
+  pointer-events: none;
+}
+
+/* 只有一个维度时的「切换维度」行：没有可切的，退回展示当前维度名 */
+.voxelith-dimension-single {
+  font-size: 13px;
+  color: var(--color-text-2, #646a73);
+}
+
+/* 查看页原生下拉（地图切换 / 切换维度）：不用组件库的 portal 下拉，
+   避免弹层 aria-hidden 与焦点保留的可访问性冲突；样式与胶囊/面板协调 */
+.voxelith-select {
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.14));
+  background: var(--color-bg-1, #fff);
+  color: var(--color-text-1, #1f2329);
+  font-size: 13px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.voxelith-map-switch-title {
+  display: block;
+  padding: 2px 6px;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 左侧纵向功能条：图标按钮自上而下排列，不与主题菜单/右侧信息重叠 */
+.voxelith-sidebar {
+  position: absolute;
+  top: calc(var(--voxelith-top-offset, 64px) + 46px);
+  left: 12px;
+  width: 58px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 30;
+  /* 折叠后高度可控；多组同开且矮屏放不下时才在胶囊内滚动（兜底，正常不需要） */
+  max-height: calc(100% - var(--voxelith-top-offset, 64px) - 58px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-2, rgba(0, 0, 0, 0.12)) transparent;
+}
+
+/* 折叠组头：小按钮 + 展开箭头；组内有工具生效时右上角亮一个小点 */
+.voxelith-side-group {
+  position: relative;
+  width: 100%;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-fill-3, rgba(0, 0, 0, 0.05));
+  color: var(--color-text-2, #646a73);
+  cursor: pointer;
+  padding: 0;
+}
+
+.voxelith-side-group:hover {
+  color: var(--color-text-1, #1f2329);
+  background: var(--color-fill-2, rgba(0, 0, 0, 0.08));
+}
+
+.voxelith-side-group-icon {
+  font-size: 15px;
+}
+
+.voxelith-side-caret {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.voxelith-side-group-active::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary, #3b82f6);
+}
+
+.voxelith-side-btn {
+  width: 44px;
+  height: 34px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voxelith-side-active {
+  background: var(--color-primary, #2f6fd0) !important;
+  color: #fff !important;
+}
+
+.voxelith-side-divider {
+  height: 1px;
+  margin: 2px 4px;
+  background: var(--color-border-2, rgba(0, 0, 0, 0.08));
+}
+
+/* HUD 信息：地图区右下角（地图区独立占满页签之间后，与固定等效且不压主题底栏） */
+.voxelith-hud {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.voxelith-hud-pick {
+  color: var(--color-primary, #2f6fd0);
+  font-weight: 600;
+}
+
+.voxelith-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 设置面板：窗口区中部，弹性占满剩余高度（内容内部滚动） */
+.voxelith-settings {
+  /* 高度跟着内容走、超过上限才内部滚动：固定 200px 会在项少时留一大块空白，
+     项多时（切维度 + 切片的六行）把内容全挤进滚动区，看起来像「组件叠在一起」 */
+  height: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+/* 每行两列：标签按内容宽、控件占满剩余宽度。
+   之前用 flex + space-between，控件过宽时会压到标签上（组件重叠的直接来源） */
+.voxelith-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+/* 标签不换行（「显示图层」等两字以上标签此前会被挤成竖排），让右侧控件收缩 */
+.voxelith-row > span {
+  white-space: nowrap;
+}
+
+.voxelith-row > *:not(span) {
+  min-width: 0;
+  max-width: 100%;
+  justify-self: end;
+}
+
+/* 下拉与数字输入占满控件列：短控件（开关）保持自身尺寸，不拉伸 */
+.voxelith-row > :is(select, input, .arco-select, .arco-select-view, .voxelith-dimension-single) {
+  width: 100%;
+}
+
+.voxelith-slider {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.voxelith-slider > *:not(span) {
+  justify-self: stretch;
+}
+
+/* 坐标传送弹窗：三格坐标 + 说明，格与格、行与行留足间距 */
+.voxelith-teleport-form {
+  display: grid;
+  gap: 12px;
+}
+
+.voxelith-teleport-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.voxelith-teleport-cell {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.voxelith-teleport-label {
+  font-size: 12px;
+  color: var(--color-text-2, #646a73);
+}
+
+/* 数字输入必须能收缩：默认最小宽度会撑破三列网格，三格就会互相压住 */
+.voxelith-teleport-input,
+.voxelith-teleport-input .arco-input-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.voxelith-teleport-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-2, #646a73);
+}
+
+.voxelith-teleport-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 标注图层面板 */
+/* 标注图层窗口：窗口区底部 */
+/* 标注图层窗口（槽位 272 起） */
+.voxelith-layers {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.voxelith-layers-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-2, #646a73);
+}
+
+.voxelith-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.voxelith-layer-group {
+  margin-bottom: 6px;
+}
+
+.voxelith-layer-group > .voxelith-layer-item {
+  margin-bottom: 4px;
+}
+
+/* 图层面板内的单条标注：点击名称飞到标注，管理员可重命名/删除 */
+.voxelith-marker-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 2px 0 2px 22px;
+  font-size: 12.5px;
+}
+
+.voxelith-marker-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-1, #1f2329);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voxelith-marker-name:hover {
+  color: var(--color-primary, #2f6fd0);
+}
+
+.voxelith-marker-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-2, #646a73);
+  cursor: pointer;
+}
+
+.voxelith-marker-action:hover {
+  color: var(--color-primary, #2f6fd0);
+}
+
+.voxelith-layer-label b {
+  color: var(--color-text-2, #646a73);
+  font-weight: 600;
+}
+
+.voxelith-layer-empty {
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+}
+
+.voxelith-layer-hint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--color-text-2, #646a73);
+}
+
+/* 覆盖层（加载 / 错误 / 空） */
+.voxelith-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--color-text-2, #646a73);
+  background: var(--color-bg-1, rgba(245, 247, 250, 0.6));
+}
+
+.voxelith-overlay.voxelith-error {
+  color: var(--color-error, #d83931);
+}
+
+.voxelith-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+}
+
+/* 详情页嵌入的 3D 预览容器 */
+.voxelith-detail-canvas {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b0f1a;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+}
+
+/* 预览底图与框选 —— 参考 voxelith 官方预览的深色画布风格 */
+.voxelith-preview-panel {
+  position: relative;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0b0f1a;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+}
+
+/* 缩放视口：放大后出滚动条平移，不把页面撑开 */
+.voxelith-preview-viewport {
+  max-height: 480px;
+  overflow: auto;
+  border-radius: 4px;
+}
+
+.voxelith-preview-stage {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+  line-height: 0;
+}
+
+.voxelith-preview-img {
+  display: block;
+  /* 底图是原尺寸俯视 PNG，动辄上千像素：默认等比缩到面板内；放大后由内联宽度接管，
+     配合视口滚动平移。框选/网格坐标按图片实际渲染矩形换算，不受缩放影响 */
+  max-width: 100%;
+  max-height: 480px;
+  width: auto;
+  height: auto;
+  cursor: crosshair;
+}
+
+.voxelith-preview-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.voxelith-preview-grid line {
+  stroke: rgba(125, 138, 165, 0.35);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 区块(16)网格比 region 网格更细密，用更淡的虚线区分层级 */
+.voxelith-preview-grid.voxelith-chunk line {
+  stroke: rgba(125, 138, 165, 0.22);
+  stroke-dasharray: 4 4;
+}
+
+.voxelith-preview-grid text {
+  fill: rgba(154, 167, 193, 0.9);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.voxelith-preview-selection {
+  position: absolute;
+  border: 2px solid var(--color-primary, #2f6fd0);
+  background: rgba(47, 111, 208, 0.2);
+  pointer-events: none;
+}
+
+/* 选框四角/四边的拖拽把手（盖在选框边线上，负责改框；移动事件在视口上统一接） */
+.voxelith-preview-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid var(--color-primary, #2f6fd0);
+  border-radius: 2px;
+  cursor: nwse-resize;
+}
+
+.voxelith-handle-n { cursor: ns-resize; }
+.voxelith-handle-s { cursor: ns-resize; }
+.voxelith-handle-e { cursor: ew-resize; }
+.voxelith-handle-w { cursor: ew-resize; }
+.voxelith-handle-ne,
+.voxelith-handle-sw { cursor: nesw-resize; }
+.voxelith-handle-nw,
+.voxelith-handle-se { cursor: nwse-resize; }
+
+.voxelith-preview-readout {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(11, 15, 26, 0.72);
+  color: #c7d0e0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.voxelith-preview-scale {
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9aa7c1;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.voxelith-preview-scale-bar {
+  display: block;
+  height: 5px;
+  border-left: 1px solid #9aa7c1;
+  border-right: 1px solid #9aa7c1;
+  border-bottom: 1px solid #9aa7c1;
+}
+
+/* 详情页的全景图预览 */
+.voxelith-panorama-img {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  background: #0b0f1a;
+}
+
+/* ------------------------------------------------------------------
+ * 折叠区块（CollapsibleSection）
+ * 此前这些 class 从未定义过样式，折叠头渲染成浏览器默认的裸按钮，
+ * 视觉上与正文混作一团 —— 这里补齐卡片化外观与展开动画。
+ * ---------------------------------------------------------------- */
+.voxelith-collapse {
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  background: var(--color-fill-1, #ffffff);
+  overflow: hidden;
+}
+
+.voxelith-collapse-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1, #1f2329);
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.voxelith-collapse-head:hover {
+  background: var(--color-fill-2, rgba(0, 0, 0, 0.04));
+}
+
+.voxelith-collapse-head:focus-visible {
+  outline: 2px solid var(--color-primary, #2f6fd0);
+  outline-offset: -2px;
+}
+
+.voxelith-collapse-title {
+  min-width: 0;
+}
+
+.voxelith-collapse-subtitle {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-2, #646a73);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voxelith-collapse-body {
+  padding: 12px;
+  border-top: 1px solid var(--color-border-1, rgba(0, 0, 0, 0.06));
+}
+
+/* 展开动画（只做 enter：v-if 卸载式折叠的 leave 高度动画得不偿失） */
+.voxelith-collapse-enter-active {
+  animation: voxelith-collapse-in 0.18s ease-out;
+}
+
+@keyframes voxelith-collapse-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * 公开地图页：沉浸模式与按键自定义
+ * ---------------------------------------------------------------- */
+
+/* UI 呼出/隐藏的轻提示（首次进入时告知按键） */
+.voxelith-hud-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+  background: var(--color-fill-2, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  animation: voxelith-hud-hint-fade 6s ease forwards;
+}
+
+@keyframes voxelith-hud-hint-fade {
+  0%, 70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 按键设置区 */
+/* 按键设置（独立弹窗内）：单列「动作 + 键位」行，宽度充足不折行 */
+/* 按键设置弹窗：动作表按两列排，行数减半（单列时十几项要滚一屏）。
+   标题与「恢复默认」跨整行；窄屏回退单列（见文件末尾的媒体查询）。 */
+.voxelith-keybinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 18px;
+}
+
+.voxelith-keybinds-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+}
+
+.voxelith-keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--color-text-2, #646a73);
+}
+
+.voxelith-keybind-key {
+  width: 96px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-2, rgba(0, 0, 0, 0.08));
+  background: var(--color-fill-1, #ffffff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--color-text-1, #1f2329);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voxelith-keybind-key.listening {
+  border-color: var(--color-primary, #2f6fd0);
+  color: var(--color-primary, #2f6fd0);
+}
+
+.voxelith-keybind-key.conflict {
+  border-color: var(--color-error, #d83931);
+  color: var(--color-error, #d83931);
+}
+
+.voxelith-keybind-hint {
+  font-size: 11.5px;
+  color: var(--color-text-2, #646a73);
+}
+
+/* 窄屏：窗口区跟随功能条收窄，保证右缘不溢出 */
+@media (max-width: 560px) {
+  .voxelith-menu-panels {
+    left: 76px;
+    width: auto;
+    right: 12px;
+  }
+
+  /* 窗口宽由容器决定（面板已改为自然堆叠，不再各自写死宽度） */
+  .voxelith-menu-panels > * {
+    width: auto;
+  }
+
+  /* 按键设置弹窗回退单列：两列在窄屏上会把标签挤成省略号 */
+  .voxelith-keybinds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   任务日志渲染（管理页）
+   日志按原始行展示：长行在文本框内部横向滚动，容器宽度不变、页面不跟着左右滑。
+   此前这两个类名只在模板里出现、样式表里没有定义，<pre> 默认 white-space:pre 且无
+   overflow，长行（路径/堆栈）会直接溢出抽屉冲出窗口——这里把 1.0.5x 的约束补回来。
+   --------------------------------------------------------------------------- */
+
+.voxelith-log-pre {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* 不折行：读堆栈与路径时不被打断，横向由框内滚动承接 */
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 抽屉宽度钳在视口内并适当加宽（与 1.0.5x 的设计一致）：
+   长日志既不能把抽屉撑破视口，也不能让整页出现横向滚动条 */
+.voxelith-log-drawer {
+  width: min(880px, 94vw) !important;
+  max-width: min(880px, 94vw);
+}
+
+/* ---------------------------------------------------------------------------
+   不定态进度条：节点打包/上传这类量不出比例的阶段
+   （FaProgress 的进度头靠 translateX 表达比例，0 值等于空槽，表达不了「进行中」）
+   --------------------------------------------------------------------------- */
+
+.voxelith-progress-indeterminate {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--color-fill-3, rgba(0, 0, 0, 0.08));
+}
+
+.voxelith-progress-indeterminate > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  border-radius: 9999px;
+  background: var(--color-primary-6, #165dff);
+  animation: voxelith-progress-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes voxelith-progress-sweep {
+  0% {
+    left: -35%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   屏幕中心准星：非俯视视角取点/点位取点时，指示当前对准的方块
+   （俯视是点击取点，不看视线，因此由 aimNeeded() 排除）
+   --------------------------------------------------------------------------- */
+
+.voxelith-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.voxelith-crosshair-h,
+.voxelith-crosshair-v {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+}
+
+.voxelith-crosshair-h {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.voxelith-crosshair-v {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+/* 取点提示里的「对准方块」坐标 */
+.voxelith-hud-aim {
+  margin-left: 8px;
+  opacity: 0.85;
+}
+
+/* 坐标传送的旧内嵌布局已改成独立弹窗（见 .voxelith-teleport-form），这里不再保留旧规则 */
+
+/* ========================================================================
+   两种查看形态 + 沉浸模式
+   ======================================================================== */
+
+/* 功能条按钮的短标签：纵向形态只显示图标（标签隐藏），横向形态才显示成「图标 + 文字」 */
+.voxelith-side-label {
+  display: none;
+}
+
+/* 平台查看页：宿主控制台的页签条（.admin-topbar：页签 + 工具条）在本页多余——地图已占满视口，
+   它只剩一条写着页面标题的空白带。宿主目前把带组件的插件路由统一包进控制台布局，
+   路由的 fullscreen 只被站点页消费，没有"平台插件页不套布局"的能力，故沿用适配层：
+   类名对不上（宿主改结构/换主题）时只是页签条留着，不会出错。
+   类由 Viewer 在平台查看页挂上、离开页面摘掉。 */
+html.voxelith-fullbleed .admin-topbar {
+  display: none !important;
+}
+
+/* 平台查看页（/platform/…）：宿主不套页眉页脚，功能条改成顶部**居中**的横向一条。
+   偏移变量在该形态下由 viewer 归零；此处把纵向形态的绝对定位整体换成横向排布。 */
+.voxelith-viewer--topmenu .voxelith-menu-toggle-row {
+  /* 横向形态把「隐藏界面」并进功能条尾部（见 .voxelith-side-btn 的沉浸按钮），独立按钮不再需要 */
+  display: none;
+}
+
+.voxelith-viewer--topmenu .voxelith-sidebar {
+  top: 12px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: auto;
+  /* 内容自适应宽度、整条居中；窄屏兜底：不超出视口，横向可滚 */
+  max-width: calc(100% - 24px);
+  height: 46px;
+  max-height: none;
+  padding: 6px 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 横向形态下按钮变宽：图标 + 短标签 */
+.voxelith-viewer--topmenu .voxelith-side-btn {
+  width: auto;
+  min-width: 0;
+  padding: 0 8px !important;
+  gap: 5px;
+}
+
+.voxelith-viewer--topmenu .voxelith-side-label {
+  display: inline;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 分隔线立起来；分组头改为「图标 + 文字 + 箭头」的自适应宽度
+   （纵向靠 width: 100% 撑满，横向里 100% 会吃掉整条） */
+.voxelith-viewer--topmenu .voxelith-side-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  flex: none;
+}
+
+.voxelith-viewer--topmenu .voxelith-side-group {
+  width: auto;
+  flex: none;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+/* 窗口区（地图切换 / 设置 / 标注图层）落到功能条下方，与功能条同轴居中 */
+.voxelith-viewer--topmenu .voxelith-menu-panels {
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 占满视口的两种形态：沉浸模式（`\`）与平台查看页。
+   根节点固定铺满——不依赖宿主布局的 padding / 高度 / 顶部栏占位，就不会出现
+   "页眉没了但地图没铺满、页面还多一条滚动条"。
+   取点相关的东西在沉浸模式不收——准星、取点状态面板、方块高亮都是地图交互本身，收掉就没法标注。
+   z-index 取 1000：盖住宿主页签条（页签条本身已隐藏），又低于弹层（传送/标注弹窗），弹窗正常显示。 */
+.voxelith-viewer--immersive,
+.voxelith-viewer--topmenu {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  min-height: 0;
+  z-index: 1000;
+}
+
+.voxelith-viewer--immersive .voxelith-menu-toggle-row,
+.voxelith-viewer--immersive .voxelith-sidebar,
+.voxelith-viewer--immersive .voxelith-menu-panels,
+.voxelith-viewer--immersive .voxelith-hud,
+.voxelith-viewer--immersive .voxelith-map2d-hud,
+.voxelith-viewer--immersive .voxelith-badge {
+  display: none !important;
+}
+
+/* 站点页沉浸模式：宿主页头页脚一起退场。
+   只收**页头/页脚元素本身**：宿主默认 chrome 是 .site-layout-header / .site-layout-footer，
+   主题自管 chrome（neco-pixel）时是 .nav-container / .footer-area。
+   切勿隐藏 .site-chrome / .neco-chrome —— 那是含本页整块内容的外层容器，会把地图一起藏掉
+   （2.1.66 的缺陷就是这么来的）。类名对不上只是页眉留着，不会出错。 */
+html.voxelith-immersive .site-layout-header,
+html.voxelith-immersive .site-layout-header__mobile,
+html.voxelith-immersive .site-layout-footer,
+html.voxelith-immersive .nav-container,
+html.voxelith-immersive .footer-area {
+  display: none !important;
+}

@@ -1,0 +1,141 @@
+/**
+ * 问题反馈插件样式：只放插件级设计令牌与少量跨页面共用排版。
+ *
+ * <p>令牌统一挂在 :root（--fb- 前缀），避免污染宿主页面，也保证详情页、表格与弹窗拿到同一套间距。
+ */
+:root {
+  --fb-sp-1: 4px;
+  --fb-sp-2: 6px;
+  --fb-sp-3: 8px;
+  --fb-sp-4: 12px;
+  --fb-sp-5: 16px;
+  --fb-sp-6: 20px;
+  --fb-sp-7: 24px;
+
+  --fb-radius: 10px;
+  --fb-radius-sm: 8px;
+  --fb-radius-pill: 999px;
+
+  --fb-border: var(--color-border-2, #e5e6eb);
+  --fb-surface: var(--color-bg-2, #ffffff);
+  --fb-surface-muted: var(--color-fill-1, #f7f8fa);
+  --fb-text-1: var(--color-text-1, #1d2129);
+  --fb-text-2: var(--color-text-2, #4e5969);
+  --fb-text-3: var(--color-text-3, #86909c);
+  --fb-text-4: var(--color-text-4, #c9cdd4);
+}
+
+.fb-page {
+  min-width: 0;
+}
+
+.fb-muted {
+  color: var(--fb-text-3);
+  font-size: 12px;
+}
+
+.fb-summary {
+  color: var(--fb-text-2);
+  font-size: 13px;
+}
+
+/* 反馈详情正文：保留用户输入的换行与空格，长单词不撑破容器 */
+.fb-body {
+  color: var(--fb-text-1);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fb-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fb-sp-3);
+  color: var(--fb-text-3);
+  font-size: 12px;
+}
+
+.fb-section-title {
+  color: var(--fb-text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/**
+ * 筛选栏：所有控件并成一组，按内容取自然宽度、按需换行。
+ *
+ * <p>用 flex 而不是 `repeat(auto-fit, minmax(200px, 1fr))` 的等宽网格：网格会先按容器宽度切好
+ * 固定的轨道，轨道数与控件数对不上时最后一条轨道就空着（看着就是「第一行没铺满」），
+ * 而且每个控件都被撑成等宽，读起来像一排表格列而不是一组筛选条件。flex 按顺序贪心填充，
+ * 不会出现预先切好的空格子。
+ *
+ * <p>行内剩余空间交给 `.fb-filters__keyword` 吸收，于是它所在的那一行总是铺满的，
+ * 本行最后一个控件也就自然落在右端。
+ *
+ * <p>三个按键（重置 / 查询 / 列筛选）是普通流内元素，不占任何一列：`margin-left: auto`
+ * 把本行剩余空间吃掉，于是它们钉在本行右端——「我的反馈」只有三个筛选控件，三键与它们同行；
+ * 管理页控件多，用 `.fb-filters__row` 显式断行，三键跟着落到第二行右端。
+ *
+ * <p>各控件给一个与内容相称的基准宽度（下拉对齐 YdSelect 触发器内置的 `w-[200px]`），
+ * 并允许横向收缩（配合 `min-width: 0`），窄屏不会溢出压住邻格。
+ */
+.fb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fb-sp-3);
+  width: 100%;
+}
+
+.fb-filters > *,
+.fb-filters__row > * {
+  min-width: 0;
+}
+
+/* 关键词框吸收行内剩余空间，保证它所在那一行铺满。 */
+.fb-filters__keyword {
+  flex: 1 1 260px;
+}
+
+/* 下拉与人员选择：与 YdSelect 内置触发器同宽，允许压缩。 */
+.fb-filters__select {
+  flex: 0 1 190px;
+}
+
+/* 日期区间要放下两个日期与分隔符，给宽一点。 */
+.fb-filters__range {
+  flex: 0 1 300px;
+}
+
+/**
+ * 显式断行：把「按处理人筛选」及其之后的控件收进第二行。
+ *
+ * <p>用容器而不是插一个 `height: 0` 的换行占位元素：占位元素自己也会占一条 flex 行，
+ * 上下各叠一次 row-gap，两行之间会凭空多出一倍行距；容器只占一条。
+ */
+.fb-filters__row {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fb-sp-3);
+}
+
+/* 动作组不占整行：`margin-left: auto` 吃掉本行剩余空间，钉在本行右端。 */
+.fb-filters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fb-sp-2);
+  margin-left: auto;
+}
+
+.fb-filters__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fb-sp-2);
+  color: var(--fb-text-2);
+  font-size: 12px;
+  white-space: nowrap;
+}

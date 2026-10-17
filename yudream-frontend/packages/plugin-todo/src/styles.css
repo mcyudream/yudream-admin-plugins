@@ -1,0 +1,347 @@
+/* 待办清单插件全局样式：插件级设计令牌（间距/圆角/语义色）与少量宿主无关的基础排版。 */
+
+/**
+ * 令牌统一放在 :root —— 主页卡片（Dashboard*Card）的根节点没有 .todo-plugin 祖先，
+ * 变量若只挂在 .todo-plugin 上，卡片里拿不到，最终只能散落成硬编码魔法数字。
+ * 全部以 --todo- 前缀命名，避免污染宿主页面。
+ */
+:root {
+  /* 间距阶梯：4px 基线。组件内外边距一律取自这里，不要另写魔法数字。 */
+  --todo-sp-1: 4px;
+  --todo-sp-2: 6px;
+  --todo-sp-3: 8px;
+  --todo-sp-4: 12px;
+  --todo-sp-5: 16px;
+  --todo-sp-6: 20px;
+  --todo-sp-7: 24px;
+  --todo-sp-8: 32px;
+
+  /* 语义化别名：卡片内外边距与列表项内边距 */
+  --todo-card-pad-x: var(--todo-sp-5);
+  --todo-card-pad-y: var(--todo-sp-4);
+  --todo-card-gap: var(--todo-sp-4);
+  --todo-item-pad-y: var(--todo-sp-2);
+  --todo-item-pad-x: var(--todo-sp-3);
+
+  /* 圆角：外层 > 内层 > 胶囊 */
+  --todo-radius: 10px;
+  --todo-radius-sm: 8px;
+  --todo-radius-pill: 999px;
+
+  /* 语义色（沿用中性色 token，不使用品牌色） */
+  --todo-border: 1px solid var(--color-border-2, rgb(229 230 235));
+  --todo-surface: var(--color-bg-2, #fff);
+  --todo-muted: var(--color-text-3, #86909c);
+  --todo-text: var(--color-text-1, #1d2129);
+  --todo-danger: rgb(var(--danger-6, 245 63 63));
+  --todo-warning: rgb(var(--warning-6, 255 125 0));
+  --todo-primary: var(--color-primary-6, #165dff);
+  --todo-success: rgb(var(--success-6, 0 180 42));
+}
+
+.todo-plugin {
+  --todo-gap: var(--todo-sp-4);
+  width: 100%;
+}
+
+/**
+ * 主页卡片高度链修复（关键）：
+ * 宿主把远程插件卡片包在一层 <div data-yudream-plugin="todo"> 里，这层没有任何高度约束，
+ * 也不是 flex 项，宿主 .dashboard-card__content 的 flex:1 高度链在它这里断掉——
+ * 卡片实测高度永远等于内容自然高度，栅格里把卡片拖高也不会跟着长（低→高不自适应的根因）。
+ * 这里把这一层恢复成纵向 flex 容器，让插件卡片根节点能吃满宿主栅格给的盒子高度。
+ * 选择器严格限定 todo 插件，不影响宿主自带卡片与其他插件。
+ */
+.dashboard-card > [data-yudream-plugin='todo'] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dashboard-card > [data-yudream-plugin='todo'] > .dashboard-card__content.todo-board {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+
+/* 卡片式容器：与宿主 dashboard-card__content 的 16px 左右留白保持一致 */
+.todo-plugin__card {
+  display: grid;
+  gap: var(--todo-card-gap);
+  align-content: start;
+  min-width: 0;
+  padding: var(--todo-card-pad-y) var(--todo-card-pad-x);
+  border: var(--todo-border);
+  border-radius: var(--todo-radius);
+  background: var(--todo-surface);
+}
+
+.todo-plugin__stat-strip {
+  display: grid;
+  gap: var(--todo-sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: var(--todo-sp-5);
+}
+
+@media (max-width: 640px) {
+  .todo-plugin__stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/**
+ * 统计卡：清单页与管理页共用。
+ * 作为 button 使用时是「快捷筛选」入口——点击即把列表切到对应范围，激活态用主色描边标出；
+ * 作为 div 使用时是纯展示卡（完成率、派发数等），内部可放进度条。
+ */
+.todo-stat {
+  display: grid;
+  gap: var(--todo-sp-1);
+  padding: var(--todo-sp-4) var(--todo-sp-5);
+  border: var(--todo-border);
+  border-radius: var(--todo-radius);
+  background: var(--todo-surface);
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+button.todo-stat {
+  cursor: pointer;
+}
+
+button.todo-stat:hover {
+  border-color: rgba(22, 93, 255, 0.35);
+  box-shadow: 0 2px 8px rgb(29 33 41 / 0.06);
+}
+
+button.todo-stat:focus-visible {
+  outline: 2px solid rgba(22, 93, 255, 0.45);
+  outline-offset: 1px;
+}
+
+/* 快捷筛选激活态：主色描边 + 淡主色底，与当前列表范围一一对应。 */
+.todo-stat.is-active {
+  border-color: rgba(22, 93, 255, 0.55);
+  background: rgba(22, 93, 255, 0.05);
+}
+
+.todo-stat__head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--todo-sp-2);
+  color: var(--color-text-3, #86909c);
+  font-size: 12px;
+}
+
+/* 统计卡头部的图标：跟随文字色相，尺寸略大于文字便于扫读。 */
+.todo-stat__icon {
+  font-size: 14px;
+}
+
+/* 语义色圆点：与主页卡片、优先级标签共用同一套色相。 */
+.todo-stat__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--todo-primary);
+}
+
+.todo-stat__dot.is-warning {
+  background: var(--todo-warning);
+}
+
+.todo-stat__dot.is-danger {
+  background: var(--todo-danger);
+}
+
+.todo-stat__dot.is-success {
+  background: var(--todo-success);
+}
+
+.todo-stat strong {
+  color: var(--color-text-1, #1d2129);
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.todo-stat__progress {
+  margin-top: var(--todo-sp-1);
+}
+
+/* 「已完成」统计卡进度条用成功色（绿色）而不是主题色。 */
+.todo-plugin .todo-stat__progress[data-slot='progress'] {
+  background-color: rgba(0, 180, 42, 0.15);
+}
+
+.todo-plugin .todo-stat__progress [data-slot='progress-indicator'] {
+  background-color: rgb(var(--success-6));
+}
+
+/* 「进行中」统计数字与圆点同色（warning），不再用主题蓝。 */
+.todo-stat.is-pending strong {
+  color: var(--todo-warning);
+}
+
+.todo-stat.is-overdue strong {
+  color: rgb(var(--danger-6));
+}
+
+.todo-stat.is-done strong {
+  color: rgb(var(--success-6));
+}
+
+/**
+ * 筛选行：整排放在 YdTable 的 #toolbar 插槽里。
+ * 宿主把列设置（列筛选）按钮渲染在该插槽**同一行的末尾**，所以只要本行不撑爆整行，
+ * 「查询」与「列设置」就并排显示，不必再多占一行。
+ * 用 flex 而不是固定栅格：窄屏 / 卡片变窄时自然换行，不会因为固定轨道把触发器挤出容器。
+ */
+.todo-plugin__filters {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--todo-sp-3);
+  width: 100%;
+  min-width: 0;
+}
+
+.todo-plugin__filters > * {
+  min-width: 0;
+}
+
+/* 关键词框：可伸缩但有上限，宽屏上不会被拉得过长。 */
+.todo-plugin__filters-keyword {
+  flex: 1 1 200px;
+  max-width: 300px;
+}
+
+/* 下拉框：跟随轨道伸缩（YdSelect 触发器内置 w-[200px]，flex-basis 会覆盖它）。 */
+.todo-plugin__filters-select {
+  flex: 0 1 136px;
+}
+
+/* 人员选择器：与下拉框同宽（UserPicker 根节点即 flex 项，内部按钮已是 width:100%）。 */
+.todo-plugin__filters-picker {
+  flex: 0 1 176px;
+}
+
+.todo-plugin__filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--todo-sp-3);
+  justify-content: flex-end;
+  /* 把按钮推到本行末尾，紧邻列设置按钮。 */
+  margin-left: auto;
+}
+
+.todo-plugin__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--todo-sp-3);
+}
+
+.todo-plugin__table-scroll {
+  border-radius: var(--todo-radius);
+}
+
+/**
+ * 树型表格里的小任务子行：整行底色弱化以区分父任务行。
+ * 规则写在这里而不是页面内，是因为行元素由 YdTable 渲染，页面的 scoped 样式选不到它。
+ */
+.todo-plugin .todo-subtask-row > td {
+  background: var(--color-fill-1, #f7f8fa);
+}
+
+/* 子行「跟随任务」占位：弱化灰字，表示该列继承父任务设置。 */
+.todo-plugin .todo-subtask-follow {
+  color: var(--color-text-4, #c9cdd4);
+  font-size: 12px;
+}
+
+/* 子行不是主要操作对象：整行弱化——标题降字号，空列直接留白，不抢焦点。 */
+.todo-plugin .todo-subtask-row .todo-title-cell__title {
+  color: var(--color-text-2, #4e5969);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.todo-plugin .todo-subtask-row .todo-assignee-chip {
+  height: 18px;
+  font-size: 10px;
+}
+
+.todo-plugin__form {
+  display: grid;
+  gap: var(--todo-sp-5);
+}
+
+.todo-plugin__field {
+  display: grid;
+  gap: var(--todo-sp-2);
+}
+
+.todo-plugin__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--todo-sp-3);
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .todo-plugin__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 表单控件统一铺满所在列/整行：编辑弹窗不允许出现半宽交互框（可铺满或合并至其他行）。 */
+.todo-plugin__field .todo-picker {
+  width: 100%;
+}
+
+.todo-plugin__field .todo-picker__button {
+  width: 100%;
+}
+
+.todo-plugin__field .arco-select-view {
+  width: 100%;
+}
+
+.todo-plugin__field .arco-picker {
+  width: 100%;
+}
+
+.todo-plugin__field > span {
+  color: var(--todo-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.todo-plugin__field-hint {
+  color: var(--todo-muted);
+  font-size: 12px;
+}
+
+.todo-plugin__field-error {
+  color: var(--todo-danger);
+  font-size: 12px;
+}
+
+.todo-plugin__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--todo-sp-2);
+}
+
+.todo-plugin__chip {
+  padding: 3px var(--todo-sp-3);
+  border-radius: var(--todo-radius-pill);
+  background: var(--color-fill-2, #f2f3f5);
+  color: var(--todo-text, #1d2129);
+  font-size: 12px;
+}

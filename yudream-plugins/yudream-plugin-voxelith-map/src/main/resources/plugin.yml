@@ -1,0 +1,14 @@
+name: voxelith-map
+displayName: 体素世界地图
+description: 把 Minecraft 世界存档渲染为可自由浏览的三维地图，支持框选范围、增量更新、标注与全景图。
+icon: i-ri:earth-line
+main: online.yudream.plugin.voxelithmap.bootstrap.VoxelithMapPlugin
+# mcpanel（可选集成）：「从实例导入」把面板实例的 world 与模组导入为本插件的地图。
+#
+# 当前面板 0.22.6 没有实例文件契约，因此地图插件不声明 mcpanel 编译期依赖：运行时先用
+# context.dependencyAvailable("mcpanel") 探测，再按稳定类名反射查找契约。契约可用时服务端导入；
+# 当前面板/未安装/未启用时自动退回浏览器搬运（面板既有 HTTP 端点），插件主体（渲染、查看、标注）
+# 完全不受影响。softdepend 只用于运行时探测，不改变插件启用条件。
+softdepend:
+  - mcpanel
+version: 2.1.71

@@ -1,0 +1,39 @@
+Voxelith Map Core (VMC)
+=======================
+
+来源： https://github.com/mcyudream/voxelith （本机路径 C:/Code/Java/JavaProject/voxelith）
+同步提交： 3013580a53e3ddee685a16e3e32cfdd64a383bc6
+
+本插件以**只读**方式使用该项目的以下产物，未修改其任何源码：
+
+1. `src/main/resources/voxelith/server/voxelith-server.jar`
+   由 `apps/voxelith-server` 构建的 Spring Boot fat jar。与 `runtime-worker.jar` 同一构建批次。
+2. `src/main/resources/voxelith/worker/runtime-worker.jar`
+   由 `modules/runtime-worker` 构建的普通 jar，供渲染的模型采集 worker 子进程以 `-cp` 直接引用
+   （Spring Boot 嵌套 jar 不能被普通 JVM classpath 使用，故必须单独提供）。
+3. `src/main/resources/voxelith/worker/gson-2.13.1.jar`
+   从上述 fat jar 的 `BOOT-INF/lib/gson-2.13.1.jar` 原样提取，同样是 worker 子进程的普通 classpath 依赖。
+4. 前端渲染核心源码只读副本 → `yudream-frontend/packages/plugin-voxelith-map/src/vendor/voxelith/`
+   （`voxelith-core` / `voxelith-viewer` / `voxelith-skyline` 的 src，去掉上游单测与 fixture）
+
+License: MIT
+
+Copyright (c) 2026 余梦
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

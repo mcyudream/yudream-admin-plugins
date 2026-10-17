@@ -1,0 +1,6 @@
+name: todo
+displayName: 待办清单
+description: 用户自定义计划任务与截止时间并拆分二级小任务，可复用已有任务快速创建，管理员可向指定用户派发清单任务。
+icon: i-ri:checkbox-circle-line
+main: online.yudream.base.plugin.todo.bootstrap.TodoPlugin
+version: 1.4.34
