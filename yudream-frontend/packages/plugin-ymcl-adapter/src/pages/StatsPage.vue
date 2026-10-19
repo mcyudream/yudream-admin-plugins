@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { LaunchEventView, StatsScopeEntry } from '../types'
-import { YdButton, YdCard, YdIcon, YdPageMain, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdCard, YdIcon, YdPageMain, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import type { TableColumn } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createYmclApi } from '../api/ymcl-api'
@@ -122,34 +122,23 @@ onMounted(() => {
         </div>
 
         <YdCard title="近 14 天趋势" content-class="ymcl-card-content">
-          <YdTablePageLayout title="启动统计" :show-search="false">
-    <template #actions>
-      <template #actions>
-        <YdButton variant="outline" :loading="loading" @click="load">
-          <YdIcon name="i-ri:refresh-line" />
-          刷新
-        </YdButton>
-      </template>
-    </template>
-    <template #table>
-<YdLoadingOverlay :loading="loading" v-if="summary?.days?.length"><div  class="ymcl-stats-chart" >
-            <div
-              v-for="point in summary.days"
-              :key="point.day"
-              class="ymcl-stats-chart__bar"
-              :title="`${point.day}：启动 ${point.total} 次 · 活跃 ${point.users} 人`"
-            >
-              <span class="ymcl-stats-chart__bar-value">{{ point.total || '' }}</span>
+          <YdLoadingOverlay :loading="loading" v-if="summary?.days?.length">
+            <div class="ymcl-stats-chart">
               <div
-                class="ymcl-stats-chart__bar-fill"
-                :style="{ height: `${Math.max(point.total ? 4 : 0, Math.round((point.total / trendMax) * 120))}px` }"
-              />
-              <span class="ymcl-stats-chart__bar-day">{{ point.day.slice(5) }}</span>
+                v-for="point in summary.days"
+                :key="point.day"
+                class="ymcl-stats-chart__bar"
+                :title="`${point.day}：启动 ${point.total} 次 · 活跃 ${point.users} 人`"
+              >
+                <span class="ymcl-stats-chart__bar-value">{{ point.total || '' }}</span>
+                <div
+                  class="ymcl-stats-chart__bar-fill"
+                  :style="{ height: `${Math.max(point.total ? 4 : 0, Math.round((point.total / trendMax) * 120))}px` }"
+                />
+                <span class="ymcl-stats-chart__bar-day">{{ point.day.slice(5) }}</span>
+              </div>
             </div>
-          </div></YdLoadingOverlay>
-    </template>
-  </YdTablePageLayout>
-
+          </YdLoadingOverlay>
           <p v-else class="ymcl-muted">
             暂无数据。启动器在域整合包实例启动成功后会自动上报。
           </p>
