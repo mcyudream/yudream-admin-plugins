@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } 
 import type { ClientJarEntry } from '../../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdFileUpload, YdIcon, YdInput, YdModal, YdNumberField, YdPageMain, YdPagination, YdProgress, YdSearchBar, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { YdButton, YdFileUpload, YdIcon, YdInput, YdModal, YdNumberField, YdPageMain, YdPagination, YdProgress, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {

@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import {
   YdButton,
   YdIcon,
   YdImageUpload,
   YdInput,
+  YdLoadingOverlay,
   YdPageHeader,
-  YdPageMain,
   YdSelect,
+  YdSettingsLayout,
   YdSwitch,
   YdTag,
   YdTooltip,
@@ -26,6 +26,12 @@ const model = useLauncherPlugin(props.sdk)
 const logoList = ref<string[]>([])
 const backgroundList = ref<string[]>([])
 const selectedKey = ref('')
+
+/** 设置页分区：单分区页保持统一骨架 */
+const activeSection = ref('main')
+const sectionList: { label: string, value: string }[] = [
+  { label: '外观编排', value: 'main' },
+]
 
 watch(() => model.chromeForm.logoUrl, (value) => {
   logoList.value = value ? [value] : []
@@ -250,158 +256,166 @@ function depthLabel(node: ChromeTreeNode) {
 </script>
 
 <template>
-  <div class="chrome-page">
-    <YdPageHeader title="启动器外观" description="各插件向适配器注册页面；本页只编排 Tab / 菜单树与站点主题。顶级是 Tab，次级是该 Tab 里的菜单，再往下继续分级，每一级都可以改名字和图标。">
+  <div class="settings-page-shell">
+    <YdPageHeader title="启动器外观" description="各插件向适配器注册页面；本页只编排 Tab / 菜单树与站点主题。顶级是 Tab，次级是该 Tab 里的菜单，再往下继续分级，每一级都可以改名字和图标。" class="mb-0">
       <YdButton :loading="model.saving" @click="model.saveChrome">
         <YdIcon name="i-ri:save-line" />
         保存
       </YdButton>
     </YdPageHeader>
-    <YdPageMain>
-      <YdLoadingOverlay :loading="model.loading"><div  class="chrome-workbench">
-        <aside class="chrome-sidebar">
-          <div class="chrome-sidebar__header">
-            <h2>导航结构</h2>
-            <div class="chrome-actions">
-              <YdTooltip text="新增顶级 Tab" side="bottom">
-                <YdButton variant="ghost" size="sm" @click="addTab">
-                  <YdIcon name="i-ri:layout-top-line" />
-                </YdButton>
-              </YdTooltip>
-              <YdTooltip text="在当前节点下新增菜单" side="bottom">
-                <YdButton variant="ghost" size="sm" :disabled="!selectedNav" @click="selectedNav && addChild(selectedNav)">
-                  <YdIcon name="i-ri:add-line" />
-                </YdButton>
-              </YdTooltip>
-            </div>
-          </div>
-          <div class="chrome-tree">
-            <template v-if="treeData.length">
-              <ChromeNavTree :nodes="treeData" :selected-key="selectedKey" @select="selectNode" />
-            </template>
-            <p v-else class="launcher-muted">
-              还没有 Tab。先新增一个顶级 Tab，再往里面加菜单。
-            </p>
-          </div>
-          <p class="launcher-muted">
-            当前扩展点贡献了 {{ model.chromePages.length }} 个页面。导航树只改变启动器展示，不改插件注册内容。
-          </p>
-        </aside>
-
-        <main class="chrome-content">
-          <section class="chrome-section">
-            <div class="chrome-section__header">
-              <h2>详情</h2>
-              <div v-if="selectedNav" class="chrome-actions">
-                <YdButton size="sm" @click="addSibling">
-                  <YdIcon name="i-ri:node-tree" />
-                  同级
-                </YdButton>
-                <YdButton size="sm" @click="addChild(selectedNav)">
-                  <YdIcon name="i-ri:add-line" />
-                  子级
-                </YdButton>
-                <YdButton variant="destructive" size="sm" @click="removeSelected">
-                  <YdIcon name="i-ri:delete-bin-line" />
-                  删除
-                </YdButton>
+    <YdSettingsLayout
+      v-model="activeSection"
+      :list="sectionList"
+      surface
+      scroll
+      width-class="max-w-[1200px]"
+    >
+      <template #main>
+        <YdLoadingOverlay :loading="model.loading"><div class="chrome-workbench">
+          <aside class="chrome-sidebar">
+            <div class="chrome-sidebar__header">
+              <h2>导航结构</h2>
+              <div class="chrome-actions">
+                <YdTooltip text="新增顶级 Tab" side="bottom">
+                  <YdButton variant="ghost" size="sm" @click="addTab">
+                    <YdIcon name="i-ri:layout-top-line" />
+                  </YdButton>
+                </YdTooltip>
+                <YdTooltip text="在当前节点下新增菜单" side="bottom">
+                  <YdButton variant="ghost" size="sm" :disabled="!selectedNav" @click="selectedNav && addChild(selectedNav)">
+                    <YdIcon name="i-ri:add-line" />
+                  </YdButton>
+                </YdTooltip>
               </div>
             </div>
-
-            <template v-if="selectedNav && selectedNode">
-              <div class="detail-grid">
-                <div class="detail-cell detail-cell--label">节点类型</div>
-                <div class="detail-cell">
-                  <YdTag :variant="selectedNav.kind === 'tab' ? 'default' : 'secondary'">
-                    {{ kindLabel(selectedNav.kind) }}
-                  </YdTag>
-                </div>
-                <div class="detail-cell detail-cell--label">层级</div>
-                <div class="detail-cell">{{ depthLabel(selectedNode) }}</div>
-                <div class="detail-cell detail-cell--label">显示名称</div>
-                <div class="detail-cell">
-                  <YdInput v-model="selectedNav.title" placeholder="显示在启动器里的名字" />
-                </div>
-                <div class="detail-cell detail-cell--label">图标</div>
-                <div class="detail-cell detail-cell--wide">
-                  <NavIconPicker
-                    v-model="boundIcon"
-                    :fallback="selectedIconFallback"
-                  />
-                </div>
-                <div class="detail-cell detail-cell--label">绑定注册页</div>
-                <div class="detail-cell detail-cell--wide">
-                  <YdSelect
-                    v-model="boundPageCode"
-                    :options="pageOptions"
-                    placeholder="可选：把该节点接到已注册页面"
-                  />
-                </div>
-                <div class="detail-cell detail-cell--label">显示</div>
-                <div class="detail-cell">
-                  <YdSwitch v-model="boundVisible" />
-                </div>
-                <div class="detail-cell detail-cell--label">编码</div>
-                <div class="detail-cell">
-                  <YdInput v-model="selectedNav.code" placeholder="稳定编码，可自定义" />
-                </div>
-                <template v-if="selectedPage">
-                  <div class="detail-cell detail-cell--label">贡献插件</div>
-                  <div class="detail-cell">{{ selectedPage.providerCode || '-' }}</div>
-                  <div class="detail-cell detail-cell--label">渲染类型</div>
-                  <div class="detail-cell">{{ selectedPage.type }}</div>
-                  <div class="detail-cell detail-cell--label">路径</div>
-                  <div class="detail-cell">{{ selectedPage.path }}</div>
-                  <div class="detail-cell detail-cell--label">数据源</div>
-                  <div class="detail-cell">{{ selectedPage.dataSourceCode || '-' }}</div>
-                </template>
-              </div>
-              <p class="launcher-muted">
-                注册页的路径和渲染类型由贡献插件决定。这里改的是启动器里看到的名字、图标、层级和是否显示。
+            <div class="chrome-tree">
+              <template v-if="treeData.length">
+                <ChromeNavTree :nodes="treeData" :selected-key="selectedKey" @select="selectNode" />
+              </template>
+              <p v-else class="launcher-muted">
+                还没有 Tab。先新增一个顶级 Tab，再往里面加菜单。
               </p>
-            </template>
-            <div v-else class="empty-state">
-              请选择左侧导航节点，或先新增一个 Tab
             </div>
-          </section>
+            <p class="launcher-muted">
+              当前扩展点贡献了 {{ model.chromePages.length }} 个页面。导航树只改变启动器展示，不改插件注册内容。
+            </p>
+          </aside>
 
-          <section class="chrome-section">
-            <div class="chrome-section__header">
-              <h2>站点主题</h2>
-            </div>
-            <div class="launcher-form">
-              <label>
-                <span>站点显示名</span>
-                <YdInput v-model="model.chromeForm.displayName" placeholder="例如 YuDream Minecraft" />
-              </label>
-              <div class="launcher-chrome-uploads">
-                <div class="grid gap-2">
-                  <span>Logo</span>
-                  <YdImageUpload
-                    :model-value="logoList"
-                    :max="1"
-                    :width="96"
-                    :height="96"
-                    :http-request="uploadImage"
-                    :after-upload="afterUpload"
-                  />
-                </div>
-                <div class="grid gap-2">
-                  <span>背景图</span>
-                  <YdImageUpload
-                    :model-value="backgroundList"
-                    :max="1"
-                    :width="240"
-                    :height="135"
-                    :http-request="uploadImage"
-                    :after-upload="afterUpload"
-                  />
+          <main class="chrome-content">
+            <section class="chrome-section">
+              <div class="chrome-section__header">
+                <h2>详情</h2>
+                <div v-if="selectedNav" class="chrome-actions">
+                  <YdButton size="sm" @click="addSibling">
+                    <YdIcon name="i-ri:node-tree" />
+                    同级
+                  </YdButton>
+                  <YdButton size="sm" @click="addChild(selectedNav)">
+                    <YdIcon name="i-ri:add-line" />
+                    子级
+                  </YdButton>
+                  <YdButton variant="destructive" size="sm" @click="removeSelected">
+                    <YdIcon name="i-ri:delete-bin-line" />
+                    删除
+                  </YdButton>
                 </div>
               </div>
-            </div>
-          </section>
-        </main>
-      </div></YdLoadingOverlay>
-    </YdPageMain>
+
+              <template v-if="selectedNav && selectedNode">
+                <div class="detail-grid">
+                  <div class="detail-cell detail-cell--label">节点类型</div>
+                  <div class="detail-cell">
+                    <YdTag :variant="selectedNav.kind === 'tab' ? 'default' : 'secondary'">
+                      {{ kindLabel(selectedNav.kind) }}
+                    </YdTag>
+                  </div>
+                  <div class="detail-cell detail-cell--label">层级</div>
+                  <div class="detail-cell">{{ depthLabel(selectedNode) }}</div>
+                  <div class="detail-cell detail-cell--label">显示名称</div>
+                  <div class="detail-cell">
+                    <YdInput v-model="selectedNav.title" placeholder="显示在启动器里的名字" />
+                  </div>
+                  <div class="detail-cell detail-cell--label">图标</div>
+                  <div class="detail-cell detail-cell--wide">
+                    <NavIconPicker
+                      v-model="boundIcon"
+                      :fallback="selectedIconFallback"
+                    />
+                  </div>
+                  <div class="detail-cell detail-cell--label">绑定注册页</div>
+                  <div class="detail-cell detail-cell--wide">
+                    <YdSelect
+                      v-model="boundPageCode"
+                      :options="pageOptions"
+                      placeholder="可选：把该节点接到已注册页面"
+                    />
+                  </div>
+                  <div class="detail-cell detail-cell--label">显示</div>
+                  <div class="detail-cell">
+                    <YdSwitch v-model="boundVisible" />
+                  </div>
+                  <div class="detail-cell detail-cell--label">编码</div>
+                  <div class="detail-cell">
+                    <YdInput v-model="selectedNav.code" placeholder="稳定编码，可自定义" />
+                  </div>
+                  <template v-if="selectedPage">
+                    <div class="detail-cell detail-cell--label">贡献插件</div>
+                    <div class="detail-cell">{{ selectedPage.providerCode || '-' }}</div>
+                    <div class="detail-cell detail-cell--label">渲染类型</div>
+                    <div class="detail-cell">{{ selectedPage.type }}</div>
+                    <div class="detail-cell detail-cell--label">路径</div>
+                    <div class="detail-cell">{{ selectedPage.path }}</div>
+                    <div class="detail-cell detail-cell--label">数据源</div>
+                    <div class="detail-cell">{{ selectedPage.dataSourceCode || '-' }}</div>
+                  </template>
+                </div>
+                <p class="launcher-muted">
+                  注册页的路径和渲染类型由贡献插件决定。这里改的是启动器里看到的名字、图标、层级和是否显示。
+                </p>
+              </template>
+              <div v-else class="empty-state">
+                请选择左侧导航节点，或先新增一个 Tab
+              </div>
+            </section>
+
+            <section class="chrome-section">
+              <div class="chrome-section__header">
+                <h2>站点主题</h2>
+              </div>
+              <div class="launcher-form">
+                <label>
+                  <span>站点显示名</span>
+                  <YdInput v-model="model.chromeForm.displayName" placeholder="例如 YuDream Minecraft" />
+                </label>
+                <div class="launcher-chrome-uploads">
+                  <div class="grid gap-2">
+                    <span>Logo</span>
+                    <YdImageUpload
+                      :model-value="logoList"
+                      :max="1"
+                      :width="96"
+                      :height="96"
+                      :http-request="uploadImage"
+                      :after-upload="afterUpload"
+                    />
+                  </div>
+                  <div class="grid gap-2">
+                    <span>背景图</span>
+                    <YdImageUpload
+                      :model-value="backgroundList"
+                      :max="1"
+                      :width="240"
+                      :height="135"
+                      :http-request="uploadImage"
+                      :after-upload="afterUpload"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div></YdLoadingOverlay>
+      </template>
+    </YdSettingsLayout>
   </div>
 </template>

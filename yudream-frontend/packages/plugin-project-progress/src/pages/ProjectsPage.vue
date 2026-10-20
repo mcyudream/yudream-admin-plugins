@@ -77,7 +77,7 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
 <template>
 
   <YdTablePageLayout title="项目管理" :show-search="false" :actions="pageActions">
-    <section class="pp-page">
+    <template #table>
       <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1240px]" border stripe column-visibility :status-column="projectStatusColumn" :actions="rowActions" :columns="columns" :data="pagedRows" empty-text="暂无项目">
         <template #cell-project="{ row }"><strong>{{ row.original.name }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无描述' }}</div></template>
         <template #cell-managers="{ row }"><div class="pp-chip-list"><YdTag v-for="user in model.userOptionsForIds(row.original.managerUserIds)" :key="user.id" variant="secondary">{{ model.userLabel(user) }}</YdTag></div></template>
@@ -86,7 +86,7 @@ function confirmDelete(project: ProjectProgressProject) { confirm.confirm({ titl
         <template #cell-server="{ row }">{{ row.original.minecraftPolicy.enabled ? model.serverLabel(row.original.minecraftPolicy.serverId) : '未启用' }}</template>
         <template #cell-updatedAt="{ row }">{{ model.formatTime(row.original.updatedAt) }}</template>
       </YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </section>
+    </template>
     <template #footer>
       <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.projects.length" />
     </template>

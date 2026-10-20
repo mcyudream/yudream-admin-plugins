@@ -1,4 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
+import type { TodoUserOption } from '../types'
 import { ref } from 'vue'
 import { createTodoAdminApi, createTodoUserApi } from '../api/todo-api'
 import { userDisplayName } from './utils'
@@ -10,6 +11,8 @@ import { userDisplayName } from './utils'
  */
 export function useUserDirectory(sdk: YuDreamPluginSdk, surface: 'user' | 'admin') {
   const names = ref<Record<string, string>>({})
+  /** 同一次回查的完整档案（头像/邮箱等）：peek 卡的展示信息直接取这里，不再为卡片单独请求。 */
+  const users = ref<Record<string, TodoUserOption>>({})
   const api = surface === 'admin' ? createTodoAdminApi(sdk) : createTodoUserApi(sdk)
 
   /** 批量补齐缺失的昵称；失败时按 ID 展示，不阻断列表渲染。 */
@@ -21,10 +24,13 @@ export function useUserDirectory(sdk: YuDreamPluginSdk, surface: 'user' | 'admin
     try {
       const response = await api.resolveUsers(missing)
       const next = { ...names.value }
+      const nextUsers = { ...users.value }
       for (const user of response.records ?? []) {
         next[user.id] = userDisplayName(user)
+        nextUsers[user.id] = user
       }
       names.value = next
+      users.value = nextUsers
     }
     catch {
       // 回查失败保留 ID 展示
@@ -35,5 +41,10 @@ export function useUserDirectory(sdk: YuDreamPluginSdk, surface: 'user' | 'admin
     return ids.map(id => names.value[id] ?? id)
   }
 
-  return { names, ensure, labels }
+  /** 已回查的用户档案；未回查到返回 undefined，调用方按本地行内信息兜底。 */
+  function option(id: string): TodoUserOption | undefined {
+    return users.value[id]
+  }
+
+  return { names, ensure, labels, option }
 }

@@ -256,10 +256,6 @@ onMounted(load)
       <YdTablePageLayout title="媒体任务" :show-search="false">
     <template #actions>
       <div class="flex flex-wrap gap-2">
-        <YdButton variant="outline" :disabled="loading" @click="load">
-          <YdIcon name="i-lucide:refresh-cw" />
-          刷新
-        </YdButton>
         <YdButton variant="destructive" :disabled="!total || clearing" @click="confirmClearJobs">
           <YdIcon name="i-lucide:trash-2" />
           清空任务

@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { ActionMenuItem, StatusColumn, TableColumn } from '@yudream/components'
 import type { McWikiPluginModel } from '../composables/useMcWikiPlugin'
 import type { WikiJob } from '../types'
-import { YdButton, YdIcon, YdPageHeader, YdPageMain, YdPagination, YdProgress, YdResponsiveEnhancedTable, useYdModal } from '@yudream/components'
+import { YdPageHeader, YdPageMain, YdPagination, YdProgress, YdResponsiveEnhancedTable, useYdModal } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import JobLogModal from '../components/JobLogModal.vue'
 import { jobStatusLabel, jobVersionLabel } from '../types'
@@ -76,9 +76,6 @@ onMounted(() => props.model.loadJobs())
 <template>
   <YdPageMain>
     <YdTablePageLayout title="导入任务" :show-search="false">
-    <template #actions>
-      <YdButton variant="outline" :loading="model.loading" @click="model.loadJobs"><YdIcon name="i-ri:refresh-line" />刷新</YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
       :columns="columns"

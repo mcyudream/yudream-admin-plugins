@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, YdFilePickerInstance, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { ImportResult, QuestionPayload, QuestionView } from '../types'
-import { YdButton, YdCheckbox, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdTag, YdTextarea, YdFilePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdCheckbox, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, YdTextarea, YdFilePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { saveBlob } from '../api/questionbank-api'
@@ -15,6 +15,9 @@ const model = props.model
 const router = useRouter()
 const confirm = useYdModal()
 const toast = useYdToast()
+
+// 根布局为 YdTablePageLayout，导入/AI 导入弹窗是其兄弟节点（多根模板），宿主传入的多余属性无需透传
+defineOptions({ inheritAttrs: false })
 
 const selectedRows = shallowRef<QuestionView[]>([])
 const rowSelection = shallowRef<Record<string, boolean>>({})
@@ -306,9 +309,9 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
-    <!-- 工具栏提到表格外面：移动端卡片列表也要共用同一套筛选与批量删除 -->
-    <YdSearchBar class="w-full">
+  <YdTablePageLayout title="题目管理">
+    <template #search>
+      <!-- 筛选与受控批量删除收进搜索卡：桌面表格与移动端卡片共用同一套 -->
       <div class="qb-toolbar">
         <YdInput v-model="model.adminFilters.keyword" placeholder="搜索题干或标签" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
         <CategorySelect v-model="model.adminFilters.categoryId" :categories="model.adminCategories" empty-label="全部分类" @update:model-value="model.applyAdminFilters" />
@@ -320,10 +323,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
           批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
         </YdButton>
       </div>
-    </YdSearchBar>
-    
-    
-      <YdTablePageLayout title="题目管理" :show-search="false">
+    </template>
     <template #actions>
       <YdButton variant="outline" :disabled="importing" @click="openImport"><YdIcon name="i-ri:upload-2-line" />导入</YdButton>
     <YdButton variant="outline" @click="openAiImport"><YdIcon name="i-ri:sparkling-line" />AI 导入</YdButton>
@@ -386,10 +386,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </template>
   </YdTablePageLayout>
 
-    
-    
-
-    <YdModal v-model="importOpen" title="导入题目" :show-confirm-button="false" cancel-button-text="关闭">
+  <!-- 导入 / AI 导入弹窗：布局组件只渲染具名插槽，弹窗作为兄弟节点存在 -->
+  <YdModal v-model="importOpen" title="导入题目" :show-confirm-button="false" cancel-button-text="关闭">
       <div class="flex flex-col gap-3 text-sm">
         <p class="qb-muted">
           选择 JSON 文件导入，格式为 <code>{ "questions": [...] }</code> 或题目数组；字段与导出 JSON 一致。
@@ -462,6 +460,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <p v-else-if="aiStreaming" class="qb-muted text-xs">正在导入，可关闭弹窗稍后回来查看题目列表（任务在后台继续）。</p>
         </template>
       </div>
-    </YdModal>
-  </YdPageMain>
+  </YdModal>
 </template>

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { HomeCard } from '../types'
 import {
   YdButton,
-  YdCard,
   YdIcon,
+  YdLoadingOverlay,
   YdPageHeader,
-  YdPageMain,
+  YdSettingsLayout,
+  YdSettingsSection,
   YdSwitch,
   YdTag,
   useYdModal,
@@ -22,6 +22,14 @@ const model = useYmclAdapter(props.sdk)
 const modal = useYdModal()
 
 const jsonDrawer = ref(false)
+
+/** 设置页分区：左导航按此切换，窄屏折叠成分区选择器 */
+const activeSection = ref('current')
+const sectionList: { label: string, value: string }[] = [
+  { label: '当前模板', value: 'current' },
+  { label: '效果预览', value: 'preview' },
+  { label: '托管设置', value: 'config' },
+]
 
 const CARD_TYPE_ICONS: Record<string, string> = {
   summary: 'i-ri:dashboard-2-line',
@@ -71,8 +79,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ymcl-page">
-    <YdPageHeader title="首页布局" description="首页卡片模板由管理员在 YMCL 启动器设计器中编排并发布，此处负责托管管理：查看模板、锁定布局、清除托管。">
+  <div class="settings-page-shell">
+    <YdPageHeader title="首页布局" description="首页卡片模板由管理员在 YMCL 启动器设计器中编排并发布，此处负责托管管理：查看模板、锁定布局、清除托管。" class="mb-0">
       <YdButton variant="outline" @click="jsonDrawer = true">
         <YdIcon name="i-ri:code-s-slash-line" />
         查看 JSON
@@ -87,22 +95,26 @@ onMounted(() => {
       </YdButton>
     </YdPageHeader>
 
-    <YdPageMain>
-      <div class="ymcl-home-grid">
-        <YdCard content-class="ymcl-card-content">
-          <template #header>
-            <div class="ymcl-card-header-row">
-              <div class="ymcl-home-card__main">
-                <strong>当前模板</strong>
-                <span class="ymcl-muted">管理员在启动器设计器中编排，经 manifest 下发给成员</span>
-              </div>
-              <YdTag :variant="model.homeForm.cards.length ? 'default' : 'outline'">
-                {{ model.homeForm.cards.length ? '已托管' : '未托管' }}
-              </YdTag>
-            </div>
-          </template>
+    <YdSettingsLayout
+      v-model="activeSection"
+      :list="sectionList"
+      surface
+      scroll
+      width-class="max-w-[960px]"
+    >
+      <template #current>
+        <YdSettingsSection
+          title="当前模板"
+          description="管理员在启动器设计器中编排，经 manifest 下发给成员"
+        >
+          <div class="ymcl-card-header-row">
+            <span class="ymcl-muted">托管状态</span>
+            <YdTag :variant="model.homeForm.cards.length ? 'default' : 'outline'">
+              {{ model.homeForm.cards.length ? '已托管' : '未托管' }}
+            </YdTag>
+          </div>
 
-          <YdLoadingOverlay :loading="model.loading"><div  class="ymcl-home-list">
+          <YdLoadingOverlay :loading="model.loading"><div class="ymcl-home-list">
             <p v-if="!model.homeForm.cards.length" class="ymcl-muted">
               当前为空布局：启动器不托管首页，成员看到启动器默认首页。
             </p>
@@ -125,57 +137,62 @@ onMounted(() => {
             模板内容为只读展示；如需调整卡片，请在 YMCL 启动器「设置 → 域 → 首页设计」中编辑并重新发布。
             最后更新：{{ formatTime(model.homeForm.updatedAt) }}
           </p>
-        </YdCard>
+        </YdSettingsSection>
+      </template>
 
-        <div class="ymcl-home-side">
-          <YdCard title="效果预览" :description="model.homeForm.locked ? '锁定布局：成员看到固定首页' : '未锁定：成员可在启动器内自行调整首页'" content-class="ymcl-card-content">
-            <div v-if="previewCards.length" class="ymcl-preview-grid" :class="{ 'ymcl-preview-grid--locked': model.homeForm.locked }">
-              <div v-for="(card, index) in previewCards" :key="index" class="ymcl-preview-card">
-                <YdIcon :name="cardIcon(card)" class="ymcl-preview-card__icon" />
-                <strong class="truncate">{{ cardTitle(card) }}</strong>
-                <span class="ymcl-muted">{{ cardType(card) }}</span>
-              </div>
+      <template #preview>
+        <YdSettingsSection
+          title="效果预览"
+          :description="model.homeForm.locked ? '锁定布局：成员看到固定首页' : '未锁定：成员可在启动器内自行调整首页'"
+        >
+          <div v-if="previewCards.length" class="ymcl-preview-grid" :class="{ 'ymcl-preview-grid--locked': model.homeForm.locked }">
+            <div v-for="(card, index) in previewCards" :key="index" class="ymcl-preview-card">
+              <YdIcon :name="cardIcon(card)" class="ymcl-preview-card__icon" />
+              <strong class="truncate">{{ cardTitle(card) }}</strong>
+              <span class="ymcl-muted">{{ cardType(card) }}</span>
             </div>
-            <div v-else class="ymcl-preview-empty">
-              <YdIcon name="i-ri:layout-masonry-line" class="ymcl-preview-empty__icon" />
-              <span>当前为空布局</span>
-              <span class="ymcl-muted">启动器不托管首页，成员使用启动器默认首页</span>
-            </div>
-            <p class="ymcl-muted">
-              预览按卡片顺序模拟启动器首页网格，仅供布局参考。
-            </p>
-          </YdCard>
+          </div>
+          <div v-else class="ymcl-preview-empty">
+            <YdIcon name="i-ri:layout-masonry-line" class="ymcl-preview-empty__icon" />
+            <span>当前为空布局</span>
+            <span class="ymcl-muted">启动器不托管首页，成员使用启动器默认首页</span>
+          </div>
+          <p class="ymcl-muted">
+            预览按卡片顺序模拟启动器首页网格，仅供布局参考。
+          </p>
+        </YdSettingsSection>
+      </template>
 
-          <YdCard title="托管设置" content-class="ymcl-card-content">
-            <div class="ymcl-nav-row">
-              <YdSwitch
-                :model-value="model.homeForm.locked"
-                :disabled="!model.canDesign"
-                @update:model-value="toggleLocked"
-              />
-              <div class="ymcl-home-card__main">
-                <strong>锁定布局</strong>
-                <span class="ymcl-muted">开启后成员无法自行调整启动器首页</span>
-              </div>
+      <template #config>
+        <YdSettingsSection title="托管设置">
+          <div class="ymcl-nav-row">
+            <YdSwitch
+              :model-value="model.homeForm.locked"
+              :disabled="!model.canDesign"
+              @update:model-value="toggleLocked"
+            />
+            <div class="ymcl-home-card__main">
+              <strong>锁定布局</strong>
+              <span class="ymcl-muted">开启后成员无法自行调整启动器首页</span>
             </div>
-            <dl class="ymcl-info-list">
-              <div>
-                <dt>卡片数量</dt>
-                <dd>{{ model.homeForm.cards.length }}</dd>
-              </div>
-              <div>
-                <dt>布局状态</dt>
-                <dd>{{ model.homeForm.cards.length ? '已托管' : '未托管' }}</dd>
-              </div>
-              <div>
-                <dt>最后更新</dt>
-                <dd>{{ formatTime(model.homeForm.updatedAt) }}</dd>
-              </div>
-            </dl>
-          </YdCard>
-        </div>
-      </div>
-    </YdPageMain>
+          </div>
+          <dl class="ymcl-info-list">
+            <div>
+              <dt>卡片数量</dt>
+              <dd>{{ model.homeForm.cards.length }}</dd>
+            </div>
+            <div>
+              <dt>布局状态</dt>
+              <dd>{{ model.homeForm.cards.length ? '已托管' : '未托管' }}</dd>
+            </div>
+            <div>
+              <dt>最后更新</dt>
+              <dd>{{ formatTime(model.homeForm.updatedAt) }}</dd>
+            </div>
+          </dl>
+        </YdSettingsSection>
+      </template>
+    </YdSettingsLayout>
 
     <JsonViewDrawer v-model="jsonDrawer" title="首页布局 JSON" :payload="{ schemaVersion: 1, locked: model.homeForm.locked, cards: model.homeForm.cards }" />
   </div>

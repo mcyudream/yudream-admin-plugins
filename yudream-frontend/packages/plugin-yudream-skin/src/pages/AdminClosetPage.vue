@@ -3,7 +3,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import type { SkinClosetItem } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdPagination, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{ model: SkinPluginModel }>()
 const modal = useYdModal()
@@ -102,65 +102,61 @@ const rowActions: ActionMenuItem<SkinClosetItem>[] = [
 </script>
 
 <template>
-  <YdPageMain><div class="skin-admin-table-page">
-    <YdListToolbar
-      v-model:keyword="search.keyword"
-      placeholder="衣柜名称 / 材质"
-      @search="pagination.page = 1"
-      @clear="pagination.page = 1"
-    >
-      <template #filters>
+  <div class="skin-admin-table-page">
+    <YdTablePageLayout title="衣柜管理">
+      <template #search>
+        <YdListToolbar
+          v-model:keyword="search.keyword"
+          placeholder="衣柜名称 / 材质"
+          @search="pagination.page = 1"
+          @clear="pagination.page = 1"
+        >
+          <template #filters>
             <YdInput v-model="search.userId" clearable placeholder="用户 ID" />
-            <div class="skin-admin-filter-grid__actions">
-              <YdButton variant="outline" @click="resetSearch">重置</YdButton>
-            </div>
+          </template>
+          <template #actions>
+            <YdButton variant="outline" @click="resetSearch">重置</YdButton>
+          </template>
+        </YdListToolbar>
       </template>
       <template #actions>
-        <YdButton variant="outline" @click="resetSearch">重置</YdButton>
+        <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增衣柜项</YdButton>
       </template>
-    </YdListToolbar>
-
-    <YdTablePageLayout title="衣柜管理" :show-search="false">
-    <template #actions>
-      <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增衣柜项</YdButton>
-    </template>
-    <template #table>
-<YdResponsiveEnhancedTable
-      :actions="rowActions"
-      row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[920px]"
-      border
-      stripe
-      column-visibility
-      :columns="columns"
-      :data="pagedRows"
-      empty-text="暂无衣柜数据"
-    >
-      <template #cell-userId="{ row }">
-        {{ model.userName(row.original.userId) }}
-        <div class="skin-admin-code">{{ row.original.userId }}</div>
+      <template #table>
+        <YdResponsiveEnhancedTable
+          :actions="rowActions"
+          row-key="id"
+          table-root-class="max-w-full overflow-x-auto rounded-lg"
+          table-class="min-w-[920px]"
+          border
+          stripe
+          column-visibility
+          :columns="columns"
+          :data="pagedRows"
+          empty-text="暂无衣柜数据"
+        >
+          <template #cell-userId="{ row }">
+            <YdEntityPeek
+              :title="model.userName(row.original.userId)"
+              :subtitle="row.original.userId ? `ID ${row.original.userId}` : ''"
+            />
+          </template>
+          <template #cell-texture="{ row }">
+            {{ model.textureName(row.original.textureHash) }}
+            <div class="skin-admin-code">{{ row.original.textureHash }}</div>
+          </template>
+          <template #cell-createdAt="{ row }">{{ model.dateText(row.original.createdAt) }}</template>
+        </YdResponsiveEnhancedTable>
       </template>
-      <template #cell-texture="{ row }">
-        {{ model.textureName(row.original.textureHash) }}
-        <div class="skin-admin-code">{{ row.original.textureHash }}</div>
+      <template #footer>
+        <YdPagination
+          v-model:page="pagination.page"
+          v-model:size="pagination.size"
+          :total="filteredRows.length"
+          @size-change="pagination.page = 1"
+        />
       </template>
-      <template #cell-createdAt="{ row }">{{ model.dateText(row.original.createdAt) }}</template>
-      
-</YdResponsiveEnhancedTable>
-    </template>
-    <template #footer>
-      <YdPagination
-      v-model:page="pagination.page"
-      v-model:size="pagination.size"
-      :total="filteredRows.length"
-      @size-change="pagination.page = 1"
-    />
-    </template>
-  </YdTablePageLayout>
-
-
-
+    </YdTablePageLayout>
 
     <YdModal v-model="formVisible" :title="editing ? '重命名衣柜项' : '新增衣柜项'" show-cancel-button @confirm="submit">
       <div class="skin-admin-form">
@@ -172,5 +168,5 @@ const rowActions: ActionMenuItem<SkinClosetItem>[] = [
         <YdLabel v-else><span>衣柜名称</span><YdInput v-model="model.closetRenameForm.itemName" /></YdLabel>
       </div>
     </YdModal>
-  </div></YdPageMain>
+  </div>
 </template>

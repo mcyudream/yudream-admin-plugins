@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
 import { onMounted, ref } from 'vue'
-import { YdAlert, YdButton, YdIcon, YdPageMain, YdPagination, YdTag, useYdToast, type TableColumn, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdPageMain, YdPagination, YdTag, useYdToast, type TableColumn, YdResponsiveEnhancedTable } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { DeliveryRecord } from '../types'
@@ -30,9 +30,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template><section><YdPageMain class="space-y-4"><YdAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>        <YdTablePageLayout title="运行记录" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="load"><YdIcon name="i-ri:refresh-line"/>刷新</YdButton>
-            </template>
             <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"

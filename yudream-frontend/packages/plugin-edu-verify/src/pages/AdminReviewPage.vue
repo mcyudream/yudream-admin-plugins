@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, YdTablePageAction } from '@yudream/components'
+import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { MaterialItem, VerificationRecord } from '../types'
 import { YdAlert, YdButton, YdDrawer, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdDynamicSearchForm, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout, YdTextarea, useYdToast } from '@yudream/components'
@@ -62,10 +62,6 @@ const rowActions: ActionMenuItem<VerificationRecord>[] = [
   { label: '通过', icon: 'morph:check', visible: row => row.status === 'PENDING' || row.status === 'REJECTED', disabled: () => acting.value, onClick: row => openApprove(row) },
   { label: '驳回', icon: 'morph:ban', danger: true, visible: row => row.status === 'PENDING', disabled: () => acting.value, onClick: row => openReason(row, 'reject') },
   { label: '撤销', icon: 'morph:undo', danger: true, visible: row => row.status === 'PASSED' && !row.userId, disabled: () => acting.value, onClick: row => openReason(row, 'revoke') },
-]
-
-const pageActions: YdTablePageAction[] = [
-  { label: '刷新', icon: 'morph:refresh', disabled: loading.value, onClick: () => load() },
 ]
 
 /** ControlType 是 components 内部的字符串枚举，桥接层只出类型，这里用字面量收敛一次 */
@@ -267,7 +263,7 @@ onMounted(load)
 
 <template>
   <section class="ev-page">
-    <YdTablePageLayout title="认证审核" :actions="pageActions">
+    <YdTablePageLayout title="认证审核">
       <template #stats>
         <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error" />
       </template>

@@ -1,8 +1,28 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
-import { computed, onMounted, ref, watch } from 'vue'
-import { YdAlert, YdButton, YdDrawer, YdIcon, YdInput, YdPageMain, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTag, useYdModal, useYdToast, type ActionMenuItem, type StatusColumn, type TableColumn, type YdTablePickerQuery, type YdTablePickerResult } from '@yudream/components'
+import {
+  YdAlert,
+  YdButton,
+  YdDrawer,
+  YdIcon,
+  YdInput,
+  YdLoadingOverlay,
+  YdPageHeader,
+  YdPagination,
+  YdResponsiveEnhancedTable,
+  YdSelect,
+  YdSettingsLayout,
+  YdSettingsSection,
+  YdTag,
+  useYdModal,
+  useYdToast,
+  type ActionMenuItem,
+  type StatusColumn,
+  type TableColumn,
+  type YdTablePickerQuery,
+  type YdTablePickerResult,
+} from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
+import { computed, onMounted, ref, watch } from 'vue'
 import { createQqbotAutomationApi } from '../api/qqbot-automation-api'
 import PolicyFieldsForm from '../components/PolicyFieldsForm.vue'
 import {
@@ -51,6 +71,15 @@ const userLabelCache = ref<Record<string, string>>({})
 const aliasDraft = ref('')
 const savingAlias = ref(false)
 const identifyingGroupId = ref('')
+
+/** 设置页分区：页头动作随激活分区切换 */
+const activeSection = ref('connection')
+const sectionList: { icon?: string, label: string, value: string }[] = [
+  { icon: 'i-ri:links-line', label: 'QQ 连接', value: 'connection' },
+  { icon: 'i-ri:shield-keyhole-line', label: '连接默认策略', value: 'default' },
+  { icon: 'i-ri:team-line', label: '群级覆盖', value: 'overrides' },
+  { icon: 'i-ri:folder-3-line', label: '媒体存储', value: 'media' },
+]
 
 function protocolLabel(item: Option) {
   if (item.protocol === 'official') {
@@ -378,103 +407,83 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section>
+  <div class="settings-page-shell">
+    <YdPageHeader
+      title="群自动化策略"
+      description="按分区维护 QQ 连接、连接默认策略、群级覆盖与媒体存储。"
+      class="mb-0"
+    >
+      <YdButton v-if="activeSection === 'connection'" variant="outline" :disabled="!connectionId || loading" @click="loadCurrentConnection">
+        <YdIcon name="i-lucide:refresh-cw" />
+        刷新
+      </YdButton>
+      <YdButton v-else-if="activeSection === 'default'" :loading="savingDefault" :disabled="!connectionId || loading" @click="saveDefault">
+        <YdIcon name="i-lucide:save" />
+        保存默认策略
+      </YdButton>
+      <YdButton v-else-if="activeSection === 'overrides'" :disabled="!connectionId || loading" @click="openCreate">
+        <YdIcon name="i-lucide:plus" />
+        新增群级覆盖
+      </YdButton>
+      <YdButton v-else :loading="savingMediaSettings" @click="saveMediaSettings">保存</YdButton>
+    </YdPageHeader>
 
-    <YdPageMain>
-      <div class="qqbot-automation-page">
-      <YdAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
+    <YdAlert v-if="error" variant="destructive" title="操作未完成" :description="error" class="mx-5 mt-4" />
 
-      <div class="qa-row">
-        <section class="qa-card">
-          <div class="qa-card-head">
-            <div>
-              <h2 class="qa-title">QQ 连接</h2>
-              <p class="qa-desc">切换连接后加载该连接的默认策略与群级覆盖。</p>
-            </div>
-            <YdButton variant="outline" size="sm" :disabled="!connectionId || loading" @click="loadCurrentConnection">
-              <YdIcon name="i-lucide:refresh-cw" />
-              刷新
-            </YdButton>
+    <YdSettingsLayout
+      v-model="activeSection"
+      :list="sectionList"
+      surface
+      scroll
+      width-class="max-w-[880px]"
+    >
+      <template #connection>
+        <YdSettingsSection title="QQ 连接" description="切换连接后加载该连接的默认策略与群级覆盖。">
+          <div class="qa-select-row">
+            <YdSelect
+              placeholder="选择连接"
+              :model-value="connectionId"
+              :options="connectionOptions"
+              :disabled="loading"
+              @update:model-value="changeConnection"
+            />
           </div>
-          <div class="qa-card-body">
-            <div class="qa-select-row">
-              <YdSelect
-                placeholder="选择连接"
-                :model-value="connectionId"
-                :options="connectionOptions"
-                :disabled="loading"
-                @update:model-value="changeConnection"
-              />
-            </div>
-            <div v-if="connectionId && currentConnection?.protocol === 'official'" class="qa-group-identify">
-              <p class="qa-label">官方群识别</p>
-              <p class="qa-desc">官方接口通常不给群名。点「发识别消息」后去 QQ 里看哪个群收到了，再给它写备注。</p>
-              <div class="qa-fields">
-                <div class="qa-field">
-                  <label class="qa-label">群 openid</label>
-                  <YdSelect
-                    class="w-full"
-                    placeholder="选择要识别或备注的群"
-                    :model-value="identifyChannelId"
-                    :options="groupOptions"
-                    @update:model-value="identifyChannelId = String($event ?? '')"
-                  />
-                </div>
-                <div class="qa-field">
-                  <label class="qa-label">后台备注</label>
-                  <YdInput v-model="aliasDraft" class="w-full" placeholder="如 运营群 / 告警群" maxlength="40" />
-                </div>
-              </div>
-              <div class="qa-actions">
-                <YdButton size="sm" variant="outline" :disabled="!identifyChannelId" :loading="identifyingGroupId === identifyChannelId" @click="identifyGroup(identifyChannelId)">发识别消息</YdButton>
-                <YdButton size="sm" :disabled="!identifyChannelId" :loading="savingAlias" @click="saveAlias">保存备注</YdButton>
-              </div>
-            </div>
-            <div v-if="currentConnection" class="qa-hint">
-              <YdTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</YdTag>
-              <span v-if="currentConnection.protocol === 'official'">官方连接：媒体签发公网直链发送；入群审批走官方申请事件（机器人须为群管理员），告警发到单独指定群。官方群选择器默认只有 openid，可用上方「识别」或「备注」区分。</span>
-              <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="qa-card">
-          <div class="qa-card-head">
-            <div>
-              <h2 class="qa-title">媒体存储</h2>
-              <p class="qa-desc">这里填的是 YuDream 后端容器能看到的路径，不是宿主机路径。官方连接签发公网直链时，后端进程必须能读到这份目录。</p>
-            </div>
-            <YdButton variant="outline" size="sm" :loading="savingMediaSettings" @click="saveMediaSettings">保存</YdButton>
-          </div>
-          <div class="qa-card-body">
+          <div v-if="connectionId && currentConnection?.protocol === 'official'" class="qa-group-identify">
+            <p class="qa-label">官方群识别</p>
+            <p class="qa-desc">官方接口通常不给群名。点「发识别消息」后去 QQ 里看哪个群收到了，再给它写备注。</p>
             <div class="qa-fields">
               <div class="qa-field">
-                <label class="qa-label">后端可读目录</label>
-                <YdInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="/media" clearable />
+                <label class="qa-label">群 openid</label>
+                <YdSelect
+                  class="w-full"
+                  placeholder="选择要识别或备注的群"
+                  :model-value="identifyChannelId"
+                  :options="groupOptions"
+                  @update:model-value="identifyChannelId = String($event ?? '')"
+                />
               </div>
               <div class="qa-field">
-                <label class="qa-label">解析服务容器目录</label>
-                <YdInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/app/download" />
+                <label class="qa-label">后台备注</label>
+                <YdInput v-model="aliasDraft" class="w-full" placeholder="如 运营群 / 告警群" maxlength="40" />
               </div>
             </div>
-            <p class="qa-hint">当前生产 compose 把宿主机 /opt/yudream-douyin-api/download 挂进后端 /media，解析服务自己挂到 /app/download。所以这里填 /media 和 /app/download，不要填宿主机 /opt/... 路径。</p>
+            <div class="qa-actions">
+              <YdButton size="sm" variant="outline" :disabled="!identifyChannelId" :loading="identifyingGroupId === identifyChannelId" @click="identifyGroup(identifyChannelId)">发识别消息</YdButton>
+              <YdButton size="sm" :disabled="!identifyChannelId" :loading="savingAlias" @click="saveAlias">保存备注</YdButton>
+            </div>
           </div>
-        </section>
-      </div>
+          <div v-if="currentConnection" class="qa-hint">
+            <YdTag :variant="protocolVariant(currentConnection)">{{ protocolLabel(currentConnection) }}</YdTag>
+            <span v-if="currentConnection.protocol === 'official'">官方连接：媒体签发公网直链发送；入群审批走官方申请事件（机器人须为群管理员），告警发到单独指定群。官方群选择器默认只有 openid，可用上方「识别」或「备注」区分。</span>
+            <span v-else>Milky 连接：媒体经共享目录落盘，支持合并转发与语音。</span>
+          </div>
+        </YdSettingsSection>
+      </template>
 
-      <section class="qa-card">
-        <div class="qa-card-head">
-          <div>
-            <h2 class="qa-title">连接默认策略</h2>
-            <p class="qa-desc">未覆盖的群级字段会使用这里的配置。</p>
-          </div>
-          <YdButton size="sm" :loading="savingDefault" :disabled="!connectionId || loading" @click="saveDefault">
-            <YdIcon name="i-lucide:save" />
-            保存默认策略
-          </YdButton>
-        </div>
-        <div v-if="connectionId" class="qa-card-body">
+      <template #default>
+        <YdSettingsSection title="连接默认策略" description="未覆盖的群级字段会使用这里的配置。">
           <PolicyFieldsForm
+            v-if="connectionId"
             :base-policy="defaultPolicy"
             :override="defaultDraft"
             :ai-providers="aiProviders"
@@ -484,64 +493,61 @@ onMounted(async () => {
             :group-options="groupOptions"
             @update:override="defaultDraft = $event"
           />
-        </div>
-        <div v-else class="qa-empty">选择一个 QQ 连接后配置策略。</div>
-      </section>
+          <div v-else class="qa-empty">选择一个 QQ 连接后配置策略。</div>
+        </YdSettingsSection>
+      </template>
 
-      <section class="qa-card">
-        <div class="qa-card-head">
-          <div>
-            <h2 class="qa-title">群级覆盖</h2>
-            <p class="qa-desc">只保存需要差异化的字段；删除覆盖后立即恢复继承。</p>
-          </div>
-          <YdButton size="sm" :disabled="!connectionId || loading" @click="openCreate">
-            <YdIcon name="i-lucide:plus" />
-            新增群级覆盖
-          </YdButton>
-        </div>
-
-        <div class="qa-card-body">
-          <YdTablePageLayout title="群自动化策略" :show-search="false">
-    <template #table>
-<YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
-            row-key="channelId"
-            table-root-class="rounded-lg overflow-hidden"
-            table-class="min-w-[720px]"
-            border
-            stripe
-            column-visibility
-            :status-column="policyStatusColumn"
-            :actions="rowActions"
-            :columns="columns"
-            :data="overrides"
-            empty-text="当前连接还没有群级覆盖"
-          >
-            <template #cell-group="{ row }"><span class="font-medium">{{ groupName(row.original.channelId) }}</span></template>
-            <template #cell-media="{ row }">
-              <span class="yd-status-tone" :data-tone="row.original.mediaEnabled === null ? 'neutral' : row.original.mediaEnabled ? 'success' : 'warning'">{{ mediaState(row.original) }}</span>
-            </template>
-            <template #cell-risk="{ row }">
-              <span class="yd-status-tone" :data-tone="row.original.riskMonitorEnabled === null ? 'neutral' : row.original.riskMonitorEnabled ? 'success' : 'warning'">{{ riskState(row.original) }}</span>
-            </template>
-            <template #cell-overrides="{ row }">{{ countOverrides(row.original) }} 项</template>
-          </YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </template>
-    <template #footer>
-      <YdPagination
+      <template #overrides>
+        <YdSettingsSection title="群级覆盖" description="只保存需要差异化的字段；删除覆盖后立即恢复继承。">
+          <YdLoadingOverlay :loading="loading">
+            <YdResponsiveEnhancedTable
+              row-key="channelId"
+              table-root-class="rounded-lg overflow-hidden"
+              table-class="min-w-[720px]"
+              border
+              stripe
+              column-visibility
+              :status-column="policyStatusColumn"
+              :actions="rowActions"
+              :columns="columns"
+              :data="overrides"
+              empty-text="当前连接还没有群级覆盖"
+            >
+              <template #cell-group="{ row }"><span class="font-medium">{{ groupName(row.original.channelId) }}</span></template>
+              <template #cell-media="{ row }">
+                <span class="yd-status-tone" :data-tone="row.original.mediaEnabled === null ? 'neutral' : row.original.mediaEnabled ? 'success' : 'warning'">{{ mediaState(row.original) }}</span>
+              </template>
+              <template #cell-risk="{ row }">
+                <span class="yd-status-tone" :data-tone="row.original.riskMonitorEnabled === null ? 'neutral' : row.original.riskMonitorEnabled ? 'success' : 'warning'">{{ riskState(row.original) }}</span>
+              </template>
+              <template #cell-overrides="{ row }">{{ countOverrides(row.original) }} 项</template>
+            </YdResponsiveEnhancedTable>
+          </YdLoadingOverlay>
+          <YdPagination
             v-if="connectionId"
             v-model:page="page"
             v-model:size="size"
             :total="total"
           />
-    </template>
-  </YdTablePageLayout>
+        </YdSettingsSection>
+      </template>
 
-
-
-        </div>
-      </section>
-      </div>
-    </YdPageMain>
+      <template #media>
+        <YdSettingsSection title="媒体存储" description="这里填的是 YuDream 后端容器能看到的路径，不是宿主机路径。官方连接签发公网直链时，后端进程必须能读到这份目录。">
+          <div class="qa-fields">
+            <div class="qa-field">
+              <label class="qa-label">后端可读目录</label>
+              <YdInput v-model="mediaSettingsDraft.hostDirectory" class="w-full" placeholder="/media" clearable />
+            </div>
+            <div class="qa-field">
+              <label class="qa-label">解析服务容器目录</label>
+              <YdInput v-model="mediaSettingsDraft.containerDirectory" class="w-full" placeholder="/app/download" />
+            </div>
+          </div>
+          <p class="qa-hint">当前生产 compose 把宿主机 /opt/yudream-douyin-api/download 挂进后端 /media，解析服务自己挂到 /app/download。所以这里填 /media 和 /app/download，不要填宿主机 /opt/... 路径。</p>
+        </YdSettingsSection>
+      </template>
+    </YdSettingsLayout>
 
     <YdDrawer
       v-model="editorOpen"
@@ -582,5 +588,5 @@ onMounted(async () => {
         />
       </div>
     </YdDrawer>
-  </section>
+  </div>
 </template>

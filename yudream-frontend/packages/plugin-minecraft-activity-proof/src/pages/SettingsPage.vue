@@ -66,6 +66,9 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     <YdButton variant="outline" :disabled="!wordTemplateReady" @click="model.reloadTemplates">
       <YdIcon name="i-ri:refresh-line" />刷新模板
     </YdButton>
+    <YdButton :loading="saving" @click="model.save">
+      <YdIcon name="i-ri:save-3-line" />保存配置
+    </YdButton>
   </YdPageHeader>
   <div class="map-activity-settings-shell">
 
@@ -162,11 +165,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
               {{ (row.original.deptNames || []).join('、') || '-' }}
             </template>
           </YdTablePicker>
-        </div>
-        <div class="flex justify-end gap-2">
-          <YdButton type="submit" :loading="saving">
-            <YdIcon name="i-ri:save-3-line" />保存配置
-          </YdButton>
         </div>
       </form>
     </div></YdLoadingOverlay>

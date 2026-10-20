@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { ActivityProofExportRecord } from '../types'
-import { YdButton, YdFileUpload, YdIcon, YdModal, YdPageMain, YdPagination, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdFileUpload, YdModal, YdPageMain, YdPagination, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { useProofRecords } from '../composables/useProofRecords'
 import { formatFileSize, formatTime } from '../composables/utils'
@@ -63,11 +63,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
   <section class="proof-page">
     <YdPageMain>
       <YdTablePageLayout title="活动证明记录" :show-search="false">
-    <template #actions>
-      <YdButton variant="outline" :loading="loading" @click="model.load">
-        <YdIcon name="i-ri:refresh-line" />刷新
-      </YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"

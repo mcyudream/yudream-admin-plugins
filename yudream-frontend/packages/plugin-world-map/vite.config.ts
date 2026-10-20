@@ -32,6 +32,7 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    manifest: 'manifest.json',
     lib: {
       entry: 'src/index.ts',
       formats: ['es'],

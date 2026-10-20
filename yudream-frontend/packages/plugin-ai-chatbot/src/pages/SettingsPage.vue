@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AiAgent, AiProviderOption, GroupPolicy, Option } from '../types'
 import {computed, onMounted, reactive, ref } from 'vue'
-import { YdAction, YdButton, YdInput, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTextarea, YdMultiSelect, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
+import { YdAction, YdButton, YdCollapsible, YdIcon, YdInput, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTextarea, YdMultiSelect, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import { resolveGroupAgentCode, toGroupAgentOptions } from '../config/group-agent-options'
 
@@ -60,11 +60,14 @@ const activeSection = ref('main')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { label: "群聊策略", value: 'main' },
 ]
+/** 已配置群聊折叠区：默认收起，点击已保存群可读回表单 */
+const configuredOpen = ref(false)
 </script>
 
 <template>
   <YdPageHeader title="AI 群聊机器人配置" class="mb-0">
     <YdButton variant="outline" :loading="loading" @click="loadPolicies">刷新</YdButton>
+    <YdButton :loading="saving" @click="save">保存配置</YdButton>
   </YdPageHeader>
   <div class="ai-chatbot-settings-shell">
 
@@ -81,8 +84,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
         description="连接选择、回复策略与 AI 模型配置。"
       >
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-      <form class="grid max-w-4xl gap-4" @submit.prevent="save">
+    <form class="grid max-w-4xl gap-4" @submit.prevent="save">
         <p v-if="message" class="rounded border px-3 py-2 text-sm">{{ message }}</p>
         <section class="grid gap-3 rounded border p-4">
           <h3>目标群聊</h3>
@@ -104,10 +106,24 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
         </section>
         <section class="grid gap-3 rounded border p-4"><h3>上下文与人设</h3><div class="grid grid-cols-1 gap-3 md:grid-cols-3"><label class="grid gap-2">群聊上下文条数<YdInput v-model="form.groupContextLimit" type="number" /></label><label class="grid gap-2">个人上下文条数<YdInput v-model="form.personalContextLimit" type="number" /></label><label class="grid gap-2">扩展上下文条数<YdInput v-model="form.contextExpansionLimit" type="number" /></label><label class="grid gap-2">静默开始（HH:mm）<YdInput v-model="form.quietHoursStart" placeholder="22:30" /></label><label class="grid gap-2">静默结束（HH:mm）<YdInput v-model="form.quietHoursEnd" placeholder="08:00" /></label></div><label class="grid gap-2">系统提示词<YdTextarea v-model="form.systemPrompt" :rows="3" /></label><label class="grid gap-2">人设<YdTextarea v-model="form.persona" :rows="2" placeholder="例如：Minecraft 社群管理员，活泼但不过度打扰。" /></label><label class="grid gap-2">@ 回复注入<YdTextarea v-model="form.mentionReplyInjection" :rows="2" placeholder="仅在用户明确 @ 机器人时追加到提示词，例如：优先结合知识库回答并附上来源。" /></label><span class="text-sm text-muted-foreground">工具调用（含 Wiki 求助检索与配图）由所选 Agent 应用的工作流编排统一调度，无需在此配置。</span></section>
         <section class="grid gap-3 rounded border p-4"><h3>工具调用与长期记忆</h3><div class="flex flex-wrap gap-4"><YdSwitch v-model="form.randomToolCallingEnabled">随机回复时允许调用工具</YdSwitch><YdSwitch v-model="form.longTermMemoryEnabled">启用长期向量记忆</YdSwitch><YdSwitch v-model="form.groupToolOpenAccess">群内开放只读工具（不要求绑定账号权限）</YdSwitch></div><label class="grid max-w-xs gap-2">记忆召回条数<YdNumberField v-model="form.semanticMemoryTopK" :min="1" :max="20" /></label></section>
-        <div class="flex justify-end"><YdButton type="submit" :loading="saving">保存配置</YdButton></div>
       </form>
-      <aside class="grid content-start gap-2 rounded border p-4"><h3>已配置群聊</h3><YdAction v-for="item in policies" :key="`${item.connectionId}:${item.channelId}`" type="button" class="rounded border px-3 py-2 text-left" @click="apply(item)">{{ item.connectionId }} / {{ item.channelId }}<br><small>{{ item.enabled ? '已启用' : '已停用' }}，随机 {{ item.randomProbability }}</small></YdAction><span v-if="!policies.length" class="text-sm text-muted-foreground">尚未保存任何群配置。</span></aside>
-    </div>
+      <section class="grid gap-3 rounded border p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3>已配置群聊</h3>
+          <YdButton type="button" size="sm" variant="outline" @click="configuredOpen = !configuredOpen">
+            {{ configuredOpen ? '收起' : '展开' }}<YdIcon :name="configuredOpen ? 'i-ri:arrow-up-s-line' : 'i-ri:arrow-down-s-line'" />
+          </YdButton>
+        </div>
+        <YdCollapsible v-model="configuredOpen">
+          <div class="grid gap-2">
+            <YdAction v-for="item in policies" :key="`${item.connectionId}:${item.channelId}`" type="button" class="rounded border px-3 py-2 text-left" @click="apply(item)">
+              <span class="block text-sm">{{ item.connectionId }} / {{ item.channelId }}</span>
+              <span class="block text-xs text-muted-foreground">{{ item.enabled ? '已启用' : '已停用' }}，随机 {{ item.randomProbability }}</span>
+            </YdAction>
+            <span v-if="!policies.length" class="text-sm text-muted-foreground">尚未保存任何群配置。</span>
+          </div>
+        </YdCollapsible>
+      </section>
       </YdSettingsSection>
     </template>
   </YdSettingsLayout>

@@ -63,11 +63,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
       </form>
       <div class="proof-min-w-0">
       <YdTablePageLayout title="玩家学号映射" :show-search="false">
-    <template #actions>
-      <YdButton variant="outline" :loading="loading" @click="model.load">
-      <YdIcon name="i-ri:refresh-line" />刷新
-    </YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"

@@ -210,10 +210,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <YdIcon name="i-ri:add-line" />
           新增商品
         </YdButton>
-        <YdButton variant="outline" :loading="loading" @click="load">
-          <YdIcon name="i-ri:refresh-line" />
-          刷新
-        </YdButton>
       </div>
     </template>
     <template #table>

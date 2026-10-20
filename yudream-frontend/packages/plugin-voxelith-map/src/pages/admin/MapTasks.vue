@@ -198,12 +198,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </div>
         </div>
       </template>
-    <template #actions>
-      <YdButton size="sm" variant="outline" :loading="model.loading.value" @click="model.loadMaps()">
-      <YdIcon name="i-mdi:refresh" />
-      刷新
-    </YdButton>
-    </template>
     <template #table>
 <YdResponsiveEnhancedTable
       :actions="rowActions"

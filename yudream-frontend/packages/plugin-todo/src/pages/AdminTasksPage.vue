@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { TableColumn } from '@yudream/components'
+import type { ActionMenuItem, EntityPeekFact, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TodoSubTask, TodoTableRow, TodoTask } from '../types'
-import { YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdProgress, YdSelect, YdTable, YdTag, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
+import { YdEntityPeek, YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdProgress, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DueLabel from '../components/DueLabel.vue'
 import PriorityTag from '../components/PriorityTag.vue'
@@ -78,13 +78,23 @@ const statusModel = computed({
 })
 
 const columns: TableColumn<TodoTableRow>[] = [
-  { id: 'title', header: '待办', minWidth: 220 },
+  { id: 'title', header: '待办', minWidth: 220, fixed: 'left' },
   { id: 'priority', header: '优先级', width: 100 },
   { id: 'due', header: '截止时间', width: 170 },
   { id: 'source', header: '创建者', width: 130 },
   { id: 'owner', header: '负责人', width: 180 },
   { accessorKey: 'updatedAtLabel', header: '更新时间', width: 150 },
-  { id: 'operation', header: '操作', width: 140, fixed: 'right' },
+]
+
+/**
+ * 行操作统一收进操作菜单：编辑是常规动作，删除是危险动作但保持既有确认流程。
+ *
+ * <p>小任务子行不是操作对象（管理端没有小任务编辑接口），行级 visible 过滤后整组菜单消失，
+ * YdResponsiveEnhancedTable 对空菜单行不渲染操作触发按钮。
+ */
+const rowActions: ActionMenuItem<TodoTableRow>[] = [
+  { label: '编辑', icon: 'morph:pencil', visible: row => !row.subTaskParentId, onClick: row => openEdit(row) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, visible: row => !row.subTaskParentId, onClick: row => confirmDelete(row) },
 ]
 
 /**
@@ -281,248 +291,259 @@ function confirmDelete(task: TodoTask) {
     },
   })
 }
+
+/** 负责人 peek 卡的次要标识：回查到档案用邮箱，否则留空（触发器只显示名字）。 */
+function peekSubtitle(userId: string): string {
+  return directory.option(userId)?.email || ''
+}
+
+/**
+ * 负责人 peek 卡的本地事实清单：只列插件自身用户接口回查到的档案字段
+ * （用户 ID、账号），拿不到的资料（如手机号、部门）不虚构。
+ */
+function peekFacts(userId: string): EntityPeekFact[] {
+  const user = directory.option(userId)
+  return [
+    { label: '用户 ID', value: userId, mono: true },
+    { label: '账号', value: user?.username || '' },
+  ]
+}
 </script>
 
 <template>
   <div class="todo-plugin">
-    <YdPageHeader
+    <YdTablePageLayout
       title="清单管理"
-      description="跨用户查看与维护待办，跟进各部门执行情况"
-    />
-
-    <YdPageMain>
+      stats-title="待办统计与快捷筛选"
+      :stats-default-expanded="true"
+      :search-default-folded="false"
+    >
       <!-- 统计卡即快捷筛选：与状态选择框共用同一筛选范围，点卡片即切换、再点恢复全部。 -->
-      <div class="todo-plugin__stat-strip" role="group" aria-label="待办统计与快捷筛选">
-        <YdAction
-          type="button"
-          class="todo-stat"
-          :class="{ 'is-active': quickRange === 'all' }"
-          :aria-pressed="quickRange === 'all'"
-          @click="applyQuickFilter('all')"
-        >
-          <span class="todo-stat__head">
-            <i class="todo-stat__dot" aria-hidden="true" />
-            <YdIcon name="i-ri:file-list-3-line" class="todo-stat__icon" />
-            全部待办
-          </span>
-          <strong>{{ stats.total }}</strong>
-        </YdAction>
-        <YdAction
-          type="button"
-          class="todo-stat is-pending"
-          :class="{ 'is-active': quickRange === 'pending' }"
-          :aria-pressed="quickRange === 'pending'"
-          @click="applyQuickFilter('pending')"
-        >
-          <span class="todo-stat__head">
-            <i class="todo-stat__dot is-warning" aria-hidden="true" />
-            <YdIcon name="i-ri:timer-line" class="todo-stat__icon" />
-            进行中
-          </span>
-          <strong>{{ stats.pending }}</strong>
-        </YdAction>
-        <YdAction
-          type="button"
-          class="todo-stat is-overdue"
-          :class="{ 'is-active': quickRange === 'overdue' }"
-          :aria-pressed="quickRange === 'overdue'"
-          @click="applyQuickFilter('overdue')"
-        >
-          <span class="todo-stat__head">
-            <i class="todo-stat__dot is-danger" aria-hidden="true" />
-            <YdIcon name="i-ri:alarm-warning-line" class="todo-stat__icon" />
-            已逾期
-          </span>
-          <strong>{{ stats.overdue }}</strong>
-        </YdAction>
-        <YdAction
-          type="button"
-          class="todo-stat is-done"
-          :class="{ 'is-active': quickRange === 'done' }"
-          :aria-pressed="quickRange === 'done'"
-          :title="`已完成 ${stats.done} 条，完成率 ${completionRate}%`"
-          @click="applyQuickFilter('done')"
-        >
-          <span class="todo-stat__head">
-            <i class="todo-stat__dot is-success" aria-hidden="true" />
-            <YdIcon name="i-ri:checkbox-circle-line" class="todo-stat__icon" />
-            已完成
-          </span>
-          <strong>{{ stats.done }}</strong>
-          <YdProgress
-            class="todo-stat__progress"
-            :model-value="completionRate"
-            aria-label="完成率进度"
+      <template #stats>
+        <div class="todo-plugin__stat-strip" role="group" aria-label="待办统计与快捷筛选">
+          <YdAction
+            type="button"
+            class="todo-stat"
+            :class="{ 'is-active': quickRange === 'all' }"
+            :aria-pressed="quickRange === 'all'"
+            @click="applyQuickFilter('all')"
+          >
+            <span class="todo-stat__head">
+              <i class="todo-stat__dot" aria-hidden="true" />
+              <YdIcon name="i-ri:file-list-3-line" class="todo-stat__icon" />
+              全部待办
+            </span>
+            <strong>{{ stats.total }}</strong>
+          </YdAction>
+          <YdAction
+            type="button"
+            class="todo-stat is-pending"
+            :class="{ 'is-active': quickRange === 'pending' }"
+            :aria-pressed="quickRange === 'pending'"
+            @click="applyQuickFilter('pending')"
+          >
+            <span class="todo-stat__head">
+              <i class="todo-stat__dot is-warning" aria-hidden="true" />
+              <YdIcon name="i-ri:timer-line" class="todo-stat__icon" />
+              进行中
+            </span>
+            <strong>{{ stats.pending }}</strong>
+          </YdAction>
+          <YdAction
+            type="button"
+            class="todo-stat is-overdue"
+            :class="{ 'is-active': quickRange === 'overdue' }"
+            :aria-pressed="quickRange === 'overdue'"
+            @click="applyQuickFilter('overdue')"
+          >
+            <span class="todo-stat__head">
+              <i class="todo-stat__dot is-danger" aria-hidden="true" />
+              <YdIcon name="i-ri:alarm-warning-line" class="todo-stat__icon" />
+              已逾期
+            </span>
+            <strong>{{ stats.overdue }}</strong>
+          </YdAction>
+          <YdAction
+            type="button"
+            class="todo-stat is-done"
+            :class="{ 'is-active': quickRange === 'done' }"
+            :aria-pressed="quickRange === 'done'"
+            :title="`已完成 ${stats.done} 条，完成率 ${completionRate}%`"
+            @click="applyQuickFilter('done')"
+          >
+            <span class="todo-stat__head">
+              <i class="todo-stat__dot is-success" aria-hidden="true" />
+              <YdIcon name="i-ri:checkbox-circle-line" class="todo-stat__icon" />
+              已完成
+            </span>
+            <strong>{{ stats.done }}</strong>
+            <YdProgress
+              class="todo-stat__progress"
+              :model-value="completionRate"
+              aria-label="完成率进度"
+            />
+          </YdAction>
+          <YdAction
+            type="button"
+            class="todo-stat"
+            :class="{ 'is-active': quickRange === 'archived' }"
+            :aria-pressed="quickRange === 'archived'"
+            :title="`已归档 ${stats.archived} 条，归档任务仅在「已归档」筛选下可见`"
+            @click="applyQuickFilter('archived')"
+          >
+            <span class="todo-stat__head">
+              <i class="todo-stat__dot is-archived" aria-hidden="true" />
+              <YdIcon name="i-ri:archive-line" class="todo-stat__icon" />
+              已归档
+            </span>
+            <strong>{{ stats.archived }}</strong>
+          </YdAction>
+        </div>
+      </template>
+
+      <template #search>
+        <div class="todo-plugin__filters">
+          <YdInput
+            v-model="filters.keyword"
+            class="todo-plugin__filters-keyword"
+            placeholder="搜索标题或备注，输入后自动搜索"
+            clearable
+            @keydown.enter="searchNow"
           />
-        </YdAction>
-        <YdAction
-          type="button"
-          class="todo-stat"
-          :class="{ 'is-active': quickRange === 'archived' }"
-          :aria-pressed="quickRange === 'archived'"
-          :title="`已归档 ${stats.archived} 条，归档任务仅在「已归档」筛选下可见`"
-          @click="applyQuickFilter('archived')"
-        >
-          <span class="todo-stat__head">
-            <i class="todo-stat__dot is-archived" aria-hidden="true" />
-            <YdIcon name="i-ri:archive-line" class="todo-stat__icon" />
-            已归档
-          </span>
-          <strong>{{ stats.archived }}</strong>
-        </YdAction>
-      </div>
+          <YdSelect
+            v-model="statusModel"
+            class="w-full todo-plugin__filters-select"
+            :options="STATUS_OPTIONS"
+            @change="applyFilters"
+          />
+          <YdSelect
+            v-model="filters.priority"
+            class="w-full todo-plugin__filters-select"
+            :options="PRIORITY_FILTER_OPTIONS"
+            @change="applyFilters"
+          />
+          <UserPicker
+            v-model="ownerFilter"
+            class="todo-plugin__filters-picker"
+            :sdk="sdk"
+            :multiple="false"
+            placeholder="按负责人筛选"
+          />
+          <div class="todo-plugin__filter-actions">
+            <YdButton
+              variant="outline"
+              :disabled="quickRange === 'all' && !filters.keyword && !filters.priority && ownerIds.length === 0"
+              @click="filters.keyword = ''; filters.status = ''; filters.priority = ''; filters.overdue = false; filters.archived = false; ownerIds = []; applyFilters()"
+            >
+              重置
+            </YdButton>
+            <YdButton @click="applyFilters">
+              <YdIcon name="i-ri:search-line" />
+              查询
+            </YdButton>
+          </div>
+        </div>
+      </template>
 
-      <YdLoadingOverlay :loading="loading">
-        <div class="todo-plugin__table-scroll">
-        <YdTable
-          :columns="columns"
-          :data="tableRows"
-          :row-class="rowClass"
-          row-key="id"
-          table-root-class="todo-plugin__table-scroll"
-          table-class="min-w-[1040px]"
-          border
-          stripe
-          tree
-          column-visibility
-          empty-text="没有符合筛选条件的待办"
-        >
-          <!-- 筛选行放进表格工具栏：列设置（列筛选）按钮由 YdTable 渲染在同一行末尾。 -->
-          <template #toolbar>
-            <div class="todo-plugin__filters">
-              <YdInput
-                v-model="filters.keyword"
-                class="todo-plugin__filters-keyword"
-                placeholder="搜索标题或备注，输入后自动搜索"
-                clearable
-                @keydown.enter="searchNow"
-              />
-              <YdSelect
-                v-model="statusModel"
-                class="w-full todo-plugin__filters-select"
-                :options="STATUS_OPTIONS"
-                @change="applyFilters"
-              />
-              <YdSelect
-                v-model="filters.priority"
-                class="w-full todo-plugin__filters-select"
-                :options="PRIORITY_FILTER_OPTIONS"
-                @change="applyFilters"
-              />
-              <UserPicker
-                v-model="ownerFilter"
-                class="todo-plugin__filters-picker"
-                :sdk="sdk"
-                :multiple="false"
-                placeholder="按负责人筛选"
-              />
-              <div class="todo-plugin__filter-actions">
-                <YdButton
-                  variant="outline"
-                  :disabled="quickRange === 'all' && !filters.keyword && !filters.priority && ownerIds.length === 0"
-                  @click="filters.keyword = ''; filters.status = ''; filters.priority = ''; filters.overdue = false; filters.archived = false; ownerIds = []; applyFilters()"
-                >
-                  重置
-                </YdButton>
-                <YdButton @click="applyFilters">
-                  <YdIcon name="i-ri:search-line" />
-                  查询
-                </YdButton>
-              </div>
-            </div>
-          </template>
-
-          <template #cell-title="{ row }">
-            <div class="todo-title-cell">
-              <span
-                v-if="row.original.subTaskParentId"
-                class="todo-subtask-mark"
-                :class="{ 'is-done': row.original.status === 'done' }"
-                aria-hidden="true"
-              >
-                <YdIcon v-if="row.original.status === 'done'" name="i-ri:check-line" />
-              </span>
-              <div class="todo-title-cell__text">
-                <span class="todo-title-cell__row">
-                  <span class="todo-title-cell__title" :title="row.original.title">{{ row.original.title }}</span>
-                  <YdTooltip v-if="row.original.subTaskTotal > 0" text="点行首箭头展开小任务（管理端子行只读展示）">
-                    <span class="todo-subtask-badge">
-                      小任务 {{ row.original.subTaskDone }}/{{ row.original.subTaskTotal }}
-                    </span>
-                  </YdTooltip>
-                </span>
+      <template #table>
+        <YdLoadingOverlay :loading="loading">
+          <YdResponsiveEnhancedTable
+            :columns="columns"
+            :data="tableRows"
+            :row-class="rowClass"
+            row-key="id"
+            table-root-class="rounded-lg overflow-hidden"
+            table-class="min-w-[1040px]"
+            border
+            stripe
+            tree
+            column-visibility
+            :actions="rowActions"
+            empty-text="没有符合筛选条件的待办"
+          >
+            <template #cell-title="{ row }">
+              <div class="todo-title-cell">
                 <span
-                  v-if="!row.original.subTaskParentId && row.original.remark"
-                  class="todo-title-cell__remark"
-                  :title="row.original.remark"
+                  v-if="row.original.subTaskParentId"
+                  class="todo-subtask-mark"
+                  :class="{ 'is-done': row.original.status === 'done' }"
+                  aria-hidden="true"
                 >
-                  {{ row.original.remark }}
+                  <YdIcon v-if="row.original.status === 'done'" name="i-ri:check-line" />
                 </span>
+                <div class="todo-title-cell__text">
+                  <span class="todo-title-cell__row">
+                    <span class="todo-title-cell__title" :title="row.original.title">{{ row.original.title }}</span>
+                    <YdTooltip v-if="row.original.subTaskTotal > 0" text="点行首箭头展开小任务（管理端子行只读展示）">
+                      <span class="todo-subtask-badge">
+                        小任务 {{ row.original.subTaskDone }}/{{ row.original.subTaskTotal }}
+                      </span>
+                    </YdTooltip>
+                  </span>
+                  <span
+                    v-if="!row.original.subTaskParentId && row.original.remark"
+                    class="todo-title-cell__remark"
+                    :title="row.original.remark"
+                  >
+                    {{ row.original.remark }}
+                  </span>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #cell-owner="{ row }">
-            <div class="todo-assignees">
-              <span
-                v-for="pid in (row.original.participantIds ?? []).slice(0, 3)"
-                :key="pid"
-                class="todo-assignee-chip"
-              >{{ directory.labels([pid])[0] }}</span>
-              <YdTooltip v-if="(row.original.participantIds ?? []).length > 3" :text="allAssignees(row.original)">
-                <span class="todo-assignee-chip is-more">+{{ (row.original.participantIds ?? []).length - 3 }}</span>
-              </YdTooltip>
-              <span v-if="!(row.original.participantIds ?? []).length" class="todo-assignees__empty">
+            <template #cell-owner="{ row }">
+              <div v-if="(row.original.participantIds ?? []).length" class="todo-assignees">
+                <YdEntityPeek
+                  v-for="pid in (row.original.participantIds ?? []).slice(0, 3)"
+                  :key="pid"
+                  :title="directory.labels([pid])[0]"
+                  :subtitle="peekSubtitle(pid)"
+                  :avatar="directory.option(pid)?.avatar || ''"
+                  :facts="peekFacts(pid)"
+                />
+                <YdTooltip v-if="(row.original.participantIds ?? []).length > 3" :text="allAssignees(row.original)">
+                  <span class="todo-assignee-chip is-more">+{{ (row.original.participantIds ?? []).length - 3 }}</span>
+                </YdTooltip>
+              </div>
+              <span v-else class="todo-assignees__empty">
                 {{ row.original.subTaskParentId ? '未指定' : '仅自己' }}
               </span>
-            </div>
-          </template>
+            </template>
 
-          <template #cell-priority="{ row }">
-            <span v-if="row.original.subTaskParentId && row.original.subFollowPriority" class="todo-subtask-follow">跟随任务</span>
-            <PriorityTag v-else :priority="row.original.priority" />
-          </template>
+            <template #cell-priority="{ row }">
+              <span v-if="row.original.subTaskParentId && row.original.subFollowPriority" class="todo-subtask-follow">跟随任务</span>
+              <PriorityTag v-else :priority="row.original.priority" />
+            </template>
 
-          <template #cell-due="{ row }">
-            <span v-if="row.original.subTaskParentId && row.original.subFollowDue" class="todo-subtask-follow">跟随任务</span>
-            <DueLabel v-else :task="row.original" />
-          </template>
+            <template #cell-due="{ row }">
+              <span v-if="row.original.subTaskParentId && row.original.subFollowDue" class="todo-subtask-follow">跟随任务</span>
+              <DueLabel v-else :task="row.original" />
+            </template>
 
-          <template #cell-source="{ row }">
-            <YdTag v-if="!row.original.subTaskParentId" :variant="row.original.source === 'admin' ? 'default' : 'secondary'">
-              {{ creatorLabel(row.original) }}
-            </YdTag>
-            <span v-else class="todo-subtask-follow">跟随任务</span>
-          </template>
+            <template #cell-source="{ row }">
+              <YdTag v-if="!row.original.subTaskParentId" :variant="row.original.source === 'admin' ? 'default' : 'secondary'">
+                {{ creatorLabel(row.original) }}
+              </YdTag>
+              <span v-else class="todo-subtask-follow">跟随任务</span>
+            </template>
 
-          <template #cell-updatedAtLabel="{ row }">
-            <template v-if="!row.original.subTaskParentId">{{ row.original.updatedAtLabel }}</template>
-            <template v-else>{{ row.original.updatedAtLabel }}</template>
-          </template>
+            <template #cell-updatedAtLabel="{ row }">
+              {{ row.original.updatedAtLabel }}
+            </template>
+          </YdResponsiveEnhancedTable>
+        </YdLoadingOverlay>
+      </template>
 
-          <template #cell-operation="{ row }">
-            <div v-if="!row.original.subTaskParentId" class="todo-plugin__row-actions">
-              <YdButton size="sm" variant="outline" @click="openEdit(row.original)">
-                编辑
-              </YdButton>
-              <YdButton size="sm" variant="destructive" @click="confirmDelete(row.original)">
-                删除
-              </YdButton>
-            </div>
-          </template>
-        </YdTable>
-        </div>
-      </YdLoadingOverlay>
-
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        class="mt-3"
-        @page-change="onPageChange"
-        @size-change="onSizeChange"
-      />
-    </YdPageMain>
+      <template #footer>
+        <YdPagination
+          v-model:page="pager.page"
+          v-model:size="pager.size"
+          :total="pager.total"
+          @page-change="onPageChange"
+          @size-change="onSizeChange"
+        />
+      </template>
+    </YdTablePageLayout>
 
     <TaskFormModal v-model:open="editorOpen" :sdk="sdk" :task="editingTask" surface="admin" @saved="onChanged" />
   </div>
@@ -633,5 +654,11 @@ function confirmDelete(task: TodoTask) {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 负责人收进 peek 触发器：允许换行，触发器内部自行省略。 */
+.todo-assignees :deep(.yd-entity-peek__trigger) {
+  max-width: 100%;
+  padding-inline: 0;
 }
 </style>

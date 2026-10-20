@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { TableColumn } from '@yudream/components'
+import type { ActionMenuItem, EntityPeekFact, StatusTone, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { Feedback } from '../types'
-import { YdLoadingOverlay, YdAction, YdButton, YdDropdown, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSelect, YdSwitch, YdTable, YdTooltip, YdRangePicker, useYdModal, useYdToast } from '@yudream/components'
+import { YdEntityPeek, YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdRangePicker, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createFeedbackAdminApi } from '../api/feedback-api'
@@ -10,8 +10,7 @@ import FeedbackSeverityTag from '../components/FeedbackSeverityTag.vue'
 import FeedbackStatusTag from '../components/FeedbackStatusTag.vue'
 import FeedbackTypeTag from '../components/FeedbackTypeTag.vue'
 import UserSelect from '../components/UserSelect.vue'
-import { useColumnMenu } from '../composables/use-column-menu'
-import { SEVERITY_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS, assigneeNames, errorMessage, parseDayRange, personLabel } from '../composables/utils'
+import { SEVERITY_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS, assigneeLabel, assigneeNames, errorMessage, parseDayRange, personLabel } from '../composables/utils'
 
 /**
  * 反馈管理：跨用户受理入口，按提交人、状态、类型、严重程度与处理人筛选。
@@ -64,18 +63,26 @@ const statCards: Array<{ key: QuickRange, label: string, icon: string, tone: str
 ]
 
 const columns: TableColumn<Feedback>[] = [
-  { id: 'title', header: '反馈内容', minWidth: 240 },
+  { id: 'title', header: '反馈内容', minWidth: 240, fixed: 'left' },
   { id: 'type', header: '类型', width: 110 },
   { id: 'severity', header: '严重程度', width: 100 },
   { id: 'status', header: '处理状态', width: 110 },
   { id: 'author', header: '提交人', width: 130 },
   { id: 'assignee', header: '处理人', width: 170 },
   { accessorKey: 'updatedAtLabel', header: '最近更新', width: 150 },
-  { id: 'operation', header: '操作', width: 200, fixed: 'right' },
 ]
 
-/** 列筛选下拉：菜单项按 YdTable 插槽给出的 table 实例生成，做法见 `useColumnMenu`。 */
-const { columnMenuItems } = useColumnMenu()
+/**
+ * 行操作统一收进操作菜单：处理/归档是常规流转，删除是危险动作但保持既有确认流程。
+ *
+ * <p>归档只对未归档的反馈出现；菜单由 YdResponsiveEnhancedTable 渲染成固定右侧的唯一操作列，
+ * 桌面与移动卡片共用同一组配置。
+ */
+const rowActions: ActionMenuItem<Feedback>[] = [
+  { label: '处理', icon: 'morph:eye', onClick: row => openDetail(row) },
+  { label: '归档', icon: 'i-ri:archive-line', visible: row => row.status !== 'archived', onClick: row => confirmArchive(row) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => confirmDelete(row) },
+]
 
 /** 未完结合计与「待指派」都是范围而非状态枚举，因此在卡片层翻译成对应查询参数。 */
 const quickRange = computed<QuickRange>(() => {
@@ -322,190 +329,216 @@ function confirmArchive(row: Feedback) {
     },
   })
 }
+
+/** 处理状态在 peek 卡里的语义色：与 FeedbackStatusTag 的色相一一对应。 */
+function statusTone(status: Feedback['status']): StatusTone {
+  if (status === 'pending') {
+    return 'warning'
+  }
+  if (status === 'processing') {
+    return 'info'
+  }
+  if (status === 'resolved') {
+    return 'success'
+  }
+  if (status === 'rejected') {
+    return 'danger'
+  }
+  return 'neutral'
+}
+
+/**
+ * 用户 peek 卡的本地事实清单。
+ *
+ * <p>列表接口没有按 ID 反查用户档案的通道，头像/邮箱拿不到，这里只回显行内已有的反馈
+ * 上下文（提交时间、状态、严重程度），并把内部 ID 以等宽字体列进卡片，不虚构用户资料。
+ */
+function rowFacts(row: Feedback): EntityPeekFact[] {
+  return [
+    { label: '提交时间', value: row.createdAtLabel },
+    { label: '处理状态', value: row.statusLabel, tone: statusTone(row.status) },
+    { label: '严重程度', value: row.severityLabel },
+  ]
+}
 </script>
 
 <template>
   <div class="fb-page">
-    <YdPageHeader title="反馈管理" description="跨用户受理问题反馈，跟踪待处理量与处理进度" />
-
-    <YdPageMain>
-      <div class="fb-stat-strip" role="group" aria-label="反馈统计与快捷筛选">
-        <YdAction
-          v-for="card in statCards"
-          :key="card.key"
-          type="button"
-          class="fb-stat"
-          :class="[card.tone, { 'is-active': quickRange === card.key }]"
-          :aria-pressed="quickRange === card.key"
-          :title="cardTitle(card.key)"
-          @click="applyQuickFilter(card.key)"
-        >
-          <span class="fb-stat__head">
-            <i class="fb-stat__dot" aria-hidden="true" />
-            <YdIcon :name="card.icon" class="fb-stat__icon" />
-            {{ card.label }}
-          </span>
-          <strong v-if="card.key !== 'unassigned'">{{ quickCount(card.key) }}</strong>
-          <strong v-else class="fb-stat__toggle">{{ filters.unassigned ? '筛选中' : '点击筛选' }}</strong>
-        </YdAction>
-      </div>
-
-      <YdLoadingOverlay :loading="loading">
-        <div class="fb-table-block">
-        <YdTable
-          :columns="columns"
-          :data="rows"
-          row-key="id"
-          table-root-class="rounded-lg overflow-hidden"
-          table-class="min-w-[1180px]"
-          border
-          stripe
-          empty-text="没有符合筛选条件的反馈"
-        >
-          <template #toolbar="{ table }">
-            <div class="fb-filters">
-              <YdInput
-                v-model="filters.keyword"
-                class="fb-filters__keyword"
-                placeholder="搜索标题、描述或回复内容，输入后自动搜索"
-                clearable
-                @keydown.enter="searchNow"
-              />
-              <YdSelect
-                v-model="statusModel"
-                class="fb-filters__select"
-                :options="statusFilterOptions"
-                @change="applyFilters"
-              />
-              <YdSelect
-                v-model="filters.type"
-                class="fb-filters__select"
-                :options="TYPE_OPTIONS"
-                @change="applyFilters"
-              />
-              <YdSelect
-                v-model="filters.severity"
-                class="fb-filters__select"
-                :options="SEVERITY_OPTIONS"
-                @change="applyFilters"
-              />
-              <!--
-                第二行：处理人及之后的筛选与动作键。用 .fb-filters__row 主动断行，
-                让它们成为完整的一组，而不是被自动换行切散在两边。
-              -->
-              <div class="fb-filters__row">
-                <UserSelect
-                  v-model="assigneeFilterModel"
-                  class="fb-filters__select"
-                  :sdk="sdk"
-                  scope="manage"
-                  placeholder="按处理人筛选"
-                  title="按处理人筛选"
-                />
-                <UserSelect
-                  v-model="authorFilterModel"
-                  class="fb-filters__select"
-                  :sdk="sdk"
-                  placeholder="按提交人筛选"
-                  title="按提交人筛选"
-                />
-                <YdRangePicker
-                  v-model="submittedRange"
-                  class="fb-filters__range"
-                  :placeholder="['提交开始日期', '提交结束日期']"
-                  @change="applyFilters"
-                />
-                <label class="fb-filters__switch">
-                  <YdSwitch v-model="unassignedModel" />
-                  <span>只看待指派</span>
-                </label>
-                <div class="fb-filters__actions">
-                  <YdButton variant="outline" @click="resetFilters">
-                    重置
-                  </YdButton>
-                  <YdButton @click="applyFilters">
-                    <YdIcon name="i-ri:search-line" />
-                    查询
-                  </YdButton>
-                  <YdDropdown :items="[columnMenuItems(table)]" align="end">
-                    <YdButton variant="outline" size="icon" title="列筛选" aria-label="列筛选">
-                      <YdIcon name="i-lucide:columns-3" />
-                    </YdButton>
-                  </YdDropdown>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <template #cell-title="{ row }">
-            <div class="fb-title-cell">
-              <span class="fb-title-cell__title" :title="row.original.title">{{ row.original.title }}</span>
-              <span class="fb-title-cell__desc" :title="row.original.description">{{ row.original.description }}</span>
-            </div>
-          </template>
-
-          <template #cell-type="{ row }">
-            <FeedbackTypeTag :type="row.original.type" :label="row.original.typeLabel" />
-          </template>
-
-          <template #cell-severity="{ row }">
-            <FeedbackSeverityTag :severity="row.original.severity" :label="row.original.severityLabel" />
-          </template>
-
-          <template #cell-status="{ row }">
-            <FeedbackStatusTag :status="row.original.status" :label="row.original.statusLabel" />
-          </template>
-
-          <template #cell-author="{ row }">
-            <span class="fb-person" :title="row.original.authorId">
-              {{ personLabel(row.original.authorName, row.original.authorId) }}
+    <YdTablePageLayout
+      title="反馈管理"
+      stats-title="反馈统计与快捷筛选"
+      :stats-default-expanded="true"
+      :search-default-folded="false"
+    >
+      <!-- 统计卡即快捷筛选：点当前范围则回到「全部」。 -->
+      <template #stats>
+        <div class="fb-stat-strip" role="group" aria-label="反馈统计与快捷筛选">
+          <YdAction
+            v-for="card in statCards"
+            :key="card.key"
+            type="button"
+            class="fb-stat"
+            :class="[card.tone, { 'is-active': quickRange === card.key }]"
+            :aria-pressed="quickRange === card.key"
+            :title="cardTitle(card.key)"
+            @click="applyQuickFilter(card.key)"
+          >
+            <span class="fb-stat__head">
+              <i class="fb-stat__dot" aria-hidden="true" />
+              <YdIcon :name="card.icon" class="fb-stat__icon" />
+              {{ card.label }}
             </span>
-          </template>
-
-          <template #cell-assignee="{ row }">
-            <span
-              v-if="row.original.assignees.length"
-              class="fb-person"
-              :title="assigneeNames(row.original.assignees)"
-            >
-              {{ assigneeNames(row.original.assignees) }}
-            </span>
-            <YdTooltip v-else text="还没有处理人，管理员更新该反馈后会自动成为处理人">
-              <span class="fb-person is-empty">待指派</span>
-            </YdTooltip>
-          </template>
-
-          <template #cell-operation="{ row }">
-            <div class="fb-row-actions">
-              <YdButton size="sm" @click="openDetail(row.original)">
-                处理
-              </YdButton>
-              <YdButton
-                v-if="row.original.status !== 'archived'"
-                size="sm"
-                variant="outline"
-                @click="confirmArchive(row.original)"
-              >
-                归档
-              </YdButton>
-              <YdButton size="sm" variant="destructive" @click="confirmDelete(row.original)">
-                删除
-              </YdButton>
-            </div>
-          </template>
-        </YdTable>
+            <strong v-if="card.key !== 'unassigned'">{{ quickCount(card.key) }}</strong>
+            <strong v-else class="fb-stat__toggle">{{ filters.unassigned ? '筛选中' : '点击筛选' }}</strong>
+          </YdAction>
         </div>
-      </YdLoadingOverlay>
+      </template>
 
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        class="mt-3"
-        @page-change="onPageChange"
-        @size-change="onSizeChange"
-      />
-    </YdPageMain>
+      <template #search>
+        <div class="fb-filters">
+          <YdInput
+            v-model="filters.keyword"
+            class="fb-filters__keyword"
+            placeholder="搜索标题、描述或回复内容，输入后自动搜索"
+            clearable
+            @keydown.enter="searchNow"
+          />
+          <YdSelect
+            v-model="statusModel"
+            class="fb-filters__select"
+            :options="statusFilterOptions"
+            @change="applyFilters"
+          />
+          <YdSelect
+            v-model="filters.type"
+            class="fb-filters__select"
+            :options="TYPE_OPTIONS"
+            @change="applyFilters"
+          />
+          <YdSelect
+            v-model="filters.severity"
+            class="fb-filters__select"
+            :options="SEVERITY_OPTIONS"
+            @change="applyFilters"
+          />
+          <!--
+            第二行：处理人及之后的筛选与动作键。用 .fb-filters__row 主动断行，
+            让它们成为完整的一组，而不是被自动换行切散在两边。
+          -->
+          <div class="fb-filters__row">
+            <UserSelect
+              v-model="assigneeFilterModel"
+              class="fb-filters__select"
+              :sdk="sdk"
+              scope="manage"
+              placeholder="按处理人筛选"
+              title="按处理人筛选"
+            />
+            <UserSelect
+              v-model="authorFilterModel"
+              class="fb-filters__select"
+              :sdk="sdk"
+              placeholder="按提交人筛选"
+              title="按提交人筛选"
+            />
+            <YdRangePicker
+              v-model="submittedRange"
+              class="fb-filters__range"
+              :placeholder="['提交开始日期', '提交结束日期']"
+              @change="applyFilters"
+            />
+            <label class="fb-filters__switch">
+              <YdSwitch v-model="unassignedModel" />
+              <span>只看待指派</span>
+            </label>
+            <div class="fb-filters__actions">
+              <YdButton variant="outline" @click="resetFilters">
+                重置
+              </YdButton>
+              <YdButton @click="applyFilters">
+                <YdIcon name="i-ri:search-line" />
+                查询
+              </YdButton>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template #table>
+        <YdLoadingOverlay :loading="loading">
+          <YdResponsiveEnhancedTable
+            :columns="columns"
+            :data="rows"
+            row-key="id"
+            table-root-class="rounded-lg overflow-hidden"
+            table-class="min-w-[1180px]"
+            border
+            stripe
+            column-visibility
+            :actions="rowActions"
+            empty-text="没有符合筛选条件的反馈"
+          >
+            <template #cell-title="{ row }">
+              <div class="fb-title-cell">
+                <span class="fb-title-cell__title" :title="row.original.title">{{ row.original.title }}</span>
+                <span class="fb-title-cell__desc" :title="row.original.description">{{ row.original.description }}</span>
+              </div>
+            </template>
+
+            <template #cell-type="{ row }">
+              <FeedbackTypeTag :type="row.original.type" :label="row.original.typeLabel" />
+            </template>
+
+            <template #cell-severity="{ row }">
+              <FeedbackSeverityTag :severity="row.original.severity" :label="row.original.severityLabel" />
+            </template>
+
+            <template #cell-status="{ row }">
+              <FeedbackStatusTag :status="row.original.status" :label="row.original.statusLabel" />
+            </template>
+
+            <template #cell-author="{ row }">
+              <YdEntityPeek
+                :title="personLabel(row.original.authorName, row.original.authorId)"
+                :subtitle="row.original.authorId"
+                :facts="rowFacts(row.original)"
+              />
+            </template>
+
+            <template #cell-assignee="{ row }">
+              <div v-if="row.original.assignees.length" class="fb-assignees">
+                <YdEntityPeek
+                  v-for="assignee in row.original.assignees.slice(0, 2)"
+                  :key="assignee.id"
+                  :title="assigneeLabel(assignee)"
+                  :subtitle="assignee.id"
+                  :facts="rowFacts(row.original)"
+                />
+                <YdTooltip
+                  v-if="row.original.assignees.length > 2"
+                  :text="`其余处理人：${assigneeNames(row.original.assignees.slice(2))}`"
+                >
+                  <span class="fb-person is-more">+{{ row.original.assignees.length - 2 }}</span>
+                </YdTooltip>
+              </div>
+              <YdTooltip v-else text="还没有处理人，管理员更新该反馈后会自动成为处理人">
+                <span class="fb-person is-empty">待指派</span>
+              </YdTooltip>
+            </template>
+          </YdResponsiveEnhancedTable>
+        </YdLoadingOverlay>
+      </template>
+
+      <template #footer>
+        <YdPagination
+          v-model:page="pager.page"
+          v-model:size="pager.size"
+          :total="pager.total"
+          @page-change="onPageChange"
+          @size-change="onSizeChange"
+        />
+      </template>
+    </YdTablePageLayout>
   </div>
 </template>
 
@@ -579,10 +612,6 @@ function confirmArchive(row: Feedback) {
   font-size: 13px !important;
 }
 
-.fb-table-block {
-  margin-top: var(--fb-sp-4);
-}
-
 .fb-title-cell {
   display: grid;
   gap: 2px;
@@ -620,8 +649,22 @@ function confirmArchive(row: Feedback) {
   cursor: help;
 }
 
-.fb-row-actions {
+.fb-person.is-more {
+  color: var(--fb-text-3);
+  cursor: help;
+}
+
+/* 多处理人收进 peek 触发器 + 溢出徽标：允许换行，不横向撑爆固定宽列。 */
+.fb-assignees {
   display: flex;
-  gap: var(--fb-sp-2);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--fb-sp-1);
+  min-width: 0;
+}
+
+.fb-assignees :deep(.yd-entity-peek__trigger) {
+  max-width: 100%;
+  padding-inline: 0;
 }
 </style>

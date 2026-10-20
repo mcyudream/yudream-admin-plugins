@@ -3,7 +3,7 @@ displayName: 学历认证
 description: 提供教育邮箱、在线验证码和人工审核等学历认证方式。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.eduverify.bootstrap.EduVerifyPlugin
-version: 1.5.11
+version: 1.5.12
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: campus

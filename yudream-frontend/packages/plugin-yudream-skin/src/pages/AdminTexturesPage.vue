@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } 
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { useYdModal, YdButton, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPageMain, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { useYdModal, YdButton, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -205,100 +205,95 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
 </script>
 
 <template>
-
-  <YdPageMain><div class="skin-admin-table-page">
-    <YdListToolbar
-      v-model:keyword="search.keyword"
-      placeholder="名称 / Hash / 上传人"
-      @search="pagination.page = 1"
-      @clear="pagination.page = 1"
-    >
-      <template #filters>
+  <div class="skin-admin-table-page">
+    <YdTablePageLayout title="材质管理">
+      <template #search>
+        <YdListToolbar
+          v-model:keyword="search.keyword"
+          placeholder="名称 / Hash / 上传人"
+          @search="pagination.page = 1"
+          @clear="pagination.page = 1"
+        >
+          <template #filters>
             <YdSelect v-model="search.type" :options="typeOptions" class="skin-admin-filter-grid__select" />
             <YdSelect v-model="search.visibility" :options="visibilityOptions" class="skin-admin-filter-grid__select" />
-            <div class="skin-admin-filter-grid__actions">
-              <YdButton @click="openUpload">
-                <YdIcon name="i-ri:upload-cloud-2-line" />
-                上传材质
-              </YdButton>
-              <YdButton variant="outline" @click="resetSearch">
-                重置
-              </YdButton>
-              <YdButton @click="pagination.page = 1">
-                <YdIcon name="i-ri:search-line" />
-                筛选
-              </YdButton>
-            </div>
+          </template>
+          <template #actions>
+            <YdButton variant="outline" @click="resetSearch">
+              重置
+            </YdButton>
+            <YdButton @click="pagination.page = 1">
+              <YdIcon name="i-ri:search-line" />
+              筛选
+            </YdButton>
+          </template>
+        </YdListToolbar>
       </template>
       <template #actions>
         <YdButton @click="openUpload">
           <YdIcon name="i-ri:upload-cloud-2-line" />
           上传材质
         </YdButton>
-        <YdButton variant="outline" @click="resetSearch">
-          重置
-        </YdButton>
       </template>
-    </YdListToolbar>
-
-            <YdTablePageLayout title="材质管理" :show-search="false">
-            <template #table>
-<YdResponsiveEnhancedTable
-      :actions="rowActions"
-      row-key="hash"
-      table-root-class="skin-admin-texture-table-root rounded-lg overflow-hidden"
-      table-class="skin-admin-texture-table"
-      column-visibility
-      border
-      stripe
-      :columns="tableColumns"
-      :data="pagedRows"
-    >
-      <template #cell-preview="{ row }">
-        <div class="skin-admin-texture-preview" aria-hidden="true">
-          <SkinTexturePreview
-            :texture-url="model.textureUrl(row.original.hash)"
-            :type="row.original.type"
-            :model="row.original.model"
-          />
-        </div>
+      <template #table>
+        <YdResponsiveEnhancedTable
+          :actions="rowActions"
+          row-key="hash"
+          table-root-class="skin-admin-texture-table-root rounded-lg overflow-hidden"
+          table-class="skin-admin-texture-table"
+          column-visibility
+          border
+          stripe
+          :columns="tableColumns"
+          :data="pagedRows"
+        >
+          <template #cell-preview="{ row }">
+            <div class="skin-admin-texture-preview" aria-hidden="true">
+              <SkinTexturePreview
+                :texture-url="model.textureUrl(row.original.hash)"
+                :type="row.original.type"
+                :model="row.original.model"
+              />
+            </div>
+          </template>
+          <template #cell-name="{ row }">
+            <span class="skin-admin-texture-name" :title="row.original.name">{{ row.original.name }}</span>
+          </template>
+          <template #cell-type="{ row }">
+            {{ textureKind(row.original) }}
+          </template>
+          <template #cell-publicAccess="{ row }">
+            <YdTag :variant="row.original.publicAccess ? 'default' : 'secondary'">
+              {{ row.original.publicAccess ? '公开' : '私有' }}
+            </YdTag>
+          </template>
+          <template #cell-uploaderId="{ row }">
+            <YdEntityPeek
+              :title="model.userName(row.original.uploaderId)"
+              :subtitle="row.original.uploaderId ? `ID ${row.original.uploaderId}` : ''"
+            />
+          </template>
+          <template #cell-size="{ row }">
+            {{ formatSize(row.original.size) }}
+          </template>
+          <template #cell-uploadedAt="{ row }">
+            {{ model.dateText(row.original.uploadedAt) }}
+          </template>
+          <template #cell-hash="{ row }">
+            <code class="skin-admin-code" :title="row.original.hash">{{ shortHash(row.original.hash) }}</code>
+          </template>
+        </YdResponsiveEnhancedTable>
       </template>
-      <template #cell-name="{ row }">
-        <span class="skin-admin-texture-name" :title="row.original.name">{{ row.original.name }}</span>
+      <template #footer>
+        <YdPagination
+          v-model:page="pagination.page"
+          v-model:size="pagination.size"
+          :total="filteredRows.length"
+          @page-change="onPageChange"
+          @size-change="onSizeChange"
+        />
       </template>
-      <template #cell-type="{ row }">
-        {{ textureKind(row.original) }}
-      </template>
-      <template #cell-publicAccess="{ row }">
-        <YdTag :variant="row.original.publicAccess ? 'default' : 'secondary'">
-          {{ row.original.publicAccess ? '公开' : '私有' }}
-        </YdTag>
-      </template>
-      <template #cell-uploaderId="{ row }">
-        {{ model.userName(row.original.uploaderId) }}
-      </template>
-      <template #cell-size="{ row }">
-        {{ formatSize(row.original.size) }}
-      </template>
-      <template #cell-uploadedAt="{ row }">
-        {{ model.dateText(row.original.uploadedAt) }}
-      </template>
-      <template #cell-hash="{ row }">
-        <code class="skin-admin-code" :title="row.original.hash">{{ shortHash(row.original.hash) }}</code>
-      </template>
-      
-</YdResponsiveEnhancedTable>
-            </template>
-            <template #footer>
-      <YdPagination
-      v-model:page="pagination.page"
-      v-model:size="pagination.size"
-      :total="filteredRows.length"
-      @page-change="onPageChange"
-      @size-change="onSizeChange"
-    />
-            </template>
-          </YdTablePageLayout>
+    </YdTablePageLayout>
 
 
 
@@ -350,5 +345,5 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
         </YdLabel>
       </div>
     </YdModal>
-  </div></YdPageMain>
+  </div>
 </template>

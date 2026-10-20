@@ -21,7 +21,6 @@ const columns: TableColumn<ProjectWorkDetail>[] = [
   { id: 'assignees', header: '负责人', width: 240 },
   { id: 'materials', header: '验收材料', width: 280 },
   { id: 'dueAt', header: '截止时间', width: 170 },
-  { id: 'operation', header: '操作', width: 180, align: 'center', fixed: 'right' },
 ]
 
 watch(() => props.model.pendingAcceptance.length, total => clampPage(total))
@@ -55,9 +54,7 @@ async function submitReview() {
 <template>
 
   <YdTablePageLayout title="任务验收" :show-search="false">
-    <section class="pp-page">
-    <section class="pp-panel">
-      <header class="pp-panel-head"><div><h3>待验收任务</h3><span>只有已提交验收的任务会出现在这里</span></div></header>
+    <template #table>
       <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1240px]" border stripe column-visibility :actions="rowActions" :columns="columns" :data="pagedRows" empty-text="暂无待验收任务">
         <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
         <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div></template>
@@ -66,8 +63,7 @@ async function submitReview() {
         <template #cell-materials="{ row }"><div class="pp-material-box"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
         <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
       </YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </section>
-    </section>
+    </template>
     <template #footer>
       <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.pendingAcceptance.length" />
     </template>

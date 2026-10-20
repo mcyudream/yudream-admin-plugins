@@ -2,13 +2,13 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import {
   YdButton,
-  YdCard,
   YdIcon,
   YdImageUpload,
   YdInput,
   YdPageHeader,
-  YdPageMain,
   YdSelect,
+  YdSettingsLayout,
+  YdSettingsSection,
   YdTag,
   useYdModal,
 } from '@yudream/components'
@@ -42,6 +42,15 @@ function afterUpload(response: unknown) {
 }
 
 const FALLBACK_LABEL = '未设置（回退成员个人设置）'
+
+/** 设置页分区：左导航按此切换，窄屏折叠成分区选择器 */
+const activeSection = ref('color')
+const sectionList: { label: string, value: string }[] = [
+  { label: '色彩主题', value: 'color' },
+  { label: '背景与窗口', value: 'background' },
+  { label: '行为开关', value: 'behavior' },
+  { label: '托管状态', value: 'status' },
+]
 
 const MODE_OPTIONS = [
   { label: FALLBACK_LABEL, value: '' },
@@ -106,10 +115,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ymcl-page">
+  <div class="settings-page-shell">
     <YdPageHeader
       title="域主题"
       description="配置随 manifest 下发的启动器外观主题：托管生效期间，成员的外观设置（色彩主题、强调色、背景、窗口、渲染与过渡动画）整体只读，未配置的字段回退成员个人偏好。"
+      class="mb-0"
     >
       <YdButton variant="outline" @click="jsonDrawer = true">
         <YdIcon name="i-ri:code-s-slash-line" />
@@ -129,12 +139,17 @@ onMounted(() => {
       </YdButton>
     </YdPageHeader>
 
-    <YdPageMain>
-      <div class="ymcl-theme-grid">
-        <YdCard
+    <YdSettingsLayout
+      v-model="activeSection"
+      :list="sectionList"
+      surface
+      scroll
+      width-class="max-w-[960px]"
+    >
+      <template #color>
+        <YdSettingsSection
           title="色彩主题"
           description="深浅色模式与强调色；强调色可选预设名或自定义十六进制颜色"
-          content-class="ymcl-card-content"
         >
           <div class="ymcl-form-row">
             <label class="ymcl-label">色彩模式</label>
@@ -155,12 +170,13 @@ onMounted(() => {
               />
             </div>
           </div>
-        </YdCard>
+        </YdSettingsSection>
+      </template>
 
-        <YdCard
+      <template #background>
+        <YdSettingsSection
           title="背景与窗口"
           description="启动器背景图（上传托管）与透明窗口；两者互斥，同时配置时透明窗口优先生效"
-          content-class="ymcl-card-content"
         >
           <div class="ymcl-form-row">
             <label class="ymcl-label">背景图</label>
@@ -210,12 +226,13 @@ onMounted(() => {
             <label class="ymcl-label">窗口磨砂（仅 Windows / macOS）</label>
             <YdSelect v-model="model.themeForm.windowBlur" :options="TRI_OPTIONS" @update:model-value="model.markThemeDirty()" />
           </div>
-        </YdCard>
+        </YdSettingsSection>
+      </template>
 
-        <YdCard
+      <template #behavior>
+        <YdSettingsSection
           title="行为开关"
           description="高级渲染与页面切换过渡动画"
-          content-class="ymcl-card-content"
         >
           <div class="ymcl-form-row">
             <label class="ymcl-label">高级渲染</label>
@@ -225,9 +242,11 @@ onMounted(() => {
             <label class="ymcl-label">页面切换过渡动画</label>
             <YdSelect v-model="model.themeForm.pageTransitions" :options="TRI_OPTIONS" @update:model-value="model.markThemeDirty()" />
           </div>
-        </YdCard>
+        </YdSettingsSection>
+      </template>
 
-        <YdCard title="托管状态" content-class="ymcl-card-content">
+      <template #status>
+        <YdSettingsSection title="托管状态">
           <div class="ymcl-card-header-row">
             <span class="ymcl-muted">保存后成员启动器整体锁定上述外观设置</span>
             <YdTag :variant="model.themeForm.configured ? 'default' : 'outline'">
@@ -252,9 +271,9 @@ onMounted(() => {
             撤销托管或清空全部字段后，成员启动器恢复各自的外观设置。
             cssVars 品牌变量等高级字段当前不在表单内，可用「查看 JSON」核对，保存时原样保留。
           </p>
-        </YdCard>
-      </div>
-    </YdPageMain>
+        </YdSettingsSection>
+      </template>
+    </YdSettingsLayout>
 
     <JsonViewDrawer v-model="jsonDrawer" title="域主题 JSON" :payload="model.themeForm.raw" />
   </div>

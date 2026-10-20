@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-voxelith-map</artifactId>
-    <version>2.1.72</version>
+    <version>2.1.73</version>
     <name>yudream-plugin-voxelith-map</name>
     <description>基于 Voxelith 渲染核心的 Minecraft 世界地图插件</description>
 

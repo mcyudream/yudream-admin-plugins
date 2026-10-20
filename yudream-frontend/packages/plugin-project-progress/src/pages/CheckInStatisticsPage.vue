@@ -1,9 +1,8 @@
 <script setup lang="ts">
-// yudream-self-chrome 页面自管页头与卡片
-import { YdLoadingOverlay, YdPageHeader, YdPageMain } from '@yudream/components'
-import type { TableColumn } from '@yudream/components'
+import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import type { TableColumn, YdTablePageAction } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
-import { YdButton, YdPagination, YdSelect, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdPagination, YdResponsiveEnhancedTable, YdSelect } from '@yudream/components'
 import { computed, reactive, watch } from 'vue'
 
 interface MemberCheckInRow { userId: string, total: number, image: number, file: number, location: number, minecraft: number, lastAt: number }
@@ -39,6 +38,11 @@ const columns: TableColumn<MemberCheckInRow>[] = [
   { id: 'lastAt', header: '最近打卡', width: 180 },
 ]
 
+/** 页面级操作：导出 */
+const pageActions = computed<YdTablePageAction[]>(() => [
+  { label: '导出', variant: 'outline', disabled: !props.model.checkIns.length, onClick: () => props.model.exportCheckIns() },
+])
+
 watch(() => memberRows.value.length, total => { pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(total / pagination.size))) })
 watch(() => pagination.size, () => { pagination.page = 1 })
 
@@ -49,22 +53,30 @@ async function selectProject(projectId: unknown) {
 </script>
 
 <template>
+  <YdTablePageLayout title="打卡统计" :stats-default-expanded="true" :actions="pageActions">
+    <template #search>
+      <YdSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" />
+    </template>
 
-  <YdPageHeader title="打卡统计" class="mb-0" />
-  <YdPageMain>  <section class="pp-page">
-    <section class="pp-toolbar">
-      <div><span>项目打卡</span><h2>打卡统计</h2></div>
-      <div class="pp-actions"><YdSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" /><YdButton variant="outline" :loading="model.loading" @click="model.loadCheckInStatistics()">刷新</YdButton><YdButton variant="outline" :disabled="!model.checkIns.length" @click="model.exportCheckIns">导出</YdButton></div>
-    </section>
-    <section class="pp-panel"><div class="pp-stat-grid"><article class="pp-stat-card"><span>打卡总数</span><strong>{{ model.checkIns.length }}</strong></article><article class="pp-stat-card"><span>参与成员</span><strong>{{ participantCount }}</strong></article><article v-for="item in typeCounts" :key="item.type" class="pp-stat-card"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></article></div></section>
-    <section class="pp-panel">
-      <header class="pp-panel-head"><div><h3>成员打卡明细</h3><span>按打卡次数与最近打卡时间排序</span></div></header>
-      <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable  row-key="userId" table-root-class="max-w-full overflow-x-auto rounded-lg" table-class="min-w-[910px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
-        <template #cell-member="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
-        <template #cell-lastAt="{ row }">{{ model.formatTime(row.original.lastAt) }}</template>
-</YdResponsiveEnhancedTable></YdLoadingOverlay>
-      <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="memberRows.length" class="mt-3" />
-    </section>
-  </section>
-</YdPageMain>
+    <template #stats>
+      <div class="pp-stat-grid">
+        <article class="pp-stat-card"><span>打卡总数</span><strong>{{ model.checkIns.length }}</strong></article>
+        <article class="pp-stat-card"><span>参与成员</span><strong>{{ participantCount }}</strong></article>
+        <article v-for="item in typeCounts" :key="item.type" class="pp-stat-card"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></article>
+      </div>
+    </template>
+
+    <template #table>
+      <YdLoadingOverlay :loading="model.loading">
+        <YdResponsiveEnhancedTable row-key="userId" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[910px]" border stripe column-visibility :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+          <template #cell-member="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
+          <template #cell-lastAt="{ row }">{{ model.formatTime(row.original.lastAt) }}</template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
+
+    <template #footer>
+      <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="memberRows.length" />
+    </template>
+  </YdTablePageLayout>
 </template>

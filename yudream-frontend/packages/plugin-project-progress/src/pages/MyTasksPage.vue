@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// yudream-self-chrome 页面自管页头与卡片
+import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
-import { YdButton, YdFileUpload, YdModal, YdPageHeader, YdPageMain, YdPagination, YdTextarea, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdFileUpload, YdModal, YdPagination, YdResponsiveEnhancedTable, YdTextarea } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EvidenceFileList from '../components/EvidenceFileList.vue'
@@ -63,11 +63,9 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-
-  <YdPageHeader title="我的任务" class="mb-0" />
-  <YdPageMain>  <section class="pp-page">
-
-    <section class="pp-panel">
+  <YdTablePageLayout title="我的任务" :stats-default-expanded="true" :show-search="false">
+    <template #stats>
+      <p class="pp-muted">完成任务后提交验收，通过后才计入完成进度</p>
       <div class="pp-stat-grid">
         <article class="pp-stat-card">
           <span>分配细分</span>
@@ -94,54 +92,52 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <strong>{{ model.personalStats?.checkIns || 0 }}</strong>
         </article>
       </div>
-    </section>
+    </template>
 
-    <section class="pp-panel">
-      <header class="pp-panel-head">
-        <div>
-          <h3>已分配任务</h3>
-          <span>完成任务后提交验收，通过后才计入完成进度</span>
-        </div>
-      </header>
-      <YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1180px]" border stripe column-visibility :actions="rowActions" :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
-        <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
-        <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div><div v-if="row.original.acceptanceSummary || row.original.acceptanceFiles.length" class="pp-material-box mt-3"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
-        <template #cell-status="{ row }"><div class="pp-chip-list"><span class="yd-status-tone" data-tone="neutral">{{ model.detailStatusLabel(row.original) }}</span><span v-if="row.original.pendingAcceptance" class="yd-status-tone" data-tone="warning">待验收</span></div></template>
-        <template #cell-assignment="{ row }">{{ model.assignmentLabel(row.original) }}</template>
-        <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
-      </YdResponsiveEnhancedTable>
-      <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.myTasks.length" class="mt-3" />
-    </section>
+    <template #table>
+      <YdLoadingOverlay :loading="model.loading">
+        <YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1180px]" border stripe column-visibility :actions="rowActions" :columns="columns" :data="pagedTasks" empty-text="暂无分配给你的任务">
+          <template #cell-project="{ row }">{{ model.projectName(row.original.projectId) }}</template>
+          <template #cell-task="{ row }"><strong>{{ row.original.title }}</strong><div class="pp-table-sub">{{ row.original.description || '暂无说明' }}</div><div v-if="row.original.acceptanceSummary || row.original.acceptanceFiles.length" class="pp-material-box mt-3"><p>{{ row.original.acceptanceSummary || '暂无验收说明' }}</p><EvidenceFileList :model="model" :files="row.original.acceptanceFiles" compact /></div></template>
+          <template #cell-status="{ row }"><div class="pp-chip-list"><span class="yd-status-tone" data-tone="neutral">{{ model.detailStatusLabel(row.original) }}</span><span v-if="row.original.pendingAcceptance" class="yd-status-tone" data-tone="warning">待验收</span></div></template>
+          <template #cell-assignment="{ row }">{{ model.assignmentLabel(row.original) }}</template>
+          <template #cell-dueAt="{ row }">{{ model.formatTime(row.original.dueAt) }}</template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
 
-    <YdModal
-      v-model="submitVisible"
-      title="提交验收"
-      class="max-w-[640px]"
-      :show-confirm-button="false"
-      show-cancel-button
-      cancel-button-text="取消"
-    >
-      <div class="pp-form">
-        <label>
-          <span>验收说明</span>
-          <YdTextarea v-model="model.acceptanceSubmitForm.summary" placeholder="说明完成内容、交付位置或需要验收的重点" class="w-full" />
-        </label>
-        <label>
-          <span>验收附件</span>
-          <YdFileUpload
-            v-model="model.acceptanceFiles"
-            multiple
-            :max="6"
-            :http-request="localUploadRequest"
-            description="拖放或点击上传图片/文件"
-          />
-        </label>
-      </div>
-      <template #footer>
-        <YdButton variant="outline" @click="submitVisible = false">取消</YdButton>
-        <YdButton :loading="model.saving" @click="confirmSubmitAcceptance">提交验收</YdButton>
-      </template>
-    </YdModal>
-  </section>
-</YdPageMain>
+    <template #footer>
+      <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.myTasks.length" />
+    </template>
+  </YdTablePageLayout>
+
+  <YdModal
+    v-model="submitVisible"
+    title="提交验收"
+    class="max-w-[640px]"
+    :show-confirm-button="false"
+    show-cancel-button
+    cancel-button-text="取消"
+  >
+    <div class="pp-form">
+      <label>
+        <span>验收说明</span>
+        <YdTextarea v-model="model.acceptanceSubmitForm.summary" placeholder="说明完成内容、交付位置或需要验收的重点" class="w-full" />
+      </label>
+      <label>
+        <span>验收附件</span>
+        <YdFileUpload
+          v-model="model.acceptanceFiles"
+          multiple
+          :max="6"
+          :http-request="localUploadRequest"
+          description="拖放或点击上传图片/文件"
+        />
+      </label>
+    </div>
+    <template #footer>
+      <YdButton variant="outline" @click="submitVisible = false">取消</YdButton>
+      <YdButton :loading="model.saving" @click="confirmSubmitAcceptance">提交验收</YdButton>
+    </template>
+  </YdModal>
 </template>

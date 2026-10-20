@@ -4,7 +4,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { MyParticipation } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdPageMain, YdPagination, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdPageMain, YdPagination, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CoverThumb from '../components/CoverThumb.vue'
@@ -69,11 +69,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
   <section class="proof-page">
     <YdPageMain>
       <YdTablePageLayout title="我的参与" :show-search="false">
-    <template #actions>
-      <YdButton variant="outline" :loading="loading" @click="model.load">
-        <YdIcon name="i-ri:refresh-line" />刷新
-      </YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"

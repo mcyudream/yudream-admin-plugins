@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { TableColumn, ActionMenuItem } from '@yudream/components'
+import type { ActionMenuItem, EntityPeekFact, TableColumn } from '@yudream/components'
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -105,13 +105,16 @@ function ownerText(player: SkinPlayer) {
   return player.ownerName || player.ownerUsername || player.ownerEmail || props.model.userName(player.ownerId)
 }
 
-function ownerSubText(player: SkinPlayer) {
-  const parts = [
-    player.ownerUsername ? `@${player.ownerUsername}` : '',
-    player.ownerEmail || '',
-    `ID ${player.ownerId}`,
-  ].filter(Boolean)
-  return parts.join(' / ')
+/** 抽屉只用本页已持有的本地展示数据（用户名 / 邮箱），不拉取宿主实体 */
+function ownerFacts(player: SkinPlayer): EntityPeekFact[] {
+  const facts: EntityPeekFact[] = []
+  if (player.ownerUsername) {
+    facts.push({ label: '用户名', value: `@${player.ownerUsername}` })
+  }
+  if (player.ownerEmail) {
+    facts.push({ label: '邮箱', value: player.ownerEmail })
+  }
+  return facts
 }
 
 function ownerSearchText(player: SkinPlayer) {
@@ -205,95 +208,84 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
 </script>
 
 <template>
-  <YdPageMain><div class="skin-admin-table-page">
-    <YdListToolbar
-      v-model:keyword="search.keyword"
-      placeholder="角色名 / UUID / 材质 / 用户"
-      @search="pagination.page = 1"
-      @clear="pagination.page = 1"
-    >
-      <template #filters>
+  <div class="skin-admin-table-page">
+    <YdTablePageLayout title="角色管理">
+      <template #search>
+        <YdListToolbar
+          v-model:keyword="search.keyword"
+          placeholder="角色名 / UUID / 材质 / 用户"
+          @search="pagination.page = 1"
+          @clear="pagination.page = 1"
+        >
+          <template #filters>
             <YdInput v-model="search.ownerId" clearable placeholder="系统用户 ID / 昵称 / 用户名" class="skin-admin-filter-grid__select" @keydown.enter="pagination.page = 1" @clear="pagination.page = 1" />
             <YdSelect v-model="search.status" :options="statusOptions" class="skin-admin-filter-grid__select" />
-            <div class="skin-admin-filter-grid__actions">
-              <YdButton variant="outline" @click="resetSearch">
-                重置
-              </YdButton>
-              <YdButton @click="pagination.page = 1">
-                <YdIcon name="i-ri:search-line" />
-                筛选
-              </YdButton>
-            </div>
+          </template>
+          <template #actions>
+            <YdButton variant="outline" @click="resetSearch">
+              重置
+            </YdButton>
+            <YdButton @click="pagination.page = 1">
+              <YdIcon name="i-ri:search-line" />
+              筛选
+            </YdButton>
+          </template>
+        </YdListToolbar>
       </template>
       <template #actions>
-        <YdButton variant="outline" @click="resetSearch">
-          重置
-        </YdButton>
-        <YdButton @click="pagination.page = 1">
-          <YdIcon name="i-ri:search-line" />
-          筛选
-        </YdButton>
+        <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增角色</YdButton>
       </template>
-    </YdListToolbar>
-
-    <YdTablePageLayout title="角色管理" :show-search="false">
-    <template #actions>
-      <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增角色</YdButton>
-    </template>
-    <template #table>
-<YdResponsiveEnhancedTable
-      :actions="rowActions"
-      row-key="uuid"
-      table-root-class="skin-admin-player-table-root rounded-lg overflow-hidden"
-      table-class="skin-admin-player-table"
-      column-visibility
-      border
-      stripe
-      :columns="tableColumns"
-      :data="pagedRows"
-    >
-      <template #cell-name="{ row }">
-        <span class="skin-admin-texture-name" :title="row.original.name">{{ row.original.name }}</span>
+      <template #table>
+        <YdResponsiveEnhancedTable
+          :actions="rowActions"
+          row-key="uuid"
+          table-root-class="skin-admin-player-table-root rounded-lg overflow-hidden"
+          table-class="skin-admin-player-table"
+          column-visibility
+          border
+          stripe
+          :columns="tableColumns"
+          :data="pagedRows"
+        >
+          <template #cell-name="{ row }">
+            <span class="skin-admin-texture-name" :title="row.original.name">{{ row.original.name }}</span>
+          </template>
+          <template #cell-ownerId="{ row }">
+            <YdEntityPeek
+              :title="ownerText(row.original)"
+              :subtitle="`ID ${row.original.ownerId}`"
+              :facts="ownerFacts(row.original)"
+            />
+          </template>
+          <template #cell-skin="{ row }">
+            <span class="skin-admin-texture-name" :title="model.textureName(row.original.skinHash)">{{ model.textureName(row.original.skinHash) }}</span>
+          </template>
+          <template #cell-cape="{ row }">
+            <span class="skin-admin-texture-name" :title="model.textureName(row.original.capeHash)">{{ model.textureName(row.original.capeHash) }}</span>
+          </template>
+          <template #cell-status="{ row }">
+            <YdTag :variant="row.original.skinHash || row.original.capeHash ? 'default' : 'secondary'">
+              {{ row.original.skinHash || row.original.capeHash ? '已配置' : '待换装' }}
+            </YdTag>
+          </template>
+          <template #cell-lastModified="{ row }">
+            {{ model.dateText(row.original.lastModified) }}
+          </template>
+          <template #cell-uuid="{ row }">
+            <code class="skin-admin-code" :title="row.original.uuid">{{ row.original.uuid }}</code>
+          </template>
+        </YdResponsiveEnhancedTable>
       </template>
-      <template #cell-ownerId="{ row }">
-        <span class="skin-admin-owner">
-          <strong :title="ownerText(row.original)">{{ ownerText(row.original) }}</strong>
-          <small :title="ownerSubText(row.original)">{{ ownerSubText(row.original) }}</small>
-        </span>
-      </template>
-      <template #cell-skin="{ row }">
-        <span class="skin-admin-texture-name" :title="model.textureName(row.original.skinHash)">{{ model.textureName(row.original.skinHash) }}</span>
-      </template>
-      <template #cell-cape="{ row }">
-        <span class="skin-admin-texture-name" :title="model.textureName(row.original.capeHash)">{{ model.textureName(row.original.capeHash) }}</span>
-      </template>
-      <template #cell-status="{ row }">
-        <YdTag :variant="row.original.skinHash || row.original.capeHash ? 'default' : 'secondary'">
-          {{ row.original.skinHash || row.original.capeHash ? '已配置' : '待换装' }}
-        </YdTag>
-      </template>
-      <template #cell-lastModified="{ row }">
-        {{ model.dateText(row.original.lastModified) }}
-      </template>
-      <template #cell-uuid="{ row }">
-        <code class="skin-admin-code" :title="row.original.uuid">{{ row.original.uuid }}</code>
-      </template>
-      
-</YdResponsiveEnhancedTable>
-    </template>
     <template #footer>
       <YdPagination
-      v-model:page="pagination.page"
-      v-model:size="pagination.size"
-      :total="filteredRows.length"
-      @page-change="onPageChange"
-      @size-change="onSizeChange"
-    />
+        v-model:page="pagination.page"
+        v-model:size="pagination.size"
+        :total="filteredRows.length"
+        @page-change="onPageChange"
+        @size-change="onSizeChange"
+      />
     </template>
-  </YdTablePageLayout>
-
-
-
+    </YdTablePageLayout>
 
     <YdModal v-model="formVisible" :title="editing ? '编辑角色' : '新增角色'" show-cancel-button class="sm:max-w-2xl" @confirm="saveForm">
       <div class="skin-admin-form">
@@ -315,5 +307,5 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
         </YdLabel>
       </div>
     </YdModal>
-  </div></YdPageMain>
+  </div>
 </template>

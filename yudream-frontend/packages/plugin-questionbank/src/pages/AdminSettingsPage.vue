@@ -170,18 +170,21 @@ function save() {
   })
 }
 /** 设置页分区：单分区页保持统一骨架 */
-const activeSection = ref('main')
+const activeSection = ref('sec1')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { label: "自由刷题", value: "sec1" },
   { label: "AI 能力", value: "sec2" },
   { label: "QQ 群抽题", value: "sec3" },
   { label: "群指令开放时间", value: "sec4" },
-  { label: "", value: "sec5" },
 ]
 </script>
 
 <template>
-  <YdPageHeader title="题库设置" class="mb-0"></YdPageHeader>
+  <YdPageHeader title="题库设置" class="mb-0">
+    <YdButton :disabled="!dirty" :loading="model.settingsSaving" @click="save">
+      <YdIcon name="i-ri:save-line" />保存设置
+    </YdButton>
+  </YdPageHeader>
   <div class="questionbank-settings-shell">
 
   <YdSettingsLayout
@@ -318,15 +321,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
               </p>
             </div>
           </div>
-        </div>
-      </YdSettingsSection>
-    </template>
-    <template #sec5>
-      <YdSettingsSection title="">
-<div class="flex justify-end gap-2">
-          <YdButton :disabled="!dirty" :loading="model.settingsSaving" @click="save">
-            <YdIcon name="i-ri:save-line" />保存设置
-          </YdButton>
         </div>
       </YdSettingsSection>
     </template>

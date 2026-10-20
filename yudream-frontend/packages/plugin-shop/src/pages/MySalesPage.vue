@@ -4,7 +4,7 @@ import type { ShopOrder } from '../types'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdPageHeader, YdPageMain, YdPagination, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdIcon, YdPageHeader, YdPageMain, YdPagination, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
@@ -101,12 +101,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
   <section class="shop-page">
     <YdPageMain>
       <YdTablePageLayout title="我的出售" :show-search="false">
-    <template #actions>
-      <YdButton variant="outline" :loading="loading" @click="load">
-        <YdIcon name="i-ri:refresh-line" />
-        刷新
-      </YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"

@@ -192,6 +192,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 <template>
   <section class="shop-page">
     <YdPageHeader title="商店设置" class="mb-0">
+      <YdButton variant="outline" :disabled="saving" @click="load">重置</YdButton>
       <YdButton :loading="saving" @click="save">
         <YdIcon name="i-ri:save-3-line" />
         保存设置
@@ -366,11 +367,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
               用户发布商品和重新上架时校验其在门槛货币下的钱包余额；设为 0 表示只选货币不设门槛。
             </span>
           </label>
-        </div>
-
-        <div class="flex flex-wrap justify-end gap-2">
-          <YdButton variant="outline" :disabled="saving" @click="load">重置</YdButton>
-          <YdButton :loading="saving" @click="save">保存设置</YdButton>
         </div>
       </div></YdLoadingOverlay>
       </YdSettingsSection>

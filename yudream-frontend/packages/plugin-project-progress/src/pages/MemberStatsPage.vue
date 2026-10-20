@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// yudream-self-chrome 页面自管页头与卡片
+import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectMemberStats } from '../types'
 import { computed } from 'vue'
-import { YdButton, YdIcon, YdPageHeader, YdPageMain, YdSelect, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdResponsiveEnhancedTable, YdSelect } from '@yudream/components'
 
 const props = defineProps<{
   model: ProjectProgressModel
@@ -38,30 +38,19 @@ function userFor(userId: string) {
 </script>
 
 <template>
+  <YdTablePageLayout title="成员统计" :stats-default-expanded="true">
+    <template #search>
+      <YdSelect
+        :model-value="model.selectedProjectId"
+        :options="projectOptions"
+        placeholder="选择项目"
+        class="pp-project-select"
+        @update:model-value="selectProject"
+      />
+    </template>
 
-  <YdPageHeader title="成员统计" class="mb-0" />
-  <YdPageMain>  <section class="pp-page">
-    <section class="pp-toolbar">
-      <div>
-        <span>项目成员</span>
-        <h2>成员统计</h2>
-      </div>
-      <div class="pp-actions">
-        <YdSelect
-          :model-value="model.selectedProjectId"
-          :options="projectOptions"
-          placeholder="选择项目"
-          class="pp-project-select"
-          @update:model-value="selectProject"
-        />
-        <YdButton :loading="model.loading" @click="model.loadMemberStats()">
-          <YdIcon name="i-ri:refresh-line" />
-          刷新
-        </YdButton>
-      </div>
-    </section>
-
-    <section class="pp-panel">
+    <template #stats>
+      <p class="pp-muted">统计口径：完成按细分当前完成状态，通过/退回按验收处理记录计数</p>
       <div class="pp-stat-grid">
         <article class="pp-stat-card">
           <span>项目成员</span>
@@ -88,34 +77,29 @@ function userFor(userId: string) {
           <strong>{{ model.memberStats.reduce((sum, item) => sum + item.checkIns, 0) }}</strong>
         </article>
       </div>
-    </section>
+    </template>
 
-    <section class="pp-panel">
-      <header class="pp-panel-head">
-        <div>
-          <h3>成员表现</h3>
-          <span>统计口径：完成按细分当前完成状态，通过/退回按验收处理记录计数</span>
-        </div>
-      </header>
-      <YdResponsiveEnhancedTable
-        row-key="userId"
-        table-root-class="pp-fa-table-root"
-        table-class="pp-fa-table"
-        border
-        stripe
-        :columns="tableColumns"
-        :data="model.memberStats"
-        empty-text="暂无成员统计"
-      >
-        <template #cell-user="{ row }">
-          <strong>{{ model.userLabel(userFor(row.original.userId)) }}</strong>
-          <div class="pp-table-sub">{{ model.userMeta(userFor(row.original.userId)) }}</div>
-        </template>
-        <template #cell-lastActivityAt="{ row }">
-          {{ model.formatTime(row.original.lastActivityAt) }}
-        </template>
-</YdResponsiveEnhancedTable>
-    </section>
-  </section>
-</YdPageMain>
+    <template #table>
+      <YdLoadingOverlay :loading="model.loading">
+        <YdResponsiveEnhancedTable
+          row-key="userId"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[940px]"
+          border
+          stripe
+          :columns="tableColumns"
+          :data="model.memberStats"
+          empty-text="暂无成员统计"
+        >
+          <template #cell-user="{ row }">
+            <strong>{{ model.userLabel(userFor(row.original.userId)) }}</strong>
+            <div class="pp-table-sub">{{ model.userMeta(userFor(row.original.userId)) }}</div>
+          </template>
+          <template #cell-lastActivityAt="{ row }">
+            {{ model.formatTime(row.original.lastActivityAt) }}
+          </template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
+  </YdTablePageLayout>
 </template>

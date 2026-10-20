@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
-import type { TableColumn } from '@yudream/components'
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { LauncherPack, LauncherPackVersion } from '../types'
-import { YdButton, YdCard, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdResponsiveTable, YdSearchBar, YdTag, useYdModal } from '@yudream/components'
+import { YdButton, YdCard, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdResponsiveTable, YdTablePageLayout, YdTag, useYdModal } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { useLauncherPlugin } from '../composables/useLauncherPlugin'
 
@@ -19,7 +18,11 @@ const columns: TableColumn<LauncherPack>[] = [
   { accessorKey: 'recommendedVersionId', header: '推荐版本', width: 140 },
   { accessorKey: 'retainedVersionIds', header: '保留版本', width: 110 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 180 },
-  { id: 'operation', header: '操作', width: 160, align: 'center', fixed: 'right' },
+]
+
+/** 行操作统一收进操作菜单：查看该整合包的版本历史 */
+const rowActions: ActionMenuItem<LauncherPack>[] = [
+  { label: '版本', icon: 'i-ri:history-line', onClick: row => void openDetail(row) },
 ]
 
 const versionColumns: TableColumn<LauncherPackVersion>[] = [
@@ -70,102 +73,105 @@ onMounted(() => {
 </script>
 
 <template>
-  <YdPageHeader title="整合包管理" description="维护面向 YMCL 的 mrpack 整合包：创建条目、查看版本并回滚推荐版本。">
-    <YdButton @click="openCreate">
-      <YdIcon name="i-ri:add-line" />
-      新建整合包
-    </YdButton>
-  </YdPageHeader>
-  <YdPageMain>
-    <YdSearchBar class="w-full">
-      <div class="launcher-filter-bar">
-        <YdInput
-          v-model="model.packKeyword"
-          placeholder="搜索 ID、名称或描述"
-          clearable
-          @keydown.enter="applyFilters"
-          @clear="applyFilters"
-        />
-        <YdButton variant="outline" @click="applyFilters">
-          <YdIcon name="i-ri:search-line" />
-          查询
-        </YdButton>
-      </div>
-    </YdSearchBar>
-
-    <YdLoadingOverlay :loading="model.loading"><YdResponsiveTable
-      
-      :columns="columns"
-      :data="model.packs"
-      row-key="id"
-      table-root-class="rounded-lg overflow-hidden"
-      table-class="min-w-[980px]"
-      border
-      stripe
-      column-visibility
-      empty-text="暂无整合包，点击右上角新建"
-    >
-      <template #cell-recommendedVersionId="{ row }">
-        <YdTag v-if="row.original.recommendedVersionId" variant="default">
-          {{ row.original.recommendedVersionId }}
-        </YdTag>
-        <span v-else>-</span>
-      </template>
-      <template #cell-retainedVersionIds="{ row }">
-        {{ row.original.retainedVersionIds?.length || 0 }}
-      </template>
-      <template #cell-updatedAt="{ row }">
-        {{ model.formatTime(row.original.updatedAt) }}
-      </template>
-      <template #cell-operation="{ row }">
-        <div class="launcher-actions">
-          <YdButton size="sm" variant="outline" @click="openDetail(row.original)">
-            版本
-          </YdButton>
+  <YdTablePageLayout title="整合包管理">
+      <template #search>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_auto]">
+          <div class="min-w-0">
+            <YdInput
+              v-model="model.packKeyword"
+              placeholder="搜索 ID、名称或描述"
+              clearable
+              class="w-full"
+              @keydown.enter="applyFilters"
+              @clear="applyFilters"
+            />
+          </div>
+          <div class="flex items-center justify-start gap-2 md:justify-end">
+            <YdButton size="sm" variant="outline" @click="applyFilters">
+              <YdIcon name="i-ri:search-line" />
+              查询
+            </YdButton>
+          </div>
         </div>
       </template>
-      <template #card="{ row }">
-        <YdCard class="w-full">
-          <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.id }}</span>
-              <YdTag v-if="row.recommendedVersionId" variant="default">
-                {{ row.recommendedVersionId }}
-              </YdTag>
-            </div>
-            <div class="flex flex-col gap-1 text-sm">
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">ID</span>
-                <span class="break-all">{{ row.id }}</span>
-              </div>
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">保留版本</span>
-                <span>{{ row.retainedVersionIds?.length || 0 }}</span>
-              </div>
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
-                <span class="break-all">{{ model.formatTime(row.updatedAt) }}</span>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2 border-t pt-3">
-              <YdButton size="sm" variant="outline" @click="openDetail(row)">
-                版本
-              </YdButton>
-            </div>
-          </div>
-        </YdCard>
+      <template #actions>
+        <YdButton @click="openCreate">
+          <YdIcon name="i-ri:add-line" />
+          新建整合包
+        </YdButton>
       </template>
-    </YdResponsiveTable></YdLoadingOverlay>
-    <YdPagination
-      v-model:page="model.packPager.page"
-      v-model:size="model.packPager.size"
-      :total="model.packPager.total"
-      class="mt-3"
-      @page-change="model.loadPacks"
-      @size-change="model.applyPackFilters"
-    />
+      <template #table>
+        <YdLoadingOverlay :loading="model.loading">
+          <YdResponsiveEnhancedTable
+            :actions="rowActions"
+            :columns="columns"
+            :data="model.packs"
+            row-key="id"
+            table-root-class="rounded-lg overflow-hidden"
+            table-class="min-w-[980px]"
+            border
+            stripe
+            column-visibility
+            empty-text="暂无整合包，点击右上角新建"
+          >
+            <template #cell-recommendedVersionId="{ row }">
+              <YdTag v-if="row.original.recommendedVersionId" variant="default">
+                {{ row.original.recommendedVersionId }}
+              </YdTag>
+              <span v-else>-</span>
+            </template>
+            <template #cell-retainedVersionIds="{ row }">
+              {{ row.original.retainedVersionIds?.length || 0 }}
+            </template>
+            <template #cell-updatedAt="{ row }">
+              {{ model.formatTime(row.original.updatedAt) }}
+            </template>
+            <template #card="{ row }">
+              <YdCard class="w-full">
+                <div class="flex flex-col gap-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="min-w-0 break-words text-base font-semibold">{{ row.name || row.id }}</span>
+                    <YdTag v-if="row.recommendedVersionId" variant="default">
+                      {{ row.recommendedVersionId }}
+                    </YdTag>
+                  </div>
+                  <div class="flex flex-col gap-1 text-sm">
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">ID</span>
+                      <span class="break-all">{{ row.id }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">保留版本</span>
+                      <span>{{ row.retainedVersionIds?.length || 0 }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <span class="shrink-0 text-secondary-foreground/60">更新时间</span>
+                      <span class="break-all">{{ model.formatTime(row.updatedAt) }}</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 border-t pt-3">
+                    <YdButton size="sm" variant="outline" @click="openDetail(row)">
+                      版本
+                    </YdButton>
+                  </div>
+                </div>
+              </YdCard>
+            </template>
+          </YdResponsiveEnhancedTable>
+        </YdLoadingOverlay>
+      </template>
+      <template #footer>
+        <YdPagination
+          v-model:page="model.packPager.page"
+          v-model:size="model.packPager.size"
+          :total="model.packPager.total"
+          @page-change="model.loadPacks"
+          @size-change="model.applyPackFilters"
+        />
+      </template>
+  </YdTablePageLayout>
 
-    <YdModal v-model="createOpen" title="新建整合包" class="sm:max-w-xl" :show-confirm-button="false" show-cancel-button>
+  <YdModal v-model="createOpen" title="新建整合包" class="sm:max-w-xl" :show-confirm-button="false" show-cancel-button>
       <form class="launcher-form" @submit.prevent>
         <label>
           <span>整合包 ID</span>
@@ -264,6 +270,5 @@ onMounted(() => {
       <YdCard v-else class="w-full">
         正在读取版本…
       </YdCard>
-    </YdModal>
-  </YdPageMain>
+  </YdModal>
 </template>

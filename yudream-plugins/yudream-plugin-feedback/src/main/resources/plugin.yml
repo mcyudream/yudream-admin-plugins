@@ -3,7 +3,7 @@ displayName: 问题反馈
 description: 用户提交问题反馈（缺陷、建议、咨询）并跟进处理进度、在管理员给出结论后归档，管理员跨用户受理、回复、指派处理人与流转状态，结论超过 7 天未归档的由系统自动归档。
 icon: i-ri:feedback-line
 main: online.yudream.base.plugin.feedback.bootstrap.FeedbackPlugin
-version: 1.4.1
+version: 1.4.2
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: tools

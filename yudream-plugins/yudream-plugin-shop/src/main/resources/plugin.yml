@@ -3,7 +3,7 @@ displayName: 积分商城
 description: 逛商城、买商品、管订单
 icon: cart-outline
 main: online.yudream.base.plugin.shop.bootstrap.ShopPlugin
-version: 1.3.7
+version: 1.3.8
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: trade

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/components'
+import type { ActionMenuItem, FileItem, FileUploadRequestOptions, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
@@ -9,12 +9,11 @@ import {
   YdIcon,
   YdInput,
   YdModal,
-  YdPageHeader,
-  YdPageMain,
   YdProgress,
-  YdResponsiveTable,
+  YdResponsiveEnhancedTable,
   YdSelect,
   YdSwitch,
+  YdTablePageLayout,
   YdTag,
   useYdModal,
 } from '@yudream/components'
@@ -45,7 +44,6 @@ const columns: TableColumn<MapAdmin>[] = [
   { id: 'state', header: '状态', width: 110 },
   { id: 'tiles', header: 'Tile 数', width: 180 },
   { id: 'renderedAt', header: '渲染时间', width: 160 },
-  { id: 'operation', header: '操作', width: 230, fixed: 'right' },
 ]
 
 const worldFiles = ref<FileItem[]>([])
@@ -94,156 +92,138 @@ function confirmDelete(map: MapAdmin) {
 function mapStateTag(state: MapAdmin['state']) {
   return MAP_STATE_META[state]
 }
+
+/** 行操作统一收进操作菜单；渲染中禁用渲染与删除，未就绪禁用查看 */
+const rowActions: ActionMenuItem<MapAdmin>[] = [
+  { label: '渲染', icon: 'i-mdi:brush', disabled: row => row.state === 'RENDERING', onClick: row => model.triggerRender(row) },
+  { label: '查看', icon: 'i-mdi:eye', disabled: row => row.state !== 'READY', onClick: () => viewMap() },
+  { label: '删除', icon: 'i-mdi:delete-outline', danger: true, disabled: row => row.state === 'RENDERING', onClick: row => confirmDelete(row) },
+]
 </script>
 
 <template>
-  <YdPageHeader title="世界地图管理" class="mb-0">
-    <YdButton size="sm" @click="model.openCreate">
-      <YdIcon name="i-mdi:plus" />
-      新建地图
-    </YdButton>
-  </YdPageHeader>
-
-  <YdPageMain>
-    <YdResponsiveTable
-      row-key="id"
-      table-root-class="max-w-full overflow-x-auto rounded-lg"
-      table-class="min-w-[960px]"
-      border
-      stripe
-      :columns="columns"
-      :data="model.maps.value"
-    >
-      <template #cell-name="{ row }">
-        <YdButton variant="link" class="h-auto px-0" @click="openDetail(row.original)">
-          {{ row.original.name }}
+  <YdTablePageLayout title="世界地图管理" :show-search="false">
+      <template #actions>
+        <YdButton size="sm" @click="model.openCreate">
+          <YdIcon name="i-mdi:plus" />
+          新建地图
         </YdButton>
       </template>
-      <template #cell-dimension="{ row }">
-        {{ dimensionLabel(row.original.dimension) }}
-      </template>
-      <template #cell-state="{ row }">
-        <div class="grid min-w-[180px] gap-1">
-          <div class="flex items-center gap-2">
-            <YdTag :variant="mapStateTag(row.original.state).variant">
-              {{ mapStateTag(row.original.state).label }}
-            </YdTag>
-            <span v-if="row.original.state === 'FAILED' && row.original.message" class="min-w-0 truncate text-xs text-muted-foreground" :title="row.original.message">
-              {{ row.original.message }}
-            </span>
-          </div>
-          <template v-if="activeTaskFor(row.original.id)">
-            <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>{{ RENDER_PHASE_LABEL[activeTaskFor(row.original.id)!.phase || 'IMPORT'] }}</span>
-              <span>{{ model.renderTaskProgress(activeTaskFor(row.original.id)!) }}%</span>
+      <template #table>
+        <YdResponsiveEnhancedTable
+          row-key="id"
+          table-root-class="max-w-full overflow-x-auto rounded-lg"
+          table-class="min-w-[960px]"
+          border
+          stripe
+          :actions="rowActions"
+          :columns="columns"
+          :data="model.maps.value"
+          :empty-text="model.loading.value ? '加载中…' : '暂无地图，点击右上角「新建地图」开始'"
+        >
+          <template #cell-name="{ row }">
+            <YdButton variant="link" class="h-auto px-0" @click="openDetail(row.original)">
+              {{ row.original.name }}
+            </YdButton>
+          </template>
+          <template #cell-dimension="{ row }">
+            {{ dimensionLabel(row.original.dimension) }}
+          </template>
+          <template #cell-state="{ row }">
+            <div class="grid min-w-[180px] gap-1">
+              <div class="flex items-center gap-2">
+                <YdTag :variant="mapStateTag(row.original.state).variant">
+                  {{ mapStateTag(row.original.state).label }}
+                </YdTag>
+                <span v-if="row.original.state === 'FAILED' && row.original.message" class="min-w-0 truncate text-xs text-muted-foreground" :title="row.original.message">
+                  {{ row.original.message }}
+                </span>
+              </div>
+              <template v-if="activeTaskFor(row.original.id)">
+                <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>{{ RENDER_PHASE_LABEL[activeTaskFor(row.original.id)!.phase || 'IMPORT'] }}</span>
+                  <span>{{ model.renderTaskProgress(activeTaskFor(row.original.id)!) }}%</span>
+                </div>
+                <YdProgress :model-value="model.renderTaskProgress(activeTaskFor(row.original.id)!)" />
+                <span class="truncate text-xs text-muted-foreground" :title="activeTaskFor(row.original.id)!.message">
+                  {{ activeTaskFor(row.original.id)!.doneTiles }} / {{ activeTaskFor(row.original.id)!.totalTiles }}<template v-if="activeTaskFor(row.original.id)!.message"> · {{ activeTaskFor(row.original.id)!.message }}</template>
+                </span>
+              </template>
             </div>
-            <YdProgress :model-value="model.renderTaskProgress(activeTaskFor(row.original.id)!)" />
-            <span class="truncate text-xs text-muted-foreground" :title="activeTaskFor(row.original.id)!.message">
-              {{ activeTaskFor(row.original.id)!.doneTiles }} / {{ activeTaskFor(row.original.id)!.totalTiles }}<template v-if="activeTaskFor(row.original.id)!.message"> · {{ activeTaskFor(row.original.id)!.message }}</template>
+          </template>
+          <template #cell-tiles="{ row }">
+            <span class="text-sm text-muted-foreground">
+              高精 {{ row.original.hiresTiles }} / 低清 {{ row.original.lowresTiles }}
             </span>
           </template>
-        </div>
-      </template>
-      <template #cell-tiles="{ row }">
-        <span class="text-sm text-muted-foreground">
-          高精 {{ row.original.hiresTiles }} / 低清 {{ row.original.lowresTiles }}
-        </span>
-      </template>
-      <template #cell-renderedAt="{ row }">
-        {{ formatTime(row.original.renderedAt) }}
-      </template>
-      <template #cell-operation="{ row }">
-        <div class="flex items-center gap-2">
-          <YdButton
-            size="sm"
-            variant="outline"
-            :disabled="row.original.state === 'RENDERING'"
-            :loading="model.operating.value === row.original.id"
-            @click="model.triggerRender(row.original)"
-          >
-            渲染
-          </YdButton>
-          <YdButton
-            size="sm"
-            variant="outline"
-            :disabled="row.original.state !== 'READY'"
-            @click="viewMap()"
-          >
-            查看
-          </YdButton>
-          <YdButton
-            size="sm"
-            variant="destructive"
-            :disabled="row.original.state === 'RENDERING'"
-            @click="confirmDelete(row.original)"
-          >
-            删除
-          </YdButton>
-        </div>
-      </template>
-      <template #empty>
-        <span class="text-muted-foreground">
-          {{ model.loading.value ? '加载中…' : '暂无地图，点击右上角「新建地图」开始' }}
-        </span>
-      </template>
-      <template #card="{ row }">
-        <YdCard class="w-full">
-          <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
-              <div class="flex gap-1">
-                <YdTag :variant="mapStateTag(row.state).variant">
-                  {{ mapStateTag(row.state).label }}
-                </YdTag>
+          <template #cell-renderedAt="{ row }">
+            {{ formatTime(row.original.renderedAt) }}
+          </template>
+          <template #empty>
+            <span class="text-muted-foreground">
+              {{ model.loading.value ? '加载中…' : '暂无地图，点击右上角「新建地图」开始' }}
+            </span>
+          </template>
+          <template #card="{ row }">
+            <YdCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="min-w-0 break-words text-base font-semibold">{{ row.name }}</span>
+                  <div class="flex gap-1">
+                    <YdTag :variant="mapStateTag(row.state).variant">
+                      {{ mapStateTag(row.state).label }}
+                    </YdTag>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1 text-sm">
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">维度</span>
+                    <span class="break-all">{{ dimensionLabel(row.dimension) }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">Tile 数</span>
+                    <span class="break-all">高精 {{ row.hiresTiles }} / 低清 {{ row.lowresTiles }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <span class="shrink-0 text-secondary-foreground/60">渲染时间</span>
+                    <span>{{ formatTime(row.renderedAt) }}</span>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2 border-t pt-3">
+                  <YdButton
+                    size="sm"
+                    variant="outline"
+                    :disabled="row.state === 'RENDERING'"
+                    :loading="model.operating.value === row.id"
+                    @click="model.triggerRender(row)"
+                  >
+                    渲染
+                  </YdButton>
+                  <YdButton
+                    size="sm"
+                    variant="outline"
+                    :disabled="row.state !== 'READY'"
+                    @click="viewMap()"
+                  >
+                    查看
+                  </YdButton>
+                  <YdButton
+                    size="sm"
+                    variant="destructive"
+                    :disabled="row.state === 'RENDERING'"
+                    @click="confirmDelete(row)"
+                  >
+                    删除
+                  </YdButton>
+                </div>
               </div>
-            </div>
-            <div class="flex flex-col gap-1 text-sm">
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">维度</span>
-                <span class="break-all">{{ dimensionLabel(row.dimension) }}</span>
-              </div>
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">Tile 数</span>
-                <span class="break-all">高精 {{ row.hiresTiles }} / 低清 {{ row.lowresTiles }}</span>
-              </div>
-              <div class="flex gap-2">
-                <span class="shrink-0 text-secondary-foreground/60">渲染时间</span>
-                <span>{{ formatTime(row.renderedAt) }}</span>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2 border-t pt-3">
-              <YdButton
-                size="sm"
-                variant="outline"
-                :disabled="row.state === 'RENDERING'"
-                :loading="model.operating.value === row.id"
-                @click="model.triggerRender(row)"
-              >
-                渲染
-              </YdButton>
-              <YdButton
-                size="sm"
-                variant="outline"
-                :disabled="row.state !== 'READY'"
-                @click="viewMap()"
-              >
-                查看
-              </YdButton>
-              <YdButton
-                size="sm"
-                variant="destructive"
-                :disabled="row.state === 'RENDERING'"
-                @click="confirmDelete(row)"
-              >
-                删除
-              </YdButton>
-            </div>
-          </div>
-        </YdCard>
+            </YdCard>
+          </template>
+        </YdResponsiveEnhancedTable>
       </template>
-    </YdResponsiveTable>
+  </YdTablePageLayout>
 
-    <YdModal v-model="model.createOpen.value" title="新建地图">
+  <YdModal v-model="model.createOpen.value" title="新建地图">
       <div class="grid gap-4">
         <label class="grid gap-1.5">
           <span class="text-sm">地图名称</span>
@@ -303,6 +283,5 @@ function mapStateTag(state: MapAdmin['state']) {
           </YdButton>
         </div>
       </template>
-    </YdModal>
-  </YdPageMain>
+  </YdModal>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, YdTablePageAction } from '@yudream/components'
+import type { SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { CheckInRewardRecord } from '../types'
 import { YdAlert, YdDynamicSearchForm, YdLoadingOverlay, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
@@ -61,10 +61,6 @@ const columns: TableColumn<CheckInRewardRecord>[] = [
   { accessorKey: 'createdAt', header: '发放时间', width: 180, defaultHidden: true },
 ]
 
-const pageActions: YdTablePageAction[] = [
-  { label: '刷新', icon: 'morph:refresh', disabled: loading.value, onClick: () => model.load() },
-]
-
 onMounted(() => {
   void model.load()
   void model.loadProjectOptions()
@@ -72,7 +68,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <YdTablePageLayout title="打卡积分" :actions="pageActions">
+  <YdTablePageLayout title="打卡积分">
     <template #stats>
       <YdAlert v-if="!providerAvailable" variant="destructive" title="项目管理插件不可用">
         <template #description>

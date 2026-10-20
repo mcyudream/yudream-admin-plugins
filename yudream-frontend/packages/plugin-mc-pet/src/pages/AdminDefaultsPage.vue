@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
+import { YdLoadingOverlay, YdIcon } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { PetClickAction, PetClosetOption, PetCorner } from '../types'
-import { YdButton, YdInput, YdPageHeader, YdPageMain, YdRadioGroup, YdSelect, YdSlider, YdSwitch } from '@yudream/components'
+import { YdButton, YdInput, YdPageHeader, YdRadioGroup, YdSelect, YdSettingsLayout, YdSettingsSection, YdSlider, YdSwitch } from '@yudream/components'
 import { computed, ref } from 'vue'
 import PetStage from '../components/PetStage.vue'
 import SkinUploadModal from '../components/SkinUploadModal.vue'
@@ -17,6 +17,12 @@ const model = usePetDefaults(props.sdk)
 const { loading, saving, form, closet, skinAvailable } = model
 
 const uploadVisible = ref(false)
+
+/** 设置页分区：单分区页保持统一骨架 */
+const activeSection = ref('main')
+const sectionList: { icon?: string, label: string, value: string }[] = [
+  { label: '默认外观', value: 'main' },
+]
 
 const modeOptions = [
   { label: '内置皮肤（Steve）', value: 'builtin' },
@@ -69,83 +75,99 @@ async function onUploaded(item: PetClosetOption) {
 </script>
 
 <template>
-  <YdLoadingOverlay :loading="loading"><section  class="mc-pet-page">
-    <YdPageHeader title="默认设置">
+  <div class="settings-page-shell">
+    <YdPageHeader title="默认设置" class="mb-0">
       <YdButton variant="outline" :loading="loading" @click="model.load">
+        <YdIcon name="i-ri:refresh-line" />
         刷新
       </YdButton>
+      <YdButton :loading="saving" @click="model.save">
+        <YdIcon name="i-ri:save-3-line" />
+        保存默认设置
+      </YdButton>
     </YdPageHeader>
-    <YdPageMain>
-      <div class="mc-pet-mypet">
-        <div class="mc-pet-mypet__form">
-          <label class="mc-pet-field">
-            <span class="mc-pet-field__label">默认皮肤</span>
-            <YdRadioGroup v-model="form.mode" :options="modeOptions" />
-            <span class="mc-pet-field__hint">用户未自定义宠物时使用这里的默认配置。</span>
-          </label>
-          <label v-if="form.mode === 'player'" class="mc-pet-field">
-            <span class="mc-pet-field__label">默认角色名</span>
-            <YdInput v-model="form.playerName" placeholder="输入皮肤插件中的角色名" />
-            <span class="mc-pet-field__hint">保存后按角色名实时解析皮肤；角色被删除或皮肤插件停用时自动回退内置皮肤。</span>
-          </label>
-          <div v-if="form.mode === 'texture'" class="mc-pet-field">
-            <span class="mc-pet-field__label">默认皮肤文件</span>
-            <div class="mc-pet-upload">
-              <div class="mc-pet-upload__picker">
-                <YdButton :disabled="!skinAvailable" @click="uploadVisible = true">
-                  上传皮肤 PNG
-                </YdButton>
-                <YdSelect
-                  v-if="closetOptions.length > 0"
-                  v-model="form.textureHash"
-                  :options="closetOptions"
-                  placeholder="或从我上传过的皮肤中选择"
-                />
+
+    <YdLoadingOverlay :loading="loading">
+      <YdSettingsLayout
+        v-model="activeSection"
+        :list="sectionList"
+        surface
+        scroll
+        width-class="max-w-[880px]"
+      >
+        <template #main>
+          <YdSettingsSection
+            title="默认外观"
+            description="用户未自定义宠物时使用的全局默认配置，保存后立即生效。"
+          >
+            <div class="mc-pet-mypet">
+              <div class="mc-pet-mypet__form">
+                <label class="mc-pet-field">
+                  <span class="mc-pet-field__label">默认皮肤</span>
+                  <YdRadioGroup v-model="form.mode" :options="modeOptions" />
+                  <span class="mc-pet-field__hint">用户未自定义宠物时使用这里的默认配置。</span>
+                </label>
+                <label v-if="form.mode === 'player'" class="mc-pet-field">
+                  <span class="mc-pet-field__label">默认角色名</span>
+                  <YdInput v-model="form.playerName" placeholder="输入皮肤插件中的角色名" />
+                  <span class="mc-pet-field__hint">保存后按角色名实时解析皮肤；角色被删除或皮肤插件停用时自动回退内置皮肤。</span>
+                </label>
+                <div v-if="form.mode === 'texture'" class="mc-pet-field">
+                  <span class="mc-pet-field__label">默认皮肤文件</span>
+                  <div class="mc-pet-upload">
+                    <div class="mc-pet-upload__picker">
+                      <YdButton :disabled="!skinAvailable" @click="uploadVisible = true">
+                        上传皮肤 PNG
+                      </YdButton>
+                      <YdSelect
+                        v-if="closetOptions.length > 0"
+                        v-model="form.textureHash"
+                        :options="closetOptions"
+                        placeholder="或从我上传过的皮肤中选择"
+                      />
+                    </div>
+                    <div class="mc-pet-upload__form">
+                      <YdRadioGroup v-model="form.model" :options="modelOptions" />
+                    </div>
+                  </div>
+                  <span v-if="!skinAvailable" class="mc-pet-field__hint">
+                    皮肤插件不可用或版本低于 1.3.0，暂时无法上传；可直接选择已有皮肤或改用其他默认来源。
+                  </span>
+                  <span v-else class="mc-pet-field__hint">
+                    上传会存入你（管理员）的皮肤衣柜并设为全局默认；所有未自定义的用户立即生效。
+                  </span>
+                </div>
+                <label class="mc-pet-field">
+                  <span class="mc-pet-field__label">点击行为</span>
+                  <YdRadioGroup v-model="form.clickAction" :options="clickActionOptions" />
+                </label>
+                <div class="mc-pet-field">
+                  <YdSwitch v-model="form.animation">
+                    待机动画
+                  </YdSwitch>
+                  <span class="mc-pet-field__hint">关闭后宠物保持静止站姿，降低低配设备的渲染开销。</span>
+                </div>
+                <label class="mc-pet-field">
+                  <span class="mc-pet-field__label">默认尺寸（{{ form.size }}px）</span>
+                  <YdSlider v-model="sizeModel" :min="48" :max="320" :step="4" :tooltip="false" />
+                </label>
+                <label class="mc-pet-field">
+                  <span class="mc-pet-field__label">默认停靠角</span>
+                  <YdSelect v-model="form.corner" :options="cornerOptions" />
+                </label>
               </div>
-              <div class="mc-pet-upload__form">
-                <YdRadioGroup v-model="form.model" :options="modelOptions" />
-              </div>
+              <aside class="mc-pet-mypet__preview">
+                <h3>预览</h3>
+                <PetStage v-if="previewSkin" :key="previewSkin" :skin="previewSkin" :slim="form.model === 'slim'" floating />
+                <div v-else class="mc-pet-hint">
+                  按角色名解析的皮肤在保存后生效，此处仅预览内置皮肤效果。
+                </div>
+              </aside>
             </div>
-            <span v-if="!skinAvailable" class="mc-pet-field__hint">
-              皮肤插件不可用或版本低于 1.3.0，暂时无法上传；可直接选择已有皮肤或改用其他默认来源。
-            </span>
-            <span v-else class="mc-pet-field__hint">
-              上传会存入你（管理员）的皮肤衣柜并设为全局默认；所有未自定义的用户立即生效。
-            </span>
-          </div>
-          <label class="mc-pet-field">
-            <span class="mc-pet-field__label">点击行为</span>
-            <YdRadioGroup v-model="form.clickAction" :options="clickActionOptions" />
-          </label>
-          <div class="mc-pet-field">
-            <YdSwitch v-model="form.animation">
-              待机动画
-            </YdSwitch>
-            <span class="mc-pet-field__hint">关闭后宠物保持静止站姿，降低低配设备的渲染开销。</span>
-          </div>
-          <label class="mc-pet-field">
-            <span class="mc-pet-field__label">默认尺寸（{{ form.size }}px）</span>
-            <YdSlider v-model="sizeModel" :min="48" :max="320" :step="4" :tooltip="false" />
-          </label>
-          <label class="mc-pet-field">
-            <span class="mc-pet-field__label">默认停靠角</span>
-            <YdSelect v-model="form.corner" :options="cornerOptions" />
-          </label>
-          <div class="mc-pet-actions">
-            <YdButton type="submit" :loading="saving" @click="model.save">
-              保存默认设置
-            </YdButton>
-          </div>
-        </div>
-        <aside class="mc-pet-mypet__preview">
-          <h3>预览</h3>
-          <PetStage v-if="previewSkin" :key="previewSkin" :skin="previewSkin" :slim="form.model === 'slim'" floating />
-          <div v-else class="mc-pet-hint">
-            按角色名解析的皮肤在保存后生效，此处仅预览内置皮肤效果。
-          </div>
-        </aside>
-      </div>
-      <SkinUploadModal :sdk="props.sdk" v-model:visible="uploadVisible" @uploaded="onUploaded" />
-    </YdPageMain>
-  </section></YdLoadingOverlay>
+          </YdSettingsSection>
+        </template>
+      </YdSettingsLayout>
+    </YdLoadingOverlay>
+    <SkinUploadModal :sdk="props.sdk" v-model:visible="uploadVisible" @uploaded="onUploaded" />
+  </div>
 </template>

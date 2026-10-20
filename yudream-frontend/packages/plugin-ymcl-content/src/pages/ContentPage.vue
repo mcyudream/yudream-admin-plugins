@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
-import type { TableColumn } from '@yudream/components'
+import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import {
   YdButton,
+  YdCard,
   YdIcon,
   YdInput,
   YdModal,
-  YdPageHeader,
-  YdPageMain,
   YdPagination,
-  YdSearchBar,
+  YdResponsiveEnhancedTable,
   YdSelect,
   YdSwitch,
-  YdResponsiveTable,
-  YdCard,
   YdTag,
   YdTextarea,
   useYdModal,
@@ -67,7 +64,6 @@ const columns = ref<TableColumn<ContentRecord>[]>([
   { accessorKey: 'sort', header: '排序', width: 80 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 160 },
-  { id: 'operation', header: '操作', width: 210, fixed: 'right' },
 ])
 
 const kindLabels: Record<string, string> = {
@@ -214,151 +210,166 @@ async function toggleEnabled(row: ContentRecord) {
 onMounted(() => {
   void reload()
 })
+
+/** 行操作统一收进操作菜单；删除保持确认流程与末页修正 */
+const rowActions: ActionMenuItem<ContentRecord>[] = [
+  { label: '编辑', icon: 'morph:pencil', onClick: row => openEdit(row) },
+  { label: row => (row.enabled !== false ? '停用' : '启用'), icon: 'morph:power', onClick: row => toggleEnabled(row) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => confirmDelete(row) },
+]
 </script>
 
 <template>
-	<YdPageHeader title="内容分发" description="维护启动器拉取的更新公告、新手指引与在线内容，公开端点 /v1/content/{kind} 与 /v1/catalog">
-		<YdButton type="primary" @click="openCreate">
-			<YdIcon name="i-ri:add-line" />
-			新建内容
-		</YdButton>
-	</YdPageHeader>
-	<YdPageMain>
-		<YdLoadingOverlay :loading="loading"><YdResponsiveTable 
-			:columns="columns"
-			:data="records"
-			row-key="id"
-			table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
-			table-class="min-w-[1080px]"
-			border
-			stripe
-			column-visibility
-		>
-			<template #toolbar>
-				<YdSearchBar class="w-full">
-					<div class="ymcl-form-row ymcl-filter-bar">
-						<YdSelect v-model="filters.kind" :options="kindSelectOptions" @update:model-value="applyFilters" />
-						<YdButton variant="outline" @click="applyFilters">
-							<YdIcon name="i-ri:search-line" />
-							查询
-						</YdButton>
-						<YdButton variant="ghost" @click="resetFilters">
-							重置
-						</YdButton>
-					</div>
-				</YdSearchBar>
-			</template>
-			<template #empty>
-				<div class="ymcl-empty">
-					<span class="ymcl-muted">暂无内容。新建的更新公告会推送给启动器用户。</span>
-					<YdButton type="primary" @click="openCreate">
-						<YdIcon name="i-ri:add-line" />
-						新建内容
-					</YdButton>
-				</div>
-			</template>
-			<template #cell-title="{ row }">
-				<span class="ymcl-break">{{ row.original.title }}</span>
-			</template>
-			<template #cell-kind="{ row }">
-				<YdTag :variant="row.original.kind === 'updates' ? 'default' : 'secondary'">
-					{{ kindLabels[row.original.kind] || row.original.kind }}
-				</YdTag>
-			</template>
-			<template #cell-summary="{ row }">
-				<span class="ymcl-break">{{ row.original.summary || '-' }}</span>
-			</template>
-			<template #cell-status="{ row }">
-				<YdTag :variant="row.original.enabled !== false ? 'default' : 'outline'">
-					{{ row.original.enabled !== false ? '已启用' : '已停用' }}
-				</YdTag>
-			</template>
-			<template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
-			<template #cell-operation="{ row }">
-				<div class="ymcl-row-actions">
-					<YdButton size="sm" variant="outline" @click="openEdit(row.original)">
-						编辑
-					</YdButton>
-					<YdButton size="sm" variant="outline" @click="toggleEnabled(row.original)">
-						{{ row.original.enabled !== false ? '停用' : '启用' }}
-					</YdButton>
-					<YdButton size="sm" variant="destructive" @click="confirmDelete(row.original)">
-						删除
-					</YdButton>
-				</div>
-			</template>
-		
-		<template #card="{ row }">
-			<YdCard class="w-full">
-				<div class="flex flex-col gap-3">
-					<div class="flex items-start justify-between gap-3"><strong class="break-all">{{ row.title }}</strong><YdTag :variant="row.enabled !== false ? 'default' : 'outline'">{{ row.enabled !== false ? '已启用' : '已停用' }}</YdTag></div>
-					<p class="ymcl-break">{{ kindLabels[row.kind] || row.kind }} · {{ row.summary || '-' }}</p>
-					<p class="ymcl-muted">排序 {{ row.sort }} · 更新于 {{ formatTime(row.updatedAt) }}</p>
-					<div class="ymcl-row-actions"><YdButton size="sm" variant="outline" @click="openEdit(row)">编辑</YdButton><YdButton size="sm" variant="outline" @click="toggleEnabled(row)">{{ row.enabled !== false ? '停用' : '启用' }}</YdButton><YdButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</YdButton></div>
-				</div>
-			</YdCard>
-		</template>
-</YdResponsiveTable></YdLoadingOverlay>
-		<YdPagination
-			v-model:page="pagination.page"
-			v-model:size="pagination.size"
-			:total="total"
-			:sizes="[10, 20, 50]"
-			class="mt-3"
-			@page-change="reload"
-			@size-change="applyFilters"
-		/>
-	</YdPageMain>
+  <YdTablePageLayout title="内容分发">
+    <template #page-title>
+      <p class="ymcl-muted">维护启动器拉取的更新公告、新手指引与在线内容，公开端点 /v1/content/{kind} 与 /v1/catalog</p>
+    </template>
 
-	<YdModal
-		v-model="editorOpen"
-		:title="editorMode === 'create' ? '新建内容' : '编辑内容'"
-		width="720px"
-		:show-confirm-button="false"
-		show-cancel-button
-	>
-		<form class="ymcl-form" @submit.prevent>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">分类</label>
-				<YdSelect v-model="form.kind" :options="CONTENT_KIND_OPTIONS.map(item => ({ ...item }))" />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">标题（必填）</label>
-				<YdInput v-model="form.title" placeholder="公告或指引标题" clearable />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">摘要（弹窗通知预览，建议 300 字内）</label>
-				<YdTextarea v-model="form.summary" :rows="3" placeholder="一句话说明这次内容的要点" />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">正文（Markdown，公告弹窗展示）</label>
-				<MarkdownEditor v-model="form.body" placeholder="支持标题、列表、表格与链接" />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">跳转链接（可选，启动器「访问」按钮）</label>
-				<YdInput v-model="form.url" placeholder="https://..." clearable />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">封面图（可选）</label>
-				<YdInput v-model="form.coverUrl" placeholder="https://..." clearable />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">备注（可选，仅管理端可见）</label>
-				<YdInput v-model="form.meta" clearable />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">排序（数值越小越靠前）</label>
-				<YdInput v-model="form.sort" type="number" />
-			</div>
-			<div class="ymcl-form-row">
-				<label class="ymcl-label">启用（停用后启动器不再拉取）</label>
-				<YdSwitch v-model="form.enabled" />
-			</div>
-			<div class="ymcl-form-row">
-				<YdButton type="primary" :loading="saving" @click="submitRecord">
-					保存
-				</YdButton>
-			</div>
-		</form>
-	</YdModal>
+    <template #search>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_auto]">
+        <div class="min-w-0">
+          <YdSelect v-model="filters.kind" :options="kindSelectOptions" class="w-full" @update:model-value="applyFilters" />
+        </div>
+        <div class="flex items-center justify-start gap-2 md:justify-end">
+          <YdButton size="sm" variant="outline" @click="applyFilters">
+            <YdIcon name="i-ri:search-line" />
+            查询
+          </YdButton>
+          <YdButton size="sm" variant="ghost" @click="resetFilters">
+            重置
+          </YdButton>
+        </div>
+      </div>
+    </template>
+
+    <template #actions>
+      <YdButton type="primary" @click="openCreate">
+        <YdIcon name="i-ri:add-line" />
+        新建内容
+      </YdButton>
+    </template>
+
+    <template #table>
+      <YdLoadingOverlay :loading="loading">
+        <YdResponsiveEnhancedTable
+          :actions="rowActions"
+          :columns="columns"
+          :data="records"
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[1080px]"
+          border
+          stripe
+          column-visibility
+        >
+          <template #empty>
+            <div class="ymcl-empty">
+              <span class="ymcl-muted">暂无内容。新建的更新公告会推送给启动器用户。</span>
+              <YdButton type="primary" @click="openCreate">
+                <YdIcon name="i-ri:add-line" />
+                新建内容
+              </YdButton>
+            </div>
+          </template>
+          <template #cell-title="{ row }">
+            <span class="ymcl-break">{{ row.original.title }}</span>
+          </template>
+          <template #cell-kind="{ row }">
+            <YdTag :variant="row.original.kind === 'updates' ? 'default' : 'secondary'">
+              {{ kindLabels[row.original.kind] || row.original.kind }}
+            </YdTag>
+          </template>
+          <template #cell-summary="{ row }">
+            <span class="ymcl-break">{{ row.original.summary || '-' }}</span>
+          </template>
+          <template #cell-status="{ row }">
+            <YdTag :variant="row.original.enabled !== false ? 'default' : 'outline'">
+              {{ row.original.enabled !== false ? '已启用' : '已停用' }}
+            </YdTag>
+          </template>
+          <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
+          <template #card="{ row }">
+            <YdCard class="w-full">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-start justify-between gap-3">
+                  <strong class="break-all">{{ row.title }}</strong>
+                  <YdTag :variant="row.enabled !== false ? 'default' : 'outline'">{{ row.enabled !== false ? '已启用' : '已停用' }}</YdTag>
+                </div>
+                <p class="ymcl-break">{{ kindLabels[row.kind] || row.kind }} · {{ row.summary || '-' }}</p>
+                <p class="ymcl-muted">排序 {{ row.sort }} · 更新于 {{ formatTime(row.updatedAt) }}</p>
+                <div class="ymcl-row-actions">
+                  <YdButton size="sm" variant="outline" @click="openEdit(row)">编辑</YdButton>
+                  <YdButton size="sm" variant="outline" @click="toggleEnabled(row)">{{ row.enabled !== false ? '停用' : '启用' }}</YdButton>
+                  <YdButton size="sm" variant="destructive" @click="confirmDelete(row)">删除</YdButton>
+                </div>
+              </div>
+            </YdCard>
+          </template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
+
+    <template #footer>
+      <YdPagination
+        v-model:page="pagination.page"
+        v-model:size="pagination.size"
+        :total="total"
+        :sizes="[10, 20, 50]"
+        @page-change="reload"
+        @size-change="applyFilters"
+      />
+    </template>
+  </YdTablePageLayout>
+
+  <YdModal
+    v-model="editorOpen"
+    :title="editorMode === 'create' ? '新建内容' : '编辑内容'"
+    width="720px"
+    :show-confirm-button="false"
+    show-cancel-button
+  >
+    <form class="ymcl-form" @submit.prevent>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">分类</label>
+        <YdSelect v-model="form.kind" :options="CONTENT_KIND_OPTIONS.map(item => ({ ...item }))" />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">标题（必填）</label>
+        <YdInput v-model="form.title" placeholder="公告或指引标题" clearable />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">摘要（弹窗通知预览，建议 300 字内）</label>
+        <YdTextarea v-model="form.summary" :rows="3" placeholder="一句话说明这次内容的要点" />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">正文（Markdown，公告弹窗展示）</label>
+        <MarkdownEditor v-model="form.body" placeholder="支持标题、列表、表格与链接" />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">跳转链接（可选，启动器「访问」按钮）</label>
+        <YdInput v-model="form.url" placeholder="https://..." clearable />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">封面图（可选）</label>
+        <YdInput v-model="form.coverUrl" placeholder="https://..." clearable />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">备注（可选，仅管理端可见）</label>
+        <YdInput v-model="form.meta" clearable />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">排序（数值越小越靠前）</label>
+        <YdInput v-model="form.sort" type="number" />
+      </div>
+      <div class="ymcl-form-row">
+        <label class="ymcl-label">启用（停用后启动器不再拉取）</label>
+        <YdSwitch v-model="form.enabled" />
+      </div>
+      <div class="ymcl-form-row">
+        <YdButton type="primary" :loading="saving" @click="submitRecord">
+          保存
+        </YdButton>
+      </div>
+    </form>
+  </YdModal>
 </template>

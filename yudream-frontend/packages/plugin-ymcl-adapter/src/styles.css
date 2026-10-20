@@ -5,6 +5,26 @@
   gap: 14px;
 }
 
+/*
+ * 设置类页面外壳（对齐宿主 .settings-page-shell）：固定为「可视高度 - 布局占位」，
+ * 白底铺满，页头与分区导航固定在壳内，只有内容区滚动（YdSettingsLayout scroll 模式）。
+ */
+.settings-page-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(
+    100dvh
+    - var(--g-slots-layout-top-height, 0px)
+    - var(--g-header-actual-height, 0px)
+    - var(--g-topbar-actual-height, 0px)
+    - var(--g-slots-layout-bottom-height, 0px)
+    - var(--g-main-container-padding-top, 0px)
+    - var(--g-main-container-padding-bottom, 0px)
+  );
+  overflow: hidden;
+  background-color: oklch(var(--card));
+}
+
 .ymcl-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -571,26 +591,6 @@
   gap: 4px;
 }
 
-.ymcl-home-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .ymcl-home-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.ymcl-theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-
 .ymcl-theme-pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -611,13 +611,6 @@
   border-radius: 6px;
   background: transparent;
   cursor: pointer;
-}
-
-.ymcl-home-side {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .ymcl-card-header-row {

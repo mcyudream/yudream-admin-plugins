@@ -244,12 +244,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
               </div>
             </div>
       </template>
-    <template #actions>
-      <YdButton variant="outline" :loading="loading" @click="load">
-        <YdIcon name="i-ri:refresh-line" />
-        刷新
-      </YdButton>
-    </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { ActionMenuItem, TableColumn } from '@yudream/components'
+import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import type { ActionMenuItem, TableColumn, YdTablePageAction } from '@yudream/components'
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectCheckIn } from '../types'
-import { useYdModal, YdButton, YdFileUpload, YdInput, YdPageHeader, YdPageMain, YdPagination, YdRadioGroup, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTextarea } from '@yudream/components'
+import { useYdModal, YdButton, YdFileUpload, YdInput, YdPagination, YdRadioGroup, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTextarea } from '@yudream/components'
 import { computed, reactive, watch } from 'vue'
 
 const props = defineProps<{ model: ProjectProgressModel }>()
@@ -29,6 +30,11 @@ columns.push(
   { id: 'reviewStatus', header: '审核状态', width: 120 },
   { id: 'operation', header: '操作', width: 180, fixed: 'right', align: 'center' },
 )
+
+/** 页面级操作：导出 */
+const pageActions = computed<YdTablePageAction[]>(() => [
+  { label: '导出', variant: 'outline', disabled: !props.model.checkIns.length, onClick: () => props.model.exportCheckIns() },
+])
 
 watch(manualTypeOptions, (options) => {
   if (options.length && !options.some(item => item.value === props.model.checkInForm.type)) props.model.checkInForm.type = options[0].value
@@ -58,41 +64,43 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-
-  <YdPageHeader title="打卡记录" class="mb-0">
-    <YdSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" />
-    <YdButton variant="outline" :disabled="!model.checkIns.length" @click="model.exportCheckIns">导出</YdButton>
-  </YdPageHeader>
-  <YdPageMain>  <section class="pp-page">
-
-    <section class="pp-grid">
-      <section class="pp-panel">
-        <header class="pp-panel-head"><div><h3>提交打卡</h3><span>{{ model.selectedProject?.name || '请选择项目' }}</span></div></header>
-        <div class="pp-form">
-          <label><span>打卡类型</span><YdRadioGroup v-model="model.checkInForm.type" :options="manualTypeOptions" :disabled="!model.selectedProjectId" class="pp-radio-grid" /></label>
-          <div v-if="model.selectedProjectId && !manualTypeOptions.length" class="pp-empty">该项目未开放手动打卡</div>
-          <label><span>说明</span><YdTextarea v-model="model.checkInForm.summary" class="w-full" /></label>
-          <label v-if="model.checkInForm.type !== 'LOCATION'"><span>上传证明</span><YdFileUpload v-model="model.evidenceFiles" :max="1" :http-request="localUploadRequest" description="拖放或点击选择打卡证明" /></label>
-          <template v-if="model.checkInForm.type === 'LOCATION'">
-            <label><span>地址</span><YdInput v-model="model.checkInForm.address" class="w-full" placeholder="定位后可补充地点说明" /></label>
-            <div class="pp-actions"><YdButton variant="outline" :loading="model.saving" @click="model.useCurrentLocation">获取当前位置</YdButton><span class="pp-muted">{{ model.checkInForm.latitude && model.checkInForm.longitude ? `${model.checkInForm.latitude}, ${model.checkInForm.longitude}` : '尚未获取定位' }}</span></div>
-          </template>
-          <div class="pp-actions"><YdButton :loading="model.saving" :disabled="!model.selectedProjectId || !manualTypeOptions.length" @click="model.submitCheckIn">提交打卡</YdButton><YdButton variant="outline" :disabled="!model.canProjectMinecraftCheckIn() || model.saving" @click="model.minecraftCheckIn()">MC 在线时长打卡</YdButton></div>
-        </div>
-      </section>
-
-      <section class="pp-panel">
-        <header class="pp-panel-head"><div><h3>项目打卡记录</h3><span>{{ model.checkIns.length }} 条记录</span></div></header>
-        <YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[820px]" border stripe column-visibility :actions="rowActions" :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
-          <template #cell-user="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
-          <template #cell-type="{ row }"><YdTag variant="secondary">{{ typeLabel(row.original.type) }}</YdTag></template>
-          <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · {{ model.minecraftScopeLabel(row.original.minecraft) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}<template v-if="model.minecraftWindowLabel(row.original.minecraft)"> · 统计自 {{ model.minecraftWindowLabel(row.original.minecraft) }}</template></div><div v-if="model.minecraftSubServerSummary(row.original.minecraft)" class="pp-table-sub">子服累计 {{ model.minecraftSubServerSummary(row.original.minecraft) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
-          <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
-          <template #cell-reviewStatus="{ row }"><YdTag :variant="row.original.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.original.reviewStatus) }}</YdTag></template>
-        </YdResponsiveEnhancedTable>
-        <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.checkIns.length" class="mt-3" />
-      </section>
+  <div class="flex h-full min-h-0 flex-col gap-3">
+    <!-- 提交打卡：独立工作流面板（不属于表格布局插槽），提交后新记录出现在下方表格 -->
+    <section class="pp-panel flex-none">
+      <header class="pp-panel-head"><div><h3>提交打卡</h3><span>{{ model.selectedProject?.name || '请选择项目' }}</span></div></header>
+      <div class="pp-form">
+        <label><span>打卡类型</span><YdRadioGroup v-model="model.checkInForm.type" :options="manualTypeOptions" :disabled="!model.selectedProjectId" class="pp-radio-grid" /></label>
+        <div v-if="model.selectedProjectId && !manualTypeOptions.length" class="pp-empty">该项目未开放手动打卡</div>
+        <label><span>说明</span><YdTextarea v-model="model.checkInForm.summary" class="w-full" /></label>
+        <label v-if="model.checkInForm.type !== 'LOCATION'"><span>上传证明</span><YdFileUpload v-model="model.evidenceFiles" :max="1" :http-request="localUploadRequest" description="拖放或点击选择打卡证明" /></label>
+        <template v-if="model.checkInForm.type === 'LOCATION'">
+          <label><span>地址</span><YdInput v-model="model.checkInForm.address" class="w-full" placeholder="定位后可补充地点说明" /></label>
+          <div class="pp-actions"><YdButton variant="outline" :loading="model.saving" @click="model.useCurrentLocation">获取当前位置</YdButton><span class="pp-muted">{{ model.checkInForm.latitude && model.checkInForm.longitude ? `${model.checkInForm.latitude}, ${model.checkInForm.longitude}` : '尚未获取定位' }}</span></div>
+        </template>
+        <div class="pp-actions"><YdButton :loading="model.saving" :disabled="!model.selectedProjectId || !manualTypeOptions.length" @click="model.submitCheckIn">提交打卡</YdButton><YdButton variant="outline" :disabled="!model.canProjectMinecraftCheckIn() || model.saving" @click="model.minecraftCheckIn()">MC 在线时长打卡</YdButton></div>
+      </div>
     </section>
-  </section>
-</YdPageMain>
+
+    <YdTablePageLayout title="打卡记录" class="min-h-0 flex-1" :actions="pageActions">
+      <template #search>
+        <YdSelect :model-value="model.selectedProjectId" :options="projectOptions" placeholder="选择项目" class="pp-project-select" @update:model-value="selectProject" />
+      </template>
+
+      <template #table>
+        <YdLoadingOverlay :loading="model.loading">
+          <YdResponsiveEnhancedTable row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[820px]" border stripe column-visibility :actions="rowActions" :columns="columns" :data="pagedRows" empty-text="暂无打卡记录">
+            <template #cell-user="{ row }">{{ model.userLabel(model.usersById[row.original.userId]) }}</template>
+            <template #cell-type="{ row }"><YdTag variant="secondary">{{ typeLabel(row.original.type) }}</YdTag></template>
+            <template #cell-summary="{ row }"><strong>{{ row.original.summary || '无说明' }}</strong><div v-if="row.original.location" class="pp-table-sub">{{ row.original.location.address }}</div><div v-if="row.original.minecraft" class="pp-table-sub">{{ model.serverLabel(row.original.minecraft.serverId) }} · {{ model.minecraftScopeLabel(row.original.minecraft) }} · 有效在线 {{ model.minutes(row.original.minecraft.effectiveOnlineMillis) }}<template v-if="model.minecraftWindowLabel(row.original.minecraft)"> · 统计自 {{ model.minecraftWindowLabel(row.original.minecraft) }}</template></div><div v-if="model.minecraftSubServerSummary(row.original.minecraft)" class="pp-table-sub">子服累计 {{ model.minecraftSubServerSummary(row.original.minecraft) }}</div><div v-if="row.original.files.length" class="pp-table-sub">{{ fileNames(row.original.files) }}</div></template>
+            <template #cell-createdAt="{ row }">{{ model.formatTime(row.original.createdAt) }}</template>
+            <template #cell-reviewStatus="{ row }"><YdTag :variant="row.original.reviewStatus === 'REJECTED' ? 'destructive' : 'secondary'">{{ reviewLabel(row.original.reviewStatus) }}</YdTag></template>
+          </YdResponsiveEnhancedTable>
+        </YdLoadingOverlay>
+      </template>
+
+      <template #footer>
+        <YdPagination v-model:page="pagination.page" v-model:size="pagination.size" :total="model.checkIns.length" />
+      </template>
+    </YdTablePageLayout>
+  </div>
 </template>

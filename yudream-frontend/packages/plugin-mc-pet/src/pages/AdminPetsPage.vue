@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ActionMenuItem, TableColumn, YdTablePageAction } from '@yudream/components'
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { PetAdminItem } from '../types'
 import { YdButton, YdDrawer, YdLoadingOverlay, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
@@ -25,10 +25,6 @@ const columns: TableColumn<PetAdminItem>[] = [
 const rowActions: ActionMenuItem<PetAdminItem>[] = [
   { label: '详情', icon: 'morph:eye', disabled: () => acting.value, onClick: row => model.openDetail(row) },
   { label: '重置偏好', icon: 'morph:rotate-ccw', danger: true, disabled: () => acting.value, onClick: row => model.reset(row) },
-]
-
-const pageActions: YdTablePageAction[] = [
-  { label: '刷新', icon: 'morph:refresh', disabled: loading.value, onClick: () => model.load() },
 ]
 
 const modeLabels: Record<string, string> = {
@@ -64,7 +60,7 @@ function formatTime(value?: string) {
 
 <template>
   <section class="mc-pet-page">
-    <YdTablePageLayout title="用户宠物" :show-search="false" :actions="pageActions">
+    <YdTablePageLayout title="用户宠物" :show-search="false">
       <template #table>
         <YdLoadingOverlay :loading="loading">
           <YdResponsiveEnhancedTable

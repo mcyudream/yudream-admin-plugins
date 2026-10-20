@@ -67,7 +67,6 @@ function confirmToggleServer(server: MinecraftServer) {
         border
         stripe
         column-visibility
-        :status-column="serverStatusColumn"
         :actions="rowActions"
         :columns="columns"
         :data="model.servers"
