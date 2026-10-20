@@ -19,7 +19,7 @@
 - 前端 UI：`yudream-frontend/AGENTS.md` 与 `docs/yd-ui-guidelines.md`（主仓同名文件是权威）。
 - 插件用户/管理员边界：`docs/dev/plugin-development.md` 第 4 节；经验看 `docs/exp/access.md`。
 - 管理列表、分页与响应式：规范见 `docs/dev/plugin-development.md` 第 5 节；经验看 `docs/exp/frontend.md`。
-- 契约升级/发布/版本/打包：`docs/dev/conventions.md`；先读主仓 `docs/dev/contract-release.md`。
+- 契约升级/发布/版本/打包：`docs/dev/conventions.md`；先读主仓 `docs/dev/contract-release.md`；宿主版本定级与发布 tag 规则以主仓 `docs/dev/release-versioning.md` 为权威。
 - 修改本仓/主仓 AGENTS、docs/dev 或写入约束性记忆：先查主仓 `D:/code/yudream-admim/docs/dev/repo-sync.md`。
 - 故障经验：`docs/exp/README.md` 分类索引。
 - 本仓根 AGENTS 是硬规则入口；`docs/dev/` 是规范；`docs/exp/` 是经验。不得再建立 skill 作为项目规范权威。
@@ -34,7 +34,7 @@
 6. **前端组件**：Vue Web 业务只用已发布 `@yudream/components` 公开 `Yd*`/`useYd*`，禁止 Fa/裸 Arco/TDesign/Reka、别名和手写通用交互；缺能力先主仓封装、发布验签再消费。RN 使用独立 `@yudream/plugin-mobile-ui`。
 7. **长 ID**：Java Long/Snowflake 跨 JSON/DTO/TS/表单/路由/SDK 都为 string，禁止 `Number(id)`。
 8. **菜单与权限**：新插件按主要业务类别声明 `menu.category`，一级分类共享，功能放分类下；权限末段词遵守主仓 `docs/dev/permission-codes.md`，主仓权威。
-9. **版本与发版清单**：行为变更只升受影响插件 SemVer 并同步 pom/plugin.yml/store.json releaseNotes；发布范围由 `release/plugins.txt` 选择。纯文档不升版；tag 与插件 SemVer 不要求相等。
+9. **版本与发版清单**：行为变更只升受影响插件 SemVer 并同步 pom/plugin.yml/store.json releaseNotes；发布范围由 `release/plugins.txt` 选择。纯文档不升版；tag 与插件 SemVer 不要求相等。插件发布/发布 tag 的通用版本规则（已 tag 不可移动、源码变化发新版本、禁止新建后缀 tag、`d*` 部署标签不得更新 latest）以主仓 `docs/dev/release-versioning.md` 为权威。
 10. **验证与提交**：目标前端 typecheck/build、后端 Maven test/package；跨插件/依赖/打包/发布跑 readiness，完整栈检查最终 JAR remote assets。独立模块验证后仅暂存其文件并中文提交。
 11. **机密与外部动作**：secret 只放系统凭据管理器/env 或被忽略的 `docs/local.md`；计划在被忽略 `docs/plan/`。未经明确授权不 push/tag/release。
 12. **保留工作区**：本仓可能有大量并行插件改动与未跟踪验收物，严禁全仓暂存；保留无关用户改动，不格式化/回退无关代码。

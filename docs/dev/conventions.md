@@ -37,8 +37,9 @@
 ## 4. 版本与更新日志
 
 - 每次功能新增、行为变更或 bug 修复，自动更新**受影响插件**版本与 `releaseNotes`；纯格式、注释、测试、构建脚本、文档且不改产物行为时不得无意义升版。
-- 稳定 SemVer：PATCH 修复/稳定/安全；MINOR 向后兼容新功能/API/UI；MAJOR 不兼容配置/API/数据/权限/路由/依赖/行为变化。
+- 稳定 SemVer：PATCH 修复/稳定/安全；MINOR 向后兼容新功能/API/UI；MAJOR 不兼容配置/API/数据/权限/路由/依赖/行为变化。一次发布含多类变更取最高级别；纯文档不升版。
 - 插件 `pom.xml` 与 `plugin.yml` 版本必须一致。Git tag 与插件版本无须相同。
+- 发布 tag 通用规则以主仓 `docs/dev/release-versioning.md` 为权威：已发布 tag 不可移动；发布失败或源码变化**必须**发新版本，**禁止**新建后缀 tag（`v1.4.9-1` 等历史后缀 tag 仅存档有效）；RC 为独立版本；`d*` 部署/测试标签**不得**更新 `latest`，`latest` 只随正式版更新。
 - `src/main/resources/store.json` 的 `releaseNotes` 用简洁 UTF-8 中文写面向用户变化与必要迁移；不写密钥、token、内部地址或无关实现细节。无文件/字段时在本次发布补齐。
 - 多插件提交逐个判断，未受影响插件不得跟随升版；普通业务改动不升根聚合/SPI/SDK 版本。
 
