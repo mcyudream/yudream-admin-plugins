@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PushTargetPayload, PushTargetType, PushTargetView, WebhookHeader } from '../types'
 
-import { YdButton, YdIcon, YdInput, YdModal, YdSwitch, useYdToast } from '@yudream/components'
+import { YdButton, YdCombobox, YdIcon, YdInput, YdModal, YdSwitch, useYdToast } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { createMcNewsApi } from '../api/mc-news-api'
 import { errorMessage } from '../composables/utils'

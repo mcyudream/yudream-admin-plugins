@@ -3,7 +3,7 @@ import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { DescriptionItem, TableColumn } from '@yudream/components'
 import type { McpEnrollCredential, McpNode, McpNodeContainerStat, McpNodeStateEvent } from '../../types'
-import { YdAlert, YdButton, YdCard, YdDescriptions, YdIcon, YdPageMain, YdProgress, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdCard, YdDescriptions, YdIcon, YdPageHeader, YdPageMain, YdProgress, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -279,7 +279,41 @@ onMounted(() => {
 </script>
 
 <template>
-  
+  <YdPageHeader
+    :title="String(node?.name ?? '节点详情')"
+    :description="node?.endpoint ? `控制信道 ${node.endpoint}` : '远程节点控制面：状态、资源与容器概览'"
+  >
+    <YdButton variant="outline" @click="goList">
+      <YdIcon name="i-ri:arrow-left-line" />
+      返回列表
+    </YdButton>
+    <template v-if="node">
+      <YdButton v-if="canUse && node.hasSecret" variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}/terminal`)">
+        <YdIcon name="i-ri:terminal-line" />
+        终端
+      </YdButton>
+      <YdButton v-if="canManage && node.hasSecret" variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}/files`)">
+        <YdIcon name="i-ri:folder-line" />
+        文件
+      </YdButton>
+      <YdButton v-if="canManage" variant="outline" :loading="reconnecting" @click="reconnect">
+        <YdIcon name="i-ri:refresh-line" />
+        重连
+      </YdButton>
+      <YdButton v-if="canManage && node.hasSecret === false" variant="outline" :loading="issuing" @click="issueEnrollment">
+        <YdIcon name="i-ri:key-2-line" />
+        签发注册凭据
+      </YdButton>
+      <YdButton v-if="canManage" variant="outline" @click="formOpen = true">
+        <YdIcon name="i-ri:edit-line" />
+        编辑
+      </YdButton>
+      <YdButton v-if="canDelete" variant="destructive" :loading="deleting" @click="confirmDelete">
+        <YdIcon name="i-ri:delete-bin-line" />
+        删除
+      </YdButton>
+    </template>
+  </YdPageHeader>
 
   <YdAlert v-if="loadError" variant="destructive" title="无法加载节点" class="mt-4">
   <template #description>
@@ -346,38 +380,6 @@ onMounted(() => {
         <div class="mcp-stat-head mb-2">
           <span>实例容器</span>
           <span class="mcp-status-meta">负载：{{ stats?.load ?? '-' }}</span>
-        </div>
-        <div class="mcp-toolbar-row mb-3">
-      <YdButton variant="outline" @click="goList">
-      <YdIcon name="i-ri:arrow-left-line" />
-      返回列表
-    </YdButton>
-    <template v-if="node">
-      <YdButton v-if="canUse && node.hasSecret" variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}/terminal`)">
-        <YdIcon name="i-ri:terminal-line" />
-        终端
-      </YdButton>
-      <YdButton v-if="canManage && node.hasSecret" variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}/files`)">
-        <YdIcon name="i-ri:folder-line" />
-        文件
-      </YdButton>
-      <YdButton v-if="canManage" variant="outline" :loading="reconnecting" @click="reconnect">
-        <YdIcon name="i-ri:refresh-line" />
-        重连
-      </YdButton>
-      <YdButton v-if="canManage && node.hasSecret === false" variant="outline" :loading="issuing" @click="issueEnrollment">
-        <YdIcon name="i-ri:key-2-line" />
-        签发注册凭据
-      </YdButton>
-      <YdButton v-if="canManage" variant="outline" @click="formOpen = true">
-        <YdIcon name="i-ri:edit-line" />
-        编辑
-      </YdButton>
-      <YdButton v-if="canDelete" variant="destructive" :loading="deleting" @click="confirmDelete">
-        <YdIcon name="i-ri:delete-bin-line" />
-        删除
-      </YdButton>
-    </template>
         </div>
         <YdResponsiveEnhancedTable
           :columns="containerColumns"

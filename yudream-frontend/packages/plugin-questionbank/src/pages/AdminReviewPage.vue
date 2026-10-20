@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { SessionQuestionView, SessionSummary } from '../types'
-import { YdButton, YdDrawer, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdDrawer, YdIcon, YdInput, YdPagination, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { formatTime, optionKey } from '../composables/utils'
@@ -17,7 +17,6 @@ const columns: TableColumn<SessionSummary>[] = [
   { id: 'score', header: '客观题得分', width: 110 },
   { id: 'pending', header: '待审核', width: 90 },
   { accessorKey: 'submittedAt', header: '提交时间', width: 170 },
-  { id: 'operation', header: '操作', width: 120 },
 ]
 
 const drawerOpen = ref(false)
@@ -66,13 +65,15 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
+  <div class="h-full min-h-0">
     <YdTablePageLayout title="简答审核">
       <template #search>
-        <div class="qb-toolbar">
-            <YdInput v-model="model.reviewKeyword" placeholder="搜索用户昵称、ID 或题单名称" clearable @keydown.enter="model.applyReviewFilters" @clear="model.applyReviewFilters" />
+        <div class="yd-filter-grid" style="--yd-filter-columns: 1">
+          <YdInput v-model="model.reviewKeyword" class="w-full" placeholder="搜索用户昵称、ID 或题单名称" clearable @keydown.enter="model.applyReviewFilters" @clear="model.applyReviewFilters" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="model.applyReviewFilters"><YdIcon name="i-ri:search-line" />查询</YdButton>
           </div>
+        </div>
       </template>
     <template #table>
 <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
@@ -155,5 +156,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </template>
       </div></YdLoadingOverlay>
     </YdDrawer>
-  </YdPageMain>
+  </div>
 </template>

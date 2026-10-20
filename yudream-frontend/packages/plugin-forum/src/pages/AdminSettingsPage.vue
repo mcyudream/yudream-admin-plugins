@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import type { YuDreamPluginAiProviderOption, YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdIcon, YdNumberField, YdPageHeader, YdPageMain, YdSelect, YdSwitch, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdNumberField, YdPageHeader, YdSelect, YdSwitch, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
@@ -38,7 +38,8 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 ]
 </script>
 <template>
-  <div class="forum-page"><YdPageHeader title="论坛设置" class="mb-0"><YdButton :loading="saving" @click="save"><YdIcon name="i-ri:save-3-line" />保存设置</YdButton></YdPageHeader><div class="forum-settings-shell">
+  <div class="settings-page-shell">
+    <YdPageHeader title="论坛设置" class="mb-0"><YdButton :loading="saving" @click="save"><YdIcon name="i-ri:save-3-line" />保存设置</YdButton></YdPageHeader>
 
   <YdSettingsLayout
     v-model="activeSection"
@@ -56,6 +57,5 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
       </YdSettingsSection>
     </template>
   </YdSettingsLayout>
-</div>
 </div>
 </template>

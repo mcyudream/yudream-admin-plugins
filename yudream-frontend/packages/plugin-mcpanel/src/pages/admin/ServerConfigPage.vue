@@ -467,14 +467,14 @@ onMounted(() => {
             v-if="isStructured && !rawMode"
             v-model="filter"
             clearable
-            class="w-full sm:w-64"
+            class="w-[100%] sm:w-64"
             placeholder="搜索配置项 / 说明 / 键名…"
           />
           <YdSelect
             v-if="isStructured && !rawMode"
             v-model="groupFilter"
             :options="filterOptions"
-            class="w-full sm:w-48"
+            class="w-[100%] sm:w-48"
           />
           <label v-if="isStructured && !rawMode" class="flex items-center gap-2 text-sm">
             <YdSwitch v-model="showOnlyChanged" />

@@ -872,7 +872,7 @@ onMounted(() => {
   </template>
     </YdAlert>
 
-    <div class="rounded-xl border bg-card p-4 sm:p-6">
+    <div class="rounded-xl border bg-card p-[1rem] sm:p-6">
       <nav aria-label="创建步骤">
         <ol class="flex flex-wrap items-center gap-x-2 gap-y-3">
           <li v-for="(step, index) in steps" :key="step.key" class="flex items-center gap-2">
@@ -1236,7 +1236,7 @@ onMounted(() => {
                 v-model="form.domainSlug"
                 placeholder="子域名前缀（留空按实例名推导）"
                 clearable
-                class="w-full sm:w-80"
+                class="w-[100%] sm:w-80"
               />
               <span v-if="form.domainEnabled" class="text-xs text-muted-foreground">
                 将得到 <code class="rounded bg-muted px-1 font-mono">{{ domainPreview }}</code>

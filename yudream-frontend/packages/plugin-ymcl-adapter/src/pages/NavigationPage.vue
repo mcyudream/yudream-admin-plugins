@@ -85,7 +85,6 @@ const registryColumns: TableColumn<NavigationPageInfo>[] = [
   { id: 'route', header: '路由 / 标识', minWidth: 160 },
   { id: 'requiredPermission', header: '所需权限（随页面固定）', minWidth: 200 },
   { id: 'usage', header: '状态', width: 100 },
-  { id: 'operation', header: '操作', width: 110 },
 ]
 
 function pageInfo(pageId: string) {

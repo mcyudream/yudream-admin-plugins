@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { TableColumn, YdTablePickerQuery, YdTablePickerResult, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../../types'
-import { YdAction, YdAlert, YdButton, YdCard, YdInput, YdModal, YdPageMain, YdSelect, YdTablePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdAlert, YdButton, YdCard, YdInput, YdModal, YdPageHeader, YdPageMain, YdSelect, YdTablePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -281,6 +281,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
   
+  <YdPageHeader title="快速开始" description="选择向导包并按步骤创建实例；也可前往应用市场或使用完整向导。" />
   <YdLoadingOverlay :loading="loading"><YdPageMain >
     <YdAlert v-if="error" variant="destructive" class="mb-4">
   <template #description>
@@ -292,7 +293,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
       <div v-if="!packages.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         暂无向导包，请在下方维护目录
       </div>
-      <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-3">
         <YdAction
           v-for="pkg in packages"
           :key="String(pkg.id)"
@@ -359,28 +360,22 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </YdCard>
 
     <YdCard title="快速开始包目录" description="管理员维护向导包；内置常见核心预设" class="mt-4">
-      <div class="mb-3 flex items-center gap-2">
+      <div class="mb-3 flex flex-wrap items-center gap-2">
         <YdButton v-if="canManage" size="sm" @click="openCatalogCreate">
           新增包
         </YdButton>
         <YdButton size="sm" variant="outline" @click="loadCatalog">
           刷新目录
         </YdButton>
+        <YdButton size="sm" variant="outline" @click="router.push('/platform/plugins/mcpanel/admin/market')">
+          应用市场
+        </YdButton>
+        <YdButton size="sm" @click="router.push('/platform/plugins/mcpanel/admin/instances/create')">
+          完整向导
+        </YdButton>
       </div>
-              <YdTablePageLayout title="快速开始" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="router.push('/platform/plugins/mcpanel/admin/market')">
-      应用市场
-    </YdButton>
-    <YdButton @click="router.push('/platform/plugins/mcpanel/admin/instances/create')">
-      完整向导
-    </YdButton>
-            </template>
-            <template #table>
 <YdLoadingOverlay :loading="catalogLoading"><YdResponsiveEnhancedTable
         :actions="rowActions"
-
-        
         :columns="catalogColumns"
         :data="catalogRows"
         row-key="id"
@@ -391,8 +386,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
         empty-text="暂无包，点击新增"
       >
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-            </template>
-          </YdTablePageLayout>
 
     </YdCard>
 

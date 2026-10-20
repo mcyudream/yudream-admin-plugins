@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAlert, YdButton, YdCard, YdIcon, YdInput, YdPageMain, YdPagination, YdSelect, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdCard, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSelect, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra.ts'
@@ -158,14 +158,25 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
   
-  <YdPageMain>
-    <YdAlert v-if="error" variant="destructive" title="提示" class="mb-4">
+  <YdPageHeader
+    :title="`模组 / 插件 · ${instanceName || instanceId}`"
+    description="从 Modrinth 搜索并安装到 plugins/mods；下方同时列出节点本地目录内容。"
+  >
+    <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}`)">
+      返回终端
+    </YdButton>
+    <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}/files`)">
+      文件管理
+    </YdButton>
+  </YdPageHeader>
+  <YdPageMain class="flex flex-col gap-4">
+    <YdAlert v-if="error" variant="destructive" title="提示" class="mb-0">
   <template #description>
       {{ error }}
   </template>
     </YdAlert>
     <YdCard title="搜索 Modrinth" description="可选类型/游戏版本/加载器；安装走节点文件通道">
-      <div class="grid w-full gap-2 mb-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_170px_170px_170px_auto]">
+      <div class="yd-filter-grid mb-3" style="--yd-filter-columns: 4">
         <YdInput v-model="keyword" class="w-full" placeholder="关键词" @keydown.enter="search" />
         <YdSelect
           v-model="projectType"
@@ -176,23 +187,13 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <YdInput v-model="gameVersion" class="w-full" placeholder="MC 版本，如 1.21.4" />
         <YdInput v-model="loader" class="w-full" placeholder="加载器 paper/fabric" />
         <div class="flex items-center justify-end">
-          <YdButton class="w-full xl:w-auto" @click="search">
+          <YdButton class="w-[100%] xl:w-auto" @click="search">
             <YdIcon name="i-ri:search-line" />
             搜索
           </YdButton>
         </div>
       </div>
 
-              <YdTablePageLayout title="`模组/插件 · ${instanceName || instanceId}`" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}`)">
-      返回终端
-    </YdButton>
-    <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}/files`)">
-      文件管理
-    </YdButton>
-            </template>
-            <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"
 
@@ -216,17 +217,14 @@ const rowActions: ActionMenuItem<unknown>[] = [
           {{ Number(row.original.downloads ?? 0).toLocaleString() }}
         </template>
       </YdResponsiveEnhancedTable></YdLoadingOverlay>
-            </template>
-            <template #footer>
       <YdPagination
         v-model:page="pager.page"
         v-model:size="pager.size"
         :total="pager.total"
+        class="mt-3"
         @page-change="() => search()"
         @size-change="() => { pager.page = 1; search() }"
       />
-            </template>
-          </YdTablePageLayout>
 
     </YdCard>
 

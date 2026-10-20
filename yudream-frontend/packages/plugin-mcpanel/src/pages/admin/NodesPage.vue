@@ -345,7 +345,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </template>
     <template #search>
       <div class="flex flex-wrap items-center gap-2">
-        <div class="grid w-full gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
+        <div class="yd-filter-grid" style="--yd-filter-columns: 2">
           <YdInput v-model="filters.keyword" clearable placeholder="节点名称 / 地址" class="w-full" @keydown.enter="search" @clear="search" />
           <YdSelect v-model="filters.status" :options="STATUS_OPTIONS" class="w-full" @change="search" />
           <div class="flex items-center justify-end gap-2">

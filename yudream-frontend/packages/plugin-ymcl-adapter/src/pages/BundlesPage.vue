@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { BundleDoc } from '../types'
-import { YdAction, YdButton, YdIcon, YdFilePicker, YdInput, YdPageMain, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdButton, YdCard, YdIcon, YdFilePicker, YdInput, YdPageHeader, YdPageMain, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import type { TableColumn, YdFilePickerInstance, ActionMenuItem } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
@@ -22,7 +22,6 @@ const bundleColumns: TableColumn<BundleDoc>[] = [
   { id: 'sha256', header: 'sha256', width: 130 },
   { id: 'size', header: '大小', width: 100 },
   { id: 'uploadedAt', header: '上传时间', width: 170 },
-  { id: 'operations', header: '操作', width: 130, fixed: 'right' },
 ]
 
 function onFileSelect(files: File[]) {
@@ -72,6 +71,8 @@ const rowActions: ActionMenuItem<BundleDoc>[] = [
 <template>
   <div class="ymcl-page">
 
+    <YdPageHeader title="扩展页面包" />
+
     <YdPageMain>
       <div class="ymcl-bundle-grid">
         <YdCard title="上传包" description="服务端重算 sha256 并校验唯一性" content-class="ymcl-card-content">
@@ -113,9 +114,7 @@ const rowActions: ActionMenuItem<BundleDoc>[] = [
         </YdCard>
 
         <YdCard title="已注册包" description="启动器按 manifest 中的 sha256 校验后加载" content-class="ymcl-card-content ymcl-card-content--wide">
-          <YdTablePageLayout title="扩展页面包" :show-search="false">
-    <template #table>
-<YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
+          <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
               :actions="rowActions"
 
             table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
@@ -139,8 +138,6 @@ const rowActions: ActionMenuItem<BundleDoc>[] = [
               {{ formatTime(row.original.uploadedAt) }}
             </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </template>
-  </YdTablePageLayout>
 
         </YdCard>
       </div>

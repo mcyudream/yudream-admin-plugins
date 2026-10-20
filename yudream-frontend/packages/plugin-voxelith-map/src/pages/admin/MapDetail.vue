@@ -1699,7 +1699,7 @@ onBeforeUnmount(() => {
     <template v-else-if="map">
       <!-- 基本信息 -->
       <YdCard class="mb-4 p-4">
-        <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm md:grid-cols-4">
+        <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-8 gap-y-2 text-sm md:grid-cols-4">
           <div class="min-w-0"><span class="text-muted-foreground">地图 ID：</span><span class="break-all">{{ map.id }}</span></div>
           <div><span class="text-muted-foreground">维度：</span>{{ dimensionLabel(map.dimension) }}</div>
           <div>
@@ -2110,7 +2110,7 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- YdNumberField 内置 w-[200px]，窄轨道里会溢出：min-w-0 + w-full 让字段贴合网格轨道 -->
-          <div class="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div class="mt-3 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 md:grid-cols-4">
             <label class="grid min-w-0 gap-1.5">
               <span class="text-sm">区域 MinX</span>
               <YdNumberField v-model="updateForm.regionMinX" :step="1" class="w-full min-w-0" />

@@ -12,7 +12,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 ]
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { NotifyGroupTarget, VerifySettings } from '../types'
-import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdNumberField, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, useYdToast, YdMultiSelect , YdMarkdownEditor } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdNumberField, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, useYdToast, YdMultiSelect , YdMarkdownEditor } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createEduVerifyApi } from '../api/edu-verify-api'
 import { errorMessage } from '../types'
@@ -214,7 +214,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="ev-page">
+  <div class="settings-page-shell">
     <YdPageHeader title="认证设置" class="mb-0">
       <YdButton variant="outline" :loading="loading" @click="load">
         <YdIcon name="i-ri:refresh-line" />
@@ -226,6 +226,7 @@ onMounted(load)
       </YdButton>
     </YdPageHeader>
 
+    <YdLoadingOverlay :loading="loading">
     <YdSettingsLayout
       v-model="activeSection"
       :list="sectionList"
@@ -371,5 +372,6 @@ onMounted(load)
 
       </div>
     </YdSettingsLayout>
-  </section>
+    </YdLoadingOverlay>
+  </div>
 </template>

@@ -216,7 +216,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mc-news-settings-shell">
+  <div class="settings-page-shell">
     <YdPageHeader title="推送设置" class="mb-0">
       <YdButton :loading="saving" @click="save">
         <YdIcon name="morph:save" />保存设置

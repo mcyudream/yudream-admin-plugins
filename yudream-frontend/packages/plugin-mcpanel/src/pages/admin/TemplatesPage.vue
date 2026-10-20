@@ -2,7 +2,7 @@
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
-import { YdButton, YdIcon, YdInput, YdPageMain, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions'
@@ -101,8 +101,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
   
-  <YdPageMain>
-            <YdTablePageLayout title="服务端模板">
+  <YdTablePageLayout title="服务端模板">
             <template #actions>
       <YdButton v-if="canManage" @click="editing = null; formOpen = true">
       <YdIcon name="i-ri:add-line" />
@@ -111,7 +110,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
             </template>
             <template #search>
               <div class="flex flex-wrap items-center gap-2">
-                <div class="mcp-filter-grid">
+                <div class="yd-filter-grid" style="--yd-filter-columns: 2">
             <YdInput v-model="filters.keyword" clearable placeholder="Key / 名称" class="w-full" @keydown.enter="search" @clear="search" />
             <YdSelect v-model="filters.kind" :options="KIND_OPTIONS" class="w-full" @change="search" />
             <div class="flex flex-wrap items-center justify-end gap-2">
@@ -164,5 +163,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </YdTablePageLayout>
 
     <TemplateFormModal v-model:open="formOpen" :sdk="sdk" :template="editing" @saved="() => { toast.success('模板已保存'); load() }" />
-  </YdPageMain>
 </template>

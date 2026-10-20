@@ -101,7 +101,6 @@ const templateColumns: TableColumn<CardTemplate>[] = [
   { accessorKey: 'name', header: '模板名称', minWidth: 220 },
   { accessorKey: 'siteId', header: '站点', minWidth: 180 },
   { id: 'updatedAt', header: '更新时间', width: 180 },
-  { id: 'operation', header: '操作', width: 180, fixed: 'right' },
 ]
 const versionColumns: TableColumn<TemplateVersion>[] = [
   { accessorKey: 'version', header: '版本', width: 80 },
@@ -109,7 +108,6 @@ const versionColumns: TableColumn<TemplateVersion>[] = [
   { accessorKey: 'summary', header: '变更说明', minWidth: 300 },
   { id: 'status', header: '状态', width: 120 },
   { id: 'createdAt', header: '创建时间', width: 180 },
-  { id: 'operation', header: '操作', width: 110, fixed: 'right' },
 ]
 
 async function load() {

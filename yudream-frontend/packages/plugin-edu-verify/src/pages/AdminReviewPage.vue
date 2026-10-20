@@ -2,7 +2,7 @@
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { MaterialItem, VerificationRecord } from '../types'
-import { YdAlert, YdButton, YdDrawer, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdDynamicSearchForm, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout, YdTextarea, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdDrawer, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdDynamicSearchForm, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout, YdTag, YdTextarea, useYdToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createEduVerifyApi } from '../api/edu-verify-api'
 import { channelLabel, errorMessage, formatSize, formatTime, isImageMaterial, kindLabel, statusLabel, statusVariant } from '../types'
@@ -262,13 +262,8 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="ev-page">
-    <YdTablePageLayout title="认证审核">
-      <template #stats>
-        <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error" />
-      </template>
-
-      <template #search="{ fold }">
+  <YdTablePageLayout title="认证审核">
+    <template #search="{ fold }">
         <YdDynamicSearchForm
           v-model="searchQuery"
           :config="searchConfig"
@@ -277,10 +272,11 @@ onMounted(load)
           @search="applySearch"
           @reset="resetSearch"
         />
-      </template>
+    </template>
 
       <template #table>
-      <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
+        <YdAlert v-if="error" class="mb-3" variant="destructive" title="加载失败" :description="error" />
+        <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :columns="columns"
         :data="records"
         row-key="id"
@@ -418,5 +414,4 @@ onMounted(load)
         <YdTextarea v-model="reason" :rows="4" maxlength="200" placeholder="必填，将通知申请人" />
       </YdLabel>
     </YdModal>
-  </section>
 </template>

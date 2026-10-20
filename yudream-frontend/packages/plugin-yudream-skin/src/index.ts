@@ -28,7 +28,6 @@ function skinRoutePage(name: string, page: SkinPage, scope: 'user' | 'admin') {
 export const Dashboard = skinRoutePage('SkinDashboardRoute', 'dashboard', 'user')
 export const Closet = skinRoutePage('SkinClosetRoute', 'closet', 'user')
 export const Settings = skinRoutePage('SkinSettingsRoute', 'settings', 'admin')
-export const Migration = skinRoutePage('SkinMigrationRoute', 'migration', 'admin')
 export const Players = skinRoutePage('SkinPlayersRoute', 'players', 'user')
 export const Textures = skinRoutePage('SkinTexturesRoute', 'textures', 'user')
 export const PlayerManagement = skinRoutePage('SkinPlayerManagementRoute', 'playerManagement', 'admin')
@@ -40,7 +39,6 @@ export const routes = {
   Dashboard,
   Closet,
   Settings,
-  Migration,
   Players,
   Textures,
   PlayerManagement,
@@ -57,7 +55,6 @@ export const routes = {
   'yudream-skin/Dashboard': Dashboard,
   'yudream-skin/Closet': Closet,
   'yudream-skin/Settings': Settings,
-  'yudream-skin/Migration': Migration,
   'yudream-skin/Players': Players,
   'yudream-skin/Textures': Textures,
   'yudream-skin/PlayerManagement': PlayerManagement,

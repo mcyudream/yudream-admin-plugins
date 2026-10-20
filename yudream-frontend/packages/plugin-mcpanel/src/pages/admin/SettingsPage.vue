@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdResponsiveEnhancedTable, YdSettingsLayout } from '@yudream/components'
+import { YdLoadingOverlay, YdPageHeader, YdResponsiveEnhancedTable, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } from '@yudream/components'
 import { YdAlert, YdButton, YdCheckboxGroup, YdFileUpload, YdInput, YdModal, YdRadioGroup, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast } from '@yudream/components'
@@ -804,19 +804,19 @@ const rowActions: ActionMenuItem<unknown>[] = [
 /** 设置页分区：默认显示首个有效分区。 */
 const activeSection = ref('sec1')
 const sectionList: { icon?: string, label: string, value: string }[] = [
-  { label: "注入下载源（authlib-injector / 时长统计）", value: "sec1" },
+  { label: "注入下载源", value: "sec1" },
   { label: "下载与导入", value: "sec2" },
-  { label: "实例域名（DNS 自动解析）", value: "sec3" },
-  { label: "单端口入口（mc-router）", value: "sec4" },
+  { label: "实例域名", value: "sec3" },
+  { label: "单端口入口", value: "sec4" },
   { label: "多租户与配额", value: "sec5" },
-  { label: "节点贡献（玩家侧）", value: "sec6" },
-  { label: "启动器 P2P 直连", value: "sec7" },
+  { label: "节点贡献", value: "sec6" },
+  { label: "P2P 直连", value: "sec7" },
   { label: "SFTP 网关", value: "sec8" },
 ]
 </script>
 
 <template>
-  <div class="mcp-settings-shell">
+  <div class="settings-page-shell">
   <YdPageHeader title="面板设置" class="mb-0">
     <YdButton :loading="saving" @click="save">
       保存设置
@@ -827,6 +827,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     v-model="activeSection"
     :list="sectionList"
     surface
+    scroll
     width-class="max-w-[960px]"
   >
     <template #sec1>

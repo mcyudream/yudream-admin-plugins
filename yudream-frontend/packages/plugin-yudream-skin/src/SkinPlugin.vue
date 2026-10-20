@@ -10,7 +10,6 @@ import AdminClosetPage from './pages/AdminClosetPage.vue'
 import ClosetPage from './pages/ClosetPage.vue'
 import DashboardPage from './pages/DashboardPage.vue'
 import PlayersPage from './pages/PlayersPage.vue'
-import MigrationPage from './pages/MigrationPage.vue'
 import SystemPage from './pages/SystemPage.vue'
 import TexturesPage from './pages/TexturesPage.vue'
 import type { SkinPage } from './types'
@@ -30,7 +29,6 @@ let loadVersion = 0
 const pageComponents: Record<SkinPage, Component> = {
   dashboard: DashboardPage,
   settings: SystemPage,
-  migration: MigrationPage,
   players: PlayersPage,
   textures: TexturesPage,
   closet: ClosetPage,
@@ -63,7 +61,7 @@ async function loadCurrentPage() {
   try {
     await model.load({
       includeCloset: includeCollections && page !== 'playerManagement' && page !== 'textureManagement',
-      includeMigration: page === 'migration',
+      includeMigration: page === 'settings',
       includePlayers: includeCollections && page !== 'textureManagement' && page !== 'closetManagement',
       includeTextures: includeCollections,
       scope,

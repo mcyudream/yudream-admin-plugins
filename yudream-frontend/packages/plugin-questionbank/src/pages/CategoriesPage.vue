@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { CategoryView } from '../types'
-import { YdButton, YdCheckbox, YdIcon, YdInput, YdModal, YdNumberField, YdPageHeader, YdPageMain, useYdModal, YdAction, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdCard, YdCheckbox, YdIcon, YdInput, YdModal, YdNumberField, useYdModal, YdAction, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { formatTime } from '../composables/utils'
 
@@ -29,7 +29,6 @@ const columns: TableColumn<CategoryView>[] = [
   { accessorKey: 'sort', header: '排序', width: 90 },
   { accessorKey: 'questionCount', header: '题目数', width: 100 },
   { accessorKey: 'createdAt', header: '创建时间', width: 180 },
-  { id: 'operation', header: '操作', width: 160 },
 ]
 
 const mergeSources = computed(() => selectedRows.value.filter(row => row.id !== mergeTargetId.value))
@@ -112,10 +111,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
-    
-    
-      <YdTablePageLayout title="题目分类" :show-search="false">
+  <div class="h-full min-h-0">
+    <YdTablePageLayout title="题目分类" :show-search="false">
     <template #actions>
       <YdButton variant="outline" :disabled="selectedRows.length < 2" @click="openMerge">
       <YdIcon name="i-ri:merge-cells-horizontal" />合并所选<template v-if="selectedRows.length >= 2">（{{ selectedRows.length }}）</template>
@@ -187,5 +184,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </div>
       </div>
     </YdModal>
-  </YdPageMain>
+  </div>
 </template>

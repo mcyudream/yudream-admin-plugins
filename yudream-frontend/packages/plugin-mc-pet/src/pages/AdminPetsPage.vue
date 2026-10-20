@@ -59,8 +59,7 @@ function formatTime(value?: string) {
 </script>
 
 <template>
-  <section class="mc-pet-page">
-    <YdTablePageLayout title="用户宠物" :show-search="false">
+  <YdTablePageLayout title="用户宠物" :show-search="false">
       <template #table>
         <YdLoadingOverlay :loading="loading">
           <YdResponsiveEnhancedTable
@@ -151,5 +150,4 @@ function formatTime(value?: string) {
         </div>
       </div>
     </YdDrawer>
-  </section>
 </template>

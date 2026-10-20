@@ -58,7 +58,6 @@ const participantColumns: TableColumn<ActivityParticipantAdmin>[] = [
   { id: 'joinedAt', header: '参与时间', width: 180 },
   { id: 'verifyStatus', header: '核验状态', width: 110, align: 'center' },
   { id: 'verifyNote', header: '核验说明', width: 240 },
-  { id: 'operation', header: '操作', width: 170, align: 'center', fixed: 'right' },
 ]
 
 function statusTag(status: string) {

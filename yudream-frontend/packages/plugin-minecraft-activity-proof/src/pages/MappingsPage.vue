@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { ActivityProofMapping } from '../types'
-import { YdButton, YdIcon, YdInput, YdPageMain, YdPagination, YdSelect, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSelect, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted } from 'vue'
 import { useMappings } from '../composables/useMappings'
 import { formatTime } from '../composables/utils'
@@ -21,7 +21,6 @@ const mappingColumns: TableColumn<ActivityProofMapping>[] = [
   { id: 'player', header: '玩家', width: 220, fixed: 'left' },
   { accessorKey: 'studentNo', header: '学号', width: 160 },
   { id: 'createdAt', header: '创建时间', width: 180 },
-  { id: 'operation', header: '操作', width: 120, align: 'center', fixed: 'right' },
 ]
 
 onMounted(model.load)
@@ -34,6 +33,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
+  <YdPageHeader title="玩家学号映射" class="mb-0" />
   <YdPageMain>
     <div v-if="!loading && !minecraftReady" class="grid gap-2 rounded-lg border border-dashed p-8 text-center text-muted-foreground">
       <YdIcon name="i-ri:server-line" class="mx-auto text-3xl" />
@@ -61,13 +61,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <YdIcon name="i-ri:add-line" />保存映射
         </YdButton>
       </form>
-      <div class="proof-min-w-0">
-      <YdTablePageLayout title="玩家学号映射" :show-search="false">
-    <template #table>
-<YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
-          :actions="rowActions"
-        
-        
+      <YdResponsiveEnhancedTable
+        :actions="rowActions"
         row-key="id"
         table-root-class="proof-table-scroll"
         table-class="proof-table-w860"
@@ -82,19 +77,15 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <div>{{ row.original.playerId }}</div>
         </template>
         <template #cell-createdAt="{ row }">{{ formatTime(row.original.createdAt) }}</template>
-</YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </template>
-    <template #footer>
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        @page-change="model.loadMappings"
-        @size-change="model.loadMappings"
-      />
-    </template>
-  </YdTablePageLayout>
-
+      </YdResponsiveEnhancedTable>
+      <div class="flex justify-end">
+        <YdPagination
+          v-model:page="pager.page"
+          v-model:size="pager.size"
+          :total="pager.total"
+          @page-change="model.loadMappings"
+          @size-change="model.loadMappings"
+        />
       </div>
 
     </div></YdLoadingOverlay>

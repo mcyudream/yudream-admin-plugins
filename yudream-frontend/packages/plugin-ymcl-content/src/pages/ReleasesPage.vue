@@ -407,8 +407,7 @@ onMounted(() => {
 </script>
 
 <template>
-	<section class="ymcl-releases-page">
-		<YdTablePageLayout
+	<YdTablePageLayout
 			title="更新发包"
 			:show-search="false"
 			:actions="pageActions"
@@ -667,7 +666,6 @@ onMounted(() => {
 				</YdButton>
 			</template>
 			</YdModal>
-	</section>
 </template>
 
 <style scoped>

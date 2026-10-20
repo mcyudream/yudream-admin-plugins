@@ -40,13 +40,15 @@ function userFor(userId: string) {
 <template>
   <YdTablePageLayout title="成员统计" :stats-default-expanded="true">
     <template #search>
-      <YdSelect
-        :model-value="model.selectedProjectId"
-        :options="projectOptions"
-        placeholder="选择项目"
-        class="pp-project-select"
-        @update:model-value="selectProject"
-      />
+      <div class="yd-filter-grid" style="--yd-filter-columns: 3">
+        <YdSelect
+          :model-value="model.selectedProjectId"
+          :options="projectOptions"
+          placeholder="选择项目"
+          class="w-full"
+          @update:model-value="selectProject"
+        />
+      </div>
     </template>
 
     <template #stats>

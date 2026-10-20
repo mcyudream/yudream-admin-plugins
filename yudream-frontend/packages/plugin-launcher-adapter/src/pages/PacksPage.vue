@@ -86,7 +86,7 @@ onMounted(() => {
               @clear="applyFilters"
             />
           </div>
-          <div class="flex items-center justify-start gap-2 md:justify-end">
+          <div class="flex items-center gap-2 md:justify-end">
             <YdButton size="sm" variant="outline" @click="applyFilters">
               <YdIcon name="i-ri:search-line" />
               查询

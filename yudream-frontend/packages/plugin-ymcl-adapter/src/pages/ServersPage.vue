@@ -2,7 +2,7 @@
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { ServerView } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdSelect, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdInput, YdModal, YdSelect, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
@@ -29,7 +29,6 @@ const serverColumns: TableColumn<ServerView>[] = [
   { id: 'status', header: '状态', width: 100 },
   { id: 'binding', header: '当前绑定', minWidth: 200 },
   { id: 'updatedAt', header: '绑定更新时间', width: 170 },
-  { id: 'operations', header: '操作', width: 120, fixed: 'right' },
 ]
 
 function serverName(row: ServerView) {
@@ -145,11 +144,7 @@ const rowActions: ActionMenuItem<ServerView>[] = [
 </script>
 
 <template>
-  <div class="ymcl-page">
-
-    <YdPageMain>
-      <YdCard content-class="ymcl-card-content">
-        <YdTablePageLayout title="服务器绑定" :show-search="false">
+  <YdTablePageLayout title="服务器绑定" :show-search="false">
     <template #table>
 <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
               :actions="rowActions"
@@ -184,20 +179,11 @@ const rowActions: ActionMenuItem<ServerView>[] = [
           <template #cell-updatedAt="{ row }">
             {{ formatTime(row.original.binding?.updatedAt) }}
           </template>
-          <template #cell-operations="{ row }">
-            <YdButton size="sm" variant="outline" @click="openEdit(row.original)">
-              <YdIcon name="i-ri:link" />
-              绑定
-            </YdButton>
-          </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
     </template>
   </YdTablePageLayout>
 
-      </YdCard>
-    </YdPageMain>
-
-    <YdModal v-model="editOpen" :title="`绑定整合包 · ${serverName(editingServer || {})}`">
+  <YdModal v-model="editOpen" :title="`绑定整合包 · ${serverName(editingServer || {})}`">
       <div class="ymcl-binding-form">
         <div class="ymcl-form-row">
           <label class="ymcl-label">整合包</label>
@@ -238,5 +224,4 @@ const rowActions: ActionMenuItem<ServerView>[] = [
         </div>
       </template>
     </YdModal>
-  </div>
 </template>

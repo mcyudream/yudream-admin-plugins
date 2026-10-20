@@ -311,7 +311,7 @@ function peekFacts(userId: string): EntityPeekFact[] {
 </script>
 
 <template>
-  <div class="todo-plugin">
+  <div class="todo-plugin h-full min-h-0">
     <YdTablePageLayout
       title="清单管理"
       stats-title="待办统计与快捷筛选"

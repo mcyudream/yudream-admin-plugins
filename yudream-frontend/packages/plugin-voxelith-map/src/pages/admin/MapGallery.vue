@@ -10,6 +10,7 @@ import {
   YdPageMain,
   YdPagination,
   YdProgress,
+  YdSelect,
   YdTag,
   useYdToast,
 } from '@yudream/components'
@@ -175,7 +176,7 @@ async function stopRender(task: RenderTask): Promise<void> {
     <!-- 有地图：卡片网格（只渲染当前页）+ 分页。用 template 包一层，
          否则后面的 v-else-if（加载中/空态）会因为中间夹了分页器而断开 -->
     <template v-if="model.maps.value.length">
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3 md:grid-cols-4">
           <YdCard v-for="map in pagedMaps" :key="map.id" class="overflow-hidden p-3">
           <!-- 展示图：封面缩略图或系统默认图，同一比例铺满卡片宽度；状态标签叠在封面右上角 -->
           <YdAction
@@ -201,7 +202,7 @@ async function stopRender(task: RenderTask): Promise<void> {
                 :model-value="map.id"
                 :options="dimensionOptionsOf({ dimensions: map.archiveDimensions })"
                 class="min-w-[128px]"
-                @update:model-value="(value: string | number) => switchDimension(map.archiveKey, String(value))"
+                @update:model-value="(value: string | undefined) => switchDimension(map.archiveKey, String(value ?? ''))"
               />
               <span v-else class="shrink-0">{{ dimensionLabel(map.dimension) }}</span>
               <span v-if="map.scaleDescription" class="min-w-0 truncate" :title="map.scaleDescription">

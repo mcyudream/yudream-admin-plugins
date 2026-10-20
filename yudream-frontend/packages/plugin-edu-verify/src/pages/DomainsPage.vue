@@ -126,8 +126,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="ev-page">
-    <YdTablePageLayout title="邮箱域名" :show-search="false" :actions="pageActions">
+  <YdTablePageLayout title="邮箱域名" :show-search="false" :actions="pageActions">
       <template #table>
         <YdAlert v-if="error" class="mb-3" variant="destructive" title="加载失败" :description="error" />
         <YdLoadingOverlay :loading="loading">
@@ -179,5 +178,4 @@ onMounted(load)
         </div>
       </YdForm>
     </YdModal>
-  </section>
 </template>

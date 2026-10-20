@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay } from '@yudream/components'
 import type { McguessPluginModel } from '../composables/useMcguessPlugin'
-import { YdButton, YdCard, YdIcon, YdPageHeader, YdPageMain } from '@yudream/components'
+import { YdButton, YdCard, YdIcon, YdPageHeader, YdPageMain, YdStat, YdStats } from '@yudream/components'
 
 defineProps<{ model: McguessPluginModel }>()
 </script>

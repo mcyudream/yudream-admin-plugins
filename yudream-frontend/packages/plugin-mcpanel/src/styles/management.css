@@ -330,17 +330,18 @@
   gap: 8px;
   min-height: 104px;
   padding: 14px 16px;
-  border: 1px solid oklch(var(--border, 0.922 0 0));
-  border-radius: 12px;
-  background: oklch(var(--card, 1 0 0));
-  color: oklch(var(--foreground, 0.145 0 0));
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--yd-surface-radius, 12px);
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .mcp-fn-card:hover {
-  border-color: color-mix(in oklab, oklch(var(--primary, 0.205 0 0)) 45%, oklch(var(--border, 0.922 0 0)));
+  border-color: color-mix(in oklab, var(--yd-emphasis) 45%, var(--color-border-2));
+  background: var(--color-fill-1);
 }
 
 .mcp-fn-title {
@@ -350,14 +351,14 @@
 
 .mcp-fn-desc {
   font-size: 12px;
-  color: oklch(var(--muted-foreground, 0.556 0 0));
+  color: var(--color-text-3);
   line-height: 1.5;
 }
 
 .mcp-fn-link {
   margin-top: auto;
   font-size: 12px;
-  color: oklch(var(--primary, 0.205 0 0));
+  color: var(--yd-emphasis);
 }
 
 /* ---------- 已上传制品信息面板 / 页头实例标题 ---------- */

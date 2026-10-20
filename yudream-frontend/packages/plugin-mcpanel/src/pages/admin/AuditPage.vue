@@ -2,7 +2,7 @@
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAlert, YdButton, YdIcon, YdInput, YdPageMain, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions'
@@ -238,9 +238,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
   
-  <YdPageMain>
-    <YdAlert v-if="error" variant="destructive" title="无法加载审计日志" :description="error" class="mb-4" />
-            <YdTablePageLayout title="操作审计">
+  <YdTablePageLayout title="操作审计">
             <template #actions>
     <YdButton :loading="exporting" @click="exportCsv">
       导出 CSV
@@ -252,12 +250,12 @@ const rowActions: ActionMenuItem<unknown>[] = [
             </template>
             <template #search>
               <div class="flex flex-wrap items-center gap-2">
-                <div class="flex w-full flex-wrap items-center gap-2">
-            <YdInput v-model="filters.action" clearable placeholder="动作，如 instance.start" class="w-56" @keydown.enter="() => { pager.page = 1; load() }" />
-            <YdInput v-model="filters.actor" clearable placeholder="操作者" class="w-44" @keydown.enter="() => { pager.page = 1; load() }" />
-            <YdSelect v-model="filters.targetType" :options="TARGET_TYPES" class="w-36" @change="() => { pager.page = 1; load() }" />
-            <YdInput v-model="filters.targetId" clearable placeholder="对象 ID" class="w-52" @keydown.enter="() => { pager.page = 1; load() }" />
-            <div class="ml-auto flex items-center gap-2">
+                <div class="yd-filter-grid" style="--yd-filter-columns: 4">
+            <YdInput v-model="filters.action" clearable placeholder="动作，如 instance.start" class="w-full" @keydown.enter="() => { pager.page = 1; load() }" />
+            <YdInput v-model="filters.actor" clearable placeholder="操作者" class="w-full" @keydown.enter="() => { pager.page = 1; load() }" />
+            <YdSelect v-model="filters.targetType" :options="TARGET_TYPES" class="w-full" @change="() => { pager.page = 1; load() }" />
+            <YdInput v-model="filters.targetId" clearable placeholder="对象 ID" class="w-full" @keydown.enter="() => { pager.page = 1; load() }" />
+            <div class="flex items-center justify-end gap-2">
               <YdButton variant="outline" @click="reset">
                 重置
               </YdButton>
@@ -270,6 +268,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
               </div>
             </template>
             <template #table>
+<YdAlert v-if="error" variant="destructive" title="无法加载审计日志" :description="error" class="mb-4" />
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
 
@@ -317,7 +316,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
     />
             </template>
           </YdTablePageLayout>
-
-  </YdPageMain>
 </template>
 

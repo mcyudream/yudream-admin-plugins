@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { PaperView } from '../types'
-import { YdButton, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { difficultyLabel, formatTime, questionTypeLabel } from '../composables/utils'
@@ -28,7 +28,6 @@ const columns: TableColumn<PaperView>[] = [
   { id: 'subjective', header: '简答判分', width: 100 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 240 },
 ]
 
 function scopeText(row: PaperView) {
@@ -104,14 +103,15 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
-    <YdTablePageLayout title="题单管理">
+  <YdTablePageLayout title="题单管理">
       <template #search>
-        <div class="qb-toolbar">
-            <YdInput v-model="model.adminPapersFilters.keyword" placeholder="搜索题单名称" clearable @keydown.enter="model.applyAdminPapersFilters" @clear="model.applyAdminPapersFilters" />
-            <YdSelect v-model="model.adminPapersFilters.status" :options="statusOptions" @change="model.applyAdminPapersFilters" />
+        <div class="yd-filter-grid" style="--yd-filter-columns: 2">
+          <YdInput v-model="model.adminPapersFilters.keyword" class="w-full" placeholder="搜索题单名称" clearable @keydown.enter="model.applyAdminPapersFilters" @clear="model.applyAdminPapersFilters" />
+          <YdSelect v-model="model.adminPapersFilters.status" class="w-full" :options="statusOptions" @change="model.applyAdminPapersFilters" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="model.applyAdminPapersFilters"><YdIcon name="i-ri:search-line" />查询</YdButton>
           </div>
+        </div>
       </template>
     <template #actions>
       <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新建题单</YdButton>
@@ -152,7 +152,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
     />
     </template>
   </YdTablePageLayout>
-
-
-  </YdPageMain>
 </template>

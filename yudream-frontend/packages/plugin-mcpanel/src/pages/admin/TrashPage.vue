@@ -2,7 +2,7 @@
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdPagination, YdSearchBar, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdModal, YdPagination, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMcPanelExtra } from '../../api/api-extra'
 import { createNodeOpsApi } from '../../api/node-ops-api'
@@ -240,21 +240,21 @@ const rowActions: ActionMenuItem<unknown>[] = [
 <template>
   
 
-  <YdPageMain>
-    <YdSearchBar class="mcp-page-gap">
-      <div class="flex flex-wrap items-center gap-2">
-        <YdInput v-model="keyword" clearable placeholder="搜索实例名 / 节点 / ID" class="w-64" @keyup.enter="search" />
-        <YdButton @click="search">
-          <YdIcon name="i-ri:search-line" />
-          查询
-        </YdButton>
-        <span class="text-muted-foreground text-xs">
-          保留期由节点配置 trash.retentionDays 控制（默认 14 天，0=永久保留），到期后节点自动永久清除。
-        </span>
+  <YdTablePageLayout title="回收站">
+    <template #search>
+      <div class="yd-filter-grid" style="--yd-filter-columns: 1">
+        <YdInput v-model="keyword" clearable placeholder="搜索实例名 / 节点 / ID" class="w-full" @keyup.enter="search" />
+        <div class="flex items-center justify-end gap-2">
+          <span class="text-muted-foreground text-xs">
+            保留期由节点配置 trash.retentionDays 控制（默认 14 天，0=永久保留），到期后节点自动永久清除。
+          </span>
+          <YdButton @click="search">
+            <YdIcon name="i-ri:search-line" />
+            查询
+          </YdButton>
+        </div>
       </div>
-    </YdSearchBar>
-
-            <YdTablePageLayout title="回收站" :show-search="false">
+    </template>
             <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
@@ -341,5 +341,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <p v-if="restoreError" class="text-destructive text-xs">{{ restoreError }}</p>
       </div>
     </YdModal>
-  </YdPageMain>
 </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdResponsiveEnhancedTable, YdTag, useYdModal, useYdToast, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdModal, YdResponsiveEnhancedTable, YdTag, useYdModal, useYdToast, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
 import type { Category } from '../api/forum-api'
@@ -23,7 +23,6 @@ const columns = [
   { id: 'moderation', header: '审核策略', accessorKey: 'moderation' },
   { id: 'viewPermission', header: '查看权限', accessorKey: 'viewPermission' },
   { id: 'postPermission', header: '发帖权限', accessorKey: 'postPermission' },
-  { id: 'operation', header: '操作', width: 160 },
 ]
 
 async function load() {
@@ -111,9 +110,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="forum-page">
-    <YdPageMain>
-      <YdTablePageLayout title="分类管理" :show-search="false">
+  <div class="h-full min-h-0">
+    <YdTablePageLayout title="分类管理" :show-search="false">
     <template #actions>
       <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增分类</YdButton>
     </template>
@@ -132,6 +130,5 @@ onMounted(load)
           <p class="forum-form-hint">保存后会自动生成并登记该分类的查看权限和发帖权限。权限码不会因分类改名而改变。</p>
         </div>
       </YdModal>
-    </YdPageMain>
   </div>
 </template>

@@ -70,7 +70,6 @@ const columns: TableColumn<MaterialSummary>[] = [
   { id: 'version', header: '版本', width: 90 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 500 },
 ]
 
 /** 翻页/筛选/刷新后行对象重建，勾选项按 id 修剪，避免对已不在当前页的行批量操作 */

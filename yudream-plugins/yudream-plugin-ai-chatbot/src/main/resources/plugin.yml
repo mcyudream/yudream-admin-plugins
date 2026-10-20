@@ -3,7 +3,7 @@ displayName: AI 群聊助手
 description: 为 QQ 群提供可配置的 AI 对话、上下文记忆与受控插件工具调用。
 icon: i-ri:robot-2-line
 main: online.yudream.plugin.aichatbot.bootstrap.AiChatbotPlugin
-version: 1.6.10
+version: 1.6.11
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: social

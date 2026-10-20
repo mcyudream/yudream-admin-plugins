@@ -11,7 +11,7 @@ main: online.yudream.plugin.voxelithmap.bootstrap.VoxelithMapPlugin
 # 完全不受影响。softdepend 只用于运行时探测，不改变插件启用条件。
 softdepend:
   - mcpanel
-version: 2.1.73
+version: 2.1.74
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: mc

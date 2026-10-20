@@ -22,12 +22,13 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 </script>
 
 <template>
+  <div class="settings-page-shell">
   <YdPageHeader title="充值配置" class="mb-0">
     <YdButton :loading="model.saving" @click="model.saveRechargeSettings">
       <YdIcon name="morph:save" />保存充值配置
     </YdButton>
   </YdPageHeader>
-  <div class="wallet-recharge-settings-shell">
+
   <YdSettingsLayout
     v-model="activeSection"
     :list="sectionList"

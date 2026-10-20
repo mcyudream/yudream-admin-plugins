@@ -4,7 +4,7 @@ import type { ShopProductDetail, ShopProductSummary } from '../types'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
@@ -45,7 +45,6 @@ const columns: TableColumn<ShopProductSummary>[] = [
   { id: 'sortOrder', header: '排序', width: 80, align: 'center' },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 460, align: 'center', fixed: 'right' },
 ]
 
 const currentConfigText = computed(() => {
@@ -178,9 +177,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="shop-page">
-    <YdPageMain>
-      <YdTablePageLayout title="商品管理">
+  <div class="h-full min-h-0">
+    <YdTablePageLayout title="商品管理">
       <template #search>
         <div class="shop-filter-grid shop-product-filters">
               <YdInput
@@ -329,6 +327,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </div>
         </div></YdLoadingOverlay>
       </YdModal>
-    </YdPageMain>
-  </section>
+  </div>
 </template>

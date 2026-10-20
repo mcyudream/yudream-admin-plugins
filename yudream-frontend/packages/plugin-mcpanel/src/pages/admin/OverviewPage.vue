@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { TableColumn } from '@yudream/components'
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAction, YdAlert, YdButton, YdCard, YdIcon, YdPageMain, YdProgress, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdAlert, YdButton, YdCard, YdIcon, YdPageHeader, YdPageMain, YdProgress, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -132,12 +132,11 @@ function openNode(row: Record<string, unknown>) {
 function openInstance(item: Record<string, unknown>) {
   router.push(`/platform/plugins/mcpanel/admin/instances/${encodeURIComponent(String(item.id))}`)
 }
-
-onMounted(() => void load())
 </script>
 
 <template>
   
+  <YdPageHeader title="数据监控" description="节点、实例与资源使用情况的实时总览；页面每 10 秒静默刷新。" />
   <YdLoadingOverlay :loading="loading"><YdPageMain >
     <div class="space-y-6">
       <YdAlert v-if="error" variant="destructive" title="无法加载">
@@ -146,7 +145,7 @@ onMounted(() => void load())
   </template>
       </YdAlert>
 
-      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="grid gap-4 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-4">
         <YdCard title="节点在线数">
           <div class="mt-1 text-3xl font-semibold">
             {{ nodes.online ?? 0 }}
@@ -197,10 +196,10 @@ onMounted(() => void load())
           暂无节点，请到「节点管理」接入第一台运行 Docker Agent 的机器
         </div>
         <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div
+          <YdCard
             v-for="row in nodeDetails"
             :key="String(row.id)"
-            class="space-y-3 rounded-lg border p-4 transition-colors hover:border-primary/50"
+            class="space-y-3"
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
@@ -248,22 +247,24 @@ onMounted(() => void load())
                 <MetricTrendChart :values="historyMemSeries(row)" :height="40" :max="100" name="内存" />
               </div>
             </div>
-          </div>
+          </YdCard>
         </div>
       </section>
 
       <section>
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-base font-semibold">
-            最近实例
-          </h2>
-          <YdButton variant="ghost" size="sm" @click="router.push('/platform/plugins/mcpanel/admin/instances')">
-            全部实例
-            <YdIcon name="i-ri:arrow-right-s-line" />
-          </YdButton>
-        </div>
-                <YdTablePageLayout title="数据监控" :show-search="false">
-            <template #table>
+        <YdCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="text-base font-semibold">最近实例</div>
+                <div class="text-xs text-muted-foreground">按最近更新时间排序</div>
+              </div>
+              <YdButton variant="ghost" size="sm" @click="router.push('/platform/plugins/mcpanel/admin/instances')">
+                全部实例
+                <YdIcon name="i-ri:arrow-right-s-line" />
+              </YdButton>
+            </div>
+          </template>
 <YdResponsiveEnhancedTable
           :columns="instanceColumns"
           :data="recentInstances"
@@ -294,9 +295,7 @@ onMounted(() => void load())
             {{ formatDateTime(row.original.updatedAt as number) }}
           </template>
         </YdResponsiveEnhancedTable>
-            </template>
-          </YdTablePageLayout>
-
+        </YdCard>
       </section>
     </div>
   </YdPageMain></YdLoadingOverlay>

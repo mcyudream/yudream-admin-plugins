@@ -4,7 +4,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { ActivityProofExportRecord } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdPageHeader, YdPageMain, YdPagination, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useMyProofs } from '../composables/useMyProofs'
 import { formatTime } from '../composables/utils'
@@ -23,7 +23,6 @@ const columns: TableColumn<ActivityProofExportRecord>[] = [
   { accessorKey: 'activityName', header: '活动', width: 240, fixed: 'left' },
   { accessorKey: 'serverName', header: '服务器', width: 180 },
   { id: 'uploadedAt', header: '盖章时间', width: 180 },
-  { id: 'operation', header: '操作', width: 140, align: 'center', fixed: 'right' },
 ]
 
 /** 行操作：下载盖章证明 PDF */
@@ -34,13 +33,13 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="proof-page">
-    <YdPageHeader title="我的活动证明" class="mb-0">
+  <YdTablePageLayout title="我的活动证明">
+    <template #actions>
       <YdButton variant="outline" :loading="loading" @click="model.load">
         <YdIcon name="i-ri:refresh-line" />刷新
       </YdButton>
-    </YdPageHeader>
-    <YdPageMain>
+    </template>
+    <template #table>
       <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"
         
@@ -56,14 +55,15 @@ const rowActions: ActionMenuItem<unknown>[] = [
       >
         <template #cell-uploadedAt="{ row }">{{ formatTime(row.original.stampedPdfUploadedAt) }}</template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
+    </template>
+    <template #footer>
       <YdPagination
         v-model:page="pager.page"
         v-model:size="pager.size"
         :total="pager.total"
-        class="mt-3"
         @page-change="model.load"
         @size-change="model.load"
       />
-    </YdPageMain>
-  </section>
+    </template>
+  </YdTablePageLayout>
 </template>

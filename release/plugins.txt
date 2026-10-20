@@ -19,3 +19,10 @@ yudream-plugin-voxelith-map
 yudream-plugin-web-card
 yudream-plugin-ymcl-adapter
 yudream-plugin-ymcl-content
+yudream-plugin-app-release
+yudream-plugin-forum
+yudream-plugin-material
+yudream-plugin-mc-news
+yudream-plugin-mcguess
+yudream-plugin-alipay
+yudream-plugin-wallet

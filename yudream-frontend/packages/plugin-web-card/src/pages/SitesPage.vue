@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay, type ActionMenuItem } from '@yudream/components'
 import {computed, onMounted, ref } from 'vue'
-import { YdAction, YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdModal, YdPageMain, YdPagination, YdSelect, YdSwitch, YdTextarea, useYdModal, useYdToast, type TableColumn, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTextarea, useYdModal, useYdToast, type TableColumn, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { CardTemplate, ParseRules, Site, SiteRouteRule } from '../types'
@@ -38,7 +38,7 @@ const fieldTypeOptions = [
 const columns: TableColumn<Site>[] = [
   { accessorKey: 'name', header: '站点', minWidth: 180 }, { id: 'hosts', header: '允许域名', minWidth: 220 },
   { id: 'pattern', header: '子链接规则', minWidth: 280 }, { accessorKey: 'responseType', header: '类型', width: 90 },
-  { id: 'enabled', header: '状态', width: 100 }, { id: 'operation', header: '操作', width: 210, fixed: 'right' },
+  { id: 'enabled', header: '状态', width: 100 },
 ]
 
 const activeRule = computed(() => routeRules.value.find(value => value.id === activeRuleId.value))
@@ -117,29 +117,25 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section>
-    
-    <YdPageMain class="space-y-4">
-      <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>
-              <YdTablePageLayout title="站点与子链接规则" :show-search="false">
-            <template #actions>
+  <div class="h-full min-h-0">
+  <YdTablePageLayout title="站点与子链接规则" :show-search="false">
+    <template #actions>
       <YdButton @click="create"><YdIcon name="i-ri:add-line"/>新增站点</YdButton>
-            </template>
-            <template #table>
-<YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
+    </template>
+    <template #table>
+      <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error" class="mb-3"/>
+      <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
   row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[1040px]" border stripe :columns="columns" :data="rows">
         <template #cell-hosts="{row}">{{ row.original.hosts.join(', ') }}</template>
         <template #cell-pattern="{row}"><span class="pattern-cell">{{ patterns[row.original.id] || '加载中' }}</span></template>
         <template #cell-enabled="{row}"><div class="status-toggle"><YdSwitch :model-value="row.original.enabled" :disabled="toggling===row.original.id" @update:model-value="toggle(row.original)"/><small>{{ row.original.enabled ? '已启用' : '已停用' }}</small></div></template>
                 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-            </template>
-            <template #footer>
+    </template>
+    <template #footer>
       <YdPagination v-model:page="page" v-model:size="size" :total="total" @page-change="load" @size-change="load"/>
-            </template>
-          </YdTablePageLayout>
-
-    </YdPageMain>
+    </template>
+  </YdTablePageLayout>
 
     <YdModal v-model="open" title="站点与子链接规则" description="同一域名下的不同页面格式可使用独立解析字段和卡片模板。" :maximize="true" :maximizable="false" content-class="overflow-hidden p-0" :show-cancel-button="true" :confirm-button-loading="saving" @confirm="save">
       <div class="rule-workspace">
@@ -178,7 +174,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </section>
       </div>
     </YdModal>
-  </section>
+  </div>
 </template>
 
 <style scoped>

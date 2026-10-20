@@ -109,7 +109,7 @@ function renderPhaseLabel(phase: NonNullable<RenderTask['phase']>) {
 
     <template v-else-if="model.map.value">
       <YdCard class="mb-4 p-4">
-        <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm md:grid-cols-4">
+        <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-x-8 gap-y-2 text-sm md:grid-cols-4">
           <div>
             <span class="text-muted-foreground">地图 ID：</span>{{ model.map.value.id }}
           </div>

@@ -175,19 +175,6 @@ import java.util.concurrent.CompletionStage;
                         sort = 20
                 ),
                 @PluginRoute(
-                        path = "/platform/plugins/yudream-skin/admin/migration",
-                        name = "platform-plugin-yudream-skin-migration",
-                        title = "数据迁移",
-                        icon = "i-ri:database-2-line",
-                        parentPath = "/platform/plugins/yudream-skin/admin",
-                        parentTitle = "皮肤站管理",
-                        parentIcon = "i-ri:settings-3-line",
-                        parentSort = 10,
-                        component = "yudream-skin/Migration",
-                        permission = YuDreamSkinPlugin.MANAGE_PERMISSION,
-                        sort = 25
-                ),
-                @PluginRoute(
                         path = "/platform/plugins/yudream-skin/admin/closet",
                         name = "platform-plugin-yudream-skin-manage-closet",
                         title = "衣柜管理",

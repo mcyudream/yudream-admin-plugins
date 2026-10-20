@@ -23,7 +23,6 @@ const columns: TableColumn<ProjectWorkDetail>[] = [
   { id: 'status', header: '状态', width: 170 },
   { id: 'assignment', header: '分配方式', width: 150 },
   { id: 'dueAt', header: '截止时间', width: 170 },
-  { id: 'operation', header: '操作', width: 300, align: 'center', fixed: 'right' },
 ]
 
 watch(() => props.model.myTasks.length, total => { pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(total / pagination.size))) })

@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdListToolbar } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { ComposeRecordView, QuestionView } from '../types'
-import { YdButton, YdDrawer, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdSwitch, YdTabs, YdTag, YdTextarea, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdCard, YdDrawer, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdSelect, YdSwitch, YdTabs, YdTag, YdTextarea, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import CategorySelect from '../components/CategorySelect.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
@@ -34,7 +34,6 @@ const columns: TableColumn<QuestionView>[] = [
   { id: 'category', header: '分类', width: 110 },
   { id: 'tags', header: '标签', minWidth: 120 },
   { id: 'difficulty', header: '难度', width: 100 },
-  { id: 'operation', header: '操作', width: 90 },
 ]
 
 const recordColumns = computed<TableColumn<ComposeRecordView>[]>(() => [
@@ -44,7 +43,6 @@ const recordColumns = computed<TableColumn<ComposeRecordView>[]>(() => [
   { id: 'withAnswers', header: '答案', width: 90 },
   { id: 'shared', header: '分享', width: 90 },
   { accessorKey: 'createdAt', header: '创建时间', width: 160 },
-  { id: 'operation', header: '操作', width: 300 },
 ])
 
 const scopeOptions = [

@@ -4,7 +4,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { MyParticipation } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdPageMain, YdPagination, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdPagination, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CoverThumb from '../components/CoverThumb.vue'
@@ -29,7 +29,6 @@ const columns: TableColumn<MyParticipation>[] = [
   { id: 'verifyStatus', header: '核验状态', width: 110, align: 'center' },
   { id: 'verifyNote', header: '核验说明', width: 240 },
   { id: 'joinedAt', header: '参与时间', width: 170 },
-  { id: 'operation', header: '操作', width: 260, align: 'center', fixed: 'right' },
 ]
 
 function statusTag(row: MyParticipation) {
@@ -66,9 +65,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="proof-page">
-    <YdPageMain>
-      <YdTablePageLayout title="我的参与" :show-search="false">
+  <YdTablePageLayout title="我的参与" :show-search="false">
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"
@@ -118,8 +115,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
       />
     </template>
   </YdTablePageLayout>
-
-
-    </YdPageMain>
-  </section>
 </template>

@@ -4,7 +4,7 @@ import type { ActionMenuItem, TableColumn, YdTablePageAction } from '@yudream/co
 import type { ProjectProgressModel } from '../composables/useProjectProgress'
 import type { ProjectWorkDetail } from '../types'
 
-import { YdButton, YdInput, YdModal, YdNumberField, YdPagination, YdRadioGroup, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTextarea, useYdModal } from '@yudream/components'
+import { YdButton, YdDatePicker, YdInput, YdModal, YdNumberField, YdPagination, YdRadioGroup, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTextarea, useYdModal } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import EvidenceFileList from '../components/EvidenceFileList.vue'
 import PeoplePicker from '../components/PeoplePicker.vue'
@@ -32,7 +32,6 @@ const columns: TableColumn<ProjectWorkDetail>[] = [
   { id: 'acceptors', header: '验收人', width: 220 },
   { id: 'published', header: '发布状态', width: 120 },
   { id: 'dueAt', header: '截止时间', width: 170 },
-  { id: 'operation', header: '操作', width: 300, align: 'center', fixed: 'right' },
 ]
 
 /** 页面级操作：导出与新建细节 */

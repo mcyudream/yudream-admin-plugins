@@ -3,7 +3,7 @@ displayName: YDAM 更新发布
 description: YDAM 移动应用更新包发布与更新日志：上传更新包、发布版本、更新公告与强制更新管理。
 icon: i-ri:rocket-2-line
 main: online.yudream.base.plugin.apprelease.bootstrap.AppReleasePlugin
-version: 1.0.4
+version: 1.0.5
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: client

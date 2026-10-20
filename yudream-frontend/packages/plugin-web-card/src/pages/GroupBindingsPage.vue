@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
-import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdModal, YdNumberField, YdPageMain, YdPagination, YdSelect, YdSwitch, useYdModal, useYdToast, type TableColumn, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdModal, YdNumberField, YdPagination, YdSelect, YdSwitch, useYdModal, useYdToast, type TableColumn, YdResponsiveEnhancedTable } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { GroupBinding, Option, Site } from '../types'
@@ -25,7 +25,7 @@ const saving = ref(false)
 const toggling = ref('')
 const extraGroupId = ref('')
 const form = ref<GroupBinding>(empty())
-const columns: TableColumn<GroupBinding>[] = [{ accessorKey: 'siteId', header: '站点', minWidth: 180 }, { accessorKey: 'connectionId', header: '连接', minWidth: 150 }, { accessorKey: 'channelId', header: '目标群', minWidth: 180 }, { id: 'enabled', header: '状态', width: 110 }, { accessorKey: 'cooldownSeconds', header: '冷却/秒', width: 100 }, { id: 'operation', header: '操作', width: 170 }]
+const columns: TableColumn<GroupBinding>[] = [{ accessorKey: 'siteId', header: '站点', minWidth: 180 }, { accessorKey: 'connectionId', header: '连接', minWidth: 150 }, { accessorKey: 'channelId', header: '目标群', minWidth: 180 }, { id: 'enabled', header: '状态', width: 110 }, { accessorKey: 'cooldownSeconds', header: '冷却/秒', width: 100 }]
 
 function protocolLabel(item: Option) {
   if (item.protocol === 'official') return '官方 QQ'
@@ -67,15 +67,12 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section>
-    
-    <YdPageMain class="space-y-4">
-      <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>
-              <YdTablePageLayout title="定时推送目标" :show-search="false">
+  <YdTablePageLayout title="定时推送目标" :show-search="false">
             <template #actions>
       <YdButton @click="create"><YdIcon name="i-ri:add-line"/>新增目标</YdButton>
             </template>
             <template #table>
+      <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error"/>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
   row-key="id" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[900px]" border stripe :columns="columns" :data="rows">
@@ -89,8 +86,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
       <YdPagination v-model:page="page" v-model:size="size" :total="total" @page-change="load" @size-change="load"/>
             </template>
           </YdTablePageLayout>
-
-    </YdPageMain>
     <YdModal v-model="open" title="定时推送目标" class="binding-modal" :show-cancel-button="true" :confirm-button-loading="saving" @confirm="save">
       <div class="binding-form">
         <div class="field"><YdLabel>站点</YdLabel><YdSelect v-model="form.siteId" :options="sites.map(value => ({ label: value.name, value: value.id }))" placeholder="选择站点"/></div>
@@ -101,7 +96,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <YdSwitch v-model="form.enabled">启用定时推送</YdSwitch>
       </div>
     </YdModal>
-  </section>
 </template>
 
 <style scoped>.status-toggle{display:flex;align-items:center;gap:8px}.status-toggle small{color:var(--color-text-3)}.row-actions{display:flex;flex-wrap:wrap;gap:8px}.binding-form{display:grid;gap:18px}.field{display:grid;gap:7px}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}.binding-modal{width:min(620px,calc(100vw - 32px))}@media(max-width:560px){.two-columns{grid-template-columns:1fr}}</style>

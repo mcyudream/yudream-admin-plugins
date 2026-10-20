@@ -2,7 +2,7 @@
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAlert, YdButton, YdCard, YdInput, YdModal, YdPageMain, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdInput, YdModal, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -214,23 +214,21 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
   
-  <YdPageMain>
-    <YdAlert class="mb-4" title="说明">
-  <template #description>
-      任务由面板调度线程驱动。动作「发送控制台命令」到点向实例控制台发送命令（如 save-all）；动作「本地备份」到点经宿主数据备份中心做本机导出；动作「异地备份」到点把实例数据整包推送到宿主数据备份中心配置的异地目标，可在备份中心任务记录与实例备份列表查看进度。
-  </template>
-    </YdAlert>
-    <YdCard>
-              <YdTablePageLayout title="`计划任务 · ${instanceId}`" :show-search="false">
-            <template #actions>
+  <YdTablePageLayout :title="`计划任务 · ${instanceId}`" :show-search="false">
+    <template #actions>
       <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}`)">
-      返回终端
-    </YdButton>
-    <YdButton v-if="canManage" @click="openCreate">
-      新建任务
-    </YdButton>
-            </template>
-            <template #table>
+        返回终端
+      </YdButton>
+      <YdButton v-if="canManage" @click="openCreate">
+        新建任务
+      </YdButton>
+    </template>
+    <template #table>
+      <YdAlert class="mb-3" title="说明">
+        <template #description>
+          任务由面板调度线程驱动。动作「发送控制台命令」到点向实例控制台发送命令（如 save-all）；动作「本地备份」到点经宿主数据备份中心做本机导出；动作「异地备份」到点把实例数据整包推送到宿主数据备份中心配置的异地目标，可在备份中心任务记录与实例备份列表查看进度。
+        </template>
+      </YdAlert>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
 
@@ -266,10 +264,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
           {{ formatDateTime(row.original.nextRunAt as number) }}
         </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-            </template>
-          </YdTablePageLayout>
-
-    </YdCard>
+    </template>
+  </YdTablePageLayout>
 
     <YdModal
       v-model="formOpen"
@@ -361,5 +357,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </YdAlert>
       </div>
     </YdModal>
-  </YdPageMain>
 </template>

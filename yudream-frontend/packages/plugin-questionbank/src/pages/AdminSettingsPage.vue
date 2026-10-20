@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { QqCommandWindow, QqQuizGroup } from '../types'
-import { YdButton, YdCard, YdIcon, YdInput, YdPageHeader, YdPageMain, YdSelect, YdSwitch, YdTag, YdTimePicker, useYdToast, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPageHeader, YdSelect, YdSwitch, YdTag, YdTimePicker, useYdToast, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import CategorySelect from '../components/CategorySelect.vue'
 import MultiSelect from '../components/MultiSelect.vue'
@@ -180,12 +180,12 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 </script>
 
 <template>
+  <div class="settings-page-shell">
   <YdPageHeader title="题库设置" class="mb-0">
     <YdButton :disabled="!dirty" :loading="model.settingsSaving" @click="save">
       <YdIcon name="i-ri:save-line" />保存设置
     </YdButton>
   </YdPageHeader>
-  <div class="questionbank-settings-shell">
 
   <YdSettingsLayout
     v-model="activeSection"

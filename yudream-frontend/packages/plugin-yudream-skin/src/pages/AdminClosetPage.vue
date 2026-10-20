@@ -3,7 +3,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import type { SkinClosetItem } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{ model: SkinPluginModel }>()
 const modal = useYdModal()
@@ -102,22 +102,22 @@ const rowActions: ActionMenuItem<SkinClosetItem>[] = [
 </script>
 
 <template>
-  <div class="skin-admin-table-page">
-    <YdTablePageLayout title="衣柜管理">
+  <YdTablePageLayout title="衣柜管理">
       <template #search>
-        <YdListToolbar
-          v-model:keyword="search.keyword"
-          placeholder="衣柜名称 / 材质"
-          @search="pagination.page = 1"
-          @clear="pagination.page = 1"
-        >
-          <template #filters>
-            <YdInput v-model="search.userId" clearable placeholder="用户 ID" />
-          </template>
-          <template #actions>
+        <div class="yd-filter-grid" style="--yd-filter-columns: 2">
+          <YdInput
+            v-model="search.keyword"
+            clearable
+            placeholder="衣柜名称 / 材质"
+            class="w-full"
+            @keydown.enter="pagination.page = 1"
+            @clear="pagination.page = 1"
+          />
+          <YdInput v-model="search.userId" clearable placeholder="用户 ID" class="w-full" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="resetSearch">重置</YdButton>
-          </template>
-        </YdListToolbar>
+          </div>
+        </div>
       </template>
       <template #actions>
         <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增衣柜项</YdButton>
@@ -168,5 +168,4 @@ const rowActions: ActionMenuItem<SkinClosetItem>[] = [
         <YdLabel v-else><span>衣柜名称</span><YdInput v-model="model.closetRenameForm.itemName" /></YdLabel>
       </div>
     </YdModal>
-  </div>
 </template>

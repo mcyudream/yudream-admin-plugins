@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdCheckbox, YdIcon, YdInput, YdModal, YdNumberField, YdPageMain, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
+import { YdButton, YdCard, YdCheckbox, YdIcon, YdInput, YdModal, YdNumberField, YdPageHeader, YdPageMain, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, type ActionMenuItem } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createVoxelithMapAdminApi } from '../../api/voxelith-map-admin-api'
@@ -436,6 +436,23 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
 
+  <YdPageHeader :title="mapName ? `标注管理：${mapName}` : '标注管理'">
+    <div class="flex gap-2">
+      <YdButton size="sm" variant="outline" @click="goBack">
+        <YdIcon name="i-mdi:arrow-left" />
+        返回
+      </YdButton>
+      <YdButton size="sm" variant="outline" @click="openCreateDialog">
+        <YdIcon name="i-mdi:map-marker-plus" />
+        新增点位
+      </YdButton>
+      <YdButton size="sm" variant="outline" @click="openCreateShapeDialog">
+        <YdIcon name="i-mdi:vector-square" />
+        新增范围
+      </YdButton>
+    </div>
+  </YdPageHeader>
+
   <YdPageMain>
     <div v-if="error" class="py-12 text-center text-muted-foreground">{{ error }}</div>
     <div v-else-if="loading" class="py-12 text-center text-muted-foreground">加载中…</div>
@@ -483,7 +500,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </span>
         </div>
         <!-- YdSelect 内置 w-[200px]，窄轨道里会溢出压到相邻控件：包 min-w-0 容器并传 w-full 收缩 -->
-        <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(200px,1fr)_130px_150px_auto]">
+        <div class="yd-filter-grid mb-3" style="--yd-filter-columns: 3">
           <div class="min-w-0">
             <YdInput v-model="markerSearch" placeholder="搜索标注名称 / ID" clearable class="w-full" />
           </div>
@@ -493,33 +510,14 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <div class="min-w-0">
             <YdSelect v-model="setFilter" :options="setFilterOptions" class="w-full" />
           </div>
-          <div class="flex items-center justify-start gap-2 md:justify-end">
+          <div class="flex items-center gap-2 md:justify-end">
             <YdButton size="sm" variant="outline" :disabled="!filtersActive" @click="resetFilters">
               <YdIcon name="i-mdi:filter-off-outline" />
               重置筛选
             </YdButton>
           </div>
         </div>
-        <YdTablePageLayout title="mapName ? `标注管理：${mapName}` : '标注管理'" :show-search="false">
-    <template #actions>
-      <div class="flex gap-2">
-      <YdButton size="sm" variant="outline" @click="goBack">
-        <YdIcon name="i-mdi:arrow-left" />
-        返回
-      </YdButton>
-      <YdButton size="sm" variant="outline" @click="openCreateDialog">
-        <YdIcon name="i-mdi:map-marker-plus" />
-        新增点位
-      </YdButton>
-      <YdButton size="sm" variant="outline" @click="openCreateShapeDialog">
-        <YdIcon name="i-mdi:vector-square" />
-        新增范围
-      </YdButton>
-
-    </div>
-    </template>
-    <template #table>
-<YdResponsiveEnhancedTable
+        <YdResponsiveEnhancedTable
       :actions="rowActions"
 
           row-key="key"
@@ -531,7 +529,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
             { id: 'type', header: '类型', width: 80 },
             { id: 'label', header: '名称', width: 200 },
             { id: 'coords', header: '坐标 (X, Y, Z)', width: 280 },
-            { id: 'operation', header: '操作', width: 120 },
           ]"
         >
           <template #cell-setLabel="{ row }">
@@ -551,8 +548,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
             </span>
           </template>
         </YdResponsiveEnhancedTable>
-    </template>
-  </YdTablePageLayout>
 
       </YdCard>
 

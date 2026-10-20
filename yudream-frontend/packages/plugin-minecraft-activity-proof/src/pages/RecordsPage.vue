@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { ActivityProofExportRecord } from '../types'
-import { YdFileUpload, YdModal, YdPageMain, YdPagination, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdFileUpload, YdModal, YdPagination, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { useProofRecords } from '../composables/useProofRecords'
 import { formatFileSize, formatTime } from '../composables/utils'
@@ -26,7 +26,6 @@ const columns: TableColumn<ActivityProofExportRecord>[] = [
   { id: 'participants', header: '参与人数', width: 120, align: 'center' },
   { id: 'pdf', header: '盖章 PDF', width: 220 },
   { id: 'generatedAt', header: '生成时间', width: 180 },
-  { id: 'operation', header: '操作', width: 320, align: 'center', fixed: 'right' },
 ]
 
 onMounted(model.load)
@@ -60,9 +59,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="proof-page">
-    <YdPageMain>
-      <YdTablePageLayout title="活动证明记录" :show-search="false">
+  <YdTablePageLayout title="活动证明记录" :show-search="false">
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
           :actions="rowActions"
@@ -102,17 +99,14 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </template>
   </YdTablePageLayout>
 
-
-      <YdModal
-        v-model="uploadVisible"
-        title="上传盖章 PDF"
-        :description="uploadTarget ? `为「${uploadTarget.outputFilename}」上传盖章后的 PDF 文件。` : '上传盖章后的 PDF 文件。'"
-        :show-confirm-button="false"
-        show-cancel-button
-        cancel-button-text="关闭"
-      >
-        <YdFileUpload v-model="uploadFiles" :max="1" :before-upload="file => file.type === 'application/pdf'" :http-request="handleUpload" description="拖放或点击选择 PDF 文件" />
-      </YdModal>
-    </YdPageMain>
-  </section>
+  <YdModal
+    v-model="uploadVisible"
+    title="上传盖章 PDF"
+    :description="uploadTarget ? `为「${uploadTarget.outputFilename}」上传盖章后的 PDF 文件。` : '上传盖章后的 PDF 文件。'"
+    :show-confirm-button="false"
+    show-cancel-button
+    cancel-button-text="关闭"
+  >
+    <YdFileUpload v-model="uploadFiles" :max="1" :before-upload="file => file.type === 'application/pdf'" :http-request="handleUpload" description="拖放或点击选择 PDF 文件" />
+  </YdModal>
 </template>

@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } 
 import type { ClientJarEntry } from '../../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdFileUpload, YdIcon, YdInput, YdModal, YdNumberField, YdPageMain, YdPagination, YdProgress, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { YdButton, YdCard, YdFileUpload, YdIcon, YdInput, YdModal, YdNumberField, YdPagination, YdProgress, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -433,7 +433,6 @@ const columns: TableColumn<ArchiveRow>[] = [
   { id: 'state', header: '状态', width: 120 },
   { id: 'scale', header: '规模描述', width: 220 },
   { id: 'updatedAt', header: '更新时间', width: 160 },
-  { id: 'operation', header: '操作', width: 280, fixed: 'right' },
 ]
 
 const worldFiles = ref<FileItem[]>([])
@@ -684,10 +683,9 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
 
-  <YdPageMain>
-    <YdTablePageLayout title="Voxelith 地图管理">
+  <YdTablePageLayout title="Voxelith 地图管理">
       <template #search>
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_auto]">
+        <div class="yd-filter-grid" style="--yd-filter-columns: 3">
             <div class="min-w-0">
               <YdInput v-model="search" placeholder="搜索地图名称 / 存档名" clearable class="w-full" />
             </div>
@@ -697,7 +695,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
             <div class="min-w-0">
               <YdSelect v-model="dimensionFilter" :options="dimensionFilterOptions" class="w-full" />
             </div>
-            <div class="flex items-center justify-start gap-2 md:justify-end">
+            <div class="flex items-center gap-2 md:justify-end">
               <YdButton size="sm" variant="outline" :disabled="!filtersActive" @click="resetFilters">
                 <YdIcon name="i-mdi:filter-off-outline" />
                 重置筛选
@@ -1098,5 +1096,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
       </div>
     </YdCard>
   </div>
-  </YdPageMain>
 </template>

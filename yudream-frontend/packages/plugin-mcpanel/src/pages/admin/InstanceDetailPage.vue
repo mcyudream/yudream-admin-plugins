@@ -3,7 +3,7 @@ import { YdLoadingOverlay } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNodeStats } from '../../types.ts'
-import { YdAction, YdAlert, YdButton, YdCard, YdDescriptions, YdIcon, YdInput, YdModal, YdPageMain, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdAlert, YdButton, YdCard, YdDescriptions, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra.ts'
@@ -1176,7 +1176,29 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  
+  <YdPageHeader
+    :title="String(instance?.name ?? '实例控制台')"
+    :description="`${kindLabel}${instance?.mcVersion ? ` · ${instance.mcVersion}` : ''} · ${stateLabel}`"
+  >
+    <YdButton variant="outline" @click="router.push(listPath)">
+      返回列表
+    </YdButton>
+    <YdButton v-if="canUse" variant="outline" :disabled="acting || running" @click="act('start')">
+      启动
+    </YdButton>
+    <YdButton v-if="canUse" variant="outline" :disabled="acting || !running" @click="act('stop')">
+      停止
+    </YdButton>
+    <YdButton v-if="canUse" variant="outline" :disabled="acting" @click="act('restart')">
+      重启
+    </YdButton>
+    <YdButton v-if="canUse" variant="destructive" :disabled="acting" @click="act('kill')">
+      终止
+    </YdButton>
+    <YdButton variant="outline" @click="router.push(filesPath)">
+      文件管理
+    </YdButton>
+  </YdPageHeader>
 
   <YdAlert v-if="loadError" variant="destructive" title="无法加载实例" class="mt-4">
   <template #description>
@@ -1466,7 +1488,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
     <div class="mcp-wt-lower mcp-page-gap">
       <YdCard id="inst-info" title="基本信息">
-        <YdDescriptions :items="basicItems" :column="2" border />
+        <YdDescriptions :items="basicItems" :column="1" border />
       </YdCard>
       <YdCard id="inst-authlib" title="Authlib 注入">
         <template v-if="authlibInjection">
@@ -1560,26 +1582,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <p v-if="backupCreating" class="mb-2 text-sm text-muted-foreground">
           正在打包备份，完成后自动出现在列表（大世界可能需要数分钟）…
         </p>
-        <div class="mcp-toolbar-row mb-3">
-      <YdButton variant="outline" @click="router.push(listPath)">
-      返回列表
-    </YdButton>
-    <YdButton v-if="canUse" variant="outline" :disabled="acting || running" @click="act('start')">
-      启动
-    </YdButton>
-    <YdButton v-if="canUse" variant="outline" :disabled="acting || !running" @click="act('stop')">
-      停止
-    </YdButton>
-    <YdButton v-if="canUse" variant="outline" :disabled="acting" @click="act('restart')">
-      重启
-    </YdButton>
-    <YdButton v-if="canUse" variant="destructive" :disabled="acting" @click="act('kill')">
-      终止
-    </YdButton>
-    <YdButton variant="outline" @click="router.push(filesPath)">
-      文件管理
-    </YdButton>
-        </div>
         <YdLoadingOverlay :loading="backupLoading"><YdResponsiveEnhancedTable
           :actions="rowActions"
 

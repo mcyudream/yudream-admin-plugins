@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-todo</artifactId>
-    <version>1.4.35</version>
+    <version>1.4.36</version>
 
     <build>
         <resources>

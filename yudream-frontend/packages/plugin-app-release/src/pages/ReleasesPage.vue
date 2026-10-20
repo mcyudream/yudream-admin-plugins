@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem, StatusColumn } from '@yudream/components'
 import type { AppReleaseSettingsView, AppReleaseView } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdNumberField, YdPageHeader, YdPageMain, YdSwitch, YdTag, YdTextarea, useYdModal, useYdToast, YdFilePicker, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdCard, YdIcon, YdInput, YdModal, YdNumberField, YdPageHeader, YdPageMain, YdSwitch, YdTag, YdTextarea, useYdModal, useYdToast, YdFilePicker, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createAppReleaseApi, errorMessage } from '../api/app-release-api'
 
@@ -216,8 +216,16 @@ onMounted(load)
 </script>
 
 <template>
-  <YdPageMain>
+  <YdPageHeader title="更新发布" class="mb-0">
+    <span class="text-sm text-secondary-foreground/60">
+      最新 versionCode {{ latestVersionCode }} · 强制更新线 {{ settings?.minVersionCode ?? 0 }}
+    </span>
+    <YdButton @click="openUpload">
+      <YdIcon name="i-ri:upload-2-line" />发布新版本
+    </YdButton>
+  </YdPageHeader>
 
+  <YdPageMain>
     <YdCard class="mb-4">
       <div class="app-release-toolbar">
         <span class="text-sm font-medium">强制更新线（versionCode）</span>
@@ -231,19 +239,7 @@ onMounted(load)
       </div>
     </YdCard>
 
-    <YdTablePageLayout title="更新发布" :show-search="false">
-    <template #actions>
-      <div class="app-release-toolbar">
-        <span class="text-sm text-secondary-foreground/60">
-          最新 versionCode {{ latestVersionCode }} · 强制更新线 {{ settings?.minVersionCode ?? 0 }}
-        </span>
-        <YdButton @click="openUpload">
-          <YdIcon name="i-ri:upload-2-line" />发布新版本
-        </YdButton>
-      </div>
-    </template>
-    <template #table>
-<YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
+    <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
       :columns="columns"
       :data="rows"
       row-key="id"
@@ -272,11 +268,9 @@ onMounted(load)
         <span v-else class="app-release-subtitle">未填写</span>
       </template>
     </YdResponsiveEnhancedTable></YdLoadingOverlay>
-    </template>
-  </YdTablePageLayout>
+  </YdPageMain>
 
-
-    <YdModal v-model="uploadOpen" title="发布新版本" class="sm:max-w-[560px]" :close-on-click-overlay="false">
+  <YdModal v-model="uploadOpen" title="发布新版本" class="sm:max-w-[560px]" :close-on-click-overlay="false">
       <div class="flex flex-col gap-4">
         <div>
           <div class="mb-1 text-sm font-medium">
@@ -332,5 +326,4 @@ onMounted(load)
         </div>
       </template>
     </YdModal>
-  </YdPageMain>
 </template>

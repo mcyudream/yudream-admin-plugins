@@ -464,7 +464,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </template>
     <template #search>
       <div class="flex flex-wrap items-center gap-2">
-              <div class="grid w-full gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_160px_200px_auto]">
+              <div class="yd-filter-grid" style="--yd-filter-columns: 3">
                 <YdInput v-model="filters.keyword" clearable placeholder="实例名 / 备注" class="w-full" @keydown.enter="search" @clear="search" />
                 <YdSelect v-model="filters.status" :options="STATUS_OPTIONS" class="w-full" @change="search" />
                 <YdSelect v-model="filters.nodeId" :options="nodeOptions" class="w-full" @change="search" />
@@ -581,15 +581,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </div>
         </div>
       </div>
-
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        class="mt-3"
-        @page-change="() => load()"
-        @size-change="() => { pager.page = 1; load() }"
-      />
     </div></YdLoadingOverlay>
       <template v-else>
       <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
@@ -660,15 +651,16 @@ const rowActions: ActionMenuItem<unknown>[] = [
           {{ memoryText(row.original) }}
         </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-        <YdPagination
-          v-model:page="pager.page"
-          v-model:size="pager.size"
-          :total="pager.total"
-          class="mt-3"
-          @page-change="() => load()"
-          @size-change="() => { pager.page = 1; load() }"
-        />
       </template>
+    </template>
+    <template #footer>
+      <YdPagination
+        v-model:page="pager.page"
+        v-model:size="pager.size"
+        :total="pager.total"
+        @page-change="() => load()"
+        @size-change="() => { pager.page = 1; load() }"
+      />
     </template>
   </YdTablePageLayout>
     <InstanceFormModal

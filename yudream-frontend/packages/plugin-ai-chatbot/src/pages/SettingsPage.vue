@@ -2,7 +2,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AiAgent, AiProviderOption, GroupPolicy, Option } from '../types'
 import {computed, onMounted, reactive, ref } from 'vue'
-import { YdAction, YdButton, YdCollapsible, YdIcon, YdInput, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTextarea, YdMultiSelect, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
+import { YdAction, YdButton, YdCollapsible, YdIcon, YdInput, YdLoadingOverlay, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTextarea, YdMultiSelect, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import { createAiChatbotApi } from '../api/ai-chatbot-api'
 import { resolveGroupAgentCode, toGroupAgentOptions } from '../config/group-agent-options'
 
@@ -65,11 +65,12 @@ const configuredOpen = ref(false)
 </script>
 
 <template>
+  <div class="settings-page-shell">
   <YdPageHeader title="AI 群聊机器人配置" class="mb-0">
     <YdButton variant="outline" :loading="loading" @click="loadPolicies">刷新</YdButton>
     <YdButton :loading="saving" @click="save">保存配置</YdButton>
   </YdPageHeader>
-  <div class="ai-chatbot-settings-shell">
+  <YdLoadingOverlay :loading="loading">
 
   <YdSettingsLayout
     v-model="activeSection"
@@ -127,6 +128,7 @@ const configuredOpen = ref(false)
       </YdSettingsSection>
     </template>
   </YdSettingsLayout>
+  </YdLoadingOverlay>
 </div>
 
 </template>

@@ -230,7 +230,7 @@ const rowActions: ActionMenuItem<ContentRecord>[] = [
         <div class="min-w-0">
           <YdSelect v-model="filters.kind" :options="kindSelectOptions" class="w-full" @update:model-value="applyFilters" />
         </div>
-        <div class="flex items-center justify-start gap-2 md:justify-end">
+        <div class="flex items-center gap-2 md:justify-end">
           <YdButton size="sm" variant="outline" @click="applyFilters">
             <YdIcon name="i-ri:search-line" />
             查询

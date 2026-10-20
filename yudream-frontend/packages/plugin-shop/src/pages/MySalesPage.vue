@@ -4,7 +4,7 @@ import type { ShopOrder } from '../types'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdIcon, YdPageHeader, YdPageMain, YdPagination, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdIcon, YdPagination, YdTag, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
@@ -35,7 +35,6 @@ const columns: TableColumn<ShopOrder>[] = [
   { id: 'buyer', header: '买家', width: 130 },
   { id: 'status', header: '状态', width: 100 },
   { accessorKey: 'createdAt', header: '下单时间', width: 170 },
-  { id: 'operation', header: '操作', width: 180, align: 'center', fixed: 'right' },
 ]
 
 async function load() {
@@ -98,9 +97,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="shop-page">
-    <YdPageMain>
-      <YdTablePageLayout title="我的出售" :show-search="false">
+  <div class="h-full min-h-0">
+    <YdTablePageLayout title="我的出售" :show-search="false">
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
@@ -178,6 +176,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
         :order="voucherOrder"
         @submitted="onVoucherSubmitted"
       />
-    </YdPageMain>
-  </section>
+  </div>
 </template>

@@ -4,7 +4,7 @@ import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { Activity } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdInput, YdPageMain, YdPagination, YdSelect, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPagination, YdSelect, YdTag, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminActivities } from '../composables/useAdminActivities'
@@ -37,7 +37,6 @@ const columns: TableColumn<Activity>[] = [
   { id: 'activityTime', header: '活动时间', width: 210 },
   { id: 'participants', header: '参与/通过', width: 110, align: 'center' },
   { id: 'createdAt', header: '创建时间', width: 170 },
-  { id: 'operation', header: '操作', width: 440, align: 'center', fixed: 'right' },
 ]
 
 function statusTag(row: Activity) {
@@ -84,25 +83,23 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="proof-page">
-    <YdPageMain>
-      <YdTablePageLayout title="活动管理">
-      <template #search>
-        <div class="activity-filter">
-              <YdInput v-model="filters.keyword" placeholder="搜索活动标题" clearable @keyup.enter="model.search" />
-              <YdSelect v-model="filters.status" :options="statusOptions" placeholder="状态" />
-              <div class="flex justify-end gap-2">
-                <YdButton variant="outline" @click="model.resetFilters">重置</YdButton>
-                <YdButton :loading="loading" @click="model.search">
-                  <YdIcon name="i-ri:search-line" />查询
-                </YdButton>
-              </div>
-            </div>
-      </template>
+  <YdTablePageLayout title="活动管理">
     <template #actions>
       <YdButton @click="openEdit()">
         <YdIcon name="i-ri:add-line" />发布活动
       </YdButton>
+    </template>
+    <template #search>
+      <div class="yd-filter-grid" style="--yd-filter-columns: 2">
+        <YdInput v-model="filters.keyword" placeholder="搜索活动标题" clearable class="w-full" @keyup.enter="model.search" />
+        <YdSelect v-model="filters.status" :options="statusOptions" placeholder="状态" class="w-full" />
+        <div class="flex items-center justify-end gap-2">
+          <YdButton variant="outline" @click="model.resetFilters">重置</YdButton>
+          <YdButton :loading="loading" @click="model.search">
+            <YdIcon name="i-ri:search-line" />查询
+          </YdButton>
+        </div>
+      </div>
     </template>
     <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
@@ -147,8 +144,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
       />
     </template>
   </YdTablePageLayout>
-
-
-    </YdPageMain>
-  </section>
 </template>

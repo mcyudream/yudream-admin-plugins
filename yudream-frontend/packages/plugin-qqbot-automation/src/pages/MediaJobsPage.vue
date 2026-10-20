@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import { computed, onMounted, ref, watch } from 'vue'
-import { YdAlert, YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdPagination, YdSelect, YdResponsiveEnhancedTable, useYdModal, useYdToast, type StatusColumn, type TableColumn } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdResponsiveEnhancedTable, useYdModal, useYdToast, type StatusColumn, type TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createQqbotAutomationApi } from '../api/qqbot-automation-api'
 import { formatGroupLabel, type MediaJob, type Option } from '../types'
@@ -248,12 +248,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
-
-    <YdPageMain class="space-y-4">
-      <YdAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
-
-      <YdTablePageLayout title="媒体任务" :show-search="false">
+  <YdTablePageLayout title="媒体任务" :show-search="false">
     <template #actions>
       <div class="flex flex-wrap gap-2">
         <YdButton variant="destructive" :disabled="!total || clearing" @click="confirmClearJobs">
@@ -267,6 +262,7 @@ onMounted(load)
       </div>
     </template>
     <template #table>
+      <YdAlert v-if="error" class="mb-3" variant="destructive" title="操作未完成" :description="error" />
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         
         row-key="id"
@@ -300,11 +296,7 @@ onMounted(load)
     </template>
   </YdTablePageLayout>
 
-
-
-    </YdPageMain>
-
-    <YdModal
+  <YdModal
       v-model="testOpen"
       title="发起媒体解析测试"
       description="测试会解析链接，并将解析出的媒体文件发送到所选 QQ 群。"
@@ -335,5 +327,4 @@ onMounted(load)
         </div>
       </div>
     </YdModal>
-  </section>
 </template>

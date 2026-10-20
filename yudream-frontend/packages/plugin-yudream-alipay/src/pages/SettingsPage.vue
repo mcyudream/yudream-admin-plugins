@@ -60,7 +60,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="alipay-settings-shell">
+  <div class="settings-page-shell">
     <YdPageHeader title="支付宝配置" class="mb-0">
       <YdButton :loading="saving" @click="save">
         <YdIcon name="morph:save" />保存设置

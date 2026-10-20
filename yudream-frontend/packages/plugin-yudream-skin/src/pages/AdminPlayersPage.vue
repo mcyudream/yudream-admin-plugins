@@ -3,7 +3,7 @@ import type { ActionMenuItem, EntityPeekFact, TableColumn } from '@yudream/compo
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -208,20 +208,20 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
 </script>
 
 <template>
-  <div class="skin-admin-table-page">
-    <YdTablePageLayout title="角色管理">
+  <YdTablePageLayout title="角色管理">
       <template #search>
-        <YdListToolbar
-          v-model:keyword="search.keyword"
-          placeholder="角色名 / UUID / 材质 / 用户"
-          @search="pagination.page = 1"
-          @clear="pagination.page = 1"
-        >
-          <template #filters>
-            <YdInput v-model="search.ownerId" clearable placeholder="系统用户 ID / 昵称 / 用户名" class="skin-admin-filter-grid__select" @keydown.enter="pagination.page = 1" @clear="pagination.page = 1" />
-            <YdSelect v-model="search.status" :options="statusOptions" class="skin-admin-filter-grid__select" />
-          </template>
-          <template #actions>
+        <div class="yd-filter-grid" style="--yd-filter-columns: 3">
+          <YdInput
+            v-model="search.keyword"
+            clearable
+            placeholder="角色名 / UUID / 材质 / 用户"
+            class="w-full"
+            @keydown.enter="pagination.page = 1"
+            @clear="pagination.page = 1"
+          />
+          <YdInput v-model="search.ownerId" clearable placeholder="系统用户 ID / 昵称 / 用户名" class="w-full" @keydown.enter="pagination.page = 1" @clear="pagination.page = 1" />
+          <YdSelect v-model="search.status" :options="statusOptions" class="w-full" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="resetSearch">
               重置
             </YdButton>
@@ -229,8 +229,8 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
               <YdIcon name="i-ri:search-line" />
               筛选
             </YdButton>
-          </template>
-        </YdListToolbar>
+          </div>
+        </div>
       </template>
       <template #actions>
         <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增角色</YdButton>
@@ -307,5 +307,4 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
         </YdLabel>
       </div>
     </YdModal>
-  </div>
 </template>

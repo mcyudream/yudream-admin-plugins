@@ -177,7 +177,7 @@ async function saveMapLink() {
           />
         </label>
       </div>
-      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid gap-2 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-3">
         <label v-for="toggle in bridgeForwardToggles" :key="toggle.key" class="flex items-start justify-between gap-3 rounded-lg border p-3">
           <span class="grid gap-1">
             <span class="text-sm font-medium">{{ toggle.label }}</span>

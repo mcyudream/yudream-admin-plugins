@@ -363,13 +363,12 @@ function rowFacts(row: Feedback): EntityPeekFact[] {
 </script>
 
 <template>
-  <div class="fb-page">
-    <YdTablePageLayout
-      title="反馈管理"
-      stats-title="反馈统计与快捷筛选"
-      :stats-default-expanded="true"
-      :search-default-folded="false"
-    >
+  <YdTablePageLayout
+    title="反馈管理"
+    stats-title="反馈统计与快捷筛选"
+    :stats-default-expanded="true"
+    :search-default-folded="false"
+  >
       <!-- 统计卡即快捷筛选：点当前范围则回到「全部」。 -->
       <template #stats>
         <div class="fb-stat-strip" role="group" aria-label="反馈统计与快捷筛选">
@@ -538,8 +537,7 @@ function rowFacts(row: Feedback): EntityPeekFact[] {
           @size-change="onSizeChange"
         />
       </template>
-    </YdTablePageLayout>
-  </div>
+  </YdTablePageLayout>
 </template>
 
 <style scoped>

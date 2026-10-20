@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdSettingsLayout } from '@yudream/components'
+import { YdLoadingOverlay, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { YdAlert, YdButton, YdInput, YdModal, YdPageHeader, YdSelect, YdSwitch, YdTag, YdTextarea, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -333,16 +333,16 @@ onMounted(() => {
 const activeSection = ref('sec1')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { label: "基础与启动", value: "sec1" },
-  { label: "事件触发型任务", value: "sec2" },
-  { label: "Java 运行时（换版本 / 镜像源）", value: "sec3" },
-  { label: "端口管理（附加端口开放/回收）", value: "sec4" },
-  { label: "P2P 直连（启动器无感接入）", value: "sec5" },
-  { label: "RCON / Ping / 终端", value: "sec6" },
+  { label: "事件触发任务", value: "sec2" },
+  { label: "Java 运行时", value: "sec3" },
+  { label: "端口管理", value: "sec4" },
+  { label: "P2P 直连", value: "sec5" },
+  { label: "RCON / Ping", value: "sec6" },
 ]
 </script>
 
 <template>
-  <div class="mcp-settings-shell">
+  <div class="settings-page-shell">
   <YdPageHeader :title="`实例设置 · ${instance?.name || instanceId}`" description="启动命令、环境变量、RCON / Ping、终端展示（对标 MCSM 实例设置）">
     <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}`)">
       返回终端
@@ -359,6 +359,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     v-model="activeSection"
     :list="sectionList"
     surface
+    scroll
     width-class="max-w-[960px]"
   >
     <template #sec1>

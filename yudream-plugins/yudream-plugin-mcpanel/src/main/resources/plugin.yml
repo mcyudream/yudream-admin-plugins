@@ -9,7 +9,7 @@ softdepend:
   # 可选：装了 ymcl-adapter 时把 P2P 直连能力贡献给它（YmclP2pProvider 扩展点）。
   # 方向必须是「面板 → 适配器」：反向声明会让宿主判定依赖环并静默丢弃该能力。
   - ymcl-adapter
-version: 0.22.16
+version: 0.22.17
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: mc

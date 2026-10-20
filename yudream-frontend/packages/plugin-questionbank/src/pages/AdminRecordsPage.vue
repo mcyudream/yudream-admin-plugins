@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { SessionSummary } from '../types'
-import { YdButton, YdDrawer, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdDrawer, YdIcon, YdInput, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { formatTime, optionKey } from '../composables/utils'
@@ -27,7 +27,6 @@ const columns: TableColumn<SessionSummary>[] = [
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'createdAt', header: '开始时间', width: 170 },
   { id: 'submittedAt', header: '提交时间', width: 170 },
-  { id: 'operation', header: '操作', width: 150 },
 ]
 
 const detailOpen = ref(false)
@@ -123,14 +122,16 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
+  <div class="h-full min-h-0">
     <YdTablePageLayout title="练习记录">
       <template #search>
-        <div class="qb-toolbar">
-            <YdInput v-model="model.adminRecordsFilters.keyword" placeholder="搜索用户昵称或 ID" clearable @keydown.enter="model.applyAdminRecordsFilters" @clear="model.applyAdminRecordsFilters" />
-            <YdSelect v-model="model.adminRecordsFilters.status" :options="statusOptions" @change="model.applyAdminRecordsFilters" />
+        <div class="yd-filter-grid" style="--yd-filter-columns: 2">
+          <YdInput v-model="model.adminRecordsFilters.keyword" class="w-full" placeholder="搜索用户昵称或 ID" clearable @keydown.enter="model.applyAdminRecordsFilters" @clear="model.applyAdminRecordsFilters" />
+          <YdSelect v-model="model.adminRecordsFilters.status" class="w-full" :options="statusOptions" @change="model.applyAdminRecordsFilters" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="model.applyAdminRecordsFilters"><YdIcon name="i-ri:search-line" />查询</YdButton>
           </div>
+        </div>
       </template>
     <template #table>
 <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
@@ -205,5 +206,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </template>
       </div></YdLoadingOverlay>
     </YdDrawer>
-  </YdPageMain>
+  </div>
 </template>

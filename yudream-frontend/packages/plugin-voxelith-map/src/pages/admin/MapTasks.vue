@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdDrawer, YdIcon, YdPageMain, YdPagination, YdProgress, YdSelect, YdTag, useYdToast, YdResponsiveEnhancedTable, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
+import { YdButton, YdCard, YdDrawer, YdIcon, YdPagination, YdProgress, YdSelect, YdTag, useYdToast, YdResponsiveEnhancedTable, type ActionMenuItem, YdTablePageLayout } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -105,7 +105,6 @@ const columns = [
   { id: 'progress', header: '进度', width: 260 },
   { id: 'message', header: '当前阶段', width: 240 },
   { id: 'createdAt', header: '开始于', width: 160 },
-  { id: 'operation', header: '操作', width: 170, fixed: 'right' as const },
 ]
 
 // ---------------------------------------------------------------------------
@@ -180,17 +179,9 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
 <template>
 
-  <YdPageMain>
-    <YdCard class="mb-3 p-3">
-      <p class="text-sm text-muted-foreground">
-        渲染、实例导入这类长任务都在服务端执行：离开本页、刷新页面甚至关闭浏览器都不会中断它们，
-        回到这里即可看到最新进度与日志。
-      </p>
-    </YdCard>
-
-    <YdTablePageLayout title="任务中心">
+  <YdTablePageLayout title="任务中心">
       <template #search>
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-[200px_200px_1fr]">
+        <div class="yd-filter-grid" style="--yd-filter-columns: 2">
           <YdSelect v-model="kindFilter" :options="kindFilterOptions" class="w-full" />
           <YdSelect v-model="stateFilter" :options="stateFilterOptions" class="w-full" />
           <div class="flex items-center justify-end text-xs text-muted-foreground">
@@ -199,6 +190,12 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </div>
       </template>
     <template #table>
+      <YdCard class="mb-3 p-3">
+        <p class="text-sm text-muted-foreground">
+          渲染、实例导入这类长任务都在服务端执行：离开本页、刷新页面甚至关闭浏览器都不会中断它们，
+          回到这里即可看到最新进度与日志。
+        </p>
+      </YdCard>
 <YdResponsiveEnhancedTable
       :actions="rowActions"
 
@@ -319,5 +316,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
         </div>
       </div>
     </YdDrawer>
-  </YdPageMain>
 </template>

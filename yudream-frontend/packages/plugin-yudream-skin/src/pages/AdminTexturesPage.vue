@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } 
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { useYdModal, YdButton, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdListToolbar, YdTablePageLayout } from '@yudream/components'
+import { useYdModal, YdButton, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -205,20 +205,20 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
 </script>
 
 <template>
-  <div class="skin-admin-table-page">
-    <YdTablePageLayout title="材质管理">
+  <YdTablePageLayout title="材质管理">
       <template #search>
-        <YdListToolbar
-          v-model:keyword="search.keyword"
-          placeholder="名称 / Hash / 上传人"
-          @search="pagination.page = 1"
-          @clear="pagination.page = 1"
-        >
-          <template #filters>
-            <YdSelect v-model="search.type" :options="typeOptions" class="skin-admin-filter-grid__select" />
-            <YdSelect v-model="search.visibility" :options="visibilityOptions" class="skin-admin-filter-grid__select" />
-          </template>
-          <template #actions>
+        <div class="yd-filter-grid" style="--yd-filter-columns: 3">
+          <YdInput
+            v-model="search.keyword"
+            clearable
+            placeholder="名称 / Hash / 上传人"
+            class="w-full"
+            @keydown.enter="pagination.page = 1"
+            @clear="pagination.page = 1"
+          />
+          <YdSelect v-model="search.type" :options="typeOptions" class="w-full" />
+          <YdSelect v-model="search.visibility" :options="visibilityOptions" class="w-full" />
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="resetSearch">
               重置
             </YdButton>
@@ -226,8 +226,8 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
               <YdIcon name="i-ri:search-line" />
               筛选
             </YdButton>
-          </template>
-        </YdListToolbar>
+          </div>
+        </div>
       </template>
       <template #actions>
         <YdButton @click="openUpload">
@@ -345,5 +345,4 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
         </YdLabel>
       </div>
     </YdModal>
-  </div>
 </template>

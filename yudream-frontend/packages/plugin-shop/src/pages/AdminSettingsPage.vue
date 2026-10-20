@@ -4,7 +4,7 @@ import type { ShopCurrency, ShopTradeFeePayee, ShopUserOption } from '../types'
 import type { TableColumn, YdTablePickerQuery, YdTablePickerResult } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdAlert, YdButton, YdIcon, YdImageUpload, YdInput, YdNumberField, YdPageHeader, YdPageMain, YdSelect, YdSwitch, YdTablePicker, useYdToast, YdMultiSelect } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdImageUpload, YdInput, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTablePicker, useYdToast, YdMultiSelect } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import { errorMessage, normalizeFileUrl } from '../composables/utils'
@@ -190,7 +190,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 </script>
 
 <template>
-  <section class="shop-page">
+  <div class="settings-page-shell">
     <YdPageHeader title="商店设置" class="mb-0">
       <YdButton variant="outline" :disabled="saving" @click="load">重置</YdButton>
       <YdButton :loading="saving" @click="save">
@@ -198,7 +198,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
         保存设置
       </YdButton>
     </YdPageHeader>
-    <div class="shop-settings-shell">
 
   <YdSettingsLayout
     v-model="activeSection"
@@ -373,6 +372,4 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     </template>
   </YdSettingsLayout>
 </div>
-
-  </section>
 </template>

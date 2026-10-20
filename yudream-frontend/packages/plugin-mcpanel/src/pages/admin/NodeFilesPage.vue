@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import { YdAlert, YdButton, YdIcon, YdInput, YdModal, YdPageMain, YdPagination, YdProgress, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
@@ -219,13 +219,11 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <div class="mcp-file-search"><YdInput v-model="keyword" clearable placeholder="搜索当前目录" @keydown.enter="search" @clear="search" /><YdButton variant="outline" :loading="loading" @click="search"><YdIcon name="i-ri:refresh-line" />刷新</YdButton></div>
         <YdAlert v-if="error" variant="destructive" title="目录加载失败" class="mb-4">{{ error }}</YdAlert>
         <div v-if="download.active.value" class="mcp-download-status"><YdIcon name="i-ri:download-line" /><span>{{ download.fileName.value }}</span><YdProgress :model-value="download.progress.value" /><span>{{ download.progress.value }}%</span><YdButton size="sm" variant="outline" @click="download.cancel">取消</YdButton></div>
-                <YdTablePageLayout title="`${name || '节点'} · 文件管理`" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}`)"><YdIcon name="i-ri:arrow-left-line" />节点详情</YdButton>
-    <YdButton v-if="canManage" variant="outline" :loading="ftpBusy" @click="enableFtp"><YdIcon name="i-ri:key-2-line" />SFTP 连接</YdButton>
-    <YdButton v-if="canManage" @click="openForm()"><YdIcon name="i-ri:folder-add-line" />新建目录</YdButton>
-            </template>
-            <template #table>
+        <div class="mcp-toolbar-row mb-3">
+          <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/nodes/${nodeId}`)"><YdIcon name="i-ri:arrow-left-line" />节点详情</YdButton>
+          <YdButton v-if="canManage" variant="outline" :loading="ftpBusy" @click="enableFtp"><YdIcon name="i-ri:key-2-line" />SFTP 连接</YdButton>
+          <YdButton v-if="canManage" @click="openForm()"><YdIcon name="i-ri:folder-add-line" />新建目录</YdButton>
+        </div>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
             :actions="rowActions"
   :data="rows" :columns="columns" row-key="name" table-root-class="rounded-lg overflow-hidden" table-class="min-w-[800px]" border stripe column-visibility :empty-text="error ? '未能读取目录' : keyword ? '没有匹配的文件' : '此目录为空'">
@@ -234,11 +232,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <template #cell-size="{ row }">{{ row.original.isDir ? '—' : formatSize(row.original.size) }}</template>
           <template #cell-modTime="{ row }">{{ formatDateTime(row.original.modTime as number | string) }}</template>
         </YdResponsiveEnhancedTable></YdLoadingOverlay>
-            </template>
-            <template #footer>
-      <YdPagination v-model:page="pager.page" v-model:size="pager.size" :sizes="[10, 20, 50, 100]" :total="pager.total" @page-change="() => load()" @size-change="search" />
-            </template>
-          </YdTablePageLayout>
+      <YdPagination v-model:page="pager.page" v-model:size="pager.size" :sizes="[10, 20, 50, 100]" :total="pager.total" class="mt-3" @page-change="() => load()" @size-change="search" />
 
       </div>
     </div>

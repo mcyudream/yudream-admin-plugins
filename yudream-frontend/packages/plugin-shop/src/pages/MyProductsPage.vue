@@ -4,7 +4,7 @@ import type { PublishQualification, ShopProductSummary } from '../types'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdAlert, YdButton, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdPagination, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createShopApi } from '../api/shop-api'
@@ -40,7 +40,6 @@ const columns: TableColumn<ShopProductSummary>[] = [
   { id: 'stock', header: '库存 / 已售', width: 120 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 210, align: 'center', fixed: 'right' },
 ]
 
 async function load() {
@@ -137,14 +136,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="shop-page">
-    <YdPageMain>
-      <YdAlert v-if="publishBlocked" title="当前无法上架商品" class="mb-4">
-        <template #description>
-          {{ qualification?.reason || '管理员已关闭用户上架功能、积分门槛不足，或当前账号是管理员（只能投放官方积分商品）。' }}
-        </template>
-      </YdAlert>
-      <YdTablePageLayout title="我的商品">
+  <YdTablePageLayout title="我的商品">
       <template #search>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,1fr)_auto]">
               <YdInput
@@ -166,6 +158,11 @@ const rowActions: ActionMenuItem<unknown>[] = [
       </YdButton>
     </template>
     <template #table>
+      <YdAlert v-if="publishBlocked" title="当前无法上架商品" class="mb-4">
+        <template #description>
+          {{ qualification?.reason || '管理员已关闭用户上架功能、积分门槛不足，或当前账号是管理员（只能投放官方积分商品）。' }}
+        </template>
+      </YdAlert>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
 
@@ -228,9 +225,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
       />
     </template>
   </YdTablePageLayout>
-
-
-
-    </YdPageMain>
-  </section>
 </template>

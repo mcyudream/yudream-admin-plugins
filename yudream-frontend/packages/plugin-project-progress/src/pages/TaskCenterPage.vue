@@ -14,7 +14,6 @@ const columns: TableColumn<ProjectWorkDetail>[] = [
   { id: 'task', header: '任务', width: 360 },
   { id: 'quota', header: '名额', width: 110 },
   { id: 'dueAt', header: '截止时间', width: 170 },
-  { id: 'operation', header: '操作', width: 120, align: 'center', fixed: 'right' },
 ]
 watch(() => props.model.claimableTasks.length, total => { pagination.page = Math.min(pagination.page, Math.max(1, Math.ceil(total / pagination.size))) })
 watch(() => pagination.size, () => { pagination.page = 1 })

@@ -76,7 +76,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ptp-settings-shell">
+  <div class="settings-page-shell">
     <YdPageHeader title="积分设置" class="mb-0">
       <YdButton :loading="saving" @click="model.save()">
         <YdIcon name="morph:save" />

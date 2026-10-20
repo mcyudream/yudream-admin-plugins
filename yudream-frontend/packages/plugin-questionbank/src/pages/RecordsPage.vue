@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { SessionSummary } from '../types'
-import { YdButton, YdIcon, YdPageHeader, YdPageMain, YdPagination, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdPagination, YdTag, useYdModal, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { difficultyLabel, formatTime, questionTypeLabel } from '../composables/utils'
@@ -20,7 +20,6 @@ const columns: TableColumn<SessionSummary>[] = [
   { id: 'score', header: '成绩', width: 110 },
   { id: 'status', header: '状态', width: 90 },
   { accessorKey: 'submittedAt', header: '提交时间', width: 170 },
-  { id: 'operation', header: '操作', width: 170 },
 ]
 
 function scopeText(row: SessionSummary) {
@@ -70,8 +69,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageMain>
-    <YdTablePageLayout title="成绩记录" :show-search="false">
+  <YdTablePageLayout title="成绩记录" :show-search="false">
     <template #actions>
       <YdButton variant="outline" @click="router.push('/platform/plugins/questionbank/papers')">
       <YdIcon name="i-ri:file-paper-2-line" />题单作答
@@ -113,7 +111,4 @@ const rowActions: ActionMenuItem<unknown>[] = [
     />
     </template>
   </YdTablePageLayout>
-
-
-  </YdPageMain>
 </template>

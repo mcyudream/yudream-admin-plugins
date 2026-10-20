@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { YdAlert, YdButton, YdIcon, YdPageHeader, YdPageMain, YdSelect, YdTextarea, useYdToast, type TableColumn, YdResponsiveEnhancedTable, type ActionMenuItem } from '@yudream/components'
+import { YdAlert, YdButton, YdCard, YdIcon, YdPageHeader, YdPageMain, YdSelect, YdTextarea, useYdToast, type TableColumn, YdResponsiveEnhancedTable, type ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { createWebCardApi } from '../api/web-card-api'
 import type { AgentProposal, AgentSession, CardTemplate, Option, Site } from '../types'

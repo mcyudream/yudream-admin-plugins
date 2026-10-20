@@ -4,7 +4,7 @@ import type { ShopOrder } from '../types'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { YdButton, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdSearchBar, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdPagination, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createShopApi } from '../api/shop-api'
 import OrderDetailModal from '../components/OrderDetailModal.vue'
@@ -68,7 +68,6 @@ const columns: TableColumn<ShopOrder>[] = [
   { id: 'seller', header: '卖家', width: 120 },
   { id: 'status', header: '状态', width: 100 },
   { accessorKey: 'createdAt', header: '下单时间', width: 170 },
-  { id: 'operation', header: '操作', width: 300, align: 'center', fixed: 'right' },
 ]
 
 async function load() {
@@ -211,9 +210,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <section class="shop-page">
-    <YdPageMain>
-      <YdTablePageLayout title="订单管理">
+  <div class="h-full min-h-0">
+    <YdTablePageLayout title="订单管理">
       <template #search>
         <div class="shop-filter-grid shop-order-filters">
               <YdInput
@@ -331,6 +329,5 @@ const rowActions: ActionMenuItem<unknown>[] = [
         :admin="voucherIsAdmin(voucherOrder)"
         @submitted="onVoucherSubmitted"
       />
-    </YdPageMain>
-  </section>
+  </div>
 </template>

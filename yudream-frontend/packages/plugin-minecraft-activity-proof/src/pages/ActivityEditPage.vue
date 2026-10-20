@@ -382,7 +382,7 @@ async function save() {
                       </div>
                       <template v-if="binding.params.length">
                         <div class="grid gap-2 rounded-md border p-2">
-                          <div class="hidden md:grid md:grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_2.5rem] md:gap-2 text-xs text-muted-foreground">
+                          <div class="proof-binding-head md:grid-cols-[3rem_minmax(0,9rem)_minmax(0,1fr)_2.5rem] md:gap-2 text-xs text-muted-foreground">
                             <span>变量</span>
                             <span>参数类型</span>
                             <span>取值来源</span>

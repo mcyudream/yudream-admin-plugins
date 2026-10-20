@@ -3,7 +3,7 @@ import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { TableColumn, YdFilePickerInstance, ActionMenuItem } from '@yudream/components'
 import type { QuestionBankPluginModel } from '../composables/useQuestionBankPlugin'
 import type { ImportResult, QuestionPayload, QuestionView } from '../types'
-import { YdButton, YdCheckbox, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, YdTextarea, YdFilePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdButton, YdCard, YdCheckbox, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, YdTextarea, YdFilePicker, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { onMounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { saveBlob } from '../api/questionbank-api'
@@ -191,7 +191,6 @@ const columns: TableColumn<QuestionView>[] = [
   { id: 'difficulty', header: '难度', width: 110 },
   { id: 'status', header: '状态', width: 80 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'operation', header: '操作', width: 150 },
 ]
 
 /** 题干在列表里只展示纯文本摘要，去掉 markdown 标记防干扰。 */
@@ -312,16 +311,18 @@ const rowActions: ActionMenuItem<unknown>[] = [
   <YdTablePageLayout title="题目管理">
     <template #search>
       <!-- 筛选与受控批量删除收进搜索卡：桌面表格与移动端卡片共用同一套 -->
-      <div class="qb-toolbar">
+      <div class="yd-filter-grid" style="--yd-filter-columns: 5">
         <YdInput v-model="model.adminFilters.keyword" placeholder="搜索题干或标签" clearable @keydown.enter="model.applyAdminFilters" @clear="model.applyAdminFilters" />
         <CategorySelect v-model="model.adminFilters.categoryId" :categories="model.adminCategories" empty-label="全部分类" @update:model-value="model.applyAdminFilters" />
         <YdSelect v-model="model.adminFilters.tag" :options="tagOptions" @change="model.applyAdminFilters" />
         <YdSelect v-model="model.adminFilters.type" :options="typeOptions" @change="model.applyAdminFilters" />
         <YdSelect v-model="model.adminFilters.status" :options="statusOptions" @change="model.applyAdminFilters" />
-        <YdButton variant="outline" @click="model.applyAdminFilters"><YdIcon name="i-ri:search-line" />查询</YdButton>
-        <YdButton variant="destructive" :disabled="!selectedRows.length" @click="confirmBatchDelete">
-          批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
-        </YdButton>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <YdButton variant="outline" @click="model.applyAdminFilters"><YdIcon name="i-ri:search-line" />查询</YdButton>
+          <YdButton variant="destructive" :disabled="!selectedRows.length" @click="confirmBatchDelete">
+            批量删除{{ selectedRows.length ? `（${selectedRows.length}）` : '' }}
+          </YdButton>
+        </div>
       </div>
     </template>
     <template #actions>

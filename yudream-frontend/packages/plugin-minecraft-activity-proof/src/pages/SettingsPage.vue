@@ -62,6 +62,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
 </script>
 
 <template>
+  <div class="settings-page-shell">
   <YdPageHeader title="活动设置" class="mb-0">
     <YdButton variant="outline" :disabled="!wordTemplateReady" @click="model.reloadTemplates">
       <YdIcon name="i-ri:refresh-line" />刷新模板
@@ -70,7 +71,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
       <YdIcon name="i-ri:save-3-line" />保存配置
     </YdButton>
   </YdPageHeader>
-  <div class="map-activity-settings-shell">
 
   <YdSettingsLayout
     v-model="activeSection"

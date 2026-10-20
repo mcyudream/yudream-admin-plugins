@@ -123,7 +123,7 @@ onMounted(() => void load())
       <div v-if="!cores.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         暂无可自动下载的核心包
       </div>
-      <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-3">
         <YdAction
           v-for="core in cores"
           :key="core.id"
@@ -144,13 +144,13 @@ onMounted(() => void load())
 
     <YdCard title="服务端模板" description="管理员维护的安装源与启动形态" class="mt-4">
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <YdInput v-model="keyword" clearable placeholder="搜索模板名称 / Key / 类型" class="w-full sm:w-72" />
+        <YdInput v-model="keyword" clearable placeholder="搜索模板名称 / Key / 类型" class="w-[100%] sm:w-72" />
         <span class="ml-auto text-xs text-muted-foreground">共 {{ filtered.length }} 项</span>
       </div>
       <div v-if="!filtered.length" class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         暂无模板，可在「服务端模板」页维护
       </div>
-      <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-3">
         <article v-for="item in filtered" :key="String(item.key)" class="flex flex-col rounded-lg border bg-background p-4">
           <div class="truncate text-sm font-medium">
             {{ item.name || item.key }}

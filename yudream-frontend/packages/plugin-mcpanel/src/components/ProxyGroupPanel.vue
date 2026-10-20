@@ -52,7 +52,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'address', header: '地址', minWidth: 170 },
   { id: 'binding', header: '绑定面板实例', minWidth: 220 },
   { id: 'match', header: '来源', width: 110, align: 'center' },
-  { id: 'operation', header: '操作', width: 110, align: 'center' },
 ]
 
 /** YdTable 单元格槽的 row.original 是宽松 Record；草稿行在此收紧类型。 */

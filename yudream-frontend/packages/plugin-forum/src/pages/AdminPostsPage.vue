@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdPageHeader, YdPageMain, YdPagination, YdResponsiveEnhancedTable, YdSelect, useYdToast, type ActionMenuItem, type StatusColumn } from '@yudream/components'
+import { YdButton, YdPagination, YdResponsiveEnhancedTable, YdSelect, useYdToast, type ActionMenuItem, type StatusColumn } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createForumApi } from '../api/forum-api'
 import type { Post } from '../api/forum-api'
@@ -33,10 +33,10 @@ async function moderate(id:string,state:'published'|'rejected'|'archived'){try{a
 async function flag(id:string,key:'pinned'|'featured'){try{const post=rows.value.find(item=>item.id===id);await api.flags(id,{[key]:!post?.[key]});await load()}catch(e){toast.error(e instanceof Error?e.message:'操作失败')}}
 onMounted(load)
 </script>
-<template><div class="forum-page"><YdPageMain>        <YdTablePageLayout title="帖子审核">
+<template><YdTablePageLayout title="帖子审核">
             <template #search>
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="forum-toolbar"><YdSelect v-model="status" class="forum-select" :options="[{label:'待审核',value:'pending'},{label:'已发布',value:'published'},{label:'已拒绝',value:'rejected'},{label:'全部',value:''}]" @update:model-value="page=1;load()"/></div>
+              <div class="yd-filter-grid" style="--yd-filter-columns: 1">
+                <YdSelect v-model="status" class="w-full" :options="[{label:'待审核',value:'pending'},{label:'已发布',value:'published'},{label:'已拒绝',value:'rejected'},{label:'全部',value:''}]" @update:model-value="page=1;load()"/>
               </div>
             </template>
             <template #table>
@@ -46,4 +46,4 @@ onMounted(load)
       <YdPagination v-model:page="page" v-model:size="size" :total="total" @page-change="load" @size-change="page = 1; load()"/>
             </template>
           </YdTablePageLayout>
-</YdPageMain></div></template>
+</template>

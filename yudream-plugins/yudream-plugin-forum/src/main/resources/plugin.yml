@@ -3,7 +3,7 @@ displayName: 论坛
 description: 支持分类、标签、审核、互动与 YMCL 启动器浏览的社区论坛
 icon: i-ri:chat-3-line
 main: online.yudream.base.plugin.forum.bootstrap.ForumPlugin
-version: 1.0.18
+version: 1.0.19
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: social
