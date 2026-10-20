@@ -263,12 +263,6 @@ onMounted(() => void load())
           </YdButton>
         </div>
                 <YdTablePageLayout title="数据监控" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="load">
-      <YdIcon name="i-ri:refresh-line" />
-      刷新
-    </YdButton>
-            </template>
             <template #table>
 <YdResponsiveEnhancedTable
           :columns="instanceColumns"

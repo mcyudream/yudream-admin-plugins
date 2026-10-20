@@ -3,7 +3,7 @@ import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { McpNode, McpNodeHistorySample } from '../../types'
-import { YdAction, YdButton, YdButtonGroup, YdIcon, YdInput, YdPageHeader, YdPageMain, YdPagination, YdProgress, YdSearchBar, YdSelect, YdTag, YdTooltip, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdButton, YdButtonGroup, YdIcon, YdInput, YdPagination, YdProgress, YdSelect, YdTablePageLayout, YdTag, YdTooltip, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -15,7 +15,7 @@ import { metricFreshness, type MetricFreshness } from '../../composables/adminLi
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions'
 
 /**
- * 节点管理：表格 / 卡片双视图共用一套筛选工具栏与静默轮询。
+ * 节点管理：YdTablePageLayout 标准布局，表格 / 卡片双视图共用筛选与静默轮询。
  * - 轮询静默进行：不触发 v-loading，失败不清空已有数据，仅更新行内刷新状态；
  * - 请求带代际 + 筛选快照，迟到的旧响应不会覆盖新筛选下的列表；
  * - 重连按记录 busy，只禁用当前行，不锁定整页；
@@ -72,7 +72,6 @@ const columns: TableColumn<McpNode>[] = [
   { id: 'containers', header: '容器', width: 90, align: 'center' },
   { id: 'versions', header: 'Agent / Docker', width: 140 },
   { id: 'lastSeen', header: '心跳', width: 120 },
-  { id: 'operation', header: '操作', width: 200, align: 'center', fixed: 'right' },
 ]
 
 const formOpen = ref(false)
@@ -222,10 +221,6 @@ function resetFilters() {
   search()
 }
 
-function manualRefresh() {
-  void load()
-}
-
 function detailPath(id: string) {
   const base = route.path.replace(/\/+$/, '')
   return `${base}/${encodeURIComponent(id)}`
@@ -325,49 +320,37 @@ const rowActions: ActionMenuItem<unknown>[] = [
 </script>
 
 <template>
-  <YdPageHeader title="节点管理" description="远程节点控制面：接入、状态、资源与容器概览">
-    <YdButtonGroup class="mr-1">
-      <YdTooltip text="表格视图">
-        <YdButton size="sm" :variant="viewMode === 'table' ? 'default' : 'outline'" @click="viewMode = 'table'">
-          <YdIcon name="i-ri:table-line" />
-        </YdButton>
-      </YdTooltip>
-      <YdTooltip text="卡片视图（实时监控）">
-        <YdButton size="sm" :variant="viewMode === 'card' ? 'default' : 'outline'" @click="viewMode = 'card'">
-          <YdIcon name="i-ri:layout-grid-line" />
-        </YdButton>
-      </YdTooltip>
-    </YdButtonGroup>
-    <YdButton variant="outline" class="mr-1" @click="router.push('/platform/plugins/mcpanel/admin/node-deploy')">
-      <YdIcon name="i-ri:book-open-line" />
-      部署指南
-    </YdButton>
-    <YdButton v-if="canManage" @click="openCreate">
-      <YdIcon name="i-ri:add-line" />
-      新增节点
-    </YdButton>
-  </YdPageHeader>
-  <YdPageMain>
-    <!-- 共用筛选工具栏：表格 / 卡片视图切换时保持不消失 -->
-    <div class="mcp-list-toolbar">
-      <YdSearchBar :show-toggle="false" class="w-full">
-        <div class="mcp-filter-grid mcp-filter-grid--2">
-          <YdInput
-            v-model="filters.keyword"
-            clearable
-            placeholder="节点名称 / 地址"
-            class="w-full"
-            @keydown.enter="search"
-            @clear="search"
-          />
+  <YdTablePageLayout title="节点管理">
+    <template #actions>
+      <YdButtonGroup class="mr-1">
+        <YdTooltip text="表格视图">
+          <YdButton size="sm" :variant="viewMode === 'table' ? 'default' : 'outline'" @click="viewMode = 'table'">
+            <YdIcon name="i-ri:table-line" />
+          </YdButton>
+        </YdTooltip>
+        <YdTooltip text="卡片视图（实时监控）">
+          <YdButton size="sm" :variant="viewMode === 'card' ? 'default' : 'outline'" @click="viewMode = 'card'">
+            <YdIcon name="i-ri:layout-grid-line" />
+          </YdButton>
+        </YdTooltip>
+      </YdButtonGroup>
+      <YdButton variant="outline" @click="router.push('/platform/plugins/mcpanel/admin/node-deploy')">
+        <YdIcon name="i-ri:book-open-line" />
+        部署指南
+      </YdButton>
+      <YdButton v-if="canManage" @click="openCreate">
+        <YdIcon name="i-ri:add-line" />
+        新增节点
+      </YdButton>
+    </template>
+    <template #search>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="grid w-full gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
+          <YdInput v-model="filters.keyword" clearable placeholder="节点名称 / 地址" class="w-full" @keydown.enter="search" @clear="search" />
           <YdSelect v-model="filters.status" :options="STATUS_OPTIONS" class="w-full" @change="search" />
-          <div class="mcp-filter-actions">
+          <div class="flex items-center justify-end gap-2">
             <YdButton variant="outline" @click="resetFilters">
               重置
-            </YdButton>
-            <YdButton variant="outline" :loading="loading" @click="manualRefresh">
-              <YdIcon name="i-ri:refresh-line" />
-              刷新
             </YdButton>
             <YdButton @click="search">
               <YdIcon name="i-ri:search-line" />
@@ -375,19 +358,11 @@ const rowActions: ActionMenuItem<unknown>[] = [
             </YdButton>
           </div>
         </div>
-      </YdSearchBar>
-      <div class="mcp-row">
-        <span v-if="refreshError" class="mcp-refresh-meta is-error" title="保留上次加载的数据，可点击刷新重试">
-          刷新失败，展示上次数据 · {{ refreshError }}
-        </span>
-        <span v-else-if="lastRefreshedAt" class="mcp-refresh-meta">
-          更新于 {{ formatDateTime(lastRefreshedAt) }} · 10s 自动刷新
-        </span>
       </div>
-    </div>
-
+    </template>
+    <template #table>
     <!-- 卡片视图：节点监控卡 -->
-    <div v-if="viewMode === 'card'" class="mcp-page-gap">
+    <YdLoadingOverlay v-if="viewMode === 'card'" :loading="loading"><div>
       <div v-if="!rows.length" class="mcp-empty-hint">
         暂无节点，点击右上角「新增节点」接入第一台运行 Docker Agent 的机器
       </div>
@@ -452,24 +427,12 @@ const rowActions: ActionMenuItem<unknown>[] = [
           </div>
         </div>
       </div>
-
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        class="mt-3"
-        @page-change="() => load()"
-        @size-change="() => { pager.page = 1; load() }"
-      />
-    </div>
+    </div></YdLoadingOverlay>
 
     <!-- 表格视图：标准 YdTable 管理页 -->
     <template v-else>
       <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"
-
-        class="mcp-page-gap"
-        
         :columns="columns"
         :data="rows"
         row-key="id"
@@ -532,23 +495,34 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <span :title="formatDateTime(row.original.lastSeenAt)">{{ relativeSeenText(row.original.lastSeenAt) }}</span>
         </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-
-      <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
-        class="mt-3"
-        @page-change="() => load()"
-        @size-change="() => { pager.page = 1; load() }"
-      />
     </template>
+    </template>
+    <template #footer>
+      <!-- 静默轮询状态与分页同排：失败保留上次数据并在此提示（不弹 toast） -->
+      <div class="mcp-row">
+        <span v-if="refreshError" class="mcp-refresh-meta is-error" title="保留上次加载的数据，可点击查询重试">
+          刷新失败，展示上次数据 · {{ refreshError }}
+        </span>
+        <span v-else-if="lastRefreshedAt" class="mcp-refresh-meta">
+          更新于 {{ formatDateTime(lastRefreshedAt) }} · 10s 自动刷新
+        </span>
+        <YdPagination
+          v-model:page="pager.page"
+          v-model:size="pager.size"
+          :total="pager.total"
+          class="mcp-spacer"
+          @page-change="() => load()"
+          @size-change="() => { pager.page = 1; load() }"
+        />
+      </div>
+    </template>
+  </YdTablePageLayout>
 
-    <NodeFormModal
-      v-model:open="formOpen"
-      :api="api"
-      :node="editingNode"
-      @created="onCreated"
-      @saved="() => { toast.success('节点已保存'); load() }"
-    />
-  </YdPageMain>
+  <NodeFormModal
+    v-model:open="formOpen"
+    :api="api"
+    :node="editingNode"
+    @created="onCreated"
+    @saved="() => { toast.success('节点已保存'); load() }"
+  />
 </template>

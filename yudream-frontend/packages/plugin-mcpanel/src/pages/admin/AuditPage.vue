@@ -94,7 +94,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'action', header: '动作', minWidth: 150 },
   { accessorKey: 'target', header: '对象', minWidth: 180 },
   { accessorKey: 'detail', header: '详情', minWidth: 160 },
-  { id: 'operation', header: '操作', width: 76 },
 ]
 
 async function load() {
@@ -243,9 +242,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
     <YdAlert v-if="error" variant="destructive" title="无法加载审计日志" :description="error" class="mb-4" />
             <YdTablePageLayout title="操作审计">
             <template #actions>
-      <YdButton variant="outline" @click="load">
-      刷新
-    </YdButton>
     <YdButton :loading="exporting" @click="exportCsv">
       导出 CSV
     </YdButton>

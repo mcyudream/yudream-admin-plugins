@@ -110,7 +110,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'image', header: '镜像', minWidth: 180 },
   { id: 'ports', header: '端口', minWidth: 130 },
   { id: 'memory', header: '内存', width: 100, align: 'right' },
-  { id: 'operation', header: '操作', width: 230, align: 'center', fixed: 'right' },
 ]
 
 function stateOf(row: Record<string, unknown>): string {

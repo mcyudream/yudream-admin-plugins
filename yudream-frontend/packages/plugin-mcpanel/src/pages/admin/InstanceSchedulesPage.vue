@@ -51,7 +51,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'count', header: '次数', width: 80, align: 'center' },
   { id: 'status', header: '状态', width: 90 },
   { id: 'next', header: '下次执行', width: 160 },
-  { id: 'operation', header: '操作', width: 200 },
 ]
 
 async function load() {

@@ -40,7 +40,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'description', header: '简介', minWidth: 260 },
   { accessorKey: 'author', header: '作者', width: 130 },
   { accessorKey: 'downloads', header: '下载', width: 100, align: 'center' },
-  { id: 'operation', header: '操作', width: 110, align: 'center', fixed: 'right' },
 ]
 
 async function search() {

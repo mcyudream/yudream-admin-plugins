@@ -48,7 +48,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { id: 'type', header: '类型', width: 90 },
   { accessorKey: 'size', header: '大小', width: 100 },
   { accessorKey: 'modTime', header: '修改时间', width: 170 },
-  { id: 'operation', header: '操作', width: 220, fixed: 'right', align: 'center' },
 ]
 const crumbs = computed(() => {
   const result = [{ label: '根目录', path: '' }]
@@ -234,12 +233,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
           <template #cell-type="{ row }">{{ row.original.isDir ? '目录' : '文件' }}</template>
           <template #cell-size="{ row }">{{ row.original.isDir ? '—' : formatSize(row.original.size) }}</template>
           <template #cell-modTime="{ row }">{{ formatDateTime(row.original.modTime as number | string) }}</template>
-          <template #cell-operation="{ row }"><div class="mcp-op-cell">
-            <YdButton v-if="!row.original.isDir" size="sm" variant="outline" @click="edit(filePath(row.original))">打开</YdButton>
-            <YdButton v-if="!row.original.isDir" size="icon-sm" variant="ghost" title="下载文件" :disabled="download.active.value" @click="downloadRow(row.original)"><YdIcon name="i-ri:download-2-line" /></YdButton>
-            <YdButton v-if="canManage" size="icon-sm" variant="ghost" title="重命名或移动" :disabled="busy" @click="openForm(row.original)"><YdIcon name="i-ri:edit-line" /></YdButton>
-            <YdButton v-if="canManage" size="icon-sm" variant="ghost" title="删除" class="text-destructive" :disabled="busy" @click="remove(row.original)"><YdIcon name="i-ri:delete-bin-line" /></YdButton>
-          </div></template>
         </YdResponsiveEnhancedTable></YdLoadingOverlay>
             </template>
             <template #footer>

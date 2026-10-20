@@ -73,7 +73,6 @@ const columns: TableColumn<TrashRow>[] = [
   { id: 'deletedAt', header: '删除时间', width: 170 },
   { id: 'status', header: '数据目录', width: 130, align: 'center' },
   { id: 'retention', header: '自动清除', width: 130, align: 'center' },
-  { id: 'operation', header: '操作', width: 170, align: 'center', fixed: 'right' },
 ]
 
 async function load() {
@@ -256,12 +255,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
     </YdSearchBar>
 
             <YdTablePageLayout title="回收站" :show-search="false">
-            <template #actions>
-      <YdButton variant="outline" @click="() => load()">
-      <YdIcon name="i-ri:refresh-line" />
-      刷新
-    </YdButton>
-            </template>
             <template #table>
 <YdLoadingOverlay :loading="loading"><YdResponsiveEnhancedTable
         :actions="rowActions"

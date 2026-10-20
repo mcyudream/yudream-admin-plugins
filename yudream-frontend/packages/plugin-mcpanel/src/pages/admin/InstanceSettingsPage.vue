@@ -330,7 +330,7 @@ onMounted(() => {
   })
 })
 
-const activeSection = ref('main')
+const activeSection = ref('sec1')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { label: "基础与启动", value: "sec1" },
   { label: "事件触发型任务", value: "sec2" },
@@ -347,7 +347,10 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     <YdButton variant="outline" @click="router.push(`/platform/plugins/mcpanel/admin/instances/${instanceId}`)">
       返回终端
     </YdButton>
-    <YdButton v-if="canManage" :loading="saving" @click="save">
+    <YdButton v-if="canManage && activeSection === 'sec2'" :loading="savingEventTask" @click="saveEventTask">
+      保存事件任务
+    </YdButton>
+    <YdButton v-else-if="canManage" :loading="saving" @click="save">
       保存设置
     </YdButton>
   </YdPageHeader>
@@ -356,7 +359,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     v-model="activeSection"
     :list="sectionList"
     surface
-    scroll
     width-class="max-w-[960px]"
   >
     <template #sec1>
@@ -400,11 +402,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
           <span class="mcp-form-hint">
             自动拉起后若实例持续快速崩溃（60 秒内连续 3 次），会暂停自动重启并在审计中提示；手动启动一次即恢复。
           </span>
-          <div v-if="canManage" class="flex justify-end">
-            <YdButton :loading="savingEventTask" @click="saveEventTask">
-              保存事件任务
-            </YdButton>
-          </div>
         </div>
       </YdSettingsSection>
     </template>

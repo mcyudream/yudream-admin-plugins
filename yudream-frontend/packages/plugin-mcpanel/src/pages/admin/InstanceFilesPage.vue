@@ -98,7 +98,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { id: 'type', header: '类型', width: 90, align: 'center' },
   { accessorKey: 'size', header: '大小', width: 110, align: 'center' },
   { accessorKey: 'modTime', header: '修改时间', width: 170 },
-  { id: 'operation', header: '操作', width: 220, align: 'center', fixed: 'right' },
 ]
 
 const diskPercent = computed(() => {

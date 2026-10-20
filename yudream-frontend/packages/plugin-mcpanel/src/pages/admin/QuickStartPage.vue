@@ -92,7 +92,6 @@ const catalogColumns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'mcVersion', header: '版本', width: 100 },
   { accessorKey: 'javaImageId', header: 'Java', width: 90 },
   { accessorKey: 'memoryMb', header: '内存', width: 90 },
-  { id: 'operation', header: '操作', width: 140 },
 ]
 
 async function loadPackages() {

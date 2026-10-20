@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { DescriptionItem, TableColumn } from '@yudream/components'
 import type { McpEnrollCredential, McpNode, McpNodeContainerStat, McpNodeStateEvent } from '../../types'
@@ -347,8 +347,7 @@ onMounted(() => {
           <span>实例容器</span>
           <span class="mcp-status-meta">负载：{{ stats?.load ?? '-' }}</span>
         </div>
-                <YdTablePageLayout title="node?.name || '节点详情'" :show-search="false">
-            <template #actions>
+        <div class="mcp-toolbar-row mb-3">
       <YdButton variant="outline" @click="goList">
       <YdIcon name="i-ri:arrow-left-line" />
       返回列表
@@ -379,9 +378,8 @@ onMounted(() => {
         删除
       </YdButton>
     </template>
-            </template>
-            <template #table>
-<YdResponsiveEnhancedTable
+        </div>
+        <YdResponsiveEnhancedTable
           :columns="containerColumns"
           :data="containers"
           row-key="instanceId"
@@ -398,8 +396,6 @@ onMounted(() => {
             {{ formatMib(toNumberOr(row.original.memUsedMb)) }}
           </template>
         </YdResponsiveEnhancedTable>
-            </template>
-          </YdTablePageLayout>
 
       </div>
     </YdCard>

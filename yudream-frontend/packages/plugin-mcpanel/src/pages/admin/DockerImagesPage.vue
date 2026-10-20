@@ -71,7 +71,6 @@ const imageColumns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'idText', header: 'ID', minWidth: 320 },
   { accessorKey: 'nameText', header: '名称', minWidth: 280 },
   { accessorKey: 'sizeText', header: '占用空间', width: 110, align: 'center' },
-  { id: 'operation', header: '操作', width: 160, align: 'center' },
 ]
 
 const containerColumns: TableColumn<Record<string, unknown>>[] = [

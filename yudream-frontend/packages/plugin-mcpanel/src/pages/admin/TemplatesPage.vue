@@ -39,7 +39,6 @@ const columns: TableColumn<Record<string, unknown>>[] = [
   { accessorKey: 'mcVersion', header: '默认版本', width: 110, align: 'center' },
   { accessorKey: 'image', header: '镜像', minWidth: 180 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 160 },
-  { id: 'operation', header: '操作', width: 140, align: 'center', fixed: 'right' },
 ]
 
 const formOpen = ref(false)

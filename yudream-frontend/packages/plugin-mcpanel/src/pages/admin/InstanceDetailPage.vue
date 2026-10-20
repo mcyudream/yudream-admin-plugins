@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import { YdLoadingOverlay } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNodeStats } from '../../types.ts'
@@ -401,7 +401,6 @@ const backupColumns: TableColumn<BackupRow>[] = [
   { accessorKey: 'size', header: '大小', width: 100, align: 'center' },
   { id: 'status', header: '状态', width: 130 },
   { accessorKey: 'at', header: '时间', width: 160 },
-  { id: 'operation', header: '操作', width: 160, align: 'center' },
 ]
 
 function backupKindLabel(row: BackupRow) {
@@ -1561,8 +1560,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
         <p v-if="backupCreating" class="mb-2 text-sm text-muted-foreground">
           正在打包备份，完成后自动出现在列表（大世界可能需要数分钟）…
         </p>
-                  <YdTablePageLayout title="`控制台 · ${instance?.name ?? instanceId}`" :show-search="false">
-              <template #actions>
+        <div class="mcp-toolbar-row mb-3">
       <YdButton variant="outline" @click="router.push(listPath)">
       返回列表
     </YdButton>
@@ -1581,9 +1579,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
     <YdButton variant="outline" @click="router.push(filesPath)">
       文件管理
     </YdButton>
-              </template>
-              <template #table>
-<YdLoadingOverlay :loading="backupLoading"><YdResponsiveEnhancedTable
+        </div>
+        <YdLoadingOverlay :loading="backupLoading"><YdResponsiveEnhancedTable
           :actions="rowActions"
 
           
@@ -1619,8 +1616,6 @@ const rowActions: ActionMenuItem<unknown>[] = [
             {{ formatDateTime(row.original.at as number) }}
           </template>
 </YdResponsiveEnhancedTable></YdLoadingOverlay>
-              </template>
-            </YdTablePageLayout>
 
       </YdCard>
     </div>

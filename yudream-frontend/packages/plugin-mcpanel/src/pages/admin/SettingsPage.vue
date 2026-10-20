@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout, YdSettingsLayout } from '@yudream/components'
+import { YdLoadingOverlay, YdResponsiveEnhancedTable, YdSettingsLayout } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } from '@yudream/components'
 import { YdAlert, YdButton, YdCheckboxGroup, YdFileUpload, YdInput, YdModal, YdRadioGroup, YdSelect, YdSwitch, YdTag, useYdModal, useYdToast } from '@yudream/components'
@@ -406,7 +406,6 @@ const artifactColumns: TableColumn<McpInjectArtifact>[] = [
   { accessorKey: 'loaders', header: '加载器', minWidth: 130 },
   { id: 'mcRange', header: 'MC 版本', minWidth: 120 },
   { id: 'source', header: '来源', minWidth: 200 },
-  { id: 'operation', header: '操作', width: 170, align: 'center' },
 ]
 
 function mcRangeOf(artifact: McpInjectArtifact): string {
@@ -792,14 +791,18 @@ async function save() {
 
 onMounted(() => void load())
 
-/** 注入物行操作：编辑 / 删除（行索引定位） */
-const rowActions: ActionMenuItem<{ index: number }>[] = [
-  { label: '编辑', icon: 'morph:pencil', onClick: row => openArtifactEdit(row.index) },
-  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => removeArtifact(row.index) },
+/** 注入物行操作：编辑 / 删除（行回调携带行数据，按数据引用定位下标） */
+function artifactRowIndex(row: unknown): number {
+  return artifacts.value.indexOf(row as McpInjectArtifact)
+}
+
+const rowActions: ActionMenuItem<unknown>[] = [
+  { label: '编辑', icon: 'morph:pencil', onClick: row => openArtifactEdit(artifactRowIndex(row)) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => removeArtifact(artifactRowIndex(row)) },
 ]
 
-/** 设置页分区：单分区保持统一骨架 */
-const activeSection = ref('main')
+/** 设置页分区：默认显示首个有效分区。 */
+const activeSection = ref('sec1')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { label: "注入下载源（authlib-injector / 时长统计）", value: "sec1" },
   { label: "下载与导入", value: "sec2" },
@@ -824,7 +827,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     v-model="activeSection"
     :list="sectionList"
     surface
-    scroll
     width-class="max-w-[960px]"
   >
     <template #sec1>
@@ -906,11 +908,8 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
                   添加制品
                 </YdButton>
               </div>
-                      <YdTablePageLayout title="面板设置" :show-search="false">
-            <template #table>
-<YdResponsiveEnhancedTable
+              <YdResponsiveEnhancedTable
                 :actions="rowActions"
-
                 :columns="artifactColumns"
                 :data="artifacts"
                 row-key="name"
@@ -941,8 +940,6 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
                   <span v-else class="mcp-mono block truncate text-xs" :title="row.original.url">{{ row.original.url }}</span>
                 </template>
               </YdResponsiveEnhancedTable>
-            </template>
-          </YdTablePageLayout>
 
               <span class="mcp-form-hint">插件形态按 MC 版本区分（如 Paper 多版本）；模组形态按加载器（Fabric/Forge/NeoForge/Quilt）与 MC 版本细分。注入链路上线后按实例环境自动挑选匹配制品。</span>
             </div>
