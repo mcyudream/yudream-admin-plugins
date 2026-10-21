@@ -210,6 +210,19 @@ public class ActivityProofHttpFacade {
         return PluginHttpResponse.ok(appService.publicSquareActivity(pathSegment(request.path(), 2)));
     }
 
+    /** 公开活动列表（匿名可达）：面向全体部门且已发布/已结束的活动，供插件公开页与站点主题使用。 */
+    public PluginHttpResponse publicActivities(PluginHttpRequest request) {
+        int limit = Math.min(Math.max(intQuery(request, "size", 24), 1), 60);
+        List<Object> items = new ArrayList<>();
+        for (var activity : appService.publicSquareActivities(limit)) {
+            items.add(appService.toPublicDTO(activity, false));
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("items", items);
+        body.put("count", items.size());
+        return PluginHttpResponse.ok(body);
+    }
+
     /** 首页动态源（匿名可达）：公开活动按开始时间倒序，映射为宿主 MobileFeedItem。 */
     public PluginHttpResponse publicMobileFeed(PluginHttpRequest request) {
         int limit = Math.min(Math.max(intQuery(request, "size", 10), 1), 24);

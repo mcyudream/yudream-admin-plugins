@@ -9,6 +9,8 @@ import ActivityEditPage from './pages/ActivityEditPage.vue'
 import MappingsPage from './pages/MappingsPage.vue'
 import MinePage from './pages/MinePage.vue'
 import MyActivitiesPage from './pages/MyActivitiesPage.vue'
+import PublicActivityPage from './pages/PublicActivityPage.vue'
+import PublicSquarePage from './pages/PublicSquarePage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
 import SquarePage from './pages/SquarePage.vue'
@@ -21,6 +23,8 @@ const props = defineProps<{
 const componentName = computed(() => (props.route?.meta?.plugin as { component?: string } | undefined)?.component || '')
 
 const page = computed(() => {
+  if (componentName.value.endsWith('/PublicSquare')) return PublicSquarePage
+  if (componentName.value.endsWith('/PublicActivity')) return PublicActivityPage
   if (componentName.value.endsWith('/ActivityDetail')) return ActivityDetailPage
   if (componentName.value.endsWith('/MyActivities')) return MyActivitiesPage
   if (componentName.value.endsWith('/Mine')) return MinePage

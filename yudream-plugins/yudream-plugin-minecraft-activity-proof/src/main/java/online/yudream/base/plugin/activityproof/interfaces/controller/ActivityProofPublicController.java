@@ -6,7 +6,7 @@ import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
 
 /**
- * 公开站活动详情：匿名可达，只返回面向全体部门且已发布/已结束的活动。
+ * 公开站活动列表与详情：匿名可达，只返回面向全体部门且已发布/已结束的活动。
  */
 public class ActivityProofPublicController {
 
@@ -14,6 +14,11 @@ public class ActivityProofPublicController {
 
     public ActivityProofPublicController(ActivityProofHttpFacade http) {
         this.http = http;
+    }
+
+    @PluginHttpEndpoint(method = "GET", path = "/public/activities")
+    public PluginHttpResponse publicActivities(PluginHttpRequest request) {
+        return http.publicActivities(request);
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/public/activities/{id}")

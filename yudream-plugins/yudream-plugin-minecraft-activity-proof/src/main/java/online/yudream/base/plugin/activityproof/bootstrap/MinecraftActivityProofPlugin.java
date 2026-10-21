@@ -57,6 +57,28 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
         parentCode = "plugin:yudream-student-info:module:yudreamStudentInfo",
         styles = {"style.css"},
         routes = {
+                // 公开站页面（匿名可达）：插件停用即不注册；站点主题可将其嵌入主题菜单页
+                @PluginRoute(
+                        path = "/activities",
+                        name = "minecraft-activity-proof-public-square",
+                        title = "活动广场",
+                        icon = "i-ri:flag-line",
+                        component = "minecraft-activity-proof/PublicSquare",
+                        hideInMenu = true,
+                        publicAccess = true,
+                        siteNav = true
+                ),
+                @PluginRoute(
+                        path = "/activities/:id",
+                        name = "minecraft-activity-proof-public-detail",
+                        title = "活动详情",
+                        icon = "i-ri:flag-line",
+                        component = "minecraft-activity-proof/PublicActivity",
+                        hideInMenu = true,
+                        publicAccess = true,
+                        // 套公开站外壳（站点主题）；带参数路由不会进入站点导航
+                        siteNav = true
+                ),
                 @PluginRoute(
                         path = "/platform/plugins/yudream-student-info/activity-square",
                         name = "platform-plugin-yudream-student-info-activity-square",

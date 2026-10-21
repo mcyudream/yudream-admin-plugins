@@ -17,6 +17,8 @@ export const ActivityAdminDetail = ActivityProofPlugin
 export const Records = ActivityProofPlugin
 export const Mappings = ActivityProofPlugin
 export const Settings = ActivityProofPlugin
+export const PublicSquare = ActivityProofPlugin
+export const PublicActivity = ActivityProofPlugin
 
 export const routes = {
   Square,
@@ -32,6 +34,8 @@ export const routes = {
   DashboardActivityCard,
   'minecraft-activity-proof/DashboardActivityCard': DashboardActivityCard,
   'minecraft-activity-proof/Square': Square,
+  'minecraft-activity-proof/PublicSquare': PublicSquare,
+  'minecraft-activity-proof/PublicActivity': PublicActivity,
   'minecraft-activity-proof/ActivityDetail': ActivityDetail,
   'minecraft-activity-proof/MyActivities': MyActivities,
   'minecraft-activity-proof/Mine': Mine,
