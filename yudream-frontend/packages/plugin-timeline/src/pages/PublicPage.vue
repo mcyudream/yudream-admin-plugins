@@ -154,9 +154,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-
-  <YdPageHeader title="大事记" class="mb-0" />
-  <YdPageMain>  <div ref="root" class="tl-page">
+  <!-- 公开页自带首屏标题，不套后台页头/卡片（站点主题承载时由主题提供外壳） -->
+  <div ref="root" class="tl-page">
     <section class="tl-hero">
       <div class="tl-aurora tl-aurora-a" />
       <div class="tl-aurora tl-aurora-b" />
@@ -329,5 +328,4 @@ onBeforeUnmount(() => {
       </div>
     </YdModal>
   </div>
-</YdPageMain>
 </template>
