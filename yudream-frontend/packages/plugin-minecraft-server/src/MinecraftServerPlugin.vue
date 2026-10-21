@@ -8,6 +8,7 @@ import DetailPage from './pages/DetailPage.vue'
 import ListPage from './pages/ListPage.vue'
 import OperationsPage from './pages/OperationsPage.vue'
 import PlayersAdminPage from './pages/PlayersAdminPage.vue'
+import PublicListPage from './pages/PublicListPage.vue'
 import SeasonsPage from './pages/SeasonsPage.vue'
 import ServerEditorPage from './pages/ServerEditorPage.vue'
 
@@ -37,7 +38,9 @@ async function loadCurrentPage() {
   }
 }
 
-watch([page, () => props.route?.query?.id, isClosedPage], loadCurrentPage, { immediate: true })
+// 公开服务器列表匿名访问，不加载需要登录的管理数据
+const isPublicPage = computed(() => componentName.value === 'minecraft-server/Public')
+watch([page, () => props.route?.query?.id, isClosedPage], () => !isPublicPage.value && loadCurrentPage(), { immediate: true })
 </script>
 
-<template><div class="mc-plugin"><component :is="page" :model="model" /></div></template>
+<template><div class="mc-plugin"><PublicListPage v-if="isPublicPage" :sdk="sdk" /><component :is="page" v-else :model="model" /></div></template>

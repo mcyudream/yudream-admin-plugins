@@ -12,9 +12,10 @@ export const Editor = MinecraftServerPlugin
 export const Seasons = MinecraftServerPlugin
 export const Operations = MinecraftServerPlugin
 export const Players = MinecraftServerPlugin
+export const Public = MinecraftServerPlugin
 
 export const routes = {
-  List, Closed, Detail, Admin, Editor, Seasons, Operations, Players,
+  List, Closed, Detail, Admin, Editor, Seasons, Operations, Players, Public,
   'minecraft-server/List': List,
   'minecraft-server/Closed': Closed,
   'minecraft-server/Detail': Detail,
@@ -23,6 +24,7 @@ export const routes = {
   'minecraft-server/Seasons': Seasons,
   'minecraft-server/Operations': Operations,
   'minecraft-server/Players': Players,
+  'minecraft-server/Public': Public,
 }
 
 export {
@@ -34,6 +36,7 @@ export {
   Seasons as 'minecraft-server/Seasons',
   Operations as 'minecraft-server/Operations',
   Players as 'minecraft-server/Players',
+  Public as 'minecraft-server/Public',
 }
 
 export default defineYuDreamPlugin({ routes, default: List })

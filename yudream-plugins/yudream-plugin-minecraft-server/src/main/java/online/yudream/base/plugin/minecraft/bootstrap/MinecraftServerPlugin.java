@@ -61,6 +61,17 @@ import java.util.Set;
         menuSort = 45,
         styles = {"style.css"},
         routes = {
+                // 公开服务器列表：匿名可访问，进入公开站导航；站点主题经宿主页面承载提供外壳
+                @PluginRoute(
+                        path = "/servers",
+                        name = "minecraft-server-public",
+                        title = "服务器",
+                        icon = "i-ri:server-line",
+                        component = "minecraft-server/Public",
+                        hideInMenu = true,
+                        publicAccess = true,
+                        siteNav = true
+                ),
                 @PluginRoute(
                         path = "/platform/plugins/minecraft-server",
                         name = "platform-plugin-minecraft-server-list",
