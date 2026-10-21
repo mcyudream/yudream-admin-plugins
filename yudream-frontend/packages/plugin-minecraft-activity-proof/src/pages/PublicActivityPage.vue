@@ -9,6 +9,7 @@ import CoverThumb from '../components/CoverThumb.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { usePublicActivities } from '../composables/usePublicActivities'
 import { activityStage, activityStageTag, formatTimeRange, resolveFileUrl, resolveThumbUrl } from '../composables/utils'
+import ActivityCoverPlaceholder from '../components/ActivityCoverPlaceholder.vue'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk, route?: RouteLocationNormalizedLoaded }>()
 
@@ -43,9 +44,7 @@ function join() {
         <article v-else-if="activity" class="activity-public-detail">
           <div class="activity-card-cover activity-public-detail__cover">
             <CoverThumb v-if="activity.coverUrl" :src="resolveThumbUrl(sdk, activity.coverUrl)" :fallback-src="resolveFileUrl(sdk, activity.coverUrl)" :alt="activity.title" />
-            <div v-else class="activity-card-cover-placeholder">
-              <YdIcon name="i-ri:image-line" class="text-3xl" />
-            </div>
+            <ActivityCoverPlaceholder v-else :title="activity.title" size="hero" />
             <YdTag v-if="stage" class="activity-card-tag" :variant="stage.variant">
               {{ stage.text }}
             </YdTag>

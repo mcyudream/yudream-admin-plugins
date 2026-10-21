@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 import CoverThumb from '../components/CoverThumb.vue'
 import { useSquare } from '../composables/useSquare'
 import { activityStage, activityStageTag, formatTimeRange, isActivityEnded } from '../composables/utils'
+import ActivityCoverPlaceholder from '../components/ActivityCoverPlaceholder.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -65,9 +66,7 @@ function openDetail(activity: UserActivity) {
                 :fallback-src="model.coverOf(activity)"
                 :alt="activity.title"
               />
-              <div v-else class="activity-card-cover-placeholder">
-                <YdIcon name="i-ri:image-line" class="text-3xl" />
-              </div>
+              <ActivityCoverPlaceholder v-else :title="activity.title" size="card" />
               <YdTag class="activity-card-tag" :variant="statusTag(activity).variant">
                 {{ statusTag(activity).text }}
               </YdTag>

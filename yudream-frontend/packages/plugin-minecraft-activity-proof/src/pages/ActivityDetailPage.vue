@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router'
 import { useActivityDetail } from '../composables/useActivityDetail'
 import { activityStage, activityStageTag, formatTime, formatTimeRange, isActivityEnded } from '../composables/utils'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
+import ActivityCoverPlaceholder from '../components/ActivityCoverPlaceholder.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -134,9 +135,7 @@ function back() {
         <template v-else-if="activity">
           <div class="activity-detail-hero" :class="{ 'activity-detail-hero-empty': !activity.coverUrl }">
             <img v-if="activity.coverUrl" :src="model.coverOf(activity)" :alt="activity.title">
-            <div v-else class="activity-card-cover-placeholder activity-detail-hero-placeholder">
-              <YdIcon name="i-ri:image-line" class="text-4xl" />
-            </div>
+            <ActivityCoverPlaceholder v-else :title="activity.title" size="hero" class="activity-detail-hero-placeholder" />
           </div>
           <div class="activity-detail-layout">
             <div class="activity-detail-main">

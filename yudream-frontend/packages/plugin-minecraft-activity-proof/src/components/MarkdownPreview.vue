@@ -21,3 +21,28 @@ const resolvedContent = computed(() => resolveMarkdownFileUrls(props.sdk, props.
     :model-value="resolvedContent"
   />
 </template>
+
+<style scoped>
+/* 预览不自带底色与文字色：跟随所在页面（后台明暗、公开站主题皮肤），避免深色页面里出现白底块 */
+.ap-markdown-preview {
+  --md-bk-color: transparent;
+  --md-color: inherit;
+  --md-theme-color: inherit;
+  --md-theme-color-reverse: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.ap-markdown-preview :deep(.md-editor-preview) {
+  color: inherit;
+}
+
+.ap-markdown-preview :deep(.md-editor-preview a) {
+  color: var(--yb-site-primary, var(--color-link-6, currentColor));
+}
+
+.ap-markdown-preview :deep(.md-editor-preview code:not(pre code)) {
+  color: inherit;
+  background: rgb(127 127 127 / 18%);
+}
+</style>
