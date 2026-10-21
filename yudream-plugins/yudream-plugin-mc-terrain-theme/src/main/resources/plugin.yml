@@ -1,0 +1,13 @@
+name: mc-terrain-theme
+displayName: 方块地形主题
+description: Minecraft 风格公开站主题：六个地形世界、底部物品栏导航、像素面板、背景音乐与界面音效；站点由网站工作台编辑，内容在「站点内容」页修改
+icon: i-ri:landscape-line
+main: online.yudream.base.plugin.mcterrain.bootstrap.McTerrainThemePlugin
+version: 1.0.0
+menu:
+  # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
+  category: appearance
+softdepend:
+  - minecraft-server
+  - minecraft-activity-proof
+  - timeline

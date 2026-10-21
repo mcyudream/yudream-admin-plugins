@@ -92,6 +92,7 @@ migration/        迁移任务与状态
 - CSS 使用声明式 `style.css`：Vite `yuDreamPluginUnoCss()`（`@yudream/plugin-sdk/uno-config`）、入口 `virtual:uno.css`、lib `cssFileName:'style'`、`@PluginFrontend(styles={"style.css"})`。禁止 `styles.css?inline` + `install()` 手写 style。
 - SDK ≥1.6.0 CSS 进入 `@layer yudream-plugin`，层序 `yudream-base < yudream-plugin < host utilities`；只用宿主主题语义变量；不全局 reset/固定品牌色/覆盖宿主同名工具类。ADMIN 根变量覆盖、SITE 仅 SITE scope；功能动画三外观都保留。
 - 插件主题 style.css 只有唯一 scope 可声明 `--primary-N`：SITE 要明确 SITE 锚点，ADMIN 限 `:root/.dark`；消费仍违规，未证明隔离的 SITE/ADMIN 双 scope fail-closed。
+- 工作台站点型 SITE 主题：在 homePreset JSON 的 `studioPackage` 携带站点便携包，媒体放进本插件前端资产目录并按 `/api/platform/plugins/{code}/assets/...` 引用，禁止引用 `/api/files/...`；激活时宿主仅在无站点时导入发布，规则见主仓 `docs/plugin-system/specification.md`「主题自带工作台站点」。
 - 禁止浏览器/宿主对 `assets/**` 通配扫描盲加载（含动态 chunk/CSS/fonts/images），动态 ESM chunk 按需加载。非 Vite 或入口前必须执行脚本才显式声明 styles/scripts，路径相对、不含 `/` 开头、`..`、反斜杠，顺序稳定去重。
 - 静态资源进 dist；使用已发布 SDK `sdk.assets.url("assets/logo.svg")` 或构建相对 URL，不写宿主 origin。受保护下载用 SDK blob，不用裸 window.open。
 

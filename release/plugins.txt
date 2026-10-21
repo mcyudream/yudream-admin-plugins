@@ -26,3 +26,4 @@ yudream-plugin-mc-news
 yudream-plugin-mcguess
 yudream-plugin-alipay
 yudream-plugin-wallet
+yudream-plugin-mc-terrain-theme

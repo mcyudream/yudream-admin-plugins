@@ -63,6 +63,7 @@
         <module>yudream-plugins/yudream-plugin-feedback</module>
         <module>yudream-plugins/yudream-plugin-mc-pet</module>
         <module>yudream-plugins/yudream-plugin-neco-pixel</module>
+        <module>yudream-plugins/yudream-plugin-mc-terrain-theme</module>
         <module>yudream-plugins/yudream-plugin-mc-news</module>
         <module>yudream-plugins/yudream-plugin-mcpanel</module>
         <module>yudream-plugins/yudream-plugin-launcher-adapter</module>
