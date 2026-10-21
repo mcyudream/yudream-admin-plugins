@@ -52,3 +52,9 @@ export function formatSize(bytes?: number | null) {
 	}
 	return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 1)} ${units[unit]}`
 }
+
+/** 长 ID/哈希在表格单元格内截断展示，完整值由 title 悬浮查看。 */
+export function shortId(value?: string | null, head = 8, tail = 4) {
+	const text = String(value ?? '')
+	return text.length > head + tail + 1 ? `${text.slice(0, head)}…${text.slice(-tail)}` : text
+}

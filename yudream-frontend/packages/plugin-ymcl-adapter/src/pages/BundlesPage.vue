@@ -6,7 +6,7 @@ import { YdAction, YdButton, YdCard, YdIcon, YdFilePicker, YdInput, YdPageHeader
 import type { TableColumn, YdFilePickerInstance, ActionMenuItem } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
-import { formatSize, formatTime } from '../composables/ymcl-protocol'
+import { formatSize, formatTime, shortId } from '../composables/ymcl-protocol'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const model = useYmclAdapter(props.sdk)
@@ -117,7 +117,7 @@ const rowActions: ActionMenuItem<BundleDoc>[] = [
           <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
               :actions="rowActions"
 
-            table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+            table-root-class="max-w-full rounded-lg" table-class="min-w-[700px]"
             
             :columns="bundleColumns"
             :data="model.bundles"
@@ -125,6 +125,9 @@ const rowActions: ActionMenuItem<BundleDoc>[] = [
           >
             <template #empty>
               <span class="ymcl-muted">暂无扩展页面包。</span>
+            </template>
+            <template #cell-bundleId="{ row }">
+              <code class="ymcl-hash ymcl-truncate" :title="row.original.bundleId">{{ shortId(row.original.bundleId) }}</code>
             </template>
             <template #cell-sha256="{ row }">
               <YdAction type="button" class="ymcl-hash ymcl-hash--button" title="点击复制完整 sha256" @click="copyHash(row.original)">

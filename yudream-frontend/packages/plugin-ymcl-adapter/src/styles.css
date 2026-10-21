@@ -280,6 +280,14 @@
   overflow-wrap: anywhere;
 }
 
+.ymcl-truncate {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ymcl-hash {
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -913,9 +921,9 @@
   height: 42px;
   flex-shrink: 0;
   font-size: 20px;
-  color: var(--primary, #3b82f6);
+  color: var(--yd-emphasis, var(--color-text-1, #3b82f6));
   border-radius: 10px;
-  background: color-mix(in srgb, var(--primary, #3b82f6) 10%, transparent);
+  background: color-mix(in oklab, var(--yd-emphasis, var(--color-text-1, #3b82f6)) 10%, transparent);
 }
 
 .ymcl-stats-metric__body {
@@ -932,7 +940,7 @@
 }
 
 .ymcl-stats-metric__label {
-  color: var(--muted-foreground, #6b7280);
+  color: var(--color-text-3);
   font-size: 12px;
 }
 
@@ -969,7 +977,7 @@
 }
 
 .ymcl-stats-chart__bar-value {
-  color: var(--muted-foreground, #6b7280);
+  color: var(--color-text-3);
   font-size: 11px;
   line-height: 1;
 }
@@ -978,16 +986,16 @@
   width: 100%;
   max-width: 48px;
   border-radius: 4px 4px 0 0;
-  background: color-mix(in srgb, var(--primary, #3b82f6) 65%, transparent);
+  background: color-mix(in oklab, var(--yd-emphasis, var(--color-text-1, #3b82f6)) 70%, transparent);
   transition: background 0.15s ease;
 }
 
 .ymcl-stats-chart__bar:hover .ymcl-stats-chart__bar-fill {
-  background: var(--primary, #3b82f6);
+  background: var(--yd-emphasis, var(--color-text-1, #3b82f6));
 }
 
 .ymcl-stats-chart__bar-day {
-  color: var(--muted-foreground, #6b7280);
+  color: var(--color-text-3);
   font-size: 10px;
   line-height: 1;
   white-space: nowrap;

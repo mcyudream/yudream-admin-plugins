@@ -6,7 +6,7 @@ import { YdCard, YdIcon, YdPageMain, YdTag, useYdToast, YdResponsiveEnhancedTabl
 import type { TableColumn } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createYmclApi } from '../api/ymcl-api'
-import { formatTime } from '../composables/ymcl-protocol'
+import { formatTime, shortId } from '../composables/ymcl-protocol'
 import type { StatsSummary } from '../types'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
@@ -34,10 +34,10 @@ const trendMax = computed(() =>
   Math.max(1, ...(summary.value?.days || []).map(point => point.total)))
 
 const scopeColumns: TableColumn<StatsScopeEntry>[] = [
-  { id: 'name', header: '名称', minWidth: 150 },
-  { id: 'refId', header: 'ID', minWidth: 130 },
-  { id: 'launches', header: '启动次数', width: 100 },
-  { id: 'lastLaunchAt', header: '最近启动', width: 160 },
+  { id: 'name', header: '名称', minWidth: 120 },
+  { id: 'refId', header: 'ID', width: 120 },
+  { id: 'launches', header: '启动次数', width: 90 },
+  { id: 'lastLaunchAt', header: '最近启动', width: 150 },
 ]
 
 const eventColumns: TableColumn<LaunchEventView>[] = [
@@ -147,7 +147,7 @@ onMounted(() => {
         <div class="ymcl-stats-grid">
           <YdCard title="Top 服务器" content-class="ymcl-card-content">
             <YdResponsiveEnhancedTable
-              table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+              table-root-class="max-w-full rounded-lg" table-class="min-w-[520px]"
               :columns="scopeColumns"
               :data="summary?.topServers || []"
               row-key="refId"
@@ -156,12 +156,16 @@ onMounted(() => {
                 <span class="ymcl-muted">暂无服务器启动记录</span>
               </template>
               <template #cell-name="{ row }">
-                <span :class="row.original.name === row.original.refId ? 'ymcl-muted' : ''">
+                <span
+                  class="ymcl-truncate"
+                  :class="row.original.name === row.original.refId ? 'ymcl-muted' : ''"
+                  :title="row.original.name || scopeRef(row.original)"
+                >
                   {{ row.original.name || scopeRef(row.original) }}
                 </span>
               </template>
               <template #cell-refId="{ row }">
-                <code class="ymcl-hash">{{ scopeRef(row.original) }}</code>
+                <code class="ymcl-hash ymcl-truncate" :title="scopeRef(row.original)">{{ shortId(scopeRef(row.original)) }}</code>
               </template>
               <template #cell-launches="{ row }">
                 {{ row.original.launches.toLocaleString() }}
@@ -174,7 +178,7 @@ onMounted(() => {
 
           <YdCard title="Top 整合包" content-class="ymcl-card-content">
             <YdResponsiveEnhancedTable
-              table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+              table-root-class="max-w-full rounded-lg" table-class="min-w-[520px]"
               :columns="scopeColumns"
               :data="summary?.topPacks || []"
               row-key="refId"
@@ -183,12 +187,16 @@ onMounted(() => {
                 <span class="ymcl-muted">暂无整合包启动记录</span>
               </template>
               <template #cell-name="{ row }">
-                <span :class="row.original.name === row.original.refId ? 'ymcl-muted' : ''">
+                <span
+                  class="ymcl-truncate"
+                  :class="row.original.name === row.original.refId ? 'ymcl-muted' : ''"
+                  :title="row.original.name || scopeRef(row.original)"
+                >
                   {{ row.original.name || scopeRef(row.original) }}
                 </span>
               </template>
               <template #cell-refId="{ row }">
-                <code class="ymcl-hash">{{ scopeRef(row.original) }}</code>
+                <code class="ymcl-hash ymcl-truncate" :title="scopeRef(row.original)">{{ shortId(scopeRef(row.original)) }}</code>
               </template>
               <template #cell-launches="{ row }">
                 {{ row.original.launches.toLocaleString() }}
@@ -221,7 +229,7 @@ onMounted(() => {
 
         <YdCard title="最近启动动态" content-class="ymcl-card-content">
           <YdResponsiveEnhancedTable
-            table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+            table-root-class="max-w-full rounded-lg" table-class="min-w-[980px]"
             :columns="eventColumns"
             :data="launches"
             row-key="id"

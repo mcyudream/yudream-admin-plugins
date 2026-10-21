@@ -8,7 +8,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import FilePreviewDrawer from '../components/FilePreviewDrawer.vue'
 import JsonViewDrawer from '../components/JsonViewDrawer.vue'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
-import { formatSize, formatTime } from '../composables/ymcl-protocol'
+import { formatSize, formatTime, shortId } from '../composables/ymcl-protocol'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const model = useYmclAdapter(props.sdk)
@@ -215,13 +215,16 @@ const fileActions: ActionMenuItem<ManifestFileEntry>[] = [
           :columns="packColumns"
           :data="pagedPacks"
           row-key="packId"
-          table-root-class="rounded-lg overflow-hidden"
+          table-root-class="rounded-lg" table-class="min-w-[580px]"
           border
           stripe
           column-visibility
         >
           <template #empty>
             <span class="ymcl-muted">暂无整合包。通过 YMCL 启动器发布控制台推送后在此可见。</span>
+          </template>
+          <template #cell-packId="{ row }">
+            <code class="ymcl-hash ymcl-truncate" :title="row.original.packId">{{ shortId(row.original.packId) }}</code>
           </template>
           <template #cell-name="{ row }">
             <div class="ymcl-pack-name">
@@ -299,7 +302,7 @@ const fileActions: ActionMenuItem<ManifestFileEntry>[] = [
   >
     <YdLoadingOverlay :loading="versionsLoading"><div class="ymcl-drawer-body">
       <YdResponsiveEnhancedTable
-        table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+        table-root-class="max-w-full rounded-lg"
         v-if="activeVersions.length"
         :columns="versionColumns"
         :data="activeVersions"
@@ -338,7 +341,7 @@ const fileActions: ActionMenuItem<ManifestFileEntry>[] = [
           </YdButton>
         </div>
         <YdResponsiveEnhancedTable
-          table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+          table-root-class="max-w-full rounded-lg" table-class="min-w-[580px]"
           :columns="fileColumns"
           :data="versionFiles"
           row-key="path"

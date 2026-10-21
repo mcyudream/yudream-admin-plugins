@@ -6,7 +6,7 @@ import { YdButton, YdInput, YdModal, YdSelect, YdTag, useYdToast, YdResponsiveEn
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
-import { formatTime } from '../composables/ymcl-protocol'
+import { formatTime, shortId } from '../composables/ymcl-protocol'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const model = useYmclAdapter(props.sdk)
@@ -149,7 +149,7 @@ const rowActions: ActionMenuItem<ServerView>[] = [
 <YdLoadingOverlay :loading="model.loading"><YdResponsiveEnhancedTable
               :actions="rowActions"
 
-          table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+          table-root-class="max-w-full rounded-lg" table-class="min-w-[820px]"
           
           :columns="serverColumns"
           :data="model.servers"
@@ -161,7 +161,7 @@ const rowActions: ActionMenuItem<ServerView>[] = [
           <template #cell-name="{ row }">
             <div class="flex min-w-0 flex-col">
               <strong class="truncate">{{ serverName(row.original) }}</strong>
-              <span v-if="row.original.serverId" class="ymcl-muted ymcl-break">{{ row.original.serverId }}</span>
+              <span v-if="row.original.serverId" class="ymcl-muted ymcl-truncate" :title="row.original.serverId">{{ shortId(row.original.serverId) }}</span>
             </div>
           </template>
           <template #cell-mcAddress="{ row }">

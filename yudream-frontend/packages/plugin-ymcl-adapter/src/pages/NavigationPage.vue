@@ -13,7 +13,7 @@ import {
   remixIconName as remixIcon,
 } from '../composables/nav-icons'
 import { useYmclAdapter } from '../composables/useYmclAdapter'
-import { formatTime } from '../composables/ymcl-protocol'
+import { formatTime, shortId } from '../composables/ymcl-protocol'
 
 /** 与后端 YmclChromeHomeController.MAX_NAVIGATION_DEPTH 一致 */
 const MAX_DEPTH = 8
@@ -789,7 +789,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
               :actions="rowActions"
 
               
-              table-root-class="max-w-full overflow-x-auto rounded-lg overflow-hidden"
+              table-root-class="max-w-full rounded-lg" table-class="min-w-[720px]"
               :columns="registryColumns"
               :data="model.navForm.pages"
               row-key="pageId"
@@ -813,7 +813,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
                 </YdTag>
               </template>
               <template #cell-route="{ row }">
-                <code class="ymcl-hash">{{ row.original.route || row.original.pageId }}</code>
+                <code class="ymcl-hash ymcl-truncate" :title="row.original.route || row.original.pageId">{{ shortId(row.original.route || row.original.pageId) }}</code>
               </template>
               <template #cell-requiredPermission="{ row }">
                 <span v-if="row.original.requiredPermission" class="ymcl-break">{{ row.original.requiredPermission }}</span>
