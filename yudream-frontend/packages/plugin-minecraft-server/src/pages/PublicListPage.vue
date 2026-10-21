@@ -155,9 +155,19 @@ async function copyAddress(server: PublicServer) {
   font-size: 13px;
 }
 
+/* 窄屏：图标与名称同行，简介占满一行，复制按钮单独一行占满宽度 */
 @media (width <= 640px) {
   .mc-public-servers__row {
     flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .mc-public-servers__main {
+    flex: 1 1 calc(100% - 64px);
+  }
+
+  .mc-public-servers__row > :last-child {
+    width: 100%;
   }
 }
 </style>
