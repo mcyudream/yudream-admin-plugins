@@ -79,3 +79,7 @@ mvn -pl yudream-plugins/yudream-plugin-{code} -am package -DskipTests
 - 修改 `docs/yd-ui-guidelines.md` 必须先改宿主权威，再同一工作项同步插件副本。更新组件契约还需走发布验签后才能改本仓依赖。
 - 经验格式：现象/根因/规避/来源；稳定规则从经验提炼进规范。
 - secrets 只进被 gitignore 的 `docs/local.md`；`docs/plan/` 为不提交计划层。
+
+## 7. AOCI 按任务范围读取
+
+读取预算、精确条目分批、压缩恢复与全量读取的唯一规范正文是主仓 `docs/dev/conventions.md` 的「AOCI 按任务范围读取」节。本仓根 `AGENTS.md` 同步用户指定的读取覆盖条款，执行该规范；普通任务和上下文压缩恢复均按任务范围局部读取。
