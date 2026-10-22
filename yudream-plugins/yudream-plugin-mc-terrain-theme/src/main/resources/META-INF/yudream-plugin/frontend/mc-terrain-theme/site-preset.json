@@ -1111,6 +1111,417 @@
             ]
            }
           ]
+         },
+         {
+          "id": "03c55dea-37ea-4e75-9f8a-557433655855",
+          "type": "div",
+          "tag": "div",
+          "attributes": {
+           "class": "hotbar-compact",
+           "aria-label": "快捷栏"
+          },
+          "styles": {},
+          "children": [
+           {
+            "id": "64e1f33e-abec-4e13-a373-6b4862822c15",
+            "type": "div",
+            "tag": "div",
+            "attributes": {
+             "class": "hb-group hb-menu-group",
+             "data-yd-menu": "true"
+            },
+            "styles": {},
+            "children": [
+             {
+              "id": "905ff66c-f8ad-4efc-b924-90a3609afc6e",
+              "type": "button",
+              "tag": "button",
+              "attributes": {
+               "class": "hb x-d1yn99 x-1r9wi7g hb-side-slot",
+               "type": "button",
+               "title": "菜单",
+               "aria-label": "打开站点菜单",
+               "data-yd-menu-trigger": "true"
+              },
+              "styles": {},
+              "children": [
+               {
+                "id": "f23a729b-1bc6-45a5-868e-29b23d71a971",
+                "type": "span",
+                "tag": "span",
+                "attributes": {
+                 "class": "hb-glyph",
+                 "aria-hidden": "true"
+                },
+                "styles": {},
+                "children": [],
+                "text": "☰"
+               },
+               {
+                "id": "34ace14a-7df3-4365-9cd1-001bb20d8d4c",
+                "type": "span",
+                "tag": "span",
+                "attributes": {
+                 "class": "slot-label x-d1yn99 x-pjnefu"
+                },
+                "styles": {},
+                "children": [],
+                "text": "菜单"
+               }
+              ]
+             },
+             {
+              "id": "a39f68b9-848f-423d-ac13-813482f8418d",
+              "type": "div",
+              "tag": "div",
+              "attributes": {
+               "class": "hb-menu-panel",
+               "data-yd-submenu": "true",
+               "role": "menu",
+               "aria-label": "站点导航"
+              },
+              "styles": {},
+              "children": [
+               {
+                "id": "459f16f2-e51d-4704-b91d-df044311cb30",
+                "type": "div",
+                "tag": "div",
+                "attributes": {
+                 "class": "hb-menu-title"
+                },
+                "styles": {},
+                "children": [],
+                "text": "选择世界"
+               },
+               {
+                "id": "c67ff827-a3fe-4e20-bc34-f76a3f5b9319",
+                "type": "div",
+                "tag": "div",
+                "attributes": {
+                 "class": "hb-menu-list",
+                 "data-yd-source": "site:navigation",
+                 "data-yd-limit": "12"
+                },
+                "styles": {},
+                "children": [
+                 {
+                  "id": "809b8c49-cb06-4e8a-8681-42dba590ba48",
+                  "type": "div",
+                  "tag": "div",
+                  "attributes": {
+                   "class": "hb-menu-item",
+                   "data-yd-item": "true"
+                  },
+                  "styles": {},
+                  "children": [
+                   {
+                    "id": "33b12b36-9905-48c2-b33d-e21c49634f7a",
+                    "type": "link",
+                    "tag": "a",
+                    "attributes": {
+                     "class": "hb-menu-link",
+                     "href": "/site",
+                     "data-yd-href": "url"
+                    },
+                    "styles": {},
+                    "children": [
+                     {
+                      "id": "a1e9471e-c91c-4904-8184-cbfaed183044",
+                      "type": "image",
+                      "tag": "img",
+                      "attributes": {
+                       "class": "hb-menu-icon x-10vj30k",
+                       "src": "/api/platform/plugins/mc-terrain-theme/assets/media/img/items/ender_eye.png",
+                       "alt": "",
+                       "data-yd-src": "icon"
+                      },
+                      "styles": {},
+                      "children": []
+                     },
+                     {
+                      "id": "9403da28-e3b5-47c0-8716-ac1f74a426a4",
+                      "type": "span",
+                      "tag": "span",
+                      "attributes": {
+                       "class": "hb-menu-label",
+                       "data-yd-text": "label"
+                      },
+                      "styles": {},
+                      "children": [],
+                      "text": "首页"
+                     }
+                    ]
+                   },
+                   {
+                    "id": "53700d3c-ce14-464d-8bdc-9f2ea3f35694",
+                    "type": "div",
+                    "tag": "div",
+                    "attributes": {
+                     "class": "hb-menu-children",
+                     "data-yd-each": "children"
+                    },
+                    "styles": {},
+                    "children": [
+                     {
+                      "id": "9d680bfa-8d42-4722-9204-ebf7efa5cb68",
+                      "type": "link",
+                      "tag": "a",
+                      "attributes": {
+                       "class": "hb-menu-sublink",
+                       "href": "/site",
+                       "data-yd-item": "true",
+                       "data-yd-text": "label",
+                       "data-yd-href": "url"
+                      },
+                      "styles": {},
+                      "children": [],
+                      "text": "子菜单"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "id": "6d121a1b-29bf-4689-9a53-d243be53e7e0",
+            "type": "div",
+            "tag": "div",
+            "attributes": {
+             "data-yd-menu": "true",
+             "class": "hb-group hb-account"
+            },
+            "styles": {},
+            "children": [
+             {
+              "id": "54665d73-89e7-4fde-9f5d-60d56861d901",
+              "type": "link",
+              "tag": "a",
+              "attributes": {
+               "href": "/login",
+               "title": "登录",
+               "data-yd-auth": "guest",
+               "data-yd-host-link": "",
+               "class": "hb x-d1yn99 x-1r9wi7g hb-side-slot"
+              },
+              "styles": {},
+              "children": [
+               {
+                "id": "ea64bc92-a23f-4cc1-8382-e15ebb97b56b",
+                "type": "image",
+                "tag": "img",
+                "attributes": {
+                 "src": "/api/platform/plugins/mc-terrain-theme/assets/media/img/items/written_book.png",
+                 "alt": "",
+                 "class": "x-d1yn99 x-10vj30k x-pfckfs"
+                },
+                "styles": {},
+                "children": []
+               },
+               {
+                "id": "a4107e8a-6502-4065-924d-022b809e276e",
+                "type": "span",
+                "tag": "span",
+                "attributes": {
+                 "class": "slot-label x-d1yn99 x-pjnefu"
+                },
+                "styles": {},
+                "children": [],
+                "text": "登录"
+               }
+              ]
+             },
+             {
+              "id": "afbe1b6d-8ded-4c2d-abd9-cf53bedf54a9",
+              "type": "button",
+              "tag": "button",
+              "attributes": {
+               "type": "button",
+               "title": "账号",
+               "aria-haspopup": "menu",
+               "data-yd-auth": "user",
+               "data-yd-menu-trigger": "true",
+               "class": "hb x-d1yn99 x-1r9wi7g hb-side-slot"
+              },
+              "styles": {},
+              "children": [
+               {
+                "id": "3f07b7c2-6c0a-4ab1-86bc-c42ff110872a",
+                "type": "image",
+                "tag": "img",
+                "attributes": {
+                 "alt": "",
+                 "data-yd-account": "avatar",
+                 "class": "hb-avatar"
+                },
+                "styles": {},
+                "children": []
+               },
+               {
+                "id": "bbc220bb-5104-43ce-8d6a-75e51840dac9",
+                "type": "span",
+                "tag": "span",
+                "attributes": {
+                 "data-yd-account": "initial",
+                 "class": "hb-initial"
+                },
+                "styles": {},
+                "children": [],
+                "text": "?"
+               },
+               {
+                "id": "0bf17d5f-cb79-4509-9622-644091a348d6",
+                "type": "span",
+                "tag": "span",
+                "attributes": {
+                 "data-yd-account": "name",
+                 "class": "slot-label x-d1yn99 x-pjnefu"
+                },
+                "styles": {},
+                "children": [],
+                "text": "账号"
+               }
+              ]
+             },
+             {
+              "id": "75e2bf63-9533-490e-bf38-9c06d977cd54",
+              "type": "div",
+              "tag": "div",
+              "attributes": {
+               "data-yd-submenu": "true",
+               "data-yd-auth": "user",
+               "role": "menu",
+               "class": "hb-sub"
+              },
+              "styles": {},
+              "children": [
+               {
+                "id": "0793d63c-103e-49ae-b38c-e09eab7b6140",
+                "type": "link",
+                "tag": "a",
+                "attributes": {
+                 "href": "/",
+                 "role": "menuitem",
+                 "data-yd-host-link": "",
+                 "class": "hb-sub-link"
+                },
+                "styles": {},
+                "children": [],
+                "text": "控制台"
+               },
+               {
+                "id": "64b6722d-b52c-4323-9fab-3b70a6f093d2",
+                "type": "link",
+                "tag": "a",
+                "attributes": {
+                 "href": "/profile",
+                 "role": "menuitem",
+                 "data-yd-host-link": "",
+                 "class": "hb-sub-link"
+                },
+                "styles": {},
+                "children": [],
+                "text": "个人资料"
+               },
+               {
+                "id": "a137e295-91c3-4e2c-be44-685413d6d564",
+                "type": "link",
+                "tag": "a",
+                "attributes": {
+                 "href": "/logout",
+                 "role": "menuitem",
+                 "data-yd-host-link": "",
+                 "class": "hb-sub-link hb-sub-danger"
+                },
+                "styles": {},
+                "children": [],
+                "text": "退出登录"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "id": "79140ed9-5295-4d23-85fd-3b23be22342b",
+            "type": "button",
+            "tag": "button",
+            "attributes": {
+             "type": "button",
+             "title": "背景音乐（M）",
+             "aria-label": "背景音乐",
+             "data-yd-action": "toggle-music",
+             "class": "hb x-d1yn99 x-1r9wi7g hb-side-slot hb-toggle"
+            },
+            "styles": {},
+            "children": [
+             {
+              "id": "3d09e5b3-7a65-46ae-8ea9-0790c89f55f7",
+              "type": "span",
+              "tag": "span",
+              "attributes": {
+               "aria-hidden": "true",
+               "class": "hb-glyph"
+              },
+              "styles": {},
+              "children": [],
+              "text": "♫"
+             },
+             {
+              "id": "1150f75e-af99-4db3-8a0e-e1236fbb229f",
+              "type": "span",
+              "tag": "span",
+              "attributes": {
+               "class": "slot-label x-d1yn99 x-pjnefu"
+              },
+              "styles": {},
+              "children": [],
+              "text": "音乐"
+             }
+            ]
+           },
+           {
+            "id": "eaabd8dd-428d-4977-a507-29cd5bf09fc5",
+            "type": "button",
+            "tag": "button",
+            "attributes": {
+             "type": "button",
+             "title": "点击音效（S）",
+             "aria-label": "点击音效",
+             "data-yd-action": "toggle-sound",
+             "class": "hb x-d1yn99 x-1r9wi7g hb-side-slot hb-toggle"
+            },
+            "styles": {},
+            "children": [
+             {
+              "id": "5639f896-2bdd-484f-9d1f-1f983d1f524d",
+              "type": "span",
+              "tag": "span",
+              "attributes": {
+               "aria-hidden": "true",
+               "class": "hb-glyph"
+              },
+              "styles": {},
+              "children": [],
+              "text": "♪"
+             },
+             {
+              "id": "4a0d13c3-5e8b-45e0-9070-ec9a598cc6cb",
+              "type": "span",
+              "tag": "span",
+              "attributes": {
+               "class": "slot-label x-d1yn99 x-pjnefu"
+              },
+              "styles": {},
+              "children": [],
+              "text": "音效"
+             }
+            ]
+           }
+          ]
          }
         ]
        }
@@ -2181,9 +2592,9 @@
       },
       "responsive": {
        "mobile": {
-        "width": "34px",
-        "height": "34px",
-        "box-shadow": "inset 2px 2px #373737,inset -2px -2px #fff"
+        "width": "44px",
+        "height": "44px",
+        "box-shadow": "inset 3px 3px #373737,inset -3px -3px #fff"
        }
       }
      },
@@ -2857,7 +3268,8 @@
       "responsive": {
        "mobile": {
         "grid-auto-columns": "34px",
-        "gap": "1px"
+        "gap": "1px",
+        "display": "none"
        }
       }
      },
@@ -4147,8 +4559,8 @@
       },
       "responsive": {
        "mobile": {
-        "width": "22px",
-        "height": "22px"
+        "width": "30px",
+        "height": "30px"
        }
       }
      },
@@ -4767,7 +5179,10 @@
       "responsive": {
        "mobile": {
         "bottom": "max(8px, env(safe-area-inset-bottom))",
-        "gap": "2px"
+        "gap": "2px",
+        "left": "0",
+        "right": "0",
+        "transform": "none"
        }
       }
      },
@@ -4795,7 +5210,7 @@
       },
       "responsive": {
        "mobile": {
-        "width": "300px",
+        "width": "190px",
         "height": "16px"
        }
       }
@@ -5406,7 +5821,7 @@
         "position": "fixed",
         "left": "12px",
         "right": "12px",
-        "bottom": "84px",
+        "bottom": "92px",
         "transform": "none",
         "min-width": "0",
         "max-height": "50vh",
@@ -5477,8 +5892,8 @@
       },
       "responsive": {
        "mobile": {
-        "width": "26px",
-        "height": "26px"
+        "width": "32px",
+        "height": "32px"
        }
       }
      },
@@ -5492,7 +5907,7 @@
       },
       "responsive": {
        "mobile": {
-        "font-size": "17px"
+        "font-size": "22px"
        }
       }
      },
@@ -5506,7 +5921,7 @@
       },
       "responsive": {
        "mobile": {
-        "font-size": "17px"
+        "font-size": "22px"
        }
       }
      },
@@ -5594,6 +6009,136 @@
        "min-width": "0",
        "text-align": "right",
        "color": "#ffffff"
+      }
+     },
+     {
+      "name": "hotbar-compact",
+      "styles": {
+       "display": "none",
+       "grid-auto-flow": "column",
+       "grid-auto-columns": "44px",
+       "gap": "2px",
+       "align-items": "center"
+      },
+      "responsive": {
+       "mobile": {
+        "display": "grid"
+       }
+      }
+     },
+     {
+      "name": "hb-menu-panel",
+      "styles": {
+       "position": "fixed",
+       "left": "12px",
+       "right": "12px",
+       "bottom": "92px",
+       "z-index": "90",
+       "display": "none",
+       "flex-direction": "column",
+       "max-height": "min(62vh,520px)",
+       "overflow-y": "auto",
+       "padding": "8px",
+       "background": "#100010",
+       "border": "2px solid #000",
+       "box-shadow": "inset 0 0 0 2px #2b0c5c,0 6px 0 rgba(0,0,0,.55)",
+       "pointer-events": "auto"
+      },
+      "states": {
+       "parent-expanded": {
+        "display": "flex"
+       }
+      }
+     },
+     {
+      "name": "hb-menu-title",
+      "styles": {
+       "padding": "4px 8px 8px",
+       "font-size": "11px",
+       "letter-spacing": ".12em",
+       "color": "#9e78e2",
+       "font-family": "'Minecraft',monospace"
+      }
+     },
+     {
+      "name": "hb-menu-list",
+      "styles": {
+       "display": "flex",
+       "flex-direction": "column",
+       "gap": "2px"
+      }
+     },
+     {
+      "name": "hb-menu-item",
+      "styles": {
+       "display": "flex",
+       "flex-direction": "column",
+       "border-top": "1px solid rgba(255,255,255,.08)"
+      }
+     },
+     {
+      "name": "hb-menu-link",
+      "styles": {
+       "display": "flex",
+       "align-items": "center",
+       "gap": "12px",
+       "padding": "10px 8px",
+       "color": "#ffffff",
+       "font-size": "15px",
+       "text-decoration": "none",
+       "text-shadow": "1px 1px 0 #3f3f3f"
+      },
+      "states": {
+       "current": {
+        "color": "#ffff55",
+        "background": "rgba(158,120,226,.18)"
+       },
+       "hover": {
+        "background": "rgba(255,255,255,.08)"
+       }
+      }
+     },
+     {
+      "name": "hb-menu-icon",
+      "styles": {
+       "width": "26px",
+       "height": "26px",
+       "image-rendering": "pixelated",
+       "flex": "none"
+      }
+     },
+     {
+      "name": "hb-menu-label",
+      "styles": {
+       "min-width": "0"
+      }
+     },
+     {
+      "name": "hb-menu-children",
+      "styles": {
+       "display": "flex",
+       "flex-direction": "column",
+       "padding": "0 0 6px 46px"
+      }
+     },
+     {
+      "name": "hb-menu-sublink",
+      "styles": {
+       "display": "block",
+       "padding": "7px 8px",
+       "color": "#c8c8c8",
+       "font-size": "13px",
+       "text-decoration": "none",
+       "border-left": "2px solid rgba(158,120,226,.45)"
+      },
+      "states": {
+       "current": {
+        "color": "#ffff55",
+        "border-left-color": "#ffff55"
+       },
+       "hover": {
+        "color": "#ffffff"
+       }
       }
      }
     ],
