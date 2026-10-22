@@ -12,7 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-mc-terrain-theme</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>YuDream Plugin - MC Terrain Theme</name>
     <description>方块地形公开站主题：网站工作台站点（六个地形世界、底部物品栏导航、像素面板与音效），随插件分发，启用即导入并发布。</description>
 
