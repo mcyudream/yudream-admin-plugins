@@ -15,6 +15,7 @@ export const Activities = ActivityProofPlugin
 export const ActivityEdit = ActivityProofPlugin
 export const ActivityAdminDetail = ActivityProofPlugin
 export const Records = ActivityProofPlugin
+export const Effects = ActivityProofPlugin
 export const Mappings = ActivityProofPlugin
 export const Settings = ActivityProofPlugin
 export const PublicSquare = ActivityProofPlugin
@@ -43,6 +44,7 @@ export const routes = {
   'minecraft-activity-proof/ActivityEdit': ActivityEdit,
   'minecraft-activity-proof/ActivityAdminDetail': ActivityAdminDetail,
   'minecraft-activity-proof/Records': Records,
+  'minecraft-activity-proof/Effects': Effects,
   'minecraft-activity-proof/Mappings': Mappings,
   'minecraft-activity-proof/Settings': Settings,
 }

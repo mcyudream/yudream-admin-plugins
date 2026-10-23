@@ -366,3 +366,41 @@ export interface ActivityQuizView {
   totalCount: number | null
   pendingReview: boolean
 }
+
+// ---------- 活动效果材料 ----------
+
+export type ActivityEffectKind = 'image' | 'video' | 'doc'
+export type ActivityEffectStatus = 'submitted' | 'accepted' | 'rejected'
+
+export interface ActivityEffectAttachment {
+  fileKey: string
+  filename: string
+  contentType: string
+  size: number
+  kind: ActivityEffectKind
+  caption: string
+}
+
+export interface ActivityEffect {
+  id: string
+  activityId: string
+  activityTitle?: string
+  submittedBy: string
+  submittedAt: number
+  text: string
+  attachments: ActivityEffectAttachment[]
+  status: ActivityEffectStatus
+  reviewedBy: string
+  reviewedAt: number
+  reviewNote: string
+}
+
+/** 平台文件上传（sdk.files.uploadImage）返回的附件上传结果。 */
+export interface ActivityEffectUploadResult {
+  fileKey: string
+  filename: string
+  contentType: string
+  size: number
+  kind: ActivityEffectKind
+  caption: string
+}

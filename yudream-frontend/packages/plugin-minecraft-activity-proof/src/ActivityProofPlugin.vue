@@ -12,6 +12,7 @@ import MyActivitiesPage from './pages/MyActivitiesPage.vue'
 import PublicActivityPage from './pages/PublicActivityPage.vue'
 import PublicSquarePage from './pages/PublicSquarePage.vue'
 import RecordsPage from './pages/RecordsPage.vue'
+import EffectsReviewPage from './pages/EffectsReviewPage.vue'
 import SettingsPage from './pages/SettingsPage.vue'
 import SquarePage from './pages/SquarePage.vue'
 
@@ -32,6 +33,7 @@ const page = computed(() => {
   if (componentName.value.endsWith('/ActivityEdit')) return ActivityEditPage
   if (componentName.value.endsWith('/ActivityAdminDetail')) return ActivityAdminDetailPage
   if (componentName.value.endsWith('/Records')) return RecordsPage
+  if (componentName.value.endsWith('/Effects')) return EffectsReviewPage
   if (componentName.value.endsWith('/Mappings')) return MappingsPage
   if (componentName.value.endsWith('/Settings')) return SettingsPage
   return SquarePage

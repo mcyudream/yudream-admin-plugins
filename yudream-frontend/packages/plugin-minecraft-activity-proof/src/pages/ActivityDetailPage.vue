@@ -9,6 +9,7 @@ import { useActivityDetail } from '../composables/useActivityDetail'
 import { activityStage, activityStageTag, formatTime, formatTimeRange, isActivityEnded } from '../composables/utils'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import ActivityCoverPlaceholder from '../components/ActivityCoverPlaceholder.vue'
+import ActivityEffectPanel from '../components/ActivityEffectPanel.vue'
 
 const props = defineProps<{
   sdk: YuDreamPluginSdk
@@ -241,6 +242,7 @@ function back() {
             <h3>活动详情</h3>
             <MarkdownPreview :sdk="sdk" :content="activity.description" />
           </div>
+          <ActivityEffectPanel :sdk="sdk" :activity-id="activityId" :active="ended" />
         </template>
       </div></YdLoadingOverlay>
     </YdPageMain>

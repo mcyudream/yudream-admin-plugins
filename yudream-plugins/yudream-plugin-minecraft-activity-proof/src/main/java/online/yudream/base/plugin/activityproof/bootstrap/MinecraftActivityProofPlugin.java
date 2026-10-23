@@ -1,13 +1,20 @@
 package online.yudream.base.plugin.activityproof.bootstrap;
 
+import online.yudream.base.plugin.activityproof.application.service.ActivityEffectApiService;
+import online.yudream.base.plugin.activityproof.application.service.ActivityEffectService;
 import online.yudream.base.plugin.activityproof.application.service.ActivityProofAppService;
 import online.yudream.base.plugin.activityproof.application.service.ActivityQuizService;
+import online.yudream.base.plugin.activityproof.api.ActivityEffectApi;
 import online.yudream.base.plugin.activityproof.infrastructure.launcher.ActivityYmclContributionProvider;
+import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityEffectDocumentRepository;
 import online.yudream.base.plugin.activityproof.infrastructure.repository.ActivityProofDocumentRepository;
 import online.yudream.base.plugin.activityproof.infrastructure.support.SoftDependencyServices;
+import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityEffectAdminController;
+import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityEffectUserController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofAdminController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofPublicController;
 import online.yudream.base.plugin.activityproof.interfaces.controller.ActivityProofUserController;
+import online.yudream.base.plugin.activityproof.interfaces.http.ActivityEffectHttpFacade;
 import online.yudream.base.plugin.activityproof.interfaces.http.ActivityProofHttpFacade;
 import online.yudream.base.plugin.activityproof.interfaces.theme.ActivitySquareThemeBlockProvider;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
@@ -25,8 +32,8 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
 @PluginSpec(
         code = MinecraftActivityProofPlugin.CODE,
         name = "minecraft-activity-proof",
-        version = "2.7.0",
-        description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动证明导出。",
+        version = "2.9.0",
+        description = "活动发布与参与管理平台：活动广场、部门限制、时长/表单核验、活动效果材料提交与审核、活动证明导出。",
         dependencies = { "yudream-student-info" }
 )
 @PluginPermissions({
@@ -155,6 +162,15 @@ import online.yudream.base.plugin.spi.system.command.PluginCommandContext;
                         sort = 11
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/yudream-student-info/activity-proof/effects",
+                        name = "platform-plugin-yudream-student-info-activity-proof-effects",
+                        title = "活动效果审核",
+                        icon = "i-ri:image-add-line",
+                        component = "minecraft-activity-proof/Effects",
+                        permission = MinecraftActivityProofPlugin.ACCESS_MANAGE_PERMISSION,
+                        sort = 14
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/yudream-student-info/activity-proof/mappings",
                         name = "platform-plugin-yudream-student-info-activity-proof-mappings",
                         title = "玩家学号映射",
@@ -202,6 +218,15 @@ public class MinecraftActivityProofPlugin implements YuDreamPlugin {
         context.registerHttpController(new ActivityProofPublicController(http));
         context.registerHttpController(new ActivityProofUserController(http));
         context.registerHttpController(new ActivityProofAdminController(http));
+        // 活动效果材料：独立聚合与门面，经审核后进入有效效果池
+        ActivityEffectDocumentRepository effectRepository = new ActivityEffectDocumentRepository(context.documents());
+        ActivityEffectService effectService = new ActivityEffectService(repository, effectRepository, context.files());
+        ActivityEffectHttpFacade effectHttp = new ActivityEffectHttpFacade(effectService, repository,
+                context.framework());
+        context.registerHttpController(new ActivityEffectUserController(effectHttp));
+        context.registerHttpController(new ActivityEffectAdminController(effectHttp));
+        // 对外只读 API：活动摘要 + 已采纳效果，供 AI 模板办公等消费方经 service(...) 调用
+        context.exposeService(ActivityEffectApi.class, new ActivityEffectApiService(repository, effectRepository));
         context.registerExtension(PluginThemeBlockProvider.class, new ActivitySquareThemeBlockProvider(appService));
         registerYmclContribution(context);
     }

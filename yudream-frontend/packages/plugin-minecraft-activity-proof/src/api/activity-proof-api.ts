@@ -1,6 +1,9 @@
 import type {
   Activity,
   ActivityDeptOption,
+  ActivityEffect,
+  ActivityEffectAttachment,
+  ActivityEffectUploadResult,
   ActivityFormOption,
   ActivityParticipantAdmin,
   ActivityProofExportRecord,
@@ -165,6 +168,11 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     quizConfig: (activityId: string) => sdk.http.get<ActivityQuizConfig>(`/admin/activities/${encodeURIComponent(activityId)}/quiz`),
     saveQuizConfig: (activityId: string, data: ActivityQuizConfigPayload) => sdk.http.request<ActivityQuizConfig>(`/admin/activities/${encodeURIComponent(activityId)}/quiz`, { method: 'PUT', data }),
     quizCategoryOptions: () => sdk.http.get<ActivityQuizCategoryOption[]>('/admin/quiz-options/categories'),
+    effects: (params: { activityId?: string, status?: string, page?: number, size?: number } = {}) =>
+      sdk.http.get<PageResult<ActivityEffect>>(`/admin/effects${query({ activityId: params.activityId, status: params.status, page: params.page ?? 1, size: params.size ?? 10 })}`),
+    reviewEffect: (id: string, data: { accept: boolean, note?: string }) =>
+      sdk.http.post<ActivityEffect>(`/admin/effects/${encodeURIComponent(id)}/review`, data),
+    deleteEffect: (id: string) => sdk.http.request(`/admin/effects/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   }
 
   const me = {
@@ -177,6 +185,13 @@ export function createActivityProofApi(sdk: YuDreamPluginSdk) {
     exports: (page = 1, size = 10) => sdk.http.get<PageResult<ActivityProofExportRecord>>(`/me/exports${query({ page, size })}`),
     quiz: (activityId: string) => sdk.http.get<ActivityQuizView>(`/me/activities/${encodeURIComponent(activityId)}/quiz`),
     startQuiz: (activityId: string) => sdk.http.post<ActivityQuizView>(`/me/activities/${encodeURIComponent(activityId)}/quiz/attempt`),
+    uploadEffect: (activityId: string, data: { fileId: string, filename?: string }) =>
+      sdk.http.post<ActivityEffectUploadResult>(`/me/activities/${encodeURIComponent(activityId)}/effects/upload`, data),
+    submitEffect: (activityId: string, data: { text: string, attachments: ActivityEffectAttachment[] }) =>
+      sdk.http.post<ActivityEffect>(`/me/activities/${encodeURIComponent(activityId)}/effects`, data),
+    myActivityEffects: (activityId: string, page = 1, size = 20) =>
+      sdk.http.get<PageResult<ActivityEffect>>(`/me/activities/${encodeURIComponent(activityId)}/effects${query({ page, size })}`),
+    withdrawEffect: (id: string) => sdk.http.request(`/me/effects/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   }
 
   return {
