@@ -125,6 +125,7 @@ async function save() {
   }
   catch (caught) {
     error.value = errorMessage(caught, '保存失败')
+    toast.error(error.value)
   }
   finally {
     saving.value = false
@@ -229,7 +230,8 @@ onMounted(() => {
         scroll
         width-class="max-w-[880px]"
       >
-        <div class="cas-stack">
+        <template #base>
+          <div class="cas-stack">
           <YdAlert v-if="error" variant="destructive" title="操作未完成" :description="error" />
           <YdAlert
             v-if="form.ready"
@@ -262,7 +264,10 @@ onMounted(() => {
               </YdLabel>
             </div>
           </YdSettingsSection>
+          </div>
+        </template>
 
+        <template #protocol>
           <YdSettingsSection title="协议与回调" description="回调地址统一填宿主前端路由 /external-login/callback；换票与验签始终在本站后端完成，密钥不会出现在浏览器。">
             <YdLabel label="认证协议" class="cas-field">
               <YdSelect v-model="form.protocol" :options="protocolOptions" />
@@ -280,7 +285,9 @@ onMounted(() => {
               <span v-if="callbackUrlHint" class="cas-hint cas-hint--danger">{{ callbackUrlHint }}</span>
             </YdLabel>
           </YdSettingsSection>
+        </template>
 
+        <template #params>
           <YdSettingsSection
             v-if="!oidcMode"
             title="登录预热"
@@ -383,7 +390,9 @@ onMounted(() => {
               <span class="cas-hint">注册成功后会回写 client_id，并把 client_secret 存入密钥库。是否允许动态注册由学校网信中心决定。</span>
             </div>
           </YdSettingsSection>
+        </template>
 
+        <template #test>
           <YdSettingsSection title="连通性">
             <div class="cas-actions">
               <YdButton type="button" variant="outline" :loading="testing" @click="test">
@@ -397,7 +406,9 @@ onMounted(() => {
               探测不会真正登录。CAS 会访问登录页并用无效票据打校验端点；OIDC 会读取 JWKS 并访问授权端点；SSO 中转会访问 /sso/health 并核对 clientId 已登记。
             </p>
           </YdSettingsSection>
+        </template>
 
+        <template #access>
           <YdSettingsSection title="访问控制" description="绑定门禁开启后，未绑定统一身份认证的成员会被引导完成绑定。">
             <div class="cas-switch-row">
               <YdSwitch v-model="access.requireBinding" />
@@ -416,7 +427,7 @@ onMounted(() => {
               </YdButton>
             </div>
           </YdSettingsSection>
-        </div>
+        </template>
       </YdSettingsLayout>
     </YdLoadingOverlay>
   </div>
