@@ -394,12 +394,12 @@ public class YuDreamSkinHttpFacade {
     }
 
     private PluginHttpResponse toBinaryResponse(PluginStoredFile file) {
-        try {
+        try (var inputStream = file.inputStream()) {
             return new PluginHttpResponse(
                     200,
                     Map.of("Cache-Control", "public, max-age=31536000"),
                     "image/png",
-                    file.inputStream().readAllBytes(),
+                    inputStream.readAllBytes(),
                     false
             );
         } catch (IOException e) {
