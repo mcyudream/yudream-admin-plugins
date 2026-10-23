@@ -1,0 +1,20 @@
+{
+  "name": "@yudream/plugin-mc-terrain-theme",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build"
+  },
+  "dependencies": {
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}
