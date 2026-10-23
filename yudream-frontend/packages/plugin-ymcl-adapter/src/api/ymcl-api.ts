@@ -137,7 +137,7 @@ export function createYmclApi(sdk: YuDreamPluginSdk) {
     saveDownloadConfig: (data: {
       managed: boolean
       officialFallback: boolean
-      gateway: { name: string | null, baseUrl: string | null, auth: string }
+      gateway: { name: string | null, baseUrl: string | null, auth: string, staticKey: string | null }
       sources: { id: string, provider: string, name: string | null, baseUrl: string | null }[]
       categories: Record<string, string[]>
     }) =>

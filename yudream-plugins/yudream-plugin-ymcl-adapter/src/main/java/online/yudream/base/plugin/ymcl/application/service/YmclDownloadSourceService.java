@@ -42,7 +42,7 @@ public class YmclDownloadSourceService {
     /** v1 分发的资源类别（对齐启动器 ResourceClass 映射；java/other 不分发）。 */
     public static final Set<String> CATEGORIES = Set.of(
             "minecraft_metadata", "minecraft_files", "loaders", "modrinth", "curseforge");
-    public static final Set<String> GATEWAY_AUTH_MODES = Set.of("token", "none");
+    public static final Set<String> GATEWAY_AUTH_MODES = Set.of("token", "static", "none");
 
     public static final String INSTANCES_COLLECTION = "ymcl_download_gateway_instances";
     private static final long ENROLL_CODE_TTL_MILLIS = 10 * 60 * 1000L;
@@ -105,10 +105,15 @@ public class YmclDownloadSourceService {
         if ("token".equals(gatewayAuth) && gatewayBaseUrl == null) {
             return "gateway.baseUrl is required when gateway.auth is token";
         }
+        String staticKey = text(gateway.get("staticKey"));
+        if ("static".equals(gatewayAuth) && staticKey == null) {
+            return "gateway.staticKey is required when gateway.auth is static";
+        }
         Map<String, Object> gatewayDoc = new LinkedHashMap<>();
         gatewayDoc.put("name", text(gateway.get("name")));
         gatewayDoc.put("baseUrl", gatewayBaseUrl);
         gatewayDoc.put("auth", gatewayAuth == null ? "token" : gatewayAuth);
+        gatewayDoc.put("staticKey", staticKey);
         doc.put("gateway", gatewayDoc);
 
         doc.put("officialFallback", asBoolean(body.get("officialFallback")) != Boolean.FALSE);
@@ -273,6 +278,7 @@ public class YmclDownloadSourceService {
         view.put("base_url", text(doc.get("baseUrl")));
         String auth = text(doc.get("auth"));
         view.put("auth", auth == null ? "token" : auth);
+        view.put("static_key", text(doc.get("staticKey")));
         return view;
     }
 

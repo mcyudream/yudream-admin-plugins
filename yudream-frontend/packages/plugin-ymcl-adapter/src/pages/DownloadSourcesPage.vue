@@ -34,13 +34,13 @@ interface SourceForm extends DownloadSourceEntry {}
 const form = ref<{
   managed: boolean
   officialFallback: boolean
-  gateway: { name: string, baseUrl: string, auth: 'token' | 'none' }
+  gateway: { name: string, baseUrl: string, auth: 'token' | 'static' | 'none', staticKey: string }
   sources: SourceForm[]
   categories: Record<string, string[]>
 }>({
   managed: false,
   officialFallback: true,
-  gateway: { name: '', baseUrl: '', auth: 'token' },
+  gateway: { name: '', baseUrl: '', auth: 'token', staticKey: '' },
   sources: [],
   categories: {},
 })
@@ -66,6 +66,7 @@ const PROVIDER_OPTIONS: { label: string, value: DownloadProvider }[] = [
 
 const AUTH_OPTIONS = [
   { label: '下载令牌（玩家身份鉴权）', value: 'token' },
+  { label: '静态 apikey（网关直接提供）', value: 'static' },
   { label: '匿名（网关自管门控）', value: 'none' },
 ]
 
@@ -192,7 +193,10 @@ async function load() {
         name: config.gateway?.name || '',
         // 协议视图是 snake_case；Long 字段宿主会字符串化，这里只取展示值。
         baseUrl: config.gateway?.base_url || '',
-        auth: config.gateway?.auth === 'none' ? 'none' : 'token',
+        auth: config.gateway?.auth === 'none'
+          ? 'none'
+          : config.gateway?.auth === 'static' ? 'static' : 'token',
+        staticKey: config.gateway?.static_key || '',
       },
       sources: (config.sources || []).map(source => ({
         id: source.id,
@@ -223,6 +227,7 @@ async function save() {
         name: form.value.gateway.name.trim() || null,
         baseUrl: form.value.gateway.baseUrl.trim() || null,
         auth: form.value.gateway.auth,
+        staticKey: form.value.gateway.staticKey.trim() || null,
       },
       sources: form.value.sources.map(source => ({
         id: source.id,
@@ -351,6 +356,11 @@ onMounted(() => {
           <div class="ymcl-form-row">
             <label class="ymcl-label">鉴权方式</label>
             <YdSelect v-model="form.gateway.auth" :options="AUTH_OPTIONS" />
+          </div>
+          <div v-if="form.gateway.auth === 'static'" class="ymcl-form-row">
+            <label class="ymcl-label">静态 apikey</label>
+            <YdInput v-model="form.gateway.staticKey" placeholder="mk_xxx（网关提供的固定 key）" />
+            <p class="ymcl-muted">启动器以 ?key= 携带给网关；仅适合自建网关的固定 key 门控，无法做玩家粒度统计。</p>
           </div>
         </YdSettingsSection>
         <YdSettingsSection

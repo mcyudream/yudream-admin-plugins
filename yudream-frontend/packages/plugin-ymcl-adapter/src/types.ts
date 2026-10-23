@@ -316,7 +316,9 @@ export interface DownloadGatewayConfig {
   name?: string | null
   /** 协议视图 snake_case（宿主实测输出） */
   base_url?: string | null
-  auth: 'token' | 'none'
+  auth: 'token' | 'static' | 'none'
+  /** auth=static 时的固定 apikey */
+  static_key?: string | null
 }
 
 /** GET /v1/download/config 协议视图（snake_case，与启动器 serde 一致） */
