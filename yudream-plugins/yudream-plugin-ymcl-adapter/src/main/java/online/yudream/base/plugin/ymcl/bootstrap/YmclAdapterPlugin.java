@@ -203,6 +203,10 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
         context.onDispose(eventBus::stopHeartbeat);
         PluginDocumentStore documents = context.documents();
         PluginFileStore files = context.files();
+        // 站点间目录服务：mc-interop 等插件以 provided + dependencyAvailable 软消费
+        context.exposeService(online.yudream.base.plugin.ymcl.api.YmclPackCatalogService.class,
+                new online.yudream.base.plugin.ymcl.application.service.YmclPackCatalogServiceImpl(
+                        context, documents, files));
         // P2P 聚合层：能力宣告、会话端点与「服务器 → 实例」反查共用同一引用。
         // 只聚合 YmclP2pProvider 扩展点，不依赖任何业务插件（避免插件依赖环）。
         var p2pLink = online.yudream.base.plugin.ymcl.application.service.YmclP2pLink.forContext(context);
