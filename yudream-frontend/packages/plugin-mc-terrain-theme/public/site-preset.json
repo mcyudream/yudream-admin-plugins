@@ -11696,23 +11696,7 @@
        "label": "知识库",
        "url": "/wiki",
        "iconAssetId": "ae0f1690-9a22-4179-9bc3-5123704c7bdc",
-       "children": [
-        {
-         "id": "nav-5-0",
-         "label": "新手指南",
-         "url": "/wiki/newbie"
-        },
-        {
-         "id": "nav-5-1",
-         "label": "服务器规则",
-         "url": "/wiki/rules"
-        },
-        {
-         "id": "nav-5-2",
-         "label": "红石与生电",
-         "url": "/wiki/redstone"
-        }
-       ],
+       "autoChildren": true,
        "requires": [
         "capability:wiki"
        ]
