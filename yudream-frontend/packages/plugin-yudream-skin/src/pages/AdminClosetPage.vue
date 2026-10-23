@@ -3,7 +3,7 @@ import type { SearchConfig, SearchFieldConfig, TableColumn, TableSortingState, A
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import type { SkinClosetItem } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdDynamicSearchForm, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdDynamicSearchForm, YdIcon, YdInput, YdModal, YdPagination, YdRelatedEntity, YdSelect, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{ model: SkinPluginModel }>()
 const modal = useYdModal()
@@ -177,10 +177,13 @@ const rowActions: ActionMenuItem<SkinClosetItem>[] = [
           empty-text="暂无衣柜数据"
         >
           <template #cell-userId="{ row }">
-            <YdEntityPeek
-              :title="model.userName(row.original.userId)"
-              :subtitle="row.original.userId ? `ID ${row.original.userId}` : ''"
+            <YdRelatedEntity
+              v-if="row.original.userId"
+              entity-type="user"
+              :entity-id="row.original.userId"
+              :label="model.userName(row.original.userId)"
             />
+            <span v-else>-</span>
           </template>
           <template #cell-texture="{ row }">
             {{ model.textureName(row.original.textureHash) }}

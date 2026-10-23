@@ -3,7 +3,7 @@ import type { FileItem, FileUploadRequestOptions, SearchConfig, SearchFieldConfi
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { useYdModal, YdButton, YdDynamicSearchForm, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { useYdModal, YdButton, YdDynamicSearchForm, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdRelatedEntity, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -306,10 +306,13 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
             </YdTag>
           </template>
           <template #cell-uploaderId="{ row }">
-            <YdEntityPeek
-              :title="model.userName(row.original.uploaderId)"
-              :subtitle="row.original.uploaderId ? `ID ${row.original.uploaderId}` : ''"
+            <YdRelatedEntity
+              v-if="row.original.uploaderId"
+              entity-type="user"
+              :entity-id="row.original.uploaderId"
+              :label="model.userName(row.original.uploaderId)"
             />
+            <span v-else>-</span>
           </template>
           <template #cell-size="{ row }">
             {{ formatSize(row.original.size) }}

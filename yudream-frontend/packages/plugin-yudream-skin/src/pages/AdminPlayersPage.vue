@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ActionMenuItem, EntityPeekFact, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, TableSortingState } from '@yudream/components'
+import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, TableSortingState } from '@yudream/components'
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdDynamicSearchForm, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdDynamicSearchForm, YdIcon, YdInput, YdModal, YdPagination, YdRelatedEntity, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -151,18 +151,6 @@ function ownerText(player: SkinPlayer) {
   return player.ownerName || player.ownerUsername || player.ownerEmail || props.model.userName(player.ownerId)
 }
 
-/** 抽屉只用本页已持有的本地展示数据（用户名 / 邮箱），不拉取宿主实体 */
-function ownerFacts(player: SkinPlayer): EntityPeekFact[] {
-  const facts: EntityPeekFact[] = []
-  if (player.ownerUsername) {
-    facts.push({ label: '用户名', value: `@${player.ownerUsername}` })
-  }
-  if (player.ownerEmail) {
-    facts.push({ label: '邮箱', value: player.ownerEmail })
-  }
-  return facts
-}
-
 function ownerSearchText(player: SkinPlayer) {
   return [
     player.ownerId,
@@ -288,17 +276,31 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
             <span class="skin-admin-texture-name" :title="row.original.name">{{ row.original.name }}</span>
           </template>
           <template #cell-ownerId="{ row }">
-            <YdEntityPeek
-              :title="ownerText(row.original)"
-              :subtitle="`ID ${row.original.ownerId}`"
-              :facts="ownerFacts(row.original)"
+            <YdRelatedEntity
+              entity-type="user"
+              :entity-id="row.original.ownerId"
+              :label="ownerText(row.original)"
             />
           </template>
           <template #cell-skin="{ row }">
-            <span class="skin-admin-texture-name" :title="model.textureName(row.original.skinHash)">{{ model.textureName(row.original.skinHash) }}</span>
+            <YdRelatedEntity
+              v-if="row.original.skinHash"
+              entity-type="yudream-skin:texture"
+              :entity-id="row.original.skinHash"
+              :label="model.textureName(row.original.skinHash)"
+              :avatar="model.textureUrl(row.original.skinHash)"
+            />
+            <span v-else class="skin-admin-texture-name">未设置</span>
           </template>
           <template #cell-cape="{ row }">
-            <span class="skin-admin-texture-name" :title="model.textureName(row.original.capeHash)">{{ model.textureName(row.original.capeHash) }}</span>
+            <YdRelatedEntity
+              v-if="row.original.capeHash"
+              entity-type="yudream-skin:texture"
+              :entity-id="row.original.capeHash"
+              :label="model.textureName(row.original.capeHash)"
+              :avatar="model.textureUrl(row.original.capeHash)"
+            />
+            <span v-else class="skin-admin-texture-name">未设置</span>
           </template>
           <template #cell-status="{ row }">
             <YdTag :variant="row.original.skinHash || row.original.capeHash ? 'default' : 'secondary'">

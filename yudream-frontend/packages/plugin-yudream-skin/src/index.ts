@@ -10,6 +10,8 @@ import DashboardLegacyActionCard from './components/DashboardLegacyActionCard.vu
 import DashboardSkinPreviewCard from './components/DashboardSkinPreviewCard.vue'
 import DashboardStatsCard from './components/DashboardStatsCard.vue'
 import SkinPlugin from './SkinPlugin.vue'
+import SkinTexturePeekCard from './components/SkinTexturePeekCard.vue'
+import { bindSkinTexturePeek, resetSkinTexturePeek } from './peek-runtime'
 import type { SkinPage } from './types'
 
 function skinRoutePage(name: string, page: SkinPage, scope: 'user' | 'admin') {
@@ -69,7 +71,19 @@ export const routes = {
   'blessing-skin/System': Settings,
 }
 
+let disposeTexturePeek: (() => void) | undefined
+
 export default defineYuDreamPlugin({
   routes,
   default: Dashboard,
+  install(sdk) {
+    // 实体卡：登记本插件材质类型（键 yudream-skin:texture），宿主与其他插件页面可经 YdRelatedEntity 复用
+    bindSkinTexturePeek(sdk)
+    disposeTexturePeek = sdk.relatedEntity?.register('texture', SkinTexturePeekCard)
+  },
+  dispose() {
+    disposeTexturePeek?.()
+    disposeTexturePeek = undefined
+    resetSkinTexturePeek()
+  },
 })

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ActionMenuItem, EntityPeekFact, StatusTone, TableColumn } from '@yudream/components'
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { Feedback } from '../types'
-import { YdEntityPeek, YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdRangePicker, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
+import { YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdRangePicker, YdRelatedEntity, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createFeedbackAdminApi } from '../api/feedback-api'
@@ -330,36 +330,6 @@ function confirmArchive(row: Feedback) {
   })
 }
 
-/** 处理状态在 peek 卡里的语义色：与 FeedbackStatusTag 的色相一一对应。 */
-function statusTone(status: Feedback['status']): StatusTone {
-  if (status === 'pending') {
-    return 'warning'
-  }
-  if (status === 'processing') {
-    return 'info'
-  }
-  if (status === 'resolved') {
-    return 'success'
-  }
-  if (status === 'rejected') {
-    return 'danger'
-  }
-  return 'neutral'
-}
-
-/**
- * 用户 peek 卡的本地事实清单。
- *
- * <p>列表接口没有按 ID 反查用户档案的通道，头像/邮箱拿不到，这里只回显行内已有的反馈
- * 上下文（提交时间、状态、严重程度），并把内部 ID 以等宽字体列进卡片，不虚构用户资料。
- */
-function rowFacts(row: Feedback): EntityPeekFact[] {
-  return [
-    { label: '提交时间', value: row.createdAtLabel },
-    { label: '处理状态', value: row.statusLabel, tone: statusTone(row.status) },
-    { label: '严重程度', value: row.severityLabel },
-  ]
-}
 </script>
 
 <template>
@@ -497,21 +467,21 @@ function rowFacts(row: Feedback): EntityPeekFact[] {
             </template>
 
             <template #cell-author="{ row }">
-              <YdEntityPeek
-                :title="personLabel(row.original.authorName, row.original.authorId)"
-                :subtitle="row.original.authorId"
-                :facts="rowFacts(row.original)"
+              <YdRelatedEntity
+                entity-type="user"
+                :entity-id="row.original.authorId"
+                :label="personLabel(row.original.authorName, row.original.authorId)"
               />
             </template>
 
             <template #cell-assignee="{ row }">
               <div v-if="row.original.assignees.length" class="fb-assignees">
-                <YdEntityPeek
+                <YdRelatedEntity
                   v-for="assignee in row.original.assignees.slice(0, 2)"
                   :key="assignee.id"
-                  :title="assigneeLabel(assignee)"
-                  :subtitle="assignee.id"
-                  :facts="rowFacts(row.original)"
+                  entity-type="user"
+                  :entity-id="assignee.id"
+                  :label="assigneeLabel(assignee)"
                 />
                 <YdTooltip
                   v-if="row.original.assignees.length > 2"

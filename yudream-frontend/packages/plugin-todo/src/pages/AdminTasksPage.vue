@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ActionMenuItem, EntityPeekFact, TableColumn } from '@yudream/components'
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { TodoSubTask, TodoTableRow, TodoTask } from '../types'
-import { YdEntityPeek, YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdProgress, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
+import { YdLoadingOverlay, YdAction, YdButton, YdIcon, YdInput, YdPagination, YdProgress, YdRelatedEntity, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTablePageLayout, YdTooltip, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DueLabel from '../components/DueLabel.vue'
 import PriorityTag from '../components/PriorityTag.vue'
@@ -293,21 +293,6 @@ function confirmDelete(task: TodoTask) {
 }
 
 /** 负责人 peek 卡的次要标识：回查到档案用邮箱，否则留空（触发器只显示名字）。 */
-function peekSubtitle(userId: string): string {
-  return directory.option(userId)?.email || ''
-}
-
-/**
- * 负责人 peek 卡的本地事实清单：只列插件自身用户接口回查到的档案字段
- * （用户 ID、账号），拿不到的资料（如手机号、部门）不虚构。
- */
-function peekFacts(userId: string): EntityPeekFact[] {
-  const user = directory.option(userId)
-  return [
-    { label: '用户 ID', value: userId, mono: true },
-    { label: '账号', value: user?.username || '' },
-  ]
-}
 </script>
 
 <template>
@@ -493,13 +478,13 @@ function peekFacts(userId: string): EntityPeekFact[] {
 
             <template #cell-owner="{ row }">
               <div v-if="(row.original.participantIds ?? []).length" class="todo-assignees">
-                <YdEntityPeek
+                <YdRelatedEntity
                   v-for="pid in (row.original.participantIds ?? []).slice(0, 3)"
                   :key="pid"
-                  :title="directory.labels([pid])[0]"
-                  :subtitle="peekSubtitle(pid)"
+                  entity-type="user"
+                  :entity-id="pid"
+                  :label="directory.labels([pid])[0]"
                   :avatar="directory.option(pid)?.avatar || ''"
-                  :facts="peekFacts(pid)"
                 />
                 <YdTooltip v-if="(row.original.participantIds ?? []).length > 3" :text="allAssignees(row.original)">
                   <span class="todo-assignee-chip is-more">+{{ (row.original.participantIds ?? []).length - 3 }}</span>
