@@ -110,7 +110,7 @@ function addSource() {
     id,
     provider: newSource.value.provider,
     name: newSource.value.name.trim() || null,
-    baseUrl: newSource.value.baseUrl.trim() || null,
+    base_url: newSource.value.baseUrl.trim() || null,
   })
   newSource.value = { id: '', provider: 'custom', name: '', baseUrl: '' }
 }
@@ -167,7 +167,11 @@ function categoryLabel(id: string | undefined | null) {
   if (!source) {
     return id
   }
-  return source.name ? `${source.name}（${providerLabel(source.provider)}）` : providerLabel(source.provider)
+  const provider = providerLabel(source.provider)
+  if (!source.name || source.name === provider) {
+    return provider
+  }
+  return `${source.name}（${provider}）`
 }
 
 const managedCategoryCount = computed(() =>
@@ -186,14 +190,15 @@ async function load() {
       officialFallback: Boolean(config.official_fallback),
       gateway: {
         name: config.gateway?.name || '',
-        baseUrl: config.gateway?.baseUrl || '',
+        // 协议视图是 snake_case；Long 字段宿主会字符串化，这里只取展示值。
+        baseUrl: config.gateway?.base_url || '',
         auth: config.gateway?.auth === 'none' ? 'none' : 'token',
       },
       sources: (config.sources || []).map(source => ({
         id: source.id,
         provider: source.provider,
         name: source.name ?? null,
-        baseUrl: source.baseUrl ?? null,
+        baseUrl: source.base_url ?? null,
       })),
       categories: Object.fromEntries(
         CATEGORY_DEFS.map(def => [def.key, [...(config.categories?.[def.key] || [])]]),
@@ -223,7 +228,8 @@ async function save() {
         id: source.id,
         provider: source.provider,
         name: source.name || null,
-        baseUrl: source.baseUrl || null,
+        // 保存契约是 camelCase（GET 协议视图是 snake_case，回显时已转换）
+        baseUrl: source.base_url || null,
       })),
       categories: Object.fromEntries(
         CATEGORY_DEFS.map(def => [def.key, form.value.categories[def.key] || []]),
@@ -322,7 +328,7 @@ onMounted(() => {
             </div>
             <div>
               <dt>最后更新</dt>
-              <dd>{{ gatewayInfo?.config?.updated_at ? new Date(gatewayInfo.config.updated_at).toLocaleString() : '未配置' }}</dd>
+              <dd>{{ gatewayInfo?.config?.updated_at ? new Date(Number(gatewayInfo.config.updated_at)).toLocaleString() : '未配置' }}</dd>
             </div>
           </dl>
         </YdSettingsSection>
@@ -406,7 +412,7 @@ onMounted(() => {
               {{ row.original.name || '—' }}
             </template>
             <template #cell-baseUrl="{ row }">
-              <code class="ymcl-hash ymcl-break">{{ row.original.baseUrl || '随类别路由' }}</code>
+              <code class="ymcl-hash ymcl-break">{{ row.original.base_url || '随类别路由' }}</code>
             </template>
             <template #cell-actions="{ row }">
               <YdButton

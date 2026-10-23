@@ -308,12 +308,14 @@ export interface DownloadSourceEntry {
   id: string
   provider: DownloadProvider
   name?: string | null
-  baseUrl?: string | null
+  /** 协议视图 snake_case；gateway 源继承网关基址并落值 */
+  base_url?: string | null
 }
 
 export interface DownloadGatewayConfig {
   name?: string | null
-  baseUrl?: string | null
+  /** 协议视图 snake_case（宿主实测输出） */
+  base_url?: string | null
   auth: 'token' | 'none'
 }
 
