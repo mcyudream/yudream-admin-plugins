@@ -60,10 +60,11 @@ public class UnionDirectoryService {
             throw UnionBusinessException.invalid("payload 长度超限");
         }
         String normalizedOrigin = canonicalOrigin(origin);
+        // 查无此令牌最常见原因是令牌签发自另一站点（令牌只在本站仓库有效）或复制不完整；过期单独提示。
         UnionEnrollToken token = repository.findEnrollToken(UnionCryptoService.sha256Hex(enrollToken))
-                .orElseThrow(UnionBusinessException::badToken);
+                .orElseThrow(() -> UnionBusinessException.badToken("注册令牌无效：令牌须由本站签发且未被使用，请在本站「签发注册令牌」后复制完整令牌"));
         if (token.expiresAt() <= now) {
-            throw UnionBusinessException.badToken();
+            throw UnionBusinessException.badToken("注册令牌已过期（有效期 5 分钟），请重新签发");
         }
         if (token.consumed()) {
             throw UnionBusinessException.tokenConsumed();

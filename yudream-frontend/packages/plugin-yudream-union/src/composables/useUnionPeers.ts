@@ -1,7 +1,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { UnionPeer } from '../types'
 import { onMounted, reactive, ref } from 'vue'
-import { useUnionApiShell } from './useUnionApiShell'
+import { errorMessageOf, useUnionApiShell } from './useUnionApiShell'
 
 export function useUnionPeers(sdk: YuDreamPluginSdk) {
   const { api, toast, loading, error, run } = useUnionApiShell(sdk)
@@ -13,6 +13,7 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
 
   const saving = ref(false)
   const enrollOpen = ref(false)
+  const enrollError = ref('')
   const issuedToken = ref('')
   const enrollForm = reactive({ origin: '', enrollToken: '', note: '' })
 
@@ -32,8 +33,20 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
     })
   }
 
-  function enroll() {
-    return run(async () => {
+  function openEnroll() {
+    enrollError.value = ''
+    enrollOpen.value = true
+  }
+
+  /** 失败保持弹窗打开并把错误就近展示在弹窗内：页面级 alert 会被弹窗遮挡，等于无反馈。 */
+  async function enroll() {
+    enrollError.value = ''
+    if (!enrollForm.origin.trim() || !enrollForm.enrollToken.trim()) {
+      enrollError.value = '对端 origin 与一次性注册令牌均为必填'
+      return
+    }
+    loading.value = true
+    try {
       const body = await api.enrollPeer({
         origin: enrollForm.origin.trim(),
         enrollToken: enrollForm.enrollToken.trim(),
@@ -46,7 +59,13 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
         ? `已注册受信站点（对端推送密钥仅本次显示：${body.peerSecret}）`
         : '已注册受信站点')
       await load()
-    })
+    }
+    catch (cause) {
+      enrollError.value = errorMessageOf(cause)
+    }
+    finally {
+      loading.value = false
+    }
   }
 
   function toggle(peer: UnionPeer) {
@@ -90,7 +109,7 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
 
   return reactive({
     loading, error, peers, page, size, total,
-    saving, enrollOpen, issuedToken, enrollForm,
-    load, issueToken, enroll, toggle, refreshPeer, selfTest, remove, changePage,
+    saving, enrollOpen, enrollError, issuedToken, enrollForm,
+    load, issueToken, openEnroll, enroll, toggle, refreshPeer, selfTest, remove, changePage,
   })
 }

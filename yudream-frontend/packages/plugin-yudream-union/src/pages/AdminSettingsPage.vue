@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdForm, YdInput, YdLabel, YdNumberField, YdPageHeader, YdSettingsLayout, YdSettingsSection, YdTag } from '@yudream/components'
+import { YdAlert, YdButton, YdForm, YdInput, YdLabel, YdNumberField, YdPageHeader, YdSettingsLayout, YdSettingsSection, YdTag } from '@yudream/components'
 import { ref } from 'vue'
 import { useUnionSettings } from '../composables/useUnionSettings'
 
@@ -19,6 +19,7 @@ const sectionList = [
         保存
       </YdButton>
     </YdPageHeader>
+    <YdAlert v-if="model.error" class="mt-3" variant="destructive" title="操作失败" :description="model.error" />
     <YdSettingsLayout
       v-model="activeSection"
       :list="sectionList"

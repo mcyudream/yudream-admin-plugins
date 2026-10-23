@@ -29,7 +29,7 @@ const rowActions: ActionMenuItem<UnionPeer>[] = [
 
 const pageActions: YdTablePageAction[] = [
   { label: '签发注册令牌', icon: 'morph:key', onClick: () => model.issueToken() },
-  { label: '注册受信站', icon: 'morph:plus', onClick: () => { model.enrollOpen = true } },
+  { label: '注册受信站', icon: 'morph:plus', onClick: () => model.openEnroll() },
 ]
 
 function remove(peer: UnionPeer) {
@@ -104,6 +104,7 @@ function remove(peer: UnionPeer) {
   </YdTablePageLayout>
 
   <YdModal v-model="model.enrollOpen" title="注册受信站点">
+    <YdAlert v-if="model.enrollError" class="mb-3" variant="destructive" title="注册失败" :description="model.enrollError" />
     <YdForm :model="model.enrollForm" layout="vertical">
       <div class="flex flex-col gap-4">
         <YdFormItem label="对端 origin" required>
@@ -119,7 +120,7 @@ function remove(peer: UnionPeer) {
     </YdForm>
     <p class="mt-2 text-xs text-muted-foreground">注册即 TOFU 固定对端 TLS 证书指纹与联合签名公钥；请通过可信渠道核对指纹。</p>
     <template #footer>
-      <YdButton :disabled="model.loading" @click="model.enroll()">注册</YdButton>
+      <YdButton :loading="model.loading" @click="model.enroll()">注册</YdButton>
     </template>
   </YdModal>
 </template>

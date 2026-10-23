@@ -1,10 +1,10 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { UnionSiteSettings } from '../types'
 import { onMounted, reactive, ref } from 'vue'
-import { useUnionApiShell } from './useUnionApiShell'
+import { errorMessageOf, useUnionApiShell } from './useUnionApiShell'
 
 export function useUnionSettings(sdk: YuDreamPluginSdk) {
-  const { api, loading, error, run } = useUnionApiShell(sdk)
+  const { api, toast, loading, error, run } = useUnionApiShell(sdk)
 
   const settings = ref<UnionSiteSettings>({})
   const siteCode = ref('')
@@ -28,20 +28,30 @@ export function useUnionSettings(sdk: YuDreamPluginSdk) {
     })
   }
 
-  function save() {
+  /** 保存不走 run：saving 独立驱动按钮 loading，错误写入 error 由页面渲染，成功给 toast。 */
+  async function save() {
     if (!siteCode.value.trim()) {
       error.value = 'siteCode 为必填'
       return
     }
-    return run(async () => {
+    saving.value = true
+    error.value = ''
+    try {
       settings.value = await api.saveSettings({
         siteCode: siteCode.value.trim(),
         siteName: siteName.value.trim(),
         auditRetentionDays: Math.max(0, Math.floor(auditRetentionDays.value)),
         joinRetentionDays: Math.max(0, Math.floor(joinRetentionDays.value)),
       })
+      toast.success('已保存站点身份')
       await load()
-    })
+    }
+    catch (cause) {
+      error.value = errorMessageOf(cause)
+    }
+    finally {
+      saving.value = false
+    }
   }
 
   onMounted(load)

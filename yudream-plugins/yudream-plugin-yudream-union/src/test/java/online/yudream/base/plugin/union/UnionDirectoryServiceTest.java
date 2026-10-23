@@ -17,6 +17,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,11 +77,19 @@ class UnionDirectoryServiceTest {
     }
 
     @Test
-    void expiredTokenIsRejectedWithoutDistinguishing() {
+    void expiredAndUnknownTokensShareCodeButDifferInMessage() {
         Deps deps = Deps.create();
         Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
-        assertThrows(UnionBusinessException.class, () -> deps.directory
+        UnionBusinessException expired = assertThrows(UnionBusinessException.class, () -> deps.directory
                 .enroll(PEER_ORIGIN, String.valueOf(token.get("enrollToken")), null, "admin", 1_000L + 6 * 60_000L));
+        UnionBusinessException unknown = assertThrows(UnionBusinessException.class, () -> deps.directory
+                .enroll(PEER_ORIGIN, "token-issued-by-another-site", null, "admin", 1_001L));
+
+        // 协议 code 保持一致（对端机器面依赖），文案区分过期与查无，便于管理员排查跨站令牌混用。
+        assertEquals(expired.code(), unknown.code());
+        assertNotEquals(expired.getMessage(), unknown.getMessage());
+        assertTrue(expired.getMessage().contains("过期"));
+        assertTrue(unknown.getMessage().contains("本站签发"));
     }
 
     @Test

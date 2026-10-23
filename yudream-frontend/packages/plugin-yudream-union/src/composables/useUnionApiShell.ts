@@ -17,7 +17,7 @@ export function useUnionApiShell(sdk: YuDreamPluginSdk) {
       await action()
     }
     catch (cause) {
-      error.value = cause instanceof Error ? cause.message : String(cause)
+      error.value = errorMessageOf(cause)
     }
     finally {
       loading.value = false
@@ -29,6 +29,16 @@ export function useUnionApiShell(sdk: YuDreamPluginSdk) {
   }
 
   return { api, toast, loading, error, run, fail }
+}
+
+/**
+ * 宿主 axios 对非 2xx 会 reject 携带响应体的错误：后端业务错误体带 message 字段，
+ * 优先取它，避免把 axios 英文默认文案当错误展示。
+ */
+export function errorMessageOf(cause: unknown): string {
+  const data = (cause as { response?: { data?: { message?: string } } } | null)?.response?.data
+  const backend = typeof data?.message === 'string' ? data.message : ''
+  return backend || (cause instanceof Error ? cause.message : String(cause))
 }
 
 /** 宿主把 Long 序列化为数字字符串；epoch 毫秒（数字或数字字符串）转本地时间文本。 */

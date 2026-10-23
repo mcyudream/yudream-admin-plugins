@@ -21,7 +21,12 @@ public class UnionBusinessException extends RuntimeException {
     }
 
     public static UnionBusinessException badToken() {
-        return new UnionBusinessException("auth.badToken", 401, "注册令牌无效");
+        return badToken("注册令牌无效");
+    }
+
+    /** code/status 保持协议值不变，仅细分文案（查无此令牌 / 已过期）。 */
+    public static UnionBusinessException badToken(String message) {
+        return new UnionBusinessException("auth.badToken", 401, message);
     }
 
     public static UnionBusinessException tokenConsumed() {

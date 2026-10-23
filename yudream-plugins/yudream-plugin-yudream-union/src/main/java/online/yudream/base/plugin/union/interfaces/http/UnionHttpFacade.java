@@ -132,14 +132,16 @@ public class UnionHttpFacade {
     }
 
     public Object saveSettings(PluginHttpRequest request) {
-        Map<String, Object> body = JsonSupport.readMap(request.body());
-        directory.saveSite(stringOf(body.get("siteCode")),
-                body.get("siteName") == null ? null : String.valueOf(body.get("siteName")),
-                principalName(request.principal(), "admin"));
-        repository.saveSetting("retention", Map.of(
-                "auditDays", retentionValue(body.get("auditRetentionDays"), 30),
-                "joinDays", retentionValue(body.get("joinRetentionDays"), 90)));
-        return adminSettings();
+        return admin(() -> {
+            Map<String, Object> body = JsonSupport.readMap(request.body());
+            directory.saveSite(stringOf(body.get("siteCode")),
+                    body.get("siteName") == null ? null : String.valueOf(body.get("siteName")),
+                    principalName(request.principal(), "admin"));
+            repository.saveSetting("retention", Map.of(
+                    "auditDays", retentionValue(body.get("auditRetentionDays"), 30),
+                    "joinDays", retentionValue(body.get("joinRetentionDays"), 90)));
+            return adminSettings();
+        });
     }
 
     public Object issueEnrollToken(PluginHttpRequest request) {
@@ -156,28 +158,35 @@ public class UnionHttpFacade {
     }
 
     public Object enrollPeer(PluginHttpRequest request) {
-        Map<String, Object> body = JsonSupport.readMap(request.body());
-        return directory.enroll(stringOf(body.get("origin")), stringOf(body.get("enrollToken")),
-                body.get("note") == null ? null : String.valueOf(body.get("note")),
-                principalName(request.principal(), "admin"), now());
+        return admin(() -> {
+            Map<String, Object> body = JsonSupport.readMap(request.body());
+            return directory.enroll(stringOf(body.get("origin")), stringOf(body.get("enrollToken")),
+                    body.get("note") == null ? null : String.valueOf(body.get("note")),
+                    principalName(request.principal(), "admin"), now());
+        });
     }
 
     public Object setPeerStatus(PluginHttpRequest request, String siteCode) {
-        Map<String, Object> body = JsonSupport.readMap(request.body());
-        return directory.peerView(directory.setPeerStatus(siteCode, stringOf(body.get("status")),
-                principalName(request.principal(), "admin")));
+        return admin(() -> {
+            Map<String, Object> body = JsonSupport.readMap(request.body());
+            return directory.peerView(directory.setPeerStatus(siteCode, stringOf(body.get("status")),
+                    principalName(request.principal(), "admin")));
+        });
     }
 
     public Object refreshPeer(String siteCode) {
-        return directory.peerView(directory.refreshPeer(siteCode, principalName(null, "admin"), now()));
+        return admin(() -> directory.peerView(directory.refreshPeer(siteCode, principalName(null, "admin"), now())));
     }
 
     public void deletePeer(String siteCode) {
-        directory.deletePeer(siteCode, principalName(null, "admin"));
+        admin(() -> {
+            directory.deletePeer(siteCode, principalName(null, "admin"));
+            return null;
+        });
     }
 
     public Object selfTestPeer(String siteCode) {
-        return directory.selfTest(siteCode, now());
+        return admin(() -> directory.selfTest(siteCode, now()));
     }
 
     public Object pageBans(int page, int size) {
@@ -190,20 +199,25 @@ public class UnionHttpFacade {
     }
 
     public Object addBan(PluginHttpRequest request) {
-        Map<String, Object> body = JsonSupport.readMap(request.body());
-        return banView(banService.addBan(stringOf(body.get("name")), stringOf(body.get("reason")),
-                body.get("evidence") == null ? null : String.valueOf(body.get("evidence")),
-                discovery.siteCode().orElseThrow(() -> UnionBusinessException.invalid("请先配置本站 siteCode")),
-                principalName(request.principal(), "admin"), now()));
+        return admin(() -> {
+            Map<String, Object> body = JsonSupport.readMap(request.body());
+            return banView(banService.addBan(stringOf(body.get("name")), stringOf(body.get("reason")),
+                    body.get("evidence") == null ? null : String.valueOf(body.get("evidence")),
+                    discovery.siteCode().orElseThrow(() -> UnionBusinessException.invalid("请先配置本站 siteCode")),
+                    principalName(request.principal(), "admin"), now()));
+        });
     }
 
     public void liftBan(String name) {
-        banService.liftBan(name, principalName(null, "admin"),
-                discovery.siteCode().orElseThrow(() -> UnionBusinessException.invalid("请先配置本站 siteCode")), now());
+        admin(() -> {
+            banService.liftBan(name, principalName(null, "admin"),
+                    discovery.siteCode().orElseThrow(() -> UnionBusinessException.invalid("请先配置本站 siteCode")), now());
+            return null;
+        });
     }
 
     public Object pullBans() {
-        return Map.of("applied", banService.pullFromPeers(directory.trustedPeers(), now()));
+        return admin(() -> Map.of("applied", banService.pullFromPeers(directory.trustedPeers(), now())));
     }
 
     /** 审计管理面可排序字段白名单；非法值回退 at。 */
@@ -296,6 +310,26 @@ public class UnionHttpFacade {
         body.put("error", code);
         body.put("errorMessage", message);
         return PluginHttpResponse.rawJson(status, body);
+    }
+
+    /** admin 管理面统一把业务异常转为结构化错误响应，避免穿透成宿主 500 通用错误。 */
+    private Object admin(java.util.function.Supplier<Object> call) {
+        try {
+            return call.get();
+        } catch (UnionBusinessException e) {
+            return adminError(e);
+        }
+    }
+
+    /**
+     * admin 错误体用 rawJson + message 字段：宿主前端从 message/msg/error 提取文案；
+     * HTTP 401 会被前端当成会话过期触发静默重试，业务错误一律降级为 400。
+     */
+    private PluginHttpResponse adminError(UnionBusinessException e) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", e.code());
+        body.put("message", e.getMessage());
+        return PluginHttpResponse.rawJson(e.status() == 401 ? 400 : e.status(), body);
     }
 
     private String query(PluginHttpRequest request, String key) {
