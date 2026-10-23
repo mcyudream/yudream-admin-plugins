@@ -90,6 +90,12 @@
   无效令牌 `{"active": false}`。
 - 网关应缓存校验结果（建议 ≤5 分钟），避免每个分片请求都回调。
 
+> **数值字段为十进制字符串**：宿主全局把 Long 序列化为字符串（长 ID 防精度
+> 约定），dev 实测 `expires_at`/`updated_at` 回传 `"1792802066442"` 而非数字，
+> 统计查询里的 requests/bytes 等计数同样是字符串。消费方（启动器/网关/前端）
+> 必须宽容解析两种形态；启动器侧已用 lenient deserializer 兜底并有契约测试
+> 锁定（`parses_stringified_updated_at_from_live_host`）。
+
 网关适配要点（对 `mirror/server.mjs`）：
 
 1. `requireKey` 阶段：仍先匹配 `keys.json` 的 `mk_*`（兼容旧客户端）；不命中且
