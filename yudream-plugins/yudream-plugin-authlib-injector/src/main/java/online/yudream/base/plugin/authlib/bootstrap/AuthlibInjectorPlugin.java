@@ -21,8 +21,8 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = AuthlibInjectorPlugin.CODE,
         name = "Authlib Injector",
-        version = "1.3.0",
-        description = "基于系统用户和 yudream-skin 角色资料实现 authlib-injector/Yggdrasil 服务端协议。",
+        version = "1.4.0",
+        description = "基于系统用户和 yudream-skin 角色资料实现 authlib-injector/Yggdrasil 服务端协议，并接入 YD 联合认证。",
         dependencies = {"yudream-skin"}
 )
 @PluginPermissions({
@@ -79,5 +79,21 @@ public class AuthlibInjectorPlugin implements YuDreamPlugin {
         context.exposeService(PluginAuthService.class, appService);
         // 供 mcpanel 等消费方读取本站验证服 API 根（免手填）。
         context.exposeService(PluginAuthlibInfo.class, infoService);
+        // YD 联合认证接入（softdepend，全链路可选降级为纯本站）：
+        // 网关每次查询才取 union service，故 union 晚于 authlib 启用也可正常接入。
+        if (context.dependencyAvailable("yudream-union")) {
+            try {
+                online.yudream.base.plugin.authlib.api.PluginFederationGateway gateway =
+                        new online.yudream.base.plugin.authlib.infrastructure.launcher.UnionGatewayBridge(context);
+                appService.bindFederationGateway(gateway);
+                // union 先于本插件启用（authlib plugin.yml softdepend），本扩展随后进入其
+                // live extension 列表，供 /peer/joins/query 按需读取本地 join 证据。
+                context.registerExtension(online.yudream.base.plugin.union.api.UnionJoinEvidenceProvider.class,
+                        new online.yudream.base.plugin.authlib.infrastructure.launcher.UnionEvidenceBridge(
+                                repository, appService, infoService));
+            } catch (RuntimeException | LinkageError ignored) {
+                // union 契约不可用：保持纯本站行为
+            }
+        }
     }
 }

@@ -10,6 +10,7 @@ const props = defineProps<{ model: SkinPluginModel }>()
 const activeSection = ref('main')
 const sectionList: { icon?: string, label: string, value: string }[] = [
   { icon: 'i-ri:settings-3-line', label: '常规设置', value: 'main' },
+  { icon: 'i-ri:verified-badge-line', label: '正版绑定', value: 'official' },
   { icon: 'i-ri:database-2-line', label: '数据迁移', value: 'migration' },
 ]
 
@@ -32,6 +33,10 @@ function stateText(state: string) {
       <YdButton v-if="activeSection === 'main'" :loading="model.saving === 'settings'" @click="model.saveSettings">
         <YdIcon name="i-ri:save-3-line" />
         保存设置
+      </YdButton>
+      <YdButton v-else-if="activeSection === 'official'" :loading="model.saving === 'official-bind-settings'" @click="model.saveOfficialBindSettings">
+        <YdIcon name="i-ri:save-3-line" />
+        保存正版绑定配置
       </YdButton>
       <YdButton v-else variant="outline" @click="model.openMigrationLog">
         <YdIcon name="i-ri:file-list-3-line" />
@@ -63,6 +68,32 @@ function stateText(state: string) {
                 <span class="text-sm text-muted-foreground">{{ model.settingsForm.allowPublicUpload ? '允许普通用户公开上传' : '仅管理员可公开材质' }}</span>
               </div>
               <YdSwitch v-model="model.settingsForm.allowPublicUpload" />
+            </div>
+          </div>
+        </YdSettingsSection>
+      </template>
+
+      <template #official>
+        <YdSettingsSection
+          title="Microsoft 正版角色绑定"
+          description="配置 Azure public-client 后，用户可以通过 Microsoft OAuth 验证 Java 版角色所有权。refresh token 仅保存在服务端 SecretStore，用于官方会话自动续签。"
+        >
+          <div class="grid max-w-3xl gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+              <div class="grid gap-1">
+                <strong>开放正版角色绑定</strong>
+                <span class="text-sm text-muted-foreground">关闭后不再允许发起新绑定；既有绑定的续签也应在维护窗口前先解除。</span>
+              </div>
+              <YdSwitch v-model="model.officialBindSettings.enabled" />
+            </div>
+            <YdLabel class="grid gap-2">
+              <span>Azure 应用 Client ID</span>
+              <YdInput v-model="model.officialBindSettings.clientId" placeholder="Microsoft Entra public client 的 application (client) ID" />
+            </YdLabel>
+            <div class="grid gap-1 rounded-lg border p-3">
+              <span class="text-sm font-semibold">回调地址（在 Azure 应用“身份验证”中以 Web 平台原样注册）</span>
+              <code class="skin-admin-code">{{ model.officialBindSettings.redirectUri || '宿主未配置 app.web-url / app.base-url，无法推导回调地址' }}</code>
+              <span class="text-sm text-muted-foreground">Azure 按整串精确匹配：协议、域名、端口、路径必须与注册值完全一致，末尾不能多斜杠；平台类型必须选 Web（不能选 SPA，服务端令牌交换会被 CORS 拦截），且需启用“允许公共客户端流”。</span>
             </div>
           </div>
         </YdSettingsSection>

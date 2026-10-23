@@ -225,7 +225,9 @@ public class YuDreamSkinMigrationService {
                         skinHash,
                         capeHash,
                         pid,
-                        millis(rs, "last_modified")
+                        millis(rs, "last_modified"),
+                        SkinPlayer.KIND_OFFLINE,
+                        null
                 ));
                 count++;
             }

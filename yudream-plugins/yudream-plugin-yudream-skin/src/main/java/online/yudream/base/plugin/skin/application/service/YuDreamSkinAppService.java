@@ -43,10 +43,17 @@ public class YuDreamSkinAppService implements PluginSkinService {
 
     private final YuDreamSkinRepository repository;
     private final YuDreamSkinMigrationService migrationService;
+    /** 联合命名空间前缀供给（yudream-union 可用时由 bootstrap 注入 issuerKeyId；可空）。 */
+    private volatile java.util.function.Supplier<String> unionIssuerKeySupplier = () -> "";
 
     public YuDreamSkinAppService(YuDreamSkinRepository repository, YuDreamSkinMigrationService migrationService) {
         this.repository = repository;
         this.migrationService = migrationService;
+    }
+
+    /** 装配期注入联合 issuerKeyId 供给（离线 UUID 派生的联合标识输入）。 */
+    public void bindUnionIssuerKeySupplier(java.util.function.Supplier<String> supplier) {
+        this.unionIssuerKeySupplier = supplier;
     }
 
     public YuDreamSkinSummaryDTO summary() {
@@ -112,15 +119,18 @@ public class YuDreamSkinAppService implements PluginSkinService {
         if (maxPlayers > 0 && repository.findPlayersByOwner(ownerId).size() >= maxPlayers) {
             throw new IllegalArgumentException("当前用户最多只能拥有 " + maxPlayers + " 个角色");
         }
+        String offlineIdentityId = newOfflineIdentityId();
         SkinPlayer player = repository.savePlayer(new SkinPlayer(
-                HashSupport.playerUuid(name),
+                nextOfflineUuid(ownerId, offlineIdentityId),
                 ownerId,
                 name,
                 name.toLowerCase(Locale.ROOT),
                 null,
                 null,
                 null,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                SkinPlayer.KIND_OFFLINE,
+                offlineIdentityId
         ));
         if (defaultPlayer(ownerId).isEmpty()) {
             repository.saveDefaultPlayerUuid(ownerId, player.uuid());
@@ -128,9 +138,29 @@ public class YuDreamSkinAppService implements PluginSkinService {
         return player;
     }
 
+    /**
+     * 新角色离线 UUID（UUIDv5 确定性派生：联合 issuerKeyId ‖ 宿主用户 ‖ 不可变联合角色 ID；
+     * **不含角色名**）。identityId 是每次新建随机生成的联合角色标识，删号重建绝不复用；
+     * 仍检查全局 UUID 文档键，作为理论哈希碰撞的 fail-closed 保护。
+     */
+    private String nextOfflineUuid(String ownerId, String offlineIdentityId) {
+        String candidate = HashSupport.offlineUuid(unionIssuerKeySupplier.get(), ownerId, offlineIdentityId);
+        if (repository.findPlayerByUuid(candidate).isPresent()) {
+            throw new IllegalArgumentException("生成的离线角色 UUID 已存在，请重试创建");
+        }
+        return candidate;
+    }
+
+    private String newOfflineIdentityId() {
+        byte[] random = new byte[16];
+        new java.security.SecureRandom().nextBytes(random);
+        return java.util.HexFormat.of().formatHex(random);
+    }
+
     public SkinPlayer assignTextures(String playerName, AssignTextureCmd cmd) {
         SkinPlayer player = repository.findPlayerByName(playerName)
                 .orElseThrow(() -> new IllegalArgumentException("角色不存在：" + playerName));
+        assertMutablePlayer(player);
         String skinHash = blankToNull(cmd.skinHash());
         String capeHash = blankToNull(cmd.capeHash());
         if (skinHash != null) {
@@ -149,6 +179,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
         if (!player.ownerId().equals(userId)) {
             throw new IllegalArgumentException("只能操作自己的角色");
         }
+        assertMutablePlayer(player);
         String skinHash = blankToNull(cmd.skinHash());
         String capeHash = blankToNull(cmd.capeHash());
         if (skinHash != null && !Objects.equals(skinHash, player.skinHash())) {
@@ -163,6 +194,9 @@ public class YuDreamSkinAppService implements PluginSkinService {
     public SkinPlayer renamePlayer(String playerName, RenamePlayerCmd cmd) {
         SkinPlayer player = repository.findPlayerByName(playerName)
                 .orElseThrow(() -> new IllegalArgumentException("角色不存在：" + playerName));
+        if (SkinPlayer.KIND_OFFICIAL.equals(player.profileKind())) {
+            throw new IllegalArgumentException("正版角色名由 Microsoft Java 版资料维护，不能手动修改");
+        }
         String newName = requireText(cmd.name(), "角色名不能为空");
         repository.findPlayerByName(newName)
                 .filter(existing -> !existing.uuid().equals(player.uuid()))
@@ -184,6 +218,9 @@ public class YuDreamSkinAppService implements PluginSkinService {
     public void deletePlayer(String playerName) {
         SkinPlayer player = repository.findPlayerByName(playerName)
                 .orElseThrow(() -> new IllegalArgumentException("角色不存在：" + playerName));
+        if (SkinPlayer.KIND_OFFICIAL.equals(player.profileKind())) {
+            throw new IllegalArgumentException("请先解除正版绑定，不能直接删除正版角色");
+        }
         repository.findDefaultPlayerUuid(player.ownerId())
                 .filter(uuid -> uuid.equalsIgnoreCase(player.uuid()))
                 .ifPresent(ignored -> repository.saveDefaultPlayerUuid(player.ownerId(), null));
@@ -196,6 +233,9 @@ public class YuDreamSkinAppService implements PluginSkinService {
         String userId = requireText(ownerId, "用户不能为空");
         if (!player.ownerId().equals(userId)) {
             throw new IllegalArgumentException("只能操作自己的角色");
+        }
+        if (SkinPlayer.KIND_OFFICIAL.equals(player.profileKind())) {
+            throw new IllegalArgumentException("请先解除正版绑定，不能直接删除正版角色");
         }
         repository.findDefaultPlayerUuid(userId)
                 .filter(uuid -> uuid.equalsIgnoreCase(player.uuid()))
@@ -521,6 +561,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
     public void setProfileTexture(String uuid, String textureType, String textureHash) {
         SkinPlayer player = repository.findPlayerByUuid(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("角色不存在：" + uuid));
+        assertMutablePlayer(player);
         SkinTexture texture = requireTexture(textureHash);
         if ("cape".equalsIgnoreCase(textureType)) {
             repository.savePlayer(player.withTextures(player.skinHash(), texture.hash()));
@@ -533,6 +574,7 @@ public class YuDreamSkinAppService implements PluginSkinService {
     public void clearProfileTexture(String uuid, String textureType) {
         SkinPlayer player = repository.findPlayerByUuid(uuid)
                 .orElseThrow(() -> new IllegalArgumentException("角色不存在：" + uuid));
+        assertMutablePlayer(player);
         if ("cape".equalsIgnoreCase(textureType)) {
             repository.savePlayer(player.withTextures(player.skinHash(), null));
             return;
@@ -549,6 +591,12 @@ public class YuDreamSkinAppService implements PluginSkinService {
     private PluginSkinTexture toTexture(SkinTexture texture) {
         return new PluginSkinTexture(texture.hash(), texture.name(), texture.type(), texture.model(), texture.contentType(),
                 texture.size(), texture.objectKey(), texture.publicAccess());
+    }
+
+    private void assertMutablePlayer(SkinPlayer player) {
+        if (SkinPlayer.KIND_OFFICIAL.equals(player.profileKind())) {
+            throw new IllegalArgumentException("正版角色的名称与外观由 Microsoft 账号同步维护；请先解除正版绑定后再作为离线角色管理");
+        }
     }
 
     private SkinTexture requireTexture(String hash) {

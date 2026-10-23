@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { MigrationStatus, SkinClosetItem, SkinMe, SkinPlayer, SkinSettings, SkinSummary, SkinTexture } from '../types'
+import type { MigrationStatus, OfficialBindSettings, OfficialBindStatus, SkinClosetItem, SkinMe, SkinPlayer, SkinSettings, SkinSummary, SkinTexture } from '../types'
 
 const PAGE_SIZE = 200
 
@@ -14,6 +14,11 @@ export function createSkinApi(sdk: YuDreamPluginSdk) {
     closet: () => getAllPages<SkinClosetItem>(sdk, '/me/closet'),
     adminCloset: () => getAllPages<SkinClosetItem>(sdk, '/admin/closet'),
     settings: () => sdk.http.get<SkinSettings>('/settings'),
+    officialBindStatus: () => sdk.http.get<OfficialBindStatus>('/me/official-bind/status'),
+    startOfficialBind: () => sdk.http.post<{ authorizeUrl: string; expiresAt: number }>('/me/official-bind/start', {}),
+    unbindOfficial: () => sdk.http.request<{ unbound: boolean }>('/me/official-bind', { method: 'DELETE' }),
+    officialBindSettings: () => sdk.http.get<OfficialBindSettings>('/admin/official-bind/settings'),
+    saveOfficialBindSettings: (data: OfficialBindSettings) => sdk.http.request<OfficialBindSettings>('/admin/official-bind/settings', { method: 'PUT', data }),
     createPlayer: (data: Record<string, unknown>) => sdk.http.post<SkinPlayer>('/me/players', data),
     createAdminPlayer: (data: Record<string, unknown>) => sdk.http.post<SkinPlayer>('/admin/players', data),
     renamePlayer: (name: string, data: Record<string, unknown>) => sdk.http.request<SkinPlayer>(`/me/players/${encodeURIComponent(name)}/name`, { method: 'PUT', data }),

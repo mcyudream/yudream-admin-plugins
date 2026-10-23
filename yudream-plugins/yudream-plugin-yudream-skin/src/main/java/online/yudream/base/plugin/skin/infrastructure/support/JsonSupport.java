@@ -24,4 +24,12 @@ public class JsonSupport {
     public static Map<String, Object> readMap(String body) {
         return read(body, Map.class);
     }
+
+    public static String write(Object value) {
+        try {
+            return MAPPER.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("响应 JSON 序列化失败：" + e.getMessage(), e);
+        }
+    }
 }

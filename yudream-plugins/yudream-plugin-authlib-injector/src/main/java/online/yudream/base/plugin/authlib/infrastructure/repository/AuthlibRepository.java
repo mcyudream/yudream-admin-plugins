@@ -77,6 +77,7 @@ public class AuthlibRepository {
         document.put("profileId", join.profileId());
         document.put("username", join.username());
         document.put("accessToken", join.accessToken());
+        document.put("issuedAt", join.issuedAt());
         document.put("expiresAt", join.expiresAt());
         return document;
     }
@@ -102,7 +103,8 @@ public class AuthlibRepository {
 
     private ServerJoin toJoin(Map<String, Object> document) {
         return new ServerJoin(string(document, "id"), string(document, "serverId"), string(document, "profileId"),
-                string(document, "username"), string(document, "accessToken"), number(document, "expiresAt"));
+                string(document, "username"), string(document, "accessToken"), number(document, "issuedAt"),
+                number(document, "expiresAt"));
     }
 
     private String string(Map<String, Object> document, String key) {

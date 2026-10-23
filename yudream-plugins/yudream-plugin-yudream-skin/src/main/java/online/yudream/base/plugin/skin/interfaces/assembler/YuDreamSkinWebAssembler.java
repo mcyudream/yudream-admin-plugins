@@ -109,6 +109,7 @@ public class YuDreamSkinWebAssembler {
                 player.name(),
                 player.skinHash(),
                 player.capeHash(),
+                player.profileKind(),
                 player.lastModified()
         );
     }

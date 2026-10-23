@@ -2,7 +2,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { useYdToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createSkinApi } from '../api/skin-api'
-import type { MigrationLogEntry, MigrationReport, MigrationStatus, SkinClosetItem, SkinMe, SkinPlayer, SkinSettings, SkinSummary, SkinTexture, SkinUser } from '../types'
+import type { MigrationLogEntry, MigrationReport, MigrationStatus, OfficialBindSettings, OfficialBindStatus, SkinClosetItem, SkinMe, SkinPlayer, SkinSettings, SkinSummary, SkinTexture, SkinUser } from '../types'
 
 export function useSkinPlugin(sdk: YuDreamPluginSdk) {
   const api = createSkinApi(sdk)
@@ -22,6 +22,8 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
   const migrationStatus = ref<MigrationStatus>({ state: 'IDLE', running: false, logs: [] })
   const migrationLogs = ref<MigrationLogEntry[]>([])
   const migrationLogVisible = ref(false)
+  const officialBind = ref<OfficialBindStatus>({ settingsEnabled: false, bind: null })
+  const officialBindSettings = reactive<OfficialBindSettings>({ enabled: false, clientId: '' })
   const migrationStream = ref<AbortController | null>(null)
   const scope = ref<'user' | 'admin'>('user')
   let loadVersion = 0
@@ -161,6 +163,14 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
           ? (nextScope === 'admin' ? api.adminCloset() : canUse.value ? api.closet() : Promise.resolve([]))
           : Promise.resolve(closetItems.value),
       ])
+      const [nextOfficialBind, nextOfficialSettings] = await Promise.all([
+        nextScope === 'user' && canUse.value
+          ? api.officialBindStatus().catch(() => officialBind.value)
+          : Promise.resolve(officialBind.value),
+        nextScope === 'admin' && canManage.value && options.includeMigration
+          ? api.officialBindSettings().catch(() => ({ ...officialBindSettings }))
+          : Promise.resolve(officialBindSettings),
+      ])
       const [userList, savedSettings] = nextScope === 'admin' && canManage.value
         ? [hostUserOption(current), await api.settings()] as const
           : [hostUserOption(current), status.settings || settings.value] as const
@@ -174,6 +184,8 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       players.value = playerList
       textures.value = textureList
       closetItems.value = closetList
+      officialBind.value = nextOfficialBind
+      Object.assign(officialBindSettings, nextOfficialSettings)
       settings.value = savedSettings || status.settings || settings.value
       Object.assign(settingsForm, settings.value)
       applyMigrationStatus(currentMigration)
@@ -227,6 +239,73 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       if (currentLoadVersion === loadVersion) {
         loading.value = false
       }
+    }
+  }
+
+  async function startOfficialBind() {
+    const popup = window.open('', 'yudream-official-bind', 'popup,width=640,height=760')
+    if (!popup) {
+      toast.error('浏览器拦截了授权窗口，请允许弹窗后重试')
+      return
+    }
+    saving.value = 'official-bind'
+    try {
+      const started = await api.startOfficialBind()
+      const complete = async (success: boolean, message?: string) => {
+        window.removeEventListener('message', onMessage)
+        window.clearTimeout(expiryTimer)
+        saving.value = ''
+        if (success) {
+          toast.success('正版角色已绑定')
+          await refreshAfterMutation()
+        }
+        else {
+          toast.error(message || '正版授权失败')
+        }
+      }
+      const onMessage = (event: MessageEvent<{ type?: string, success?: boolean, message?: string }>) => {
+        if (event.origin !== window.location.origin || event.data?.type !== 'yudream-official-bind') return
+        void complete(Boolean(event.data.success), event.data.message)
+      }
+      const expiryTimer = window.setTimeout(() => void complete(false, '正版授权已超时，请重新发起'), 10 * 60_000)
+      window.addEventListener('message', onMessage)
+      popup.location.href = started.authorizeUrl
+    }
+    catch (error) {
+      popup.close()
+      saving.value = ''
+      toast.error(error instanceof Error ? error.message : '无法发起正版授权')
+    }
+  }
+
+  async function unbindOfficial() {
+    saving.value = 'official-unbind'
+    try {
+      await api.unbindOfficial()
+      officialBind.value = { settingsEnabled: officialBind.value.settingsEnabled, bind: null }
+      toast.success('已解除正版角色绑定')
+      await refreshAfterMutation()
+    }
+    catch (error) {
+      toast.error(error instanceof Error ? error.message : '解除正版绑定失败')
+    }
+    finally {
+      saving.value = ''
+    }
+  }
+
+  async function saveOfficialBindSettings() {
+    saving.value = 'official-bind-settings'
+    try {
+      const saved = await api.saveOfficialBindSettings({ ...officialBindSettings })
+      Object.assign(officialBindSettings, saved)
+      toast.success('正版绑定配置已保存')
+    }
+    catch (error) {
+      toast.error(error instanceof Error ? error.message : '正版绑定配置保存失败')
+    }
+    finally {
+      saving.value = ''
     }
   }
 
@@ -899,6 +978,8 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     migrationStatus,
     migrationLogs,
     migrationLogVisible,
+    officialBind,
+    officialBindSettings,
     scope,
     playerForm,
     textureForm,
@@ -935,6 +1016,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     closetTextureOptions,
     userOptions,
     load,
+    startOfficialBind,
+    unbindOfficial,
+    saveOfficialBindSettings,
     createPlayer,
     createAdminPlayer,
     selectPlayer,

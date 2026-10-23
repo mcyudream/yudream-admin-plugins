@@ -56,6 +56,8 @@
               <YdButton :variant="model.selectedPlayerName === player.name ? 'secondary' : 'ghost'" class="skin-role-select h-auto whitespace-normal" :aria-pressed="model.selectedPlayerName === player.name" @click="model.selectPlayer(player)">
                 <span class="skin-role-meta">
                   <strong>{{ player.name }}</strong>
+                  <YdTag v-if="player.profileKind === 'official'" variant="secondary" icon="i-ri:verified-badge-line">正版</YdTag>
+                  <YdTag v-else variant="outline">离线</YdTag>
                   <YdTag v-if="model.selectedPlayerName === player.name" variant="secondary" icon="morph:circle-check">已选中</YdTag>
                   <small>{{ isManagement ? `归属 ${model.userName(player.ownerId)}` : (player.skinHash ? '已配置外观' : '待换装') }}</small>
                 </span>
@@ -89,6 +91,51 @@
               <YdIcon name="i-ri:add-line" />
               创建角色
             </YdButton>
+          </div>
+        </SkinPanel>
+
+        <SkinPanel v-if="!isManagement" title="正版角色绑定">
+          <template #header>
+            <YdTag :variant="model.officialBind.bind ? 'secondary' : 'outline'">
+              {{ model.officialBind.bind ? '已绑定' : (model.officialBind.settingsEnabled ? '可绑定' : '未开放') }}
+            </YdTag>
+          </template>
+          <div class="grid gap-4">
+            <div v-if="model.officialBind.bind" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+              <div class="grid min-w-0 gap-1">
+                <strong>{{ model.officialBind.bind.officialNameLast }}</strong>
+                <span class="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+                  官方 UUID：
+                  <code class="skin-admin-code" :title="model.officialBind.bind.officialUuid">{{ model.officialBind.bind.officialUuid }}</code>
+                </span>
+                <span class="text-sm text-muted-foreground">自动续签：{{ model.officialBind.bind.msRefreshStored ? '已启用（凭据存于服务端 SecretStore）' : '不可用' }}</span>
+              </div>
+              <YdButton
+                variant="outline"
+                :loading="model.saving === 'official-unbind'"
+                @click="model.unbindOfficial"
+              >
+                <YdIcon name="i-ri:links-line" />
+                解除绑定
+              </YdButton>
+            </div>
+            <div v-else class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+              <div class="grid gap-1">
+                <strong>绑定 Microsoft Java 版账号</strong>
+                <span class="text-sm text-muted-foreground">通过 Microsoft OAuth 验证所有权后，以官方 UUID 与角色名创建正版角色。</span>
+              </div>
+              <YdButton
+                :disabled="!model.officialBind.settingsEnabled"
+                :loading="model.saving === 'official-bind'"
+                @click="model.startOfficialBind"
+              >
+                <YdIcon name="i-ri:microsoft-line" />
+                {{ model.officialBind.settingsEnabled ? '绑定正版角色' : '管理员尚未开放' }}
+              </YdButton>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              绑定后角色名与外观随 Microsoft 资料同步，支持官方登录的启动器可续签正版会话进入纯正版在线模式服务器；解绑后 72 小时内该角色不可换绑其他账号。
+            </p>
           </div>
         </SkinPanel>
 

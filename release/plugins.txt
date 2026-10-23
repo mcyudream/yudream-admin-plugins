@@ -3,6 +3,7 @@ yudream-plugin-launcher-adapter
 yudream-plugin-minecraft-server
 yudream-plugin-feedback
 yudream-plugin-todo
+yudream-plugin-authlib-injector
 yudream-plugin-yudream-skin
 yudream-plugin-mc-pet
 yudream-plugin-mcpanel
@@ -26,4 +27,5 @@ yudream-plugin-mc-news
 yudream-plugin-mcguess
 yudream-plugin-alipay
 yudream-plugin-wallet
+yudream-plugin-yudream-union
 yudream-plugin-mc-terrain-theme

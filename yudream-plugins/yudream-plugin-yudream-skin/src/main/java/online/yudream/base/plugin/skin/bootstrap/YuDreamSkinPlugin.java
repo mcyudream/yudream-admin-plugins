@@ -1,9 +1,12 @@
 package online.yudream.base.plugin.skin.bootstrap;
 
+import online.yudream.base.plugin.skin.application.service.OfficialBindService;
 import online.yudream.base.plugin.skin.application.service.YuDreamSkinAppService;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
+import online.yudream.base.plugin.skin.infrastructure.repository.OfficialBindDocumentRepository;
 import online.yudream.base.plugin.skin.infrastructure.repository.YuDreamSkinRepository;
 import online.yudream.base.plugin.skin.infrastructure.service.YuDreamSkinMigrationService;
+import online.yudream.base.plugin.skin.interfaces.controller.OfficialBindController;
 import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinAdminController;
 import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinPublicController;
 import online.yudream.base.plugin.skin.interfaces.controller.YuDreamSkinUserController;
@@ -35,8 +38,8 @@ import java.util.concurrent.CompletionStage;
 @PluginSpec(
         code = YuDreamSkinPlugin.CODE,
         name = "yudream-skin",
-        version = "1.5.2",
-        description = "基于 YuDream 插件运行时实现的 Minecraft 皮肤站，支持角色、材质、衣柜、CustomSkinAPI 与 Blessing Skin 数据迁移。"
+        version = "1.6.0",
+        description = "基于 YuDream 插件运行时实现的 Minecraft 皮肤站，支持角色、材质、衣柜、CustomSkinAPI、Blessing Skin 数据迁移与正版账号绑定。"
 )
 @PluginPermissions({
         @PluginPermission(code = YuDreamSkinPlugin.VIEW_PERMISSION, name = "查看皮肤站", module = "平台插件", description = "查看皮肤站概览和公开材质"),
@@ -204,11 +207,34 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
                 repository,
                 new YuDreamSkinMigrationService(repository, context.framework().users())
         );
+        // 联合认证（可选 Soft 依赖）：离线 UUID 派生加入本站联合 issuerKeyId 命名空间
+        // （YD 联合认证协议 v1 §1；union 未启用时退化为本站命名空间派生）。
+        if (context.dependencyAvailable("yudream-union")) {
+            try {
+                appService.bindUnionIssuerKeySupplier(() -> context
+                        .service("yudream-union", online.yudream.base.plugin.union.api.UnionFederationService.class)
+                        .map(online.yudream.base.plugin.union.api.UnionFederationService::issuerKeyId)
+                        .orElse(""));
+            } catch (RuntimeException | LinkageError ignored) {
+                // union 未实际启用：退化为本站命名空间派生
+            }
+        }
         context.exposeService(PluginSkinService.class, appService);
         YuDreamSkinHttpFacade http = new YuDreamSkinHttpFacade(appService, context.framework());
         context.registerHttpController(new YuDreamSkinPublicController(http));
         context.registerHttpController(new YuDreamSkinUserController(http));
         context.registerHttpController(new YuDreamSkinAdminController(http));
+        // 正版绑定（Microsoft OAuth 所有权验证 + 自带续签；可选能力，未配置 Azure 应用时端点明确报错）
+        OfficialBindDocumentRepository binds = new OfficialBindDocumentRepository(context.documents());
+        java.util.function.Supplier<String> redirectOrigin = () -> {
+            String configured = context.framework().setting("app.web-url")
+                    .or(() -> context.framework().setting("app.base-url"))
+                    .orElse("");
+            return OfficialBindDocumentRepository.originOf(configured);
+        };
+        OfficialBindService officialBind = new OfficialBindService(binds, repository,
+                context.secrets(), redirectOrigin);
+        context.registerHttpController(new OfficialBindController(officialBind));
     }
 
     @PluginCommand(code = "yudream-skin.my-skin", command = "我的皮肤", name = "查询当前角色皮肤", description = "查询当前绑定账号默认角色的皮肤和披风")

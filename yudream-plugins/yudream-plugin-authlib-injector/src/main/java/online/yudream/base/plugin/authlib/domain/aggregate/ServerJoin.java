@@ -6,6 +6,7 @@ public record ServerJoin(
         String profileId,
         String username,
         String accessToken,
+        Long issuedAt,
         Long expiresAt
 ) {
 }

@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>yudream-plugin-yudream-skin</artifactId>
-    <version>1.5.8</version>
+    <version>1.6.0</version>
 
     <build>
         <resources>
@@ -35,6 +35,11 @@
         <dependency>
             <groupId>online.yudream.base</groupId>
             <artifactId>yudream-plugin-spi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>online.yudream.plugins</groupId>
+            <artifactId>yudream-plugin-yudream-union</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

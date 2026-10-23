@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ActionMenuItem, EntityPeekFact, TableColumn } from '@yudream/components'
+import type { ActionMenuItem, EntityPeekFact, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, TableSortingState } from '@yudream/components'
 import type { SkinPlayer } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { YdLabel, YdButton, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { YdLabel, YdButton, YdDynamicSearchForm, YdEntityPeek, YdIcon, YdInput, YdModal, YdPagination, YdSelect, YdTag, useYdModal, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 
 const props = defineProps<{
   model: SkinPluginModel
@@ -30,6 +30,62 @@ const statusOptions = [
   { label: '已配置外观', value: 'configured' },
   { label: '待换装', value: 'empty' },
 ]
+
+/** ControlType 是 components 内部的字符串枚举，桥接层只出类型，这里用字面量收敛一次 */
+type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'TEXT' | 'SELECT' | 'DATE_RANGE' | 'NUMBER_RANGE' | 'CHECKBOX' | 'RADIO' }
+
+function searchField(config: SearchFieldInput): SearchFieldConfig {
+  const { controlType = 'TEXT', order = 0, showWhenFolded = false, width = '200px', ...rest } = config
+  return { ...rest, fieldName: config.fieldName, label: config.label, controlType: controlType as SearchFieldConfig['controlType'], order, showWhenFolded, width }
+}
+
+const searchQuery = ref<Record<string, any>>({ keyword: '', ownerId: '', status: 'all' })
+
+const searchConfig: SearchConfig = {
+  fields: [
+    searchField({ fieldName: 'keyword', label: '关键词', placeholder: '角色名 / UUID / 材质 / 用户', controlType: 'TEXT', order: 1, showWhenFolded: true, width: '220px' }),
+    searchField({ fieldName: 'ownerId', label: '系统用户', placeholder: '用户 ID / 昵称 / 用户名', controlType: 'TEXT', order: 2, showWhenFolded: true, width: '220px' }),
+    searchField({ fieldName: 'status', label: '状态', controlType: 'SELECT', optionsSource: 'statusOptions', order: 3, showWhenFolded: true, width: '180px' }),
+  ],
+}
+
+const optionsSources: SearchOptionsSource[] = [
+  { id: 'statusOptions', loader: () => statusOptions },
+]
+
+function applySearch() {
+  search.keyword = String(searchQuery.value.keyword ?? '')
+  search.ownerId = String(searchQuery.value.ownerId ?? '')
+  search.status = String(searchQuery.value.status ?? 'all')
+  pagination.page = 1
+}
+
+/** 本地数据的手动排序：先排序再切片，保证排序作用于全部筛选结果 */
+const sorting = ref<TableSortingState>([{ id: 'lastModified', desc: true }])
+
+function changeSorting(next: TableSortingState) {
+  sorting.value = next
+  pagination.page = 1
+}
+
+function compareValues(left: unknown, right: unknown) {
+  if (left == null && right == null) return 0
+  if (left == null) return -1
+  if (right == null) return 1
+  const leftNumber = Number(left)
+  const rightNumber = Number(right)
+  if (String(left).trim() !== '' && String(right).trim() !== '' && Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber
+  }
+  return String(left).localeCompare(String(right), 'zh-CN')
+}
+
+function sortRows(rows: SkinPlayer[]) {
+  const first = sorting.value[0]
+  if (!first) return rows
+  const sorted = [...rows].sort((a, b) => compareValues((a as unknown as Record<string, unknown>)[first.id], (b as unknown as Record<string, unknown>)[first.id]))
+  return first.desc ? sorted.reverse() : sorted
+}
 
 const skinOptions = computed(() => props.model.textures
   .filter(texture => texture.type !== 'cape')
@@ -68,8 +124,9 @@ const filteredRows = computed(() => {
 })
 
 const pagedRows = computed(() => {
+  const rows = sortRows(filteredRows.value)
   const start = (pagination.page - 1) * pagination.size
-  return filteredRows.value.slice(start, start + pagination.size)
+  return rows.slice(start, start + pagination.size)
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pagination.size)))
@@ -77,29 +134,18 @@ const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.lengt
 const tableColumns = computed<TableColumn<SkinPlayer>[]>(() => [
   { accessorKey: 'name', header: '角色名', width: 150, fixed: 'left' },
   { accessorKey: 'ownerId', header: '系统用户', width: 220 },
-  { id: 'skin', header: '皮肤', width: 180 },
-  { id: 'cape', header: '披风', width: 180 },
-  { id: 'status', header: '状态', width: 96, align: 'center' },
-  { id: 'lastModified', header: '更新时间', width: 150 },
-  { id: 'uuid', header: 'UUID', width: 180 },
+  { id: 'skin', header: '皮肤', width: 180, enableSorting: false },
+  { id: 'cape', header: '披风', width: 180, enableSorting: false },
+  { id: 'status', header: '状态', width: 96, align: 'center', enableSorting: false },
+  { accessorKey: 'lastModified', header: '更新时间', width: 150 },
+  { id: 'uuid', header: 'UUID', width: 180, enableSorting: false },
   ])
-
-watch([() => search.keyword, () => search.ownerId, () => search.status], () => {
-  pagination.page = 1
-})
 
 watch(totalPages, (pages) => {
   if (pagination.page > pages) {
     pagination.page = pages
   }
 })
-
-function resetSearch() {
-  search.keyword = ''
-  search.ownerId = ''
-  search.status = 'all'
-  pagination.page = 1
-}
 
 function ownerText(player: SkinPlayer) {
   return player.ownerName || player.ownerUsername || player.ownerEmail || props.model.userName(player.ownerId)
@@ -209,28 +255,15 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
 
 <template>
   <YdTablePageLayout title="角色管理">
-      <template #search>
-        <div class="yd-filter-grid" style="--yd-filter-columns: 3">
-          <YdInput
-            v-model="search.keyword"
-            clearable
-            placeholder="角色名 / UUID / 材质 / 用户"
-            class="w-full"
-            @keydown.enter="pagination.page = 1"
-            @clear="pagination.page = 1"
-          />
-          <YdInput v-model="search.ownerId" clearable placeholder="系统用户 ID / 昵称 / 用户名" class="w-full" @keydown.enter="pagination.page = 1" @clear="pagination.page = 1" />
-          <YdSelect v-model="search.status" :options="statusOptions" class="w-full" />
-          <div class="flex items-center justify-end gap-2">
-            <YdButton variant="outline" @click="resetSearch">
-              重置
-            </YdButton>
-            <YdButton @click="pagination.page = 1">
-              <YdIcon name="i-ri:search-line" />
-              筛选
-            </YdButton>
-          </div>
-        </div>
+      <template #search="{ fold }">
+        <YdDynamicSearchForm
+          v-model="searchQuery"
+          :config="searchConfig"
+          :fold="fold"
+          :options-sources="optionsSources"
+          @search="applySearch"
+          @reset="applySearch"
+        />
       </template>
       <template #actions>
         <YdButton @click="openCreate"><YdIcon name="i-ri:add-line" />新增角色</YdButton>
@@ -244,6 +277,10 @@ const rowActions: ActionMenuItem<SkinPlayer>[] = [
           column-visibility
           border
           stripe
+          sortable
+          manual-sorting
+          :sorting="sorting"
+          @sorting-change="changeSorting"
           :columns="tableColumns"
           :data="pagedRows"
         >

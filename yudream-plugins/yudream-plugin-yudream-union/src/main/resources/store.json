@@ -1,0 +1,11 @@
+{
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": [
+    "authlib",
+    "federation",
+    "yggdrasil",
+    "trust"
+  ],
+  "releaseNotes": "0.1.0：新增 YD 联合认证基础插件。站点管理员可用一次性信任令牌注册受信站点，TOFU 固定 TLS 证书指纹与联合签名公钥；Authlib 外置认证可在 hasJoined 本地未命中时验证受信站签发的短时 join 断言；支持按角色名的点对点联合封禁账本、跨站登录统计与溯源、审计关键词检索/单条删除/全量清空，以及可配置的自动保留清理。"
+}

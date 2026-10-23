@@ -46,7 +46,29 @@ export interface SkinPlayer {
   name: string
   skinHash?: string
   capeHash?: string
+  profileKind?: 'offline' | 'official' | string
   lastModified?: number
+}
+
+export interface OfficialBindView {
+  officialUuid: string
+  officialNameLast: string
+  verificationMethod: string
+  msRefreshStored: boolean
+  status: 'active' | 'unbound' | string
+  verifiedAt?: number
+}
+
+export interface OfficialBindStatus {
+  settingsEnabled: boolean
+  bind?: OfficialBindView | null
+}
+
+export interface OfficialBindSettings {
+  enabled: boolean
+  clientId: string
+  /** 站点实际发送给 Microsoft 的回调地址（精确匹配用），origin 未配置时为空。 */
+  redirectUri?: string | null
 }
 
 export interface SkinTexture {

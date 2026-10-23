@@ -34,16 +34,33 @@ public class AuthlibAppService implements PluginAuthService {
 
     private static final String SKIN_PLUGIN_CODE = "yudream-skin";
     private static final long SESSION_TTL = Duration.ofDays(7).toMillis();
-    private static final long JOIN_TTL = Duration.ofMinutes(5).toMillis();
+    /** 标准 online-mode join/hasJoined 窗口：serverHash 绑定本次握手，60 秒后不再有效。 */
+    private static final long JOIN_TTL = Duration.ofSeconds(60).toMillis();
 
     private final PluginContext context;
     private final AuthlibRepository repository;
     private final AuthlibCryptoService cryptoService;
+    /**
+     * 联邦验签网关（可空 = 纯本站行为）。authlib softdepend union，网关在 bootstrap
+     * 立即创建且每次调用才解析 union service，因此不依赖两个插件的 onEnable 先后顺序。
+     */
+    private online.yudream.base.plugin.authlib.api.PluginFederationGateway federationGateway;
 
     public AuthlibAppService(PluginContext context, AuthlibRepository repository, AuthlibCryptoService cryptoService) {
+        this(context, repository, cryptoService, null);
+    }
+
+    public AuthlibAppService(PluginContext context, AuthlibRepository repository, AuthlibCryptoService cryptoService,
+                             online.yudream.base.plugin.authlib.api.PluginFederationGateway federationGateway) {
         this.context = context;
         this.repository = repository;
         this.cryptoService = cryptoService;
+        this.federationGateway = federationGateway;
+    }
+
+    /** 装配期注入联邦网关（yudream-union 可用时由 bootstrap 调用）。 */
+    public void bindFederationGateway(online.yudream.base.plugin.authlib.api.PluginFederationGateway gateway) {
+        this.federationGateway = gateway;
     }
 
     public Object metadata(String apiRoot, String textureBaseUrl) {
@@ -51,7 +68,7 @@ public class AuthlibAppService implements PluginAuthService {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("serverName", "YuDream Authlib Injector");
         meta.put("implementationName", "YuDream Authlib Injector Plugin");
-        meta.put("implementationVersion", "1.3.1");
+        meta.put("implementationVersion", "1.4.0");
         meta.put("links", links(apiRoot));
         meta.put("feature.non_email_login", true);
         meta.put("feature.legacy_skin_api", false);
@@ -60,9 +77,27 @@ public class AuthlibAppService implements PluginAuthService {
         meta.put("feature.enable_profile_key", true);
         meta.put("feature.username_check", false);
         body.put("meta", meta);
-        body.put("skinDomains", skinDomains(textureBaseUrl));
+        List<String> domains = new java.util.ArrayList<>(skinDomains(textureBaseUrl));
+        for (String host : federationTextureHosts()) {
+            if (!domains.contains(host)) {
+                domains.add(host);
+            }
+        }
+        body.put("skinDomains", domains);
         body.put("signaturePublickey", cryptoService.publicKeyPem());
         return body;
+    }
+
+    /** 受信站 texture 主机合并进 skinDomains（联合协议 §5；union 不可用时为空）。 */
+    private List<String> federationTextureHosts() {
+        if (federationGateway == null) {
+            return List.of();
+        }
+        try {
+            return federationGateway.trustedTextureHosts();
+        } catch (RuntimeException | LinkageError e) {
+            return List.of();
+        }
     }
 
     public Object status(String apiRoot, String textureBaseUrl) {
@@ -188,13 +223,15 @@ public class AuthlibAppService implements PluginAuthService {
         }
         PluginSkinProfile profile = findOwnedProfile(session.userId(), session.selectedProfileId())
                 .orElseThrow(() -> authError("ForbiddenOperationException", "角色不存在"));
+        long joinedAt = now();
         repository.saveJoin(new ServerJoin(
                 request.serverId() + ":" + profile.uuid(),
                 request.serverId(),
                 profile.uuid(),
                 profile.name(),
                 session.accessToken(),
-                now() + JOIN_TTL
+                joinedAt,
+                joinedAt + JOIN_TTL
         ));
     }
 
@@ -209,7 +246,33 @@ public class AuthlibAppService implements PluginAuthService {
                 .flatMap(join -> skinService().findProfileByUuid(join.profileId()))
                 // Paper requests hasJoined without unsigned=false. This response must
                 // nevertheless be signed so other clients accept its textures property.
-                .map(profile -> profileResponse(profile, textureBaseUrl, false));
+                .map(profile -> profileResponse(profile, textureBaseUrl, false))
+                // 本地未命中 → 受信站联合断言验签（YD 联合认证协议 v1）；失败退化为 204。
+                .or(() -> federatedHasJoined(username, serverId));
+    }
+
+    /** 联合验签命中后用**本站密钥重签** textures 属性（信任根 = 本站 signaturePublickey）。 */
+    private Optional<Object> federatedHasJoined(String username, String serverId) {
+        if (federationGateway == null) {
+            return Optional.empty();
+        }
+        try {
+            return federationGateway.verifyRemoteJoin(username, serverId)
+                    .map(profile -> {
+                        Map<String, Object> textureProperty = new LinkedHashMap<>();
+                        textureProperty.put("name", "textures");
+                        textureProperty.put("value", profile.textureValue());
+                        textureProperty.put("signature", cryptoService.sign(profile.textureValue()));
+                        Map<String, Object> body = new LinkedHashMap<>();
+                        body.put("id", profile.uuid());
+                        body.put("name", profile.name());
+                        // 远程角色不携带 uploadableTextures：本站无法代写受信站的皮肤库
+                        body.put("properties", List.of(textureProperty));
+                        return (Object) body;
+                    });
+        } catch (RuntimeException | LinkageError e) {
+            return Optional.empty();
+        }
     }
 
     public Object profile(String uuid, String textureBaseUrl, boolean unsigned) {
@@ -411,6 +474,20 @@ public class AuthlibAppService implements PluginAuthService {
             node.put("metadata", Map.of("model", "slim"));
         }
         return node;
+    }
+
+    /**
+     * 联合断言回供（YD 联合认证协议 v1 §3.2 B 侧数据源）：指定角色的 textures
+     * 属性 value（base64 原文）。供 UnionEvidenceBridge 经扩展点调用。
+     */
+    public java.util.Optional<String> textureValueFor(String profileId, String textureBaseUrl) {
+        try {
+            return skinService().findProfileByUuid(profileId)
+                    .map(profile -> Base64.getEncoder().encodeToString(
+                            texturePayload(profile, textureBaseUrl, true).getBytes(StandardCharsets.UTF_8)));
+        } catch (RuntimeException e) {
+            return java.util.Optional.empty();
+        }
     }
 
     private AuthSession validSession(String accessToken, String clientToken) {

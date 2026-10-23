@@ -1,0 +1,37 @@
+.union-plugin {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.union-plugin > * {
+  min-width: 0;
+}
+
+/* 设置类页面外壳（对齐宿主 .settings-page-shell）：固定为「可视高度 - 布局占位」，
+   白底铺满，页头与分区导航固定在壳内，只有内容区滚动（YdSettingsLayout scroll 模式）。 */
+.settings-page-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(
+    100dvh
+    - var(--g-slots-layout-top-height, 0px)
+    - var(--g-header-actual-height, 0px)
+    - var(--g-topbar-actual-height, 0px)
+    - var(--g-slots-layout-bottom-height, 0px)
+    - var(--g-main-container-padding-top, 0px)
+    - var(--g-main-container-padding-bottom, 0px)
+  );
+  overflow: hidden;
+  background-color: oklch(var(--card));
+}
+
+/* 宿主远程卡片外包层接进首页网格高度链（对齐 authlib 卡片经验）。 */
+[data-yudream-plugin="yudream-union"] {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

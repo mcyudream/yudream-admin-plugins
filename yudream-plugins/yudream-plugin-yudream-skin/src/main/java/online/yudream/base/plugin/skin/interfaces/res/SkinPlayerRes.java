@@ -9,6 +9,7 @@ public record SkinPlayerRes(
         String name,
         String skinHash,
         String capeHash,
+        String profileKind,
         Long lastModified
 ) {
 }

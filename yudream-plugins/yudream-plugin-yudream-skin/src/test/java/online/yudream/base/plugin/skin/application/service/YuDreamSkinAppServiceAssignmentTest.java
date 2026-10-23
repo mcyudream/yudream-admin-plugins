@@ -40,7 +40,8 @@ class YuDreamSkinAppServiceAssignmentTest {
     void setUp() {
         repository = new YuDreamSkinRepository(new InMemoryDocuments(), null);
         service = new YuDreamSkinAppService(repository, null);
-        repository.savePlayer(new SkinPlayer("alice-uuid", OWNER, PLAYER, "alice", SKIN, CAPE, null, 1L));
+        repository.savePlayer(new SkinPlayer("alice-uuid", OWNER, PLAYER, "alice", SKIN, CAPE, null, 1L,
+                SkinPlayer.KIND_OFFLINE, null));
         saveTexture(SKIN, "skin");
         saveTexture(CAPE, "cape");
         saveTexture(NEW_SKIN, "skin");

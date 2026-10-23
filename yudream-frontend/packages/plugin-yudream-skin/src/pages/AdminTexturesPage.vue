@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { FileItem, FileUploadRequestOptions, TableColumn, ActionMenuItem } from '@yudream/components'
+import type { FileItem, FileUploadRequestOptions, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn, TableSortingState, ActionMenuItem } from '@yudream/components'
 import type { SkinTexture } from '../types'
 import type { SkinPluginModel } from '../composables/useSkinPlugin'
 import { computed, reactive, ref, watch } from 'vue'
-import { useYdModal, YdButton, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
+import { useYdModal, YdButton, YdDynamicSearchForm, YdEntityPeek, YdFileUpload, YdIcon, YdInput, YdLabel, YdModal, YdPagination, YdSelect, YdSwitch, YdTag, YdResponsiveEnhancedTable, YdTablePageLayout } from '@yudream/components'
 import SkinTexturePreview from '../components/SkinTexturePreview.vue'
 
 const props = defineProps<{
@@ -40,6 +40,63 @@ const uploadTypeOptions = [
   { label: '披风', value: 'cape' },
 ]
 
+/** ControlType 是 components 内部的字符串枚举，桥接层只出类型，这里用字面量收敛一次 */
+type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'TEXT' | 'SELECT' | 'DATE_RANGE' | 'NUMBER_RANGE' | 'CHECKBOX' | 'RADIO' }
+
+function searchField(config: SearchFieldInput): SearchFieldConfig {
+  const { controlType = 'TEXT', order = 0, showWhenFolded = false, width = '200px', ...rest } = config
+  return { ...rest, fieldName: config.fieldName, label: config.label, controlType: controlType as SearchFieldConfig['controlType'], order, showWhenFolded, width }
+}
+
+const searchQuery = ref<Record<string, any>>({ keyword: '', type: 'all', visibility: 'all' })
+
+const searchConfig: SearchConfig = {
+  fields: [
+    searchField({ fieldName: 'keyword', label: '关键词', placeholder: '名称 / Hash / 上传人', controlType: 'TEXT', order: 1, showWhenFolded: true, width: '220px' }),
+    searchField({ fieldName: 'type', label: '类型', controlType: 'SELECT', optionsSource: 'typeOptions', order: 2, showWhenFolded: true, width: '180px' }),
+    searchField({ fieldName: 'visibility', label: '权限', controlType: 'SELECT', optionsSource: 'visibilityOptions', order: 3, showWhenFolded: true, width: '180px' }),
+  ],
+}
+
+const optionsSources: SearchOptionsSource[] = [
+  { id: 'typeOptions', loader: () => typeOptions },
+  { id: 'visibilityOptions', loader: () => visibilityOptions },
+]
+
+function applySearch() {
+  search.keyword = String(searchQuery.value.keyword ?? '')
+  search.type = String(searchQuery.value.type ?? 'all')
+  search.visibility = String(searchQuery.value.visibility ?? 'all')
+  pagination.page = 1
+}
+
+/** 本地数据的手动排序：先排序再切片，保证排序作用于全部筛选结果 */
+const sorting = ref<TableSortingState>([{ id: 'uploadedAt', desc: true }])
+
+function changeSorting(next: TableSortingState) {
+  sorting.value = next
+  pagination.page = 1
+}
+
+function compareValues(left: unknown, right: unknown) {
+  if (left == null && right == null) return 0
+  if (left == null) return -1
+  if (right == null) return 1
+  const leftNumber = Number(left)
+  const rightNumber = Number(right)
+  if (String(left).trim() !== '' && String(right).trim() !== '' && Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber
+  }
+  return String(left).localeCompare(String(right), 'zh-CN')
+}
+
+function sortRows(rows: SkinTexture[]) {
+  const first = sorting.value[0]
+  if (!first) return rows
+  const sorted = [...rows].sort((a, b) => compareValues((a as unknown as Record<string, unknown>)[first.id], (b as unknown as Record<string, unknown>)[first.id]))
+  return first.desc ? sorted.reverse() : sorted
+}
+
 const filteredRows = computed(() => {
   const keyword = search.keyword.trim().toLowerCase()
   return props.model.textures.filter((texture) => {
@@ -73,39 +130,29 @@ const filteredRows = computed(() => {
 })
 
 const pagedRows = computed(() => {
+  const rows = sortRows(filteredRows.value)
   const start = (pagination.page - 1) * pagination.size
-  return filteredRows.value.slice(start, start + pagination.size)
+  return rows.slice(start, start + pagination.size)
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pagination.size)))
 
 const tableColumns = computed<TableColumn<SkinTexture>[]>(() => [
-  { id: 'preview', header: '预览', width: 112, fixed: 'left' },
+  { id: 'preview', header: '预览', width: 112, fixed: 'left', enableSorting: false },
   { accessorKey: 'name', header: '材质名称', width: 220, fixed: 'left' },
-  { id: 'type', header: '类型', width: 116 },
-  { id: 'publicAccess', header: '权限', width: 92, align: 'center' },
+  { id: 'type', header: '类型', width: 116, enableSorting: false },
+  { id: 'publicAccess', header: '权限', width: 92, align: 'center', enableSorting: false },
   { accessorKey: 'uploaderId', header: '上传人', width: 132 },
-  { id: 'size', header: '大小', width: 96 },
-  { id: 'uploadedAt', header: '上传时间', width: 152 },
-  { id: 'hash', header: 'Hash', width: 190 },
+  { accessorKey: 'size', header: '大小', width: 96 },
+  { accessorKey: 'uploadedAt', header: '上传时间', width: 152 },
+  { id: 'hash', header: 'Hash', width: 190, enableSorting: false },
   ])
-
-watch([() => search.keyword, () => search.type, () => search.visibility], () => {
-  pagination.page = 1
-})
 
 watch(totalPages, (pages) => {
   if (pagination.page > pages) {
     pagination.page = pages
   }
 })
-
-function resetSearch() {
-  search.keyword = ''
-  search.type = 'all'
-  search.visibility = 'all'
-  pagination.page = 1
-}
 
 function openUpload() {
   Object.assign(props.model.textureForm, {
@@ -206,28 +253,15 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
 
 <template>
   <YdTablePageLayout title="材质管理">
-      <template #search>
-        <div class="yd-filter-grid" style="--yd-filter-columns: 3">
-          <YdInput
-            v-model="search.keyword"
-            clearable
-            placeholder="名称 / Hash / 上传人"
-            class="w-full"
-            @keydown.enter="pagination.page = 1"
-            @clear="pagination.page = 1"
-          />
-          <YdSelect v-model="search.type" :options="typeOptions" class="w-full" />
-          <YdSelect v-model="search.visibility" :options="visibilityOptions" class="w-full" />
-          <div class="flex items-center justify-end gap-2">
-            <YdButton variant="outline" @click="resetSearch">
-              重置
-            </YdButton>
-            <YdButton @click="pagination.page = 1">
-              <YdIcon name="i-ri:search-line" />
-              筛选
-            </YdButton>
-          </div>
-        </div>
+      <template #search="{ fold }">
+        <YdDynamicSearchForm
+          v-model="searchQuery"
+          :config="searchConfig"
+          :fold="fold"
+          :options-sources="optionsSources"
+          @search="applySearch"
+          @reset="applySearch"
+        />
       </template>
       <template #actions>
         <YdButton @click="openUpload">
@@ -244,6 +278,10 @@ const rowActions: ActionMenuItem<SkinTexture>[] = [
           column-visibility
           border
           stripe
+          sortable
+          manual-sorting
+          :sorting="sorting"
+          @sorting-change="changeSorting"
           :columns="tableColumns"
           :data="pagedRows"
         >

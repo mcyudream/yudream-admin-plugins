@@ -242,6 +242,8 @@ public class YuDreamSkinRepository {
         document.put("capeHash", player.capeHash());
         document.put("migratedPid", player.migratedPid());
         document.put("lastModified", player.lastModified());
+        document.put("profileKind", player.profileKind());
+        document.put("offlineIdentityId", player.offlineIdentityId());
         return document;
     }
 
@@ -294,7 +296,9 @@ public class YuDreamSkinRepository {
                 string(document, "skinHash"),
                 string(document, "capeHash"),
                 number(document, "migratedPid"),
-                number(document, "lastModified")
+                number(document, "lastModified"),
+                string(document, "profileKind"),
+                string(document, "offlineIdentityId")
         );
     }
 
