@@ -36,16 +36,19 @@ public class YmclCapabilitiesController {
     private final Supplier<Boolean> skinFaceAvailable;
     /** P2P 直连是否可用（mcpanel 已装且面板已开 P2P；懒求值），决定是否宣告 p2p 能力。 */
     private final Supplier<Boolean> p2pAvailable;
+    /** 下载分发是否已配置（懒求值），决定是否宣告 download 能力。 */
+    private final Supplier<Boolean> downloadDistributionAvailable;
 
     public YmclCapabilitiesController(String pluginCode, String adapterVersion, PluginDocumentStore documents,
             Supplier<String> siteName, Supplier<String> configuredOrigin, Supplier<Boolean> skinFaceAvailable,
-            Supplier<Boolean> p2pAvailable) {
+            Supplier<Boolean> p2pAvailable, Supplier<Boolean> downloadDistributionAvailable) {
         this.adapterVersion = adapterVersion;
         this.documents = documents;
         this.siteName = siteName;
         this.configuredOrigin = configuredOrigin;
         this.skinFaceAvailable = skinFaceAvailable;
         this.p2pAvailable = p2pAvailable;
+        this.downloadDistributionAvailable = downloadDistributionAvailable;
     }
 
     @PluginHttpEndpoint(method = "GET", path = "/v1/capabilities", wrapResult = false)
@@ -109,6 +112,21 @@ public class YmclCapabilitiesController {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (payloadP2p) {
             payload.put("p2p", Map.of("session_url", origin + "/api/plugins/ymcl-adapter/v1/p2p/session"));
+        }
+        // 下载分发（YAP 下载扩展）：管理员保存了分发配置时宣告；启动器据此
+        // 拉取配置并按站点下发的源顺序接管对应资源类别的下载路由。
+        boolean downloadReady = false;
+        try {
+            downloadReady = Boolean.TRUE.equals(downloadDistributionAvailable.get());
+        }
+        catch (RuntimeException | LinkageError ignored) {
+            downloadReady = false;
+        }
+        if (downloadReady) {
+            capabilities.add("download");
+            payload.put("download", Map.of(
+                    "config_url", origin + "/api/plugins/ymcl-adapter/v1/download/config",
+                    "token_url", origin + "/api/plugins/ymcl-adapter/v1/download/token"));
         }
         payload.put("protocol_version", 1);
         payload.put("adapter_version", adapterVersion);

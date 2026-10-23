@@ -294,3 +294,101 @@ export interface LaunchEventView {
   platform?: string | null
   occurredAt?: number | null
 }
+
+export type DownloadProvider =
+  | 'official'
+  | 'bmclapi'
+  | 'mcim'
+  | 'tianpao'
+  | 'aliyun'
+  | 'gateway'
+  | 'custom'
+
+export interface DownloadSourceEntry {
+  id: string
+  provider: DownloadProvider
+  name?: string | null
+  baseUrl?: string | null
+}
+
+export interface DownloadGatewayConfig {
+  name?: string | null
+  baseUrl?: string | null
+  auth: 'token' | 'none'
+}
+
+/** GET /v1/download/config 协议视图（snake_case，与启动器 serde 一致） */
+export interface DownloadDistributionConfig {
+  protocol_version: number
+  managed: boolean
+  updated_at?: number | null
+  gateway: DownloadGatewayConfig
+  official_fallback: boolean
+  sources: DownloadSourceEntry[]
+  categories: Record<string, string[]>
+}
+
+export interface DownloadGatewayInfo {
+  verifyEndpoint: string
+  reportEndpoint: string
+  secretHeader: string
+  gatewaySecret: string
+  config: DownloadDistributionConfig
+}
+
+export interface DownloadDayPoint {
+  day: string
+  requests: number
+  downloads: number
+  bytes: number
+  users: number
+}
+
+export interface DownloadScopeEntry {
+  refId: string
+  requests: number
+  downloads: number
+  bytes: number
+  lastDownloadAt: number
+}
+
+export interface DownloadStatsSummary {
+  totalRequests: number
+  totalDownloads: number
+  totalBytes: number
+  totalPlayers: number
+  todayRequests: number
+  todayBytes: number
+  todayActivePlayers: number
+  days: DownloadDayPoint[]
+  topCategories: DownloadScopeEntry[]
+  topSources: DownloadScopeEntry[]
+  generatedAt?: number
+}
+
+export interface DownloadEventView {
+  id?: string
+  userId: string
+  username?: string | null
+  category?: string | null
+  source?: string | null
+  host?: string | null
+  path?: string | null
+  bytes: number
+  status: number
+  occurredAt: number
+}
+
+export interface DownloadPlayerView {
+  userId: string
+  username?: string | null
+  nickname?: string | null
+  displayName?: string | null
+  requests: number
+  downloads: number
+  bytes: number
+  firstSeenAt: number
+  lastSeenAt: number
+  lastCategory?: string | null
+  lastSource?: string | null
+}

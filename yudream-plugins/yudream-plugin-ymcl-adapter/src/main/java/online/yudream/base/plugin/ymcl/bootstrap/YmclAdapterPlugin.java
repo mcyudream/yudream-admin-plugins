@@ -126,6 +126,24 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclStatsController
                         sort = 35
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/ymcl-adapter/admin/download-sources",
+                        name = "platform-plugin-ymcl-adapter-admin-download-sources",
+                        title = "下载分发",
+                        icon = "i-ri:download-cloud-2-line",
+                        component = "ymcl-adapter/DownloadSources",
+                        permission = YmclAdapterPlugin.PUBLISH_PERMISSION,
+                        sort = 36
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/ymcl-adapter/admin/download-stats",
+                        name = "platform-plugin-ymcl-adapter-admin-download-stats",
+                        title = "下载统计",
+                        icon = "i-ri:line-chart-line",
+                        component = "ymcl-adapter/DownloadStats",
+                        permission = YmclAdapterPlugin.PUBLISH_PERMISSION,
+                        sort = 37
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/ymcl-adapter/admin/chrome-home",
                         name = "platform-plugin-ymcl-adapter-admin-chrome-home",
                         title = "首页布局",
@@ -166,7 +184,7 @@ import online.yudream.base.plugin.ymcl.interfaces.controller.YmclStatsController
 public class YmclAdapterPlugin implements YuDreamPlugin {
 
     public static final String CODE = "ymcl-adapter";
-    public static final String VERSION = "0.10.0";
+    public static final String VERSION = "0.12.0";
 
     public static final String VIEW_PERMISSION = "plugin:ymcl-adapter:view";
     public static final String PUBLISH_PERMISSION = "plugin:ymcl-adapter:publish";
@@ -189,6 +207,13 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
         // 只聚合 YmclP2pProvider 扩展点，不依赖任何业务插件（避免插件依赖环）。
         var p2pLink = online.yudream.base.plugin.ymcl.application.service.YmclP2pLink.forContext(context);
 
+        // 下载分发（YAP 下载扩展）：管理员配置分发后，启动器按站点下发的
+        // 类别源顺序接管下载路由；玩家鉴权下载令牌与网关统计同域闭环。
+        var downloadSources = new online.yudream.base.plugin.ymcl.application.service.YmclDownloadSourceService(documents);
+        var downloadTokens = new online.yudream.base.plugin.ymcl.application.service.YmclDownloadTokenService(downloadSources);
+        var downloadStats = new online.yudream.base.plugin.ymcl.application.service.YmclDownloadStatsService(
+                documents, context.framework().users());
+
         YmclCapabilitiesController capabilitiesController = new YmclCapabilitiesController(
                 context.pluginCode(), VERSION, documents,
                 // 域显示名称未配置时回退宿主站点名称（settings.siteName）。
@@ -208,10 +233,18 @@ public class YmclAdapterPlugin implements YuDreamPlugin {
                 // P2P 直连（启动器无感接入实例）：有提供方且面板已开 P2P 才宣告 p2p。
                 // 探测永不抛：无提供方 / 类不可达 / 扩展点查询异常都视为不可用，
                 // 绝不能让可选能力探测拖垮适配器启用。
-                p2pLink::available);
+                p2pLink::available,
+                // 下载分发：管理员保存了分发配置（managed）才宣告 download。
+                downloadSources::isManaged);
         context.registerHttpController(capabilitiesController);
         context.registerHttpController(
                 new YmclSessionController(context.framework().users(), documents));
+        context.registerHttpController(
+                new online.yudream.base.plugin.ymcl.interfaces.controller.YmclDownloadController(
+                        downloadSources, downloadTokens, downloadStats));
+        context.registerHttpController(
+                new online.yudream.base.plugin.ymcl.interfaces.controller.YmclDownloadAdminController(
+                        downloadSources, downloadStats));
         context.registerHttpController(
                 new online.yudream.base.plugin.ymcl.interfaces.controller.YmclP2pController(p2pLink));
         context.registerHttpController(new YmclManifestController(aggregator, documents));

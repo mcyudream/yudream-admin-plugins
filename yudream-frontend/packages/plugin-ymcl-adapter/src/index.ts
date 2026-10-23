@@ -3,6 +3,8 @@ import 'virtual:uno.css'
 import './styles.css'
 import YmclConnectCard from './components/YmclConnectCard.vue'
 import BundlesPage from './pages/BundlesPage.vue'
+import DownloadSourcesPage from './pages/DownloadSourcesPage.vue'
+import DownloadStatsPage from './pages/DownloadStatsPage.vue'
 import ChromeHomePage from './pages/ChromeHomePage.vue'
 import ChromeThemePage from './pages/ChromeThemePage.vue'
 import NavigationPage from './pages/NavigationPage.vue'
@@ -19,6 +21,8 @@ export const ChromeHome = ChromeHomePage
 export const ChromeTheme = ChromeThemePage
 export const Navigation = NavigationPage
 export const Bundles = BundlesPage
+export const DownloadSources = DownloadSourcesPage
+export const DownloadStats = DownloadStatsPage
 export { YmclConnectCard }
 
 export const routes = {
@@ -38,6 +42,8 @@ export const routes = {
   'ymcl-adapter/ChromeTheme': ChromeThemePage,
   'ymcl-adapter/Navigation': NavigationPage,
   'ymcl-adapter/Bundles': BundlesPage,
+  'ymcl-adapter/DownloadSources': DownloadSourcesPage,
+  'ymcl-adapter/DownloadStats': DownloadStatsPage,
   'ymcl-adapter/YmclConnectCard': YmclConnectCard,
 }
 

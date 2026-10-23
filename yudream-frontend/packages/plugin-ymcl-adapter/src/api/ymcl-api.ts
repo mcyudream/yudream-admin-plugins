@@ -4,6 +4,11 @@ import type {
   CasFilePreview,
   CustomPageDoc,
   DomainConfig,
+  DownloadDistributionConfig,
+  DownloadEventView,
+  DownloadGatewayInfo,
+  DownloadPlayerView,
+  DownloadStatsSummary,
   HomeConfig,
   LaunchEventView,
   ManifestPayload,
@@ -127,6 +132,26 @@ export function createYmclApi(sdk: YuDreamPluginSdk) {
       sdk.http.get<StatsSummary>(`/v1/admin/stats/summary?days=${days}`),
     statsLaunches: (limit = 20) =>
       sdk.http.get<{ launches: LaunchEventView[], total: number }>(`/v1/admin/stats/launches?limit=${limit}`),
+    downloadConfig: () =>
+      sdk.http.get<DownloadDistributionConfig>('/v1/admin/download/config'),
+    saveDownloadConfig: (data: {
+      managed: boolean
+      officialFallback: boolean
+      gateway: { name: string | null, baseUrl: string | null, auth: string }
+      sources: { id: string, provider: string, name: string | null, baseUrl: string | null }[]
+      categories: Record<string, string[]>
+    }) =>
+      sdk.http.request<DownloadDistributionConfig>('/v1/admin/download/config', { method: 'PUT', data }),
+    downloadGatewayInfo: () =>
+      sdk.http.get<DownloadGatewayInfo>('/v1/admin/download/gateway'),
+    rotateDownloadGatewaySecret: () =>
+      sdk.http.request<{ gatewaySecret: string }>('/v1/admin/download/gateway-secret/rotate', { method: 'POST' }),
+    downloadStatsSummary: (days = 14) =>
+      sdk.http.get<DownloadStatsSummary>(`/v1/admin/download/stats/summary?days=${days}`),
+    downloadStatsEvents: (limit = 20) =>
+      sdk.http.get<{ events: DownloadEventView[], total: number }>(`/v1/admin/download/stats/events?limit=${limit}`),
+    downloadStatsPlayers: (limit = 20) =>
+      sdk.http.get<{ players: DownloadPlayerView[] }>(`/v1/admin/download/stats/players?limit=${limit}`),
     uploadBundle: (bundleId: string, version: string, zip: File) =>
       new Promise<{ saved: boolean, sha256: string, size: number }>((resolve, reject) => {
         const reader = new FileReader()
