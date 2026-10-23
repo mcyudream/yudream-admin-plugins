@@ -51,7 +51,7 @@ const typeLabel = computed(() => {
   if (value === 'slim') {
     return 'Alex 皮肤'
   }
-  if (value === 'default') {
+  if (value === 'default' || value === 'skin') {
     return 'Steve 皮肤'
   }
   return value || '-'
