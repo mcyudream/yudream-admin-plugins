@@ -15,7 +15,6 @@ import online.yudream.base.plugin.minecraft.interfaces.http.MinecraftServerHttpF
 import online.yudream.base.plugin.minecraft.interfaces.support.BriefText;
 import online.yudream.base.plugin.minecraft.interfaces.theme.ServerListThemeBlockProvider;
 import online.yudream.base.plugin.minecraft.infrastructure.launcher.MinecraftYmclContributionProvider;
-import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginCommand;
 import online.yudream.base.plugin.spi.annotation.PluginPermission;
@@ -233,14 +232,39 @@ public class MinecraftServerPlugin implements YuDreamPlugin {
     private Set<String> playerIdsForUser(PluginContext context, String userId) {
         Set<String> playerIds = new HashSet<>();
         playerIds.add(normalizePlayerId(userId));
-        context.service("yudream-skin", PluginSkinService.class)
-                .ifPresent(service -> service.findProfilesByOwner(userId).forEach(profile ->
-                        playerIds.add(normalizePlayerId(profile.uuid()))));
+        SkinPlayerDirectory.addSkinProfileIds(context, userId, playerIds);
         return playerIds;
     }
 
-    private String normalizePlayerId(String value) {
+    private static String normalizePlayerId(String value) {
         return value == null ? "" : value.trim().replace("-", "").toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * yudream-skin 软依赖的独立承载类。skin API 类型（含 lambda 合成方法签名）只允许出现在
+     * 本类，插件主类的声明签名保持零 skin 类型——宿主端点注册会对插件类做 getDeclaredMethods
+     * 反射并急切解析签名类型，skin 类不可见时直接抛 NoClassDefFoundError，方法体内的运行时
+     * 守卫防不住这一层（1.13.6 的 lambda$playerIdsForUser$9/$10 即因此炸掉端点注册）。
+     */
+    private static final class SkinPlayerDirectory {
+
+        private static final String SKIN_PLUGIN_CODE = "yudream-skin";
+
+        private SkinPlayerDirectory() {
+        }
+
+        static void addSkinProfileIds(PluginContext context, String userId, Set<String> playerIds) {
+            if (context == null || !context.dependencyAvailable(SKIN_PLUGIN_CODE)) {
+                return;
+            }
+            try {
+                context.service(SKIN_PLUGIN_CODE, online.yudream.base.plugin.skin.api.PluginSkinService.class)
+                        .ifPresent(service -> service.findProfilesByOwner(userId).forEach(profile ->
+                                playerIds.add(normalizePlayerId(profile.uuid()))));
+            } catch (LinkageError ignored) {
+                // skin API 类不可加载（未安装/热重载窗口）：软依赖降级，仅使用系统账号 ID
+            }
+        }
     }
 
     private void renderServers(PluginCommandContext command, PluginContext context, List<MinecraftServerDTO> servers) {
