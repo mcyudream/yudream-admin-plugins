@@ -75,7 +75,28 @@ public class YmclDownloadAdminController {
         payload.put("secretHeader", YmclDownloadController.GATEWAY_SECRET_HEADER);
         payload.put("gatewaySecret", sources.gatewaySecret());
         payload.put("config", sources.protocolView());
+        payload.put("instances", sources.instanceViews());
         return PluginHttpResponse.json(200, payload);
+    }
+
+    /** 生成一次性网关引导码（10 分钟有效），管理端展示给网关 enroll 用。 */
+    @PluginHttpEndpoint(method = "POST", path = "/v1/admin/download/gateway/enroll-code",
+            permission = YmclAdapterPlugin.PUBLISH_PERMISSION)
+    public PluginHttpResponse newEnrollCode(PluginHttpRequest request) {
+        return PluginHttpResponse.json(200, sources.newEnrollCode());
+    }
+
+    /** 吊销网关实例（其实例密钥立即失效）。 */
+    @PluginHttpEndpoint(method = "DELETE", path = "/v1/admin/download/gateway/instances",
+            permission = YmclAdapterPlugin.PUBLISH_PERMISSION)
+    public PluginHttpResponse removeInstance(PluginHttpRequest request) {
+        List<String> values = request.query() == null ? null : request.query().get("id");
+        boolean removed = values != null && !values.isEmpty() && sources.removeInstance(values.get(0));
+        if (!removed) {
+            return PluginHttpResponse.json(404, YmclSessionController.error(
+                    "unknown_instance", "No such gateway instance"));
+        }
+        return PluginHttpResponse.json(200, java.util.Map.of("removed", true));
     }
 
     /** 轮换网关密钥；新密钥只在此响应中完整返回一次。 */

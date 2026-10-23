@@ -1036,3 +1036,23 @@
 .ymcl-download-chain__spacer {
   flex: 1;
 }
+
+/* 分发开关行：开关固定列宽，文本列 flex:1 保证首字对齐 */
+.ymcl-switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ymcl-switch-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ymcl-switch-row__text strong {
+  display: block;
+}
+
+.ymcl-switch-row__text p {
+  margin: 4px 0 0;
+}

@@ -163,3 +163,24 @@ YDA 侧落库（`plugin_ymcl_adapter__*`）：
 | 网关不可达 / verify 挂 | 该路由失败 → 链内下一源；`official_fallback` 保证官方链尾兜底 |
 | 旧版启动器（无 download face） | 忽略未知 capabilities 字段，行为完全不变 |
 | 旧网关（仅 mk_*） | YDA 分发里不配 gateway 源即可，其余类别照常分发 |
+
+## 7. 网关自动对接（enroll / bootstrap / heartbeat，0.12.1+）
+
+手动在网关配置 secret 的替代方案——「引导码自动对接」：
+
+```
+管理端（一次性引导码，10 分钟有效）
+  POST /v1/admin/download/gateway/enroll-code        → { enroll_code, expires_at }
+网关（首次对接）
+  POST /v1/download/gateway/enroll                   → { instance_id, secret, endpoints..., categories }
+  body: {"enroll_code": "...", "base_url": "https://...", "name": "..."}
+网关（此后每次启动 / 配置刷新，实例密钥鉴权）
+  GET  /v1/download/gateway/bootstrap                → { verify_endpoint, report_endpoint, managed, categories... }
+  POST /v1/download/gateway/heartbeat                → { ok: true }（保活，管理页显示在线状态）
+```
+
+- enroll 用引导码鉴权；返回的 `secret` 即实例密钥（`X-YDA-Gateway-Secret` 携带），
+  verify/report/bootstrap/heartbeat 全部接受实例密钥或全局密钥。
+- 管理端吊销实例（DELETE /v1/admin/download/gateway/instances?id=）后其实例密钥立即失效。
+- 语义约束：bootstrap 返回的 `managed/categories/official_fallback` 与
+  `/v1/download/config` 同源，网关据此决定放行范围；密钥轮换后网关重启即可自愈。

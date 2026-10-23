@@ -297,22 +297,22 @@ onMounted(() => {
           title="分发开关"
           description="关闭后立即停止分发，成员启动器恢复各自本地下载源设置"
         >
-          <div class="ymcl-card-header-row">
+          <div class="ymcl-switch-row">
             <YdSwitch
               :model-value="form.managed"
               @update:model-value="value => { form.managed = value === true }"
             />
-            <div>
+            <div class="ymcl-switch-row__text">
               <strong>启用下载源分发</strong>
               <p class="ymcl-muted">启用时 capabilities 宣告 download 能力，已加入域的启动器自动拉取本配置。</p>
             </div>
           </div>
-          <div class="ymcl-card-header-row">
+          <div class="ymcl-switch-row">
             <YdSwitch
               :model-value="form.officialFallback"
               @update:model-value="value => { form.officialFallback = value === true }"
             />
-            <div>
+            <div class="ymcl-switch-row__text">
               <strong>官方源链尾兜底</strong>
               <p class="ymcl-muted">即使来源列表未包含官方源，也在链尾追加官方直连作为最后回退，防止镜像整体不可用时无法安装。</p>
             </div>

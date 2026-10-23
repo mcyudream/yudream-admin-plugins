@@ -127,11 +127,78 @@ public class YmclDownloadController {
                     "gateway_secret_required",
                     "Provide the gateway secret via " + GATEWAY_SECRET_HEADER));
         }
-        if (!sources.gatewaySecretMatches(candidate)) {
+        if (!sources.gatewaySecretMatches(candidate) && !sources.instanceSecretMatches(candidate)) {
             return PluginHttpResponse.rawJson(403, YmclSessionController.error(
                     "gateway_secret_mismatch", "Gateway secret does not match"));
         }
         return null;
+    }
+
+    /**
+     * 网关注册（契约 docs/ymcl-download-gateway-v1.md §7）：一次性引导码换
+     * 实例密钥与全量运行配置。body {@code {"enroll_code": "...",
+     * "base_url": "https://...", "name": "..."}}。
+     */
+    @PluginHttpEndpoint(method = "POST", path = "/v1/download/gateway/enroll", wrapResult = false)
+    public PluginHttpResponse enrollGateway(PluginHttpRequest request) {
+        Map<String, Object> body;
+        try {
+            body = MAPPER.readValue(request.body(), BODY_TYPE);
+        } catch (Exception error) {
+            return PluginHttpResponse.rawJson(400, YmclSessionController.error(
+                    "invalid_body", "Request body must be a JSON enrollment"));
+        }
+        String code = text(body.get("enroll_code"));
+        String baseUrl = text(body.get("base_url"));
+        String name = text(body.get("name"));
+        Map<String, Object> result = sources.enroll(code, baseUrl, name);
+        if (result == null) {
+            return PluginHttpResponse.rawJson(401, YmclSessionController.error(
+                    "invalid_enroll_code", "Enroll code is invalid or expired; generate a fresh one in the admin console"));
+        }
+        if (result.containsKey("error")) {
+            return PluginHttpResponse.rawJson(400, YmclSessionController.error(
+                    "invalid_request", String.valueOf(result.get("error"))));
+        }
+        return PluginHttpResponse.rawJson(200, result);
+    }
+
+    /** 网关拉取运行配置（实例或全局密钥鉴权），同时刷新心跳。 */
+    @PluginHttpEndpoint(method = "GET", path = "/v1/download/gateway/bootstrap", wrapResult = false)
+    public PluginHttpResponse bootstrapGateway(PluginHttpRequest request) {
+        PluginHttpResponse gatewayError = requireGatewaySecret(request);
+        if (gatewayError != null) {
+            return gatewayError;
+        }
+        return PluginHttpResponse.rawJson(200, sources.bootstrap(secretCandidate(request)));
+    }
+
+    /** 网关心跳（实例密钥鉴权）。 */
+    @PluginHttpEndpoint(method = "POST", path = "/v1/download/gateway/heartbeat", wrapResult = false)
+    public PluginHttpResponse gatewayHeartbeat(PluginHttpRequest request) {
+        PluginHttpResponse gatewayError = requireGatewaySecret(request);
+        if (gatewayError != null) {
+            return gatewayError;
+        }
+        boolean known = sources.touchInstance(secretCandidate(request));
+        if (!known) {
+            return PluginHttpResponse.rawJson(404, YmclSessionController.error(
+                    "unknown_instance", "Instance secret did not match any enrolled gateway"));
+        }
+        return PluginHttpResponse.rawJson(200, Map.of("ok", true));
+    }
+
+    /** 当前请求的密钥原文（供实例通道与全局通道区分使用）。 */
+    static String secretCandidate(PluginHttpRequest request) {
+        String candidate = firstHeader(request, GATEWAY_SECRET_HEADER);
+        if (candidate == null) {
+            candidate = queryParam(request, "gatewaySecret");
+        }
+        return candidate;
+    }
+
+    private static String text(Object value) {
+        return value == null ? null : String.valueOf(value).trim();
     }
 
     private static String bodyField(PluginHttpRequest request, String field) {
