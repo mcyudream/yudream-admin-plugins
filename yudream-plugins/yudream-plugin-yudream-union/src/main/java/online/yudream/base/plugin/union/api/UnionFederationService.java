@@ -33,6 +33,24 @@ public interface UnionFederationService {
     String issuerKeyId();
 
     /**
+     * 本站联合身份（站点身份页配置的 siteCode/站点名/对外 origin）。
+     *
+     * <p>作为站点身份的单一事实源供其他插件读取（如 mc-interop 出口）；
+     * 管理员尚未配置 siteCode 时为空。</p>
+     */
+    Optional<SiteIdentity> siteIdentity();
+
+    /**
+     * 本站联合身份。
+     *
+     * @param code   siteCode（跨站断言受众，启用后不可变更）
+     * @param name   站点展示名
+     * @param origin 对外 origin（由宿主 app.web-url / app.base-url 推导）
+     */
+    record SiteIdentity(String code, String name, String origin) {
+    }
+
+    /**
      * 已验证的远程角色。
      *
      * @param uuid         远程角色 UUID（无连字符）

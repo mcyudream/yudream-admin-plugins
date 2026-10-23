@@ -88,12 +88,20 @@ function stateText(state: string) {
             </div>
             <YdLabel class="grid gap-2">
               <span>Azure 应用 Client ID</span>
-              <YdInput v-model="model.officialBindSettings.clientId" placeholder="Microsoft Entra public client 的 application (client) ID" />
+              <YdInput v-model="model.officialBindSettings.clientId" placeholder="Microsoft Entra 的 application (client) ID" />
+            </YdLabel>
+            <YdLabel class="grid gap-2">
+              <span>Azure 应用 Client Secret{{ model.officialBindSettings.clientSecretConfigured ? '（已配置，留空保持不变）' : '（可选）' }}</span>
+              <YdInput
+                v-model="model.officialBindSettings.clientSecret"
+                type="password"
+                :placeholder="model.officialBindSettings.clientSecretConfigured ? '已通过 SecretStore 安全保存；留空表示不修改' : '仅当 Azure 未开启「允许公共客户端流」时必填'"
+              />
             </YdLabel>
             <div class="grid gap-1 rounded-lg border p-3">
               <span class="text-sm font-semibold">回调地址（在 Azure 应用“身份验证”中以 Web 平台原样注册）</span>
               <code class="skin-admin-code">{{ model.officialBindSettings.redirectUri || '宿主未配置 app.web-url / app.base-url，无法推导回调地址' }}</code>
-              <span class="text-sm text-muted-foreground">Azure 按整串精确匹配：协议、域名、端口、路径必须与注册值完全一致，末尾不能多斜杠；平台类型必须选 Web（不能选 SPA，服务端令牌交换会被 CORS 拦截），且需启用“允许公共客户端流”。</span>
+              <span class="text-sm text-muted-foreground">Azure 按整串精确匹配：协议、域名、端口、路径必须与注册值完全一致，末尾不能多斜杠；平台类型必须选 Web（不能选 SPA，服务端令牌交换会被 CORS 拦截）。凭据二选一：开启「允许公共客户端流」（无需密钥，纯 PKCE），或不开并在上方填入 client_secret（机密客户端，密钥仅存服务端 SecretStore）。填错密钥时 Microsoft 会报 AADSTS70002（缺少 client_secret）。</span>
             </div>
           </div>
         </YdSettingsSection>

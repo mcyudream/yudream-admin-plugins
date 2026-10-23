@@ -23,7 +23,7 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
   const migrationLogs = ref<MigrationLogEntry[]>([])
   const migrationLogVisible = ref(false)
   const officialBind = ref<OfficialBindStatus>({ settingsEnabled: false, bind: null })
-  const officialBindSettings = reactive<OfficialBindSettings>({ enabled: false, clientId: '' })
+  const officialBindSettings = reactive<OfficialBindSettings>({ enabled: false, clientId: '', clientSecret: '' })
   const migrationStream = ref<AbortController | null>(null)
   const scope = ref<'user' | 'admin'>('user')
   let loadVersion = 0
@@ -297,8 +297,13 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
   async function saveOfficialBindSettings() {
     saving.value = 'official-bind-settings'
     try {
-      const saved = await api.saveOfficialBindSettings({ ...officialBindSettings })
-      Object.assign(officialBindSettings, saved)
+      const clientSecret = officialBindSettings.clientSecret?.trim()
+      // clientSecret 只写不读：留空 = 保持现有凭据；保存成功后立即清空输入框
+      const saved = await api.saveOfficialBindSettings({
+        ...officialBindSettings,
+        clientSecret: clientSecret || undefined,
+      })
+      Object.assign(officialBindSettings, saved, { clientSecret: '' })
       toast.success('正版绑定配置已保存')
     }
     catch (error) {

@@ -88,7 +88,8 @@ public class OfficialBindController {
     public Object saveSettings(PluginHttpRequest request) {
         Map<String, Object> body = readMap(request.body());
         return service.saveSettings(Boolean.TRUE.equals(body.get("enabled")),
-                body.get("clientId") == null ? null : String.valueOf(body.get("clientId")));
+                body.get("clientId") == null ? null : String.valueOf(body.get("clientId")),
+                body.get("clientSecret") == null ? null : String.valueOf(body.get("clientSecret")));
     }
 
     private PluginHttpResponse callbackPage(boolean success, String message) {

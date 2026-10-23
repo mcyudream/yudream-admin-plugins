@@ -263,6 +263,28 @@ class OfficialBindServiceTest {
 
     // ---- helpers ----
 
+    /** 令牌请求仅在配置了机密客户端凭据时附带 client_secret（Web 平台 Azure 应用必需）。 */
+    @Test
+    void tokenRequestIncludesClientSecretOnlyWhenConfigured() throws Exception {
+        List<String> bodies = new java.util.ArrayList<>();
+        MicrosoftIdentityChain.HttpExchange http = (url, method, headers, body) -> {
+            bodies.add(body == null ? "" : body);
+            return new MicrosoftIdentityChain.HttpExchange.Response(200,
+                    "{\"access_token\":\"at\",\"refresh_token\":\"rt\"}");
+        };
+
+        new MicrosoftIdentityChain("client-1", "https://cb", http).exchangeCode("code", "verifier");
+        assertFalse(bodies.get(0).contains("client_secret="));
+
+        new MicrosoftIdentityChain("client-1", "https://cb", "azure-secret", http).refresh("rt");
+        assertTrue(bodies.get(1).contains("client_id=client-1"));
+        assertTrue(bodies.get(1).contains("client_secret=azure-secret"));
+
+        // 空白密钥等价于未配置
+        new MicrosoftIdentityChain("client-1", "https://cb", "   ", http).refresh("rt");
+        assertFalse(bodies.get(2).contains("client_secret="));
+    }
+
     private String stateOf(OfficialBindService service, Map<String, Object> started) {
         // state 在 authorizeUrl 中；测试直接从 states 集合取（单一 state 文档）
         var states = store.collections.get("official_bind_states");

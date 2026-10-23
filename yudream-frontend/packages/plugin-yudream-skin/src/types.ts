@@ -67,6 +67,10 @@ export interface OfficialBindStatus {
 export interface OfficialBindSettings {
   enabled: boolean
   clientId: string
+  /** 只写字段：留空表示保持已配置的凭据；后端永不回显。 */
+  clientSecret?: string
+  /** 服务端是否已配置机密客户端凭据。 */
+  clientSecretConfigured?: boolean
   /** 站点实际发送给 Microsoft 的回调地址（精确匹配用），origin 未配置时为空。 */
   redirectUri?: string | null
 }

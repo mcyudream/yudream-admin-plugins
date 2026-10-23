@@ -27,6 +27,8 @@ public class OfficialBindService {
 
     public static final String SECRET_PREFIX = "official-bind:";
     public static final String SECRET_SUFFIX = ":refresh";
+    /** Azure 机密客户端凭据（可选）：仅存 SecretStore，绝不落文档库。 */
+    public static final String AZURE_SECRET_KEY = "official-bind:azure:client-secret";
     private static final long STATE_TTL = 10 * 60_000L;
     private static final long REBIND_COOLDOWN = 72 * 60 * 60_000L;
 
@@ -48,15 +50,25 @@ public class OfficialBindService {
     public Map<String, Object> settings() {
         Map<String, Object> body = new LinkedHashMap<>(binds.settings());
         body.put("redirectUri", redirectUriOrNull());
+        body.put("clientSecretConfigured", configuredClientSecret() != null);
         return body;
     }
 
     public Map<String, Object> saveSettings(boolean enabled, String clientId) {
+        return saveSettings(enabled, clientId, null);
+    }
+
+    /** clientSecret 仅在传入非空值时更新；留空表示保持现有凭据不变。 */
+    public Map<String, Object> saveSettings(boolean enabled, String clientId, String clientSecret) {
         if (enabled && (clientId == null || clientId.isBlank())) {
             throw new IllegalArgumentException("启用正版绑定必须先填写 Azure 应用 client_id（public client + PKCE）");
         }
         if (enabled) {
             assertSecretStoreWritable();
+        }
+        if (clientSecret != null && !clientSecret.isBlank()) {
+            assertSecretStoreWritable();
+            safeStore(AZURE_SECRET_KEY, clientSecret.trim().getBytes(StandardCharsets.UTF_8));
         }
         binds.saveSettings(enabled, clientId);
         return settings();
@@ -271,7 +283,15 @@ public class OfficialBindService {
             throw new IllegalArgumentException("站点未配置对外地址（app.web-url / app.base-url），无法构造回调");
         }
         String redirectUri = origin + "/api/plugins/yudream-skin/official-bind/callback";
-        return new MicrosoftIdentityChain(clientId, redirectUri, new DefaultHttpExchange());
+        return new MicrosoftIdentityChain(clientId, redirectUri, configuredClientSecret(), new DefaultHttpExchange());
+    }
+
+    /** Azure 机密客户端凭据（可选）；读取失败按未配置降级为纯 PKCE。 */
+    private String configuredClientSecret() {
+        return safeStore(AZURE_SECRET_KEY)
+                .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
+                .filter(secret -> !secret.isBlank())
+                .orElse(null);
     }
 
     private void assertSecretStoreWritable() {

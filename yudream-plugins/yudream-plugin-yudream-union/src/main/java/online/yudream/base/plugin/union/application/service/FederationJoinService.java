@@ -161,6 +161,17 @@ public class FederationJoinService implements UnionFederationService {
         return cryptoService.issuerKeyId();
     }
 
+    @Override
+    public Optional<SiteIdentity> siteIdentity() {
+        Optional<String> code = discovery.siteCode();
+        if (code.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new SiteIdentity(code.get(),
+                discovery.siteName().orElse(""),
+                discovery.configuredOrigin().orElse("")));
+    }
+
     private Optional<VerifiedAssertion> queryPeer(UnionPeer peer, String username, String serverId,
                                                   String normalizedQuery, long now) {
         try {

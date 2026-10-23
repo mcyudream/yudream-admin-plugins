@@ -14,9 +14,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Microsoft OAuth（PKCE，public client，XboxLive.signin + offline_access）→ Xbox → XSTS →
- * login_with_xbox → Minecraft profile 的官方所有权验证链（自带续签：refresh_token 入
- * SecretStore 后可静默重领官方会话）。HTTP 经 {@link HttpExchange} 注入以便测试。
+ * Microsoft OAuth（PKCE；public client，或 Web 机密客户端附带 client_secret；
+ * XboxLive.signin + offline_access）→ Xbox → XSTS → login_with_xbox → Minecraft profile
+ * 的官方所有权验证链（自带续签：refresh_token 入 SecretStore 后可静默重领官方会话）。
+ * HTTP 经 {@link HttpExchange} 注入以便测试。
  */
 public class MicrosoftIdentityChain {
 
@@ -46,11 +47,18 @@ public class MicrosoftIdentityChain {
 
     private final String clientId;
     private final String redirectUri;
+    /** 可选：Azure「Web」平台机密客户端的 client_secret；未配置时走纯 PKCE public client。 */
+    private final String clientSecret;
     private final HttpExchange http;
 
     public MicrosoftIdentityChain(String clientId, String redirectUri, HttpExchange http) {
+        this(clientId, redirectUri, null, http);
+    }
+
+    public MicrosoftIdentityChain(String clientId, String redirectUri, String clientSecret, HttpExchange http) {
         this.clientId = clientId;
         this.redirectUri = redirectUri;
+        this.clientSecret = clientSecret == null || clientSecret.isBlank() ? null : clientSecret.trim();
         this.http = http;
     }
 
@@ -91,6 +99,9 @@ public class MicrosoftIdentityChain {
         }
         form.put("client_id", clientId);
         form.put("redirect_uri", redirectUri);
+        if (clientSecret != null) {
+            form.put("client_secret", clientSecret);
+        }
         return form.entrySet().stream()
                 .map(entry -> entry.getKey() + "=" + encode(entry.getValue()))
                 .collect(Collectors.joining("&"));
