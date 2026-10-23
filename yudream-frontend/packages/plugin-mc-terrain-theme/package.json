@@ -3,9 +3,11 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "build": "vue-tsc -p tsconfig.json --noEmit && vite build"
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false --skipLibCheck --ignoreDeprecations 6.0"
   },
   "dependencies": {
+    "@yudream/components": "catalog:",
     "@yudream/plugin-sdk": "catalog:",
     "vue": "catalog:"
   },

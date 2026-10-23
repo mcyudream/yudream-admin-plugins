@@ -1,4 +1,5 @@
 import { defineYuDreamPlugin } from '@yudream/plugin-sdk'
+import 'virtual:uno.css'
 
 /**
  * 方块地形主题的前端入口包装：站点外观由 site-preset.json、theme.css 与
