@@ -1,0 +1,32 @@
+/* AI 模板办公插件全局样式：少量插件级辅助类，颜色一律使用语义 token（跟随宿主主题）。 */
+
+.office-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.office-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.office-kv dt {
+  color: var(--yd-color-muted-foreground, var(--color-muted-foreground, #71717a));
+}
+
+.office-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.office-preview-table th,
+.office-preview-table td {
+  border: 1px solid var(--color-border, #e4e4e7);
+  padding: 6px 8px;
+  text-align: left;
+  word-break: break-all;
+}

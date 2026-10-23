@@ -1,0 +1,211 @@
+{
+  "code": "club-month-end-pack",
+  "name": "社团月末材料包",
+  "description": "学生社团月末材料六件套：活动报备表、策划书（事前），效果展示、活动总结（事后），月度经费报表、月度工作总结（月度）。导入后请在平台管理端按 wordTemplates 清单上传对应 docx 模板。",
+  "settings": {
+    "profileSchemaCode": "org-club",
+    "styleGuide": "正式公文风格；章节采用汉字序号（一、二、三）；落款使用组织全称；不得编造未经提供的数据；语言平实准确。"
+  },
+  "schemas": [
+    {
+      "code": "org-club",
+      "name": "社团档案",
+      "builtin": false,
+      "fields": [
+        { "key": "name", "label": "社团名称", "type": "text", "required": true },
+        { "key": "supervisorUnit", "label": "挂靠单位", "type": "text", "required": true },
+        { "key": "organizer", "label": "主办单位全称", "type": "text" },
+        { "key": "undertaker", "label": "承办单位全称", "type": "text" },
+        { "key": "coOrganizer", "label": "协办单位", "type": "text" },
+        { "key": "committee", "label": "理事层名单（顿号分隔）", "type": "longtext" },
+        { "key": "signName", "label": "落款全称", "type": "text" }
+      ]
+    },
+    {
+      "code": "activity",
+      "name": "活动（手工登记）",
+      "builtin": false,
+      "fields": [
+        { "key": "title", "label": "活动名称", "type": "text", "required": true },
+        { "key": "form", "label": "活动形式", "type": "select", "options": ["线上", "线下", "线上线下结合"] },
+        { "key": "audience", "label": "活动对象", "type": "text" },
+        { "key": "place", "label": "活动地点", "type": "text" },
+        { "key": "summary", "label": "活动简介", "type": "longtext" },
+        { "key": "description", "label": "活动介绍", "type": "longtext" }
+      ]
+    }
+  ],
+  "prompts": [
+    {
+      "code": "activity-plan-body",
+      "name": "策划书正文起草",
+      "system": "你是学生组织的学生干部，负责撰写活动策划书。输出为分节正文（一、二、三……），语言正式、平实，只使用给定素材，不得编造预算数字之外的数据；预算未给出时写「另行核算」。",
+      "user": "请为活动「{target.title}」撰写完整策划书正文，包含：一、活动背景与目的；二、活动主题；三、活动时间与地点；四、活动对象；五、活动内容与流程安排（分阶段列出）；六、组织分工；七、物资与经费预算（未提供明细时写另行核算）；八、安全与应急预案。\n活动简介：{target.summary}\n活动介绍：{target.description}\n活动形式：{target.form}\n活动对象：{target.audience}\n活动地点：{target.place}\n主办：{org.organizer}；承办：{org.undertaker}"
+    },
+    {
+      "code": "activity-summary-body",
+      "name": "活动总结正文起草",
+      "system": "你是学生组织的学生干部，负责撰写活动总结。输出为分节正文（二、活动概况下分：活动内容描述、活动负责人总结），语言正式、克制，只依据给定素材归纳，不得虚构参与人数或效果。",
+      "user": "请为活动「{target.title}」撰写活动总结正文，包含：一、活动内容描述（概括活动开展情况与亮点）；二、活动负责人对本次活动的总结（成效、不足与改进方向）。\n活动简介：{target.summary}\n活动介绍：{target.description}\n参与人数：{stats.participants}\n活动形式：{target.form}\n已采纳的活动效果材料如下（文字说明与图注）：\n{target.effectsText}"
+    },
+    {
+      "code": "month-summary-body",
+      "name": "月度工作总结起草",
+      "system": "你是学生组织的学生干部，负责撰写月度工作总结。输出为分节正文：一、本月工作总结（逐项活动概述）；二、发展规划（下月计划与长期方向）。语言正式，只依据给定素材。",
+      "user": "请为本组织 {period} 月度工作总结撰写正文。\n本月活动清单：\n{activitiesText}\n活动总数：{stats.activityCount}；效果材料数：{stats.effectCount}\n当月收入合计：{finance.incomeTotal} 分；支出合计：{finance.expenseTotal} 分\n组织名称：{org.name}；挂靠单位：{org.supervisorUnit}\n发展规划可结合活动清单合理展望，但不得编造已确定的安排。"
+    }
+  ],
+  "categories": [
+    { "direction": "income", "code": "启动资金", "name": "启动资金", "fields": [], "sort": 1 },
+    { "direction": "income", "code": "上月校拨剩余", "name": "上月校上拨款剩余", "fields": [], "sort": 2 },
+    { "direction": "income", "code": "校级活动拨款", "name": "校级活动拨款", "fields": ["fundSource"], "sort": 3 },
+    { "direction": "income", "code": "特色活动拨款", "name": "特色活动拨款", "fields": ["fundSource"], "sort": 4 },
+    { "direction": "income", "code": "单位拨款", "name": "本月单位拨款", "fields": [], "sort": 5 },
+    { "direction": "income", "code": "其他收入", "name": "本月其他收入", "fields": [], "sort": 6 },
+    { "direction": "expense", "code": "校级活动", "name": "校级活动支出", "fields": ["quantity", "unitPriceCents", "buyerName", "purpose", "fundSource"], "sort": 1 },
+    { "direction": "expense", "code": "院级活动", "name": "院级活动支出", "fields": ["quantity", "unitPriceCents", "buyerName", "purpose", "fundSource"], "sort": 2 },
+    { "direction": "expense", "code": "日常活动", "name": "日常活动支出", "fields": ["quantity", "unitPriceCents", "buyerName", "purpose", "fundSource"], "sort": 3 }
+  ],
+  "docTypes": [
+    {
+      "code": "activity-report",
+      "name": "活动报备表",
+      "stage": "before",
+      "wordTemplateCode": "office-activity-report",
+      "schemaCodes": ["org-club", "activity"],
+      "fileNamePattern": "“{target.title}”活动报备表",
+      "mappings": [
+        { "var": "activityName", "source": "ctx:target.title" },
+        { "var": "activityTime", "source": "ctx:target.activityStart", "transform": "date:yyyy年MM月dd日" },
+        { "var": "activityTimeText", "source": "ctx:target.time" },
+        { "var": "activityPlace", "source": "ctx:target.place" },
+        { "var": "activityForm", "source": "ctx:target.form" },
+        { "var": "activityAudience", "source": "ctx:target.audience" },
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "supervisorUnit", "source": "ctx:org.supervisorUnit" },
+        { "var": "organizer", "source": "ctx:org.organizer" },
+        { "var": "undertaker", "source": "ctx:org.undertaker" },
+        { "var": "dateNow", "source": "ctx:todayText" }
+      ]
+    },
+    {
+      "code": "activity-plan",
+      "name": "活动策划书",
+      "stage": "before",
+      "wordTemplateCode": "office-activity-plan",
+      "schemaCodes": ["org-club", "activity"],
+      "fileNamePattern": "“{target.title}”活动策划书",
+      "mappings": [
+        { "var": "contentBody", "source": "ai:activity-plan-body" },
+        { "var": "activityName", "source": "ctx:target.title" },
+        { "var": "activityTimeText", "source": "ctx:target.time" },
+        { "var": "activityPlace", "source": "ctx:target.place" },
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "organizer", "source": "ctx:org.organizer" },
+        { "var": "undertaker", "source": "ctx:org.undertaker" },
+        { "var": "dateNow", "source": "ctx:todayText" }
+      ]
+    },
+    {
+      "code": "activity-effect",
+      "name": "活动效果展示",
+      "stage": "after",
+      "wordTemplateCode": "office-activity-effect",
+      "schemaCodes": ["org-club"],
+      "fileNamePattern": "“{target.title}”活动效果展示",
+      "mappings": [
+        { "var": "activityName", "source": "ctx:target.title" },
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "signName", "source": "ctx:org.signName" },
+        { "var": "dateNow", "source": "ctx:todayText" },
+        { "var": "effectImages", "source": "list:target.attachments", "itemMapping": { "caption": "caption", "filename": "filename", "url": "url", "kind": "kind" } },
+        { "var": "captionsText", "source": "ctx:target.captions" }
+      ]
+    },
+    {
+      "code": "activity-summary",
+      "name": "活动总结",
+      "stage": "after",
+      "wordTemplateCode": "office-activity-summary",
+      "schemaCodes": ["org-club"],
+      "fileNamePattern": "“{target.title}”活动总结",
+      "mappings": [
+        { "var": "contentBody", "source": "ai:activity-summary-body" },
+        { "var": "activityName", "source": "ctx:target.title" },
+        { "var": "activityTime", "source": "ctx:target.activityStart", "transform": "date:yyyy年MM月dd日" },
+        { "var": "activityPlace", "source": "ctx:target.place" },
+        { "var": "activityForm", "source": "ctx:target.form" },
+        { "var": "activityAudience", "source": "ctx:target.audience" },
+        { "var": "participantCount", "source": "ctx:stats.participants" },
+        { "var": "organizer", "source": "ctx:org.organizer" },
+        { "var": "undertaker", "source": "ctx:org.undertaker" },
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "signName", "source": "ctx:org.signName" },
+        { "var": "dateNow", "source": "ctx:todayText" },
+        { "var": "effectImages", "source": "list:target.attachments", "itemMapping": { "caption": "caption", "filename": "filename", "url": "url" } }
+      ]
+    },
+    {
+      "code": "month-expense",
+      "name": "月度经费报表",
+      "stage": "general",
+      "wordTemplateCode": "office-month-expense",
+      "schemaCodes": ["org-club"],
+      "fileNamePattern": "{org.name}{month汉字}月经费报表",
+      "mappings": [
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "supervisorUnit", "source": "ctx:org.supervisorUnit" },
+        { "var": "period", "source": "ctx:period" },
+        { "var": "incomeTotal", "source": "ctx:finance.incomeTotal", "transform": "money" },
+        { "var": "expenseTotal", "source": "ctx:finance.expenseTotal", "transform": "money" },
+        { "var": "balanceCarryIn", "source": "ctx:finance.balanceCarryIn", "transform": "money" },
+        { "var": "balanceCarryOut", "source": "ctx:finance.balanceCarryOut", "transform": "money" },
+        { "var": "incomeRows", "source": "list:finance.incomes", "itemMapping": { "title": "title", "category": "category", "amount": "amount", "fundSource": "fundSource", "dateText": "dateText" } },
+        { "var": "expenseRows", "source": "list:finance.expenses", "itemMapping": { "title": "title", "category": "category", "subCategory": "subCategory", "quantity": "quantity", "unitPrice": "unitPrice", "amount": "amount", "buyer": "buyer", "dateText": "dateText", "purpose": "purpose", "fundSource": "fundSource" } },
+        { "var": "committee", "source": "ctx:org.committee" },
+        { "var": "dateNow", "source": "ctx:todayText" }
+      ]
+    },
+    {
+      "code": "month-summary",
+      "name": "月度工作总结",
+      "stage": "general",
+      "wordTemplateCode": "office-month-summary",
+      "schemaCodes": ["org-club"],
+      "fileNamePattern": "{org.name}{month汉字}月工作总结",
+      "mappings": [
+        { "var": "contentBody", "source": "ai:month-summary-body" },
+        { "var": "orgName", "source": "ctx:org.name" },
+        { "var": "supervisorUnit", "source": "ctx:org.supervisorUnit" },
+        { "var": "period", "source": "ctx:period" },
+        { "var": "activityCount", "source": "ctx:stats.activityCount" },
+        { "var": "activityRows", "source": "list:activities", "itemMapping": { "title": "title", "summary": "summary", "status": "status" } },
+        { "var": "signName", "source": "ctx:org.signName" },
+        { "var": "dateNow", "source": "ctx:todayText" }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "code": "month-end-materials",
+      "name": "月末材料包",
+      "dirPattern": "{org.name}{month汉字}月末材料",
+      "items": [
+        { "docTypeCode": "activity-report", "target": "PER_ACTIVITY", "subDir": "{activity.title}" },
+        { "docTypeCode": "activity-plan", "target": "PER_ACTIVITY", "subDir": "{activity.title}" },
+        { "docTypeCode": "activity-effect", "target": "PER_ACTIVITY", "subDir": "{activity.title}" },
+        { "docTypeCode": "activity-summary", "target": "PER_ACTIVITY", "subDir": "{activity.title}" },
+        { "docTypeCode": "month-expense", "target": "PER_MONTH" },
+        { "docTypeCode": "month-summary", "target": "PER_MONTH" }
+      ]
+    }
+  ],
+  "wordTemplates": [
+    { "code": "office-activity-report", "name": "活动报备表模板", "note": "在平台管理端-文档模板上传 docx，编码填 office-activity-report；占位符见 docs/templates-guide.md" },
+    { "code": "office-activity-plan", "name": "活动策划书模板", "note": "正文占位 {{contentBody}}" },
+    { "code": "office-activity-effect", "name": "活动效果展示模板", "note": "图片以图注+链接文字呈现（引擎不嵌图）" },
+    { "code": "office-activity-summary", "name": "活动总结模板", "note": "正文占位 {{contentBody}}" },
+    { "code": "office-month-expense", "name": "月度经费报表模板", "note": "支出明细用表格行循环 {{#expenseRows}}…{{/expenseRows}}" },
+    { "code": "office-month-summary", "name": "月度工作总结模板", "note": "正文占位 {{contentBody}}" }
+  ]
+}
