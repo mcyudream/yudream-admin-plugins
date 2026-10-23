@@ -81,6 +81,7 @@ migration/        迁移任务与状态
 - `@yudream/components` 只从包公开入口显式导入，remote 包不继承宿主 auto-import。
 - Vue Web 业务 UI **只使用已发布 `@yudream/components` 公开 `Yd*`/`useYd*`**；禁止 Fa/useFa、裸 Arco/TDesign/Reka/通用 UI、别名与手写通用交互。允许语义内容与纯布局；编辑器/图表/流程画布/可视化 builder 必须 typed YD adapter。
 - 缺能力先在宿主共享 YD 封装，保全 model/event/slot/ref/keyboard/focus/theme/overlay；更新根导出/resolver/SDK bridge/preview，发布验签后才更新 catalog/lockfile；禁止复制宿主代码、本地路径/未发布版本/页面第三方 fallback。
+- 关联实体预览卡：宿主/其他插件页面用 `YdRelatedEntity entity-type="..." :entity-id="..." :label="..."` 渲染已登记实体的摘要卡（宿主内置 `user/dept/role`，未注册类型降级纯文本）；插件自有实体类型经 `install(sdk)`（SDK 1.15.1 起注入 sdk 实例）调 `sdk.relatedEntity?.register(type, provider)` 登记——实际键 `${pluginCode}:${type}`，只能在本插件命名空间注册，`dispose()` 对称注销、宿主卸载时按插件码兜底回收；提供者组件接收 `RelatedEntityRef`（自 `@yudream/components` 导入类型）并自取细节。components 1.11.1 / SDK 1.15.1 发布验签后方可更新 catalog 消费。
 - 三外观、全状态、视觉和组件选型以本仓 `docs/yd-ui-guidelines.md` 为同步副本，主仓为权威；规则见 `docs/dev/conventions.md` 的双仓节。React Native 插件用独立 `@yudream/plugin-mobile-ui`，不导 Vue YD。
 - 远程插件列表按管理数据规范：超过 5 条分页；可比较字段用 `YdResponsiveTable` + `#card`，`YdTable` 仅桌面内部表；破坏性删除经 `useYdModal().confirm`，成功后 toast、刷新与末页修正。细则由主仓组件规范与本文件经验对应。
 - 页面一条主流程；列表/设置/统计/审计/导入导出/迁移/诊断/复杂编辑器应独立路由；短小临时命令用 YdModal，中型上下文详情 YdDrawer，长/多步骤用 route page；禁止嵌套卡片、Drawer、Modal。
