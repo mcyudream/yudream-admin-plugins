@@ -232,7 +232,7 @@ public final class CasSsoHttpFacade {
         boolean hasGuideUrl = atrustGuideUrl != null && !atrustGuideUrl.isBlank();
         String guideLink = hasGuideUrl
                 ? "<p class=\"fallback\"><a href=\"" + html(atrustGuideUrl)
-                        + "\" target=\"_blank\" rel=\"noreferrer\">没有安装 aTrust？打开下载与帮助</a></p>"
+                        + "\" target=\"_blank\" rel=\"noreferrer\">没有安装客户端？打开下载与帮助</a></p>"
                 : "";
         return """
                 <!doctype html>
@@ -321,10 +321,10 @@ public final class CasSsoHttpFacade {
                 <body>
                   <div class="card">
                     <p class="title">正在前往@@NAME@@</p>
-                    <p class="sub">校外访问需先连接 aTrust；已在校园网内可直接继续。</p>
+                    <p class="sub">校外访问需先连接校外认证客户端（如 aTrust）；已在校园网内可直接继续。</p>
                     <div class="step">
-                      <button id="wake" type="button">① 唤醒 aTrust 客户端</button>
-                      <span class="hint">若无反应，请先安装并登录 aTrust 客户端</span>
+                      <button id="wake" type="button">① 唤醒认证客户端</button>
+                      <span class="hint">若无反应，请先安装并登录校外认证客户端</span>
                     </div>
                     <div class="step">
                       <button id="go" type="button" class="primary">② 我已连接，继续登录</button>

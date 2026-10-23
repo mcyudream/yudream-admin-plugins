@@ -201,7 +201,7 @@ class CasSsoHttpFacadeTest {
 
         String html = String.valueOf(env.facade.warmup(request(Map.of("state", List.of("s1")))).body());
         // 引导模式：展示唤醒与继续按钮 + 帮助链接；唤醒链接经 JS 转义注入
-        assertTrue(html.contains("唤醒 aTrust 客户端"), html);
+        assertTrue(html.contains("唤醒认证客户端"), html);
         assertTrue(html.contains("我已连接，继续登录"), html);
         assertTrue(html.contains("打开下载与帮助"), html);
         assertTrue(html.contains("atrustclient://login"), html);

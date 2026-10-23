@@ -182,7 +182,7 @@ oute）
         return absolute(oidcRegisterPath);
     }
 
-    /** SSO 中转授权入口：带引导页（校外 aTrust 提示），redirect 为本站前端回调路由，state 由宿主签发。 */
+    /** SSO 中转授权入口：带引导页（校外客户端提示），redirect 为本站前端回调路由，state 由宿主签发。 */
     public String bridgeStartUrl(String state) {
         return casBaseUrl + BRIDGE_START_PATH
                 + "?client=" + encode(clientId)

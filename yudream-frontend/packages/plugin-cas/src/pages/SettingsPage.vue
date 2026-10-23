@@ -60,7 +60,7 @@ const form = reactive<SsoSettings>({
 })
 
 const protocolOptions = [
-  { label: 'SSO 中转（学院统一身份认证中转服务）', value: 'BRIDGE' },
+  { label: 'SSO 中转（认证服务中转登录）', value: 'BRIDGE' },
   { label: 'CAS 3.0（认证中心 service ticket）', value: 'CAS' },
   { label: 'OIDC 授权码', value: 'OIDC' },
 ]
@@ -255,13 +255,17 @@ onMounted(() => {
               </div>
             </div>
             <div class="cas-grid-2">
-              <YdLabel label="显示名称" class="cas-field">
-                <YdInput v-model="form.displayName" class="w-full" maxlength="40" />
-              </YdLabel>
-              <YdLabel label="图标" class="cas-field">
-                <YdInput v-model="form.icon" class="w-full" maxlength="80" />
+              <div class="cas-field">
+                <YdLabel label="显示名称">
+                  <YdInput v-model="form.displayName" class="w-full" maxlength="40" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="图标">
+                  <YdInput v-model="form.icon" class="w-full" maxlength="80" />
+                </YdLabel>
                 <span class="cas-hint">Remix Icon 类名，例如 i-ri:graduation-cap-line。</span>
-              </YdLabel>
+              </div>
             </div>
           </YdSettingsSection>
           </div>
@@ -272,10 +276,12 @@ onMounted(() => {
             <YdLabel label="认证协议" class="cas-field">
               <YdSelect v-model="form.protocol" :options="protocolOptions" />
             </YdLabel>
-            <YdLabel label="认证服务根地址" class="cas-field">
-              <YdInput v-model="form.casBaseUrl" class="w-full" maxlength="200" :placeholder="bridgeMode ? 'https://jkxb.swust.edu.cn' : 'https://认证服务域名'" />
-              <span v-if="bridgeMode" class="cas-hint">学院 SSO 中转服务地址；换票 /sso/exchange 与探活 /sso/health 都走这个根地址。</span>
-            </YdLabel>
+            <div class="cas-field">
+              <YdLabel label="认证服务根地址">
+                <YdInput v-model="form.casBaseUrl" class="w-full" maxlength="200" placeholder="https://认证服务域名" />
+              </YdLabel>
+              <span class="cas-hint">中转服务根地址；换票 /sso/exchange 与探活 /sso/health 都走这个根地址。</span>
+            </div>
             <YdLabel label="本站回调地址" class="cas-field">
               <YdInput v-model="form.callbackUrl" class="w-full" maxlength="400" placeholder="https://你的站点/external-login/callback" />
               <span class="cas-hint">
@@ -323,27 +329,35 @@ onMounted(() => {
           <YdSettingsSection
             v-if="bridgeMode"
             title="SSO 中转"
-            description="学院中转服务登记的 clientId 与密钥。回调携带的一次性 code（60 秒有效）由本站后端以 HMAC-SHA256 签名换取学工号身份，并对响应验签；密钥只写入插件密钥库，不会回显。"
+            description="中转服务登记的 clientId 与密钥。回调携带的一次性 code（60 秒有效）由本站后端以 HMAC-SHA256 签名换取学工号身份，并对响应验签；密钥只写入插件密钥库，不会回显。"
           >
             <div class="cas-grid-2">
-              <YdLabel label="clientId" class="cas-field">
-                <YdInput v-model="form.clientId" class="w-full" maxlength="120" placeholder="中转服务分配的 clientId" />
-              </YdLabel>
-              <YdLabel label="中转密钥（secret）" class="cas-field">
-                <YdInput v-model="clientSecret" type="password" class="w-full" maxlength="240" :placeholder="form.clientSecretConfigured ? '已保存，留空则不修改' : '写入插件密钥库，不会回显'" />
+              <div class="cas-field">
+                <YdLabel label="clientId">
+                  <YdInput v-model="form.clientId" class="w-full" maxlength="120" placeholder="中转服务分配的 clientId" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="中转密钥（secret）">
+                  <YdInput v-model="clientSecret" type="password" class="w-full" maxlength="240" :placeholder="form.clientSecretConfigured ? '已保存，留空则不修改' : '写入插件密钥库，不会回显'" />
+                </YdLabel>
                 <span class="cas-hint">{{ form.clientSecretConfigured ? '密钥库中已有中转密钥。' : '尚未配置中转密钥。' }}</span>
+              </div>
+            </div>
+            <div class="cas-field">
+              <YdLabel label="校外接入唤醒链接">
+                <YdInput v-model="form.atrustWakeUrl" class="w-full" maxlength="300" placeholder="客户端自定义协议，如 atrustclient://…（留空不展示引导）" />
+              </YdLabel>
+              <span class="cas-hint">
+                配置后，登录预热页会先显示校外接入引导：可一键唤起客户端、再手动继续登录；继续一次后本机不再提示。
+                唤起协议以本校零信任客户端（如 aTrust）门户或网信中心提供的地址为准。
+              </span>
+            </div>
+            <div class="cas-field">
+              <YdLabel label="校外接入下载 / 帮助页">
+                <YdInput v-model="form.atrustGuideUrl" class="w-full" maxlength="300" placeholder="https://…（引导页新窗口打开，留空不展示）" />
               </YdLabel>
             </div>
-            <YdLabel label="aTrust 唤醒链接" class="cas-field">
-              <YdInput v-model="form.atrustWakeUrl" class="w-full" maxlength="300" placeholder="如 atrustclient://…（部署方自定义协议，留空不展示引导）" />
-              <span class="cas-hint">
-                配置后，登录预热页会先显示「aTrust 引导」：校外用户可一键唤起客户端、再手动继续登录；继续一次后本机不再提示。
-                各学校 aTrust 的唤起协议不同，请以本校 aTrust 门户/网信中心提供的协议地址为准。
-              </span>
-            </YdLabel>
-            <YdLabel label="aTrust 下载 / 帮助页" class="cas-field">
-              <YdInput v-model="form.atrustGuideUrl" class="w-full" maxlength="300" placeholder="https://…（引导页新窗口打开，留空不展示）" />
-            </YdLabel>
             <p class="cas-hint">
               code 一次性且 60 秒有效，后端不会重试同一个 code；中转服务对换票接口有限流（30 次/分钟/IP）。
               学院 / 班级为空串属正常情况（该学生不在中转服务档案内），学生信息页按未知展示。
@@ -352,36 +366,54 @@ onMounted(() => {
 
           <YdSettingsSection v-if="oidcMode" title="OIDC 客户端">
             <div class="cas-grid-2">
-              <YdLabel label="Issuer" class="cas-field">
-                <YdInput v-model="form.oidcIssuer" class="w-full" maxlength="240" />
-              </YdLabel>
-              <YdLabel label="client_id" class="cas-field">
-                <YdInput v-model="form.clientId" class="w-full" maxlength="120" />
-              </YdLabel>
-              <YdLabel label="client_secret" class="cas-field">
-                <YdInput v-model="clientSecret" type="password" class="w-full" maxlength="240" :placeholder="form.clientSecretConfigured ? '已保存，留空则不修改' : '写入插件密钥库，不会回显'" />
+              <div class="cas-field">
+                <YdLabel label="Issuer">
+                  <YdInput v-model="form.oidcIssuer" class="w-full" maxlength="240" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="client_id">
+                  <YdInput v-model="form.clientId" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="client_secret">
+                  <YdInput v-model="clientSecret" type="password" class="w-full" maxlength="240" :placeholder="form.clientSecretConfigured ? '已保存，留空则不修改' : '写入插件密钥库，不会回显'" />
+                </YdLabel>
                 <span class="cas-hint">{{ form.clientSecretConfigured ? '密钥库中已有客户端密钥。' : '尚未配置客户端密钥。' }}</span>
-              </YdLabel>
-              <YdLabel label="scopes" class="cas-field">
-                <YdInput v-model="form.scopes" class="w-full" maxlength="120" />
-              </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="scopes">
+                  <YdInput v-model="form.scopes" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
             </div>
             <div class="cas-grid-2">
-              <YdLabel label="授权路径" class="cas-field">
-                <YdInput v-model="form.oidcAuthorizePath" class="w-full" maxlength="120" />
-              </YdLabel>
-              <YdLabel label="Token 路径" class="cas-field">
-                <YdInput v-model="form.oidcTokenPath" class="w-full" maxlength="120" />
-              </YdLabel>
-              <YdLabel label="UserInfo 路径" class="cas-field">
-                <YdInput v-model="form.oidcUserinfoPath" class="w-full" maxlength="120" />
-              </YdLabel>
-              <YdLabel label="JWKS 路径" class="cas-field">
-                <YdInput v-model="form.oidcJwksPath" class="w-full" maxlength="120" />
-              </YdLabel>
-              <YdLabel label="动态注册路径" class="cas-field">
-                <YdInput v-model="form.oidcRegisterPath" class="w-full" maxlength="120" />
-              </YdLabel>
+              <div class="cas-field">
+                <YdLabel label="授权路径">
+                  <YdInput v-model="form.oidcAuthorizePath" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="Token 路径">
+                  <YdInput v-model="form.oidcTokenPath" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="UserInfo 路径">
+                  <YdInput v-model="form.oidcUserinfoPath" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="JWKS 路径">
+                  <YdInput v-model="form.oidcJwksPath" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
+              <div class="cas-field">
+                <YdLabel label="动态注册路径">
+                  <YdInput v-model="form.oidcRegisterPath" class="w-full" maxlength="120" />
+                </YdLabel>
+              </div>
             </div>
             <div class="cas-actions">
               <YdButton type="button" variant="outline" :loading="registering" :disabled="saving" @click="registerOidc">
@@ -442,6 +474,7 @@ onMounted(() => {
 .cas-grid-2 {
   display: grid;
   gap: 14px;
+  align-items: start;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 

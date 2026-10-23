@@ -1,6 +1,6 @@
 name: cas
 displayName: 统一身份认证
-description: 接入 Apereo CAS / OIDC / 学院 SSO 中转统一身份认证，作为站点第三方登录提供方。
+description: 接入 Apereo CAS / OIDC / SSO 中转统一身份认证，作为站点第三方登录提供方。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.cas.bootstrap.CasSsoPlugin
 version: "${project.version}"

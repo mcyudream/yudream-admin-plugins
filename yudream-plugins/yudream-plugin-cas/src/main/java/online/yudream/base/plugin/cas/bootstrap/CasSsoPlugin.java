@@ -30,7 +30,7 @@ import online.yudream.base.plugin.cas.interfaces.http.CasSsoHttpFacade;
         code = CasSsoPlugin.CODE,
         name = "统一身份认证",
         version = CasSsoPlugin.VERSION,
-        description = "接入 Apereo CAS / OIDC / 学院 SSO 中转统一身份认证，作为站点第三方登录提供方；支持绑定情况查看与未绑定访问门禁",
+        description = "接入 Apereo CAS / OIDC / SSO 中转统一身份认证，作为站点第三方登录提供方；支持绑定情况查看与未绑定访问门禁",
         icon = "i-ri:graduation-cap-line"
 )
 @PluginPermissions({
