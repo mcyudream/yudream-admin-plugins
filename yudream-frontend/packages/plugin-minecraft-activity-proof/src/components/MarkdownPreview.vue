@@ -45,4 +45,25 @@ const resolvedContent = computed(() => resolveMarkdownFileUrls(props.sdk, props.
   color: inherit;
   background: rgb(127 127 127 / 18%);
 }
+
+/* github 预览主题把表格行写死白底（tr background:#fff），深色公开页上与继承的白字叠成白底白字；
+   改为透明行底 + 半透明描边，表头垫一层灰底，明暗页面都可读。 */
+.ap-markdown-preview :deep(.github-theme table tr) {
+  background-color: transparent;
+  border-top: 1px solid rgb(127 127 127 / 35%);
+}
+
+.ap-markdown-preview :deep(.github-theme table th),
+.ap-markdown-preview :deep(.github-theme table td) {
+  border: 1px solid rgb(127 127 127 / 35%);
+}
+
+.ap-markdown-preview :deep(.github-theme table thead tr) {
+  background-color: rgb(127 127 127 / 18%);
+}
+
+/* md-editor 给缩放图片（.medium-zoom-image）写死白底，透明 GIF/PNG 会在深色页面上垫成白块 */
+.ap-markdown-preview :deep(.md-editor-preview img.medium-zoom-image) {
+  background-color: transparent;
+}
 </style>
