@@ -46,6 +46,7 @@
         <module>yudream-plugins/yudream-plugin-project-progress</module>
         <module>yudream-plugins/yudream-plugin-yudream-skin</module>
         <module>yudream-plugins/yudream-plugin-student-info</module>
+        <module>yudream-plugins/yudream-plugin-cas</module>
         <module>yudream-plugins/yudream-plugin-wallet</module>
         <module>yudream-plugins/yudream-plugin-qq-binding</module>
         <module>yudream-plugins/yudream-plugin-ai-chatbot</module>

@@ -1,0 +1,3 @@
+{
+  "releaseNotes": "2.2.0：\n- 本仓首次收录（代码自社区 fork 版 2.1.1 移植，无历史合并），升级为统一身份认证插件：协议在 CAS3 / OIDC 之外新增「SSO 中转」模式。\n- SSO 中转模式对接学院统一身份认证中转服务：授权走 /sso/start（校外 aTrust 引导页），回调携带一次性 code 与 state；换票由插件后端以 HMAC-SHA256 签名 POST /sso/exchange 完成，并对响应做 no|name|ts 验签，密钥只保存在插件密钥库、不下发前端。\n- 探活对接 /sso/health：校验服务可用、已启用且已登记 clientId。\n- college / className 为空串属正常情况（学生不在中转服务档案内），页面按未知展示。\n- 插件名与展示名去上游站点化，回调地址 / 预热页 / 绑定门禁 / 学生信息页等能力与上游一致。"
+}
