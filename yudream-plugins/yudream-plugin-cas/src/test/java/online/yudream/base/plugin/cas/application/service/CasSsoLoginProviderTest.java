@@ -86,8 +86,8 @@ class CasSsoLoginProviderTest {
                 "https://cas.example", SsoSettings.DEFAULT_LOGIN_PATH, SsoSettings.DEFAULT_VALIDATE_PATH,
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
-                "client-1", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", true, false
-        );
+                "client-1", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", true,
+                "", "", false);
         service.save(oidc, null);
         CasSsoLoginProvider provider = new CasSsoLoginProvider(service, studentInfo());
         assertFalse(provider.enabled());
@@ -121,8 +121,8 @@ class CasSsoLoginProviderTest {
                 "https://cas.example", SsoSettings.DEFAULT_LOGIN_PATH, SsoSettings.DEFAULT_VALIDATE_PATH,
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
-                "", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", loginWarmup, false
-        );
+                "", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", loginWarmup,
+                "", "", false);
     }
 
     private static SsoSettingsDto oidcReady() {
@@ -131,8 +131,8 @@ class CasSsoLoginProviderTest {
                 "https://cas.example", SsoSettings.DEFAULT_LOGIN_PATH, SsoSettings.DEFAULT_VALIDATE_PATH,
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
-                "client-1", true, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", true, false
-        );
+                "client-1", true, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", true,
+                "", "", false);
     }
 
     private static StudentInfoService studentInfo() {

@@ -65,6 +65,14 @@ public final class SettingsService {
                     ? "SSO 中转模式必须填写 clientId"
                     : "OIDC 模式必须填写 client_id");
         }
+        String wakeUrl = incoming.atrustWakeUrl() == null ? "" : incoming.atrustWakeUrl().trim();
+        if (!wakeUrl.isEmpty() && !wakeUrl.contains("://")) {
+            throw new IllegalArgumentException("aTrust 唤醒链接必须是自定义协议地址（如 atrustclient://…）");
+        }
+        String guideUrl = incoming.atrustGuideUrl() == null ? "" : incoming.atrustGuideUrl().trim();
+        if (!guideUrl.isEmpty() && !guideUrl.startsWith("http://") && !guideUrl.startsWith("https://")) {
+            throw new IllegalArgumentException("aTrust 帮助页必须是 http/https 地址");
+        }
         if (clientSecret != null && !clientSecret.isBlank()) {
             secrets.put(clientSecret);
         }
@@ -106,7 +114,9 @@ public final class SettingsService {
                     secrets.configured(),
                     settings.scopes(),
                     settings.callbackUrl(),
-                    settings.loginWarmup()
+                    settings.loginWarmup(),
+                    settings.atrustWakeUrl(),
+                    settings.atrustGuideUrl()
             );
             remember(repository.save(updated));
         } else {

@@ -45,6 +45,8 @@ public final class SsoSettingsDocumentRepository implements SsoSettingsRepositor
         document.put("scopes", settings.scopes());
         document.put("callbackUrl", settings.callbackUrl());
         document.put("loginWarmup", settings.loginWarmup());
+        document.put("atrustWakeUrl", settings.atrustWakeUrl());
+        document.put("atrustGuideUrl", settings.atrustGuideUrl());
         return toSettings(documents.save(COLLECTION, ID, DocValues.stripNulls(document)));
     }
 
@@ -68,7 +70,9 @@ public final class SsoSettingsDocumentRepository implements SsoSettingsRepositor
                 false,
                 orDefault(DocValues.string(document, "scopes"), defaults.scopes()),
                 orDefault(DocValues.string(document, "callbackUrl"), ""),
-                DocValues.bool(document, "loginWarmup", defaults.loginWarmup())
+                DocValues.bool(document, "loginWarmup", defaults.loginWarmup()),
+                DocValues.string(document, "atrustWakeUrl"),
+                DocValues.string(document, "atrustGuideUrl")
         );
     }
 

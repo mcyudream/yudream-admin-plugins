@@ -71,7 +71,7 @@ import online.yudream.base.plugin.cas.interfaces.http.CasSsoHttpFacade;
 public final class CasSsoPlugin implements YuDreamPlugin {
 
     public static final String CODE = "cas";
-    public static final String VERSION = "2.2.0";
+    public static final String VERSION = "2.3.0";
     public static final String MANAGE_PERMISSION = "plugin:cas:manage";
     /** 学生档案插件 code：学院 / 班级等信息的唯一来源（软依赖，只读）。 */
     public static final String STUDENT_INFO_CODE = "yudream-student-info";

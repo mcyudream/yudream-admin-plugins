@@ -53,6 +53,10 @@ oute）
     private final String callbackUrl;
     /** 登录前是否走预热页（默认开；网关不需要时可以关掉以少一次请求）。 */
     private final boolean loginWarmup;
+    /** aTrust 客户端唤起链接（部署方自定义协议，如 atrustclient://…）；空=预热页不展示 aTrust 引导。 */
+    private final String atrustWakeUrl;
+    /** aTrust 下载/帮助页（http/https），引导页新窗口打开；空=不展示。 */
+    private final String atrustGuideUrl;
 
     public SsoSettings(
             boolean enabled,
@@ -72,7 +76,9 @@ oute）
             boolean clientSecretConfigured,
             String scopes,
             String callbackUrl,
-            boolean loginWarmup
+            boolean loginWarmup,
+            String atrustWakeUrl,
+            String atrustGuideUrl
     ) {
         this.enabled = enabled;
         this.protocol = protocol == null ? SsoProtocol.CAS : protocol;
@@ -92,6 +98,8 @@ oute）
         this.scopes = blankToDefault(scopes, DEFAULT_SCOPES);
         this.callbackUrl = trimToEmpty(callbackUrl);
         this.loginWarmup = loginWarmup;
+        this.atrustWakeUrl = trimToEmpty(atrustWakeUrl);
+        this.atrustGuideUrl = trimToEmpty(atrustGuideUrl);
     }
 
     public static SsoSettings defaults() {
@@ -113,7 +121,9 @@ oute）
                 false,
                 DEFAULT_SCOPES,
                 "",
-                true
+                true,
+                "",
+                ""
         );
     }
 
@@ -121,7 +131,8 @@ oute）
         return new SsoSettings(
                 enabled, protocol, displayName, icon, casBaseUrl, loginPath, validatePath,
                 oidcIssuer, oidcAuthorizePath, oidcTokenPath, oidcUserinfoPath, oidcJwksPath,
-                oidcRegisterPath, clientId, configured, scopes, callbackUrl, loginWarmup
+                oidcRegisterPath, clientId, configured, scopes, callbackUrl, loginWarmup,
+                atrustWakeUrl, atrustGuideUrl
         );
     }
 
@@ -266,11 +277,25 @@ oute）
         return loginWarmup;
     }
 
+    public String atrustWakeUrl() {
+        return atrustWakeUrl;
+    }
+
+    public String atrustGuideUrl() {
+        return atrustGuideUrl;
+    }
+
+    /** aTrust 引导是否已配置：配置后预热页先展示「唤醒 aTrust / 继续登录」引导，而非直接自动跳转。 */
+    public boolean atrustGuideEnabled() {
+        return !blank(atrustWakeUrl);
+    }
+
     public SsoSettings withLoginWarmup(boolean warmup) {
         return new SsoSettings(
                 enabled, protocol, displayName, icon, casBaseUrl, loginPath, validatePath,
                 oidcIssuer, oidcAuthorizePath, oidcTokenPath, oidcUserinfoPath, oidcJwksPath,
-                oidcRegisterPath, clientId, clientSecretConfigured, scopes, callbackUrl, warmup
+                oidcRegisterPath, clientId, clientSecretConfigured, scopes, callbackUrl, warmup,
+                atrustWakeUrl, atrustGuideUrl
         );
     }
 

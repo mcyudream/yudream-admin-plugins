@@ -22,6 +22,8 @@ public record SsoSettingsDto(
         String scopes,
         String callbackUrl,
         boolean loginWarmup,
+        String atrustWakeUrl,
+        String atrustGuideUrl,
         boolean ready
 ) {
     public static SsoSettingsDto from(SsoSettings settings) {
@@ -44,6 +46,8 @@ public record SsoSettingsDto(
                 settings.scopes(),
                 settings.callbackUrl(),
                 settings.loginWarmup(),
+                settings.atrustWakeUrl(),
+                settings.atrustGuideUrl(),
                 settings.ready()
         );
     }
@@ -67,7 +71,9 @@ public record SsoSettingsDto(
                 clientSecretConfigured,
                 scopes,
                 callbackUrl,
-                loginWarmup
+                loginWarmup,
+                atrustWakeUrl,
+                atrustGuideUrl
         );
     }
 }

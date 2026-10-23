@@ -56,6 +56,8 @@ public final class CasSsoHttpFacade {
                 firstNonBlank(body.scopes(), current.scopes()),
                 firstNonBlank(body.callbackUrl(), current.callbackUrl()),
                 body.loginWarmup() == null ? current.loginWarmup() : body.loginWarmup(),
+                firstNonBlank(body.atrustWakeUrl(), current.atrustWakeUrl()),
+                firstNonBlank(body.atrustGuideUrl(), current.atrustGuideUrl()),
                 false
         );
         return PluginHttpResponse.ok(settings.save(incoming, body.clientSecret()));
@@ -86,7 +88,8 @@ public final class CasSsoHttpFacade {
         return new PluginHttpResponse(200,
                 Map.of("Cache-Control", "no-store"),
                 "text/html; charset=UTF-8",
-                warmupPage(target, current.loginWarmup(), current.displayName()),
+                warmupPage(target, current.loginWarmup(), current.displayName(),
+                        current.atrustWakeUrl(), current.atrustGuideUrl()),
                 false);
     }
 
@@ -96,7 +99,8 @@ public final class CasSsoHttpFacade {
      * <p>样式与站点保持一致：同一套中性色板（跟随系统深浅色）、居中卡片 + 环形进度，
      * 不引入任何外部资源（不依赖宿主的 CSS，也不会闪烁）。
      */
-    static String warmupPage(String target, boolean warmup, String displayName) {
+    static String warmupPage(String target, boolean warmup, String displayName,
+                                     String atrustWakeUrl, String atrustGuideUrl) {
         String preheat = warmup
                 ? """
                   try {
@@ -108,6 +112,14 @@ public final class CasSsoHttpFacade {
                   """
                 : "go();";
         String name = html(displayName);
+        if (atrustWakeUrl != null && !atrustWakeUrl.isBlank()) {
+            return guidePage(target, preheat, name, atrustWakeUrl, atrustGuideUrl);
+        }
+        return autoPage(target, preheat, name);
+    }
+
+    /** 默认预热页：自动预热并跳转（未配置 aTrust 唤醒链接时的行为，保持不变）。 */
+    private static String autoPage(String target, String preheat, String name) {
         return """
                 <!doctype html>
                 <html lang="zh-CN">
@@ -208,6 +220,154 @@ public final class CasSsoHttpFacade {
                 """
                 .replace("@@NAME@@", name)
                 .replace("@@TARGET@@", jsString(target))
+                .replace("@@PREHEAT@@", preheat);
+    }
+
+    /**
+     * aTrust 引导页：配置了唤醒链接后，校外用户先唤醒/连接 aTrust，再手动继续登录。
+     * 「继续登录」写入 localStorage 后回到自动跳转行为；跳转目标仍由服务端按 state 重建，无任意跳转参数。
+     */
+    private static String guidePage(String target, String preheat, String name,
+                                            String atrustWakeUrl, String atrustGuideUrl) {
+        boolean hasGuideUrl = atrustGuideUrl != null && !atrustGuideUrl.isBlank();
+        String guideLink = hasGuideUrl
+                ? "<p class=\"fallback\"><a href=\"" + html(atrustGuideUrl)
+                        + "\" target=\"_blank\" rel=\"noreferrer\">没有安装 aTrust？打开下载与帮助</a></p>"
+                : "";
+        return """
+                <!doctype html>
+                <html lang="zh-CN">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="referrer" content="no-referrer">
+                  <meta name="color-scheme" content="light dark">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <title>正在前往@@NAME@@…</title>
+                  <style>
+                    :root {
+                      color-scheme: light dark;
+                      --yb-bg: #f2f3f5;
+                      --yb-card: #ffffff;
+                      --yb-text: #1d2129;
+                      --yb-sub: #86909c;
+                      --yb-border: #e5e6eb;
+                      --yb-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+                      --yb-accent: #165dff;
+                    }
+                    @media (prefers-color-scheme: dark) {
+                      :root {
+                        --yb-bg: #17171a;
+                        --yb-card: #232324;
+                        --yb-text: #f2f3f5;
+                        --yb-sub: #86909c;
+                        --yb-border: #333335;
+                        --yb-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+                        --yb-accent: #4080ff;
+                      }
+                    }
+                    * { box-sizing: border-box; }
+                    body {
+                      margin: 0;
+                      min-height: 100vh;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      padding: 24px;
+                      background: var(--yb-bg);
+                      color: var(--yb-text);
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+                      font-size: 14px;
+                      line-height: 1.6;
+                    }
+                    .card {
+                      width: 380px;
+                      max-width: 100%;
+                      padding: 28px 24px;
+                      text-align: center;
+                      background: var(--yb-card);
+                      border: 1px solid var(--yb-border);
+                      border-radius: 8px;
+                      box-shadow: var(--yb-shadow);
+                    }
+                    .title { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+                    .sub { margin: 0 0 18px; color: var(--yb-sub); font-size: 13px; }
+                    .step { display: grid; gap: 6px; margin: 0 0 14px; }
+                    .step button {
+                      width: 100%;
+                      padding: 10px 12px;
+                      font-size: 14px;
+                      font-family: inherit;
+                      border-radius: 6px;
+                      border: 1px solid var(--yb-border);
+                      background: var(--yb-card);
+                      color: var(--yb-text);
+                      cursor: pointer;
+                    }
+                    .step button.primary {
+                      background: var(--yb-accent);
+                      border-color: var(--yb-accent);
+                      color: #fff;
+                    }
+                    .step button:hover { filter: brightness(1.05); }
+                    .step .hint { color: var(--yb-sub); font-size: 12px; }
+                    .fallback { margin: 6px 0 0; font-size: 12px; color: var(--yb-sub); }
+                    .fallback a { color: inherit; }
+                    @media (prefers-reduced-motion: reduce) {
+                      .step button { transition: none; }
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <p class="title">正在前往@@NAME@@</p>
+                    <p class="sub">校外访问需先连接 aTrust；已在校园网内可直接继续。</p>
+                    <div class="step">
+                      <button id="wake" type="button">① 唤醒 aTrust 客户端</button>
+                      <span class="hint">若无反应，请先安装并登录 aTrust 客户端</span>
+                    </div>
+                    <div class="step">
+                      <button id="go" type="button" class="primary">② 我已连接，继续登录</button>
+                      <span class="hint">继续后本机下次不再显示此提示</span>
+                    </div>
+                    @@GUIDE_LINK@@
+                  </div>
+                  <script>
+                  (function () {
+                    var target = @@TARGET@@;
+                    var wake = @@WAKE@@;
+                    var KEY = 'cas-atrust-continue';
+                    var done = false;
+                    function go() {
+                      if (done) { return; }
+                      done = true;
+                      location.replace(target);
+                    }
+                    var wakeBtn = document.getElementById('wake');
+                    if (wakeBtn) {
+                      wakeBtn.addEventListener('click', function () {
+                        window.location.href = wake;
+                      });
+                    }
+                    var goBtn = document.getElementById('go');
+                    if (goBtn) {
+                      goBtn.addEventListener('click', function () {
+                        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+                        go();
+                      });
+                    }
+                    var skip = false;
+                    try { skip = localStorage.getItem(KEY) === '1'; } catch (e) {}
+                    if (skip) { @@PREHEAT@@ }
+                  })();
+                  </script>
+                </body>
+                </html>
+                """
+                .replace("@@NAME@@", name)
+                .replace("@@TARGET@@", jsString(target))
+                .replace("@@WAKE@@", jsString(atrustWakeUrl))
+                .replace("@@GUIDE_LINK@@", guideLink)
                 .replace("@@PREHEAT@@", preheat);
     }
 

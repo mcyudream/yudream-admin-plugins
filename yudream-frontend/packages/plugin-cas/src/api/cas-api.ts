@@ -28,6 +28,8 @@ export function createCasApi(sdk: YuDreamPluginSdk) {
           scopes: data.scopes,
           callbackUrl: data.callbackUrl,
           loginWarmup: data.loginWarmup,
+          atrustWakeUrl: data.atrustWakeUrl,
+          atrustGuideUrl: data.atrustGuideUrl,
         },
       }),
     test: () => http.post<ConnectivityResult>('/admin/test', {}),

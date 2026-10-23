@@ -19,6 +19,10 @@ public record SettingsSaveRequest(
         String scopes,
         String callbackUrl,
         /** 登录前是否走本站预热页（先跨站请求拿网关会话 cookie 再跳认证地址）；null 表示不修改。 */
-        Boolean loginWarmup
+        Boolean loginWarmup,
+        /** aTrust 客户端唤起链接（自定义协议）；null 表示不修改。 */
+        String atrustWakeUrl,
+        /** aTrust 下载/帮助页（http/https）；null 表示不修改。 */
+        String atrustGuideUrl
 ) {
 }

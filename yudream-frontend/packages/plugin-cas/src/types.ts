@@ -18,6 +18,10 @@ export interface SsoSettings {
   callbackUrl: string
   /** 登录前是否走本站预热页（先跨站请求拿网关会话 cookie 再跳认证地址）。 */
   loginWarmup: boolean
+  /** aTrust 客户端唤起链接（自定义协议）；空=预热页不展示 aTrust 引导。 */
+  atrustWakeUrl: string
+  /** aTrust 下载/帮助页（http/https）；空=不展示。 */
+  atrustGuideUrl: string
   ready: boolean
 }
 

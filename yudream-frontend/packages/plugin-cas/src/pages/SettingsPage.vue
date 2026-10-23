@@ -54,6 +54,8 @@ const form = reactive<SsoSettings>({
   scopes: 'openid profile email',
   callbackUrl: '',
   loginWarmup: true,
+  atrustWakeUrl: '',
+  atrustGuideUrl: '',
   ready: false,
 })
 
@@ -325,6 +327,16 @@ onMounted(() => {
                 <span class="cas-hint">{{ form.clientSecretConfigured ? '密钥库中已有中转密钥。' : '尚未配置中转密钥。' }}</span>
               </YdLabel>
             </div>
+            <YdLabel label="aTrust 唤醒链接" class="cas-field">
+              <YdInput v-model="form.atrustWakeUrl" class="w-full" maxlength="300" placeholder="如 atrustclient://…（部署方自定义协议，留空不展示引导）" />
+              <span class="cas-hint">
+                配置后，登录预热页会先显示「aTrust 引导」：校外用户可一键唤起客户端、再手动继续登录；继续一次后本机不再提示。
+                各学校 aTrust 的唤起协议不同，请以本校 aTrust 门户/网信中心提供的协议地址为准。
+              </span>
+            </YdLabel>
+            <YdLabel label="aTrust 下载 / 帮助页" class="cas-field">
+              <YdInput v-model="form.atrustGuideUrl" class="w-full" maxlength="300" placeholder="https://…（引导页新窗口打开，留空不展示）" />
+            </YdLabel>
             <p class="cas-hint">
               code 一次性且 60 秒有效，后端不会重试同一个 code；中转服务对换票接口有限流（30 次/分钟/IP）。
               学院 / 班级为空串属正常情况（该学生不在中转服务档案内），学生信息页按未知展示。

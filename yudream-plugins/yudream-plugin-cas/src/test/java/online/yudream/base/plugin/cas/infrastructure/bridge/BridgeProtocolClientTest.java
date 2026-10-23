@@ -53,7 +53,8 @@ class BridgeProtocolClientTest {
                 true,
                 "",
                 "https://www.swustmc.cn/external-login/callback",
-                false
+                false,
+                "", ""
         );
     }
 
@@ -182,7 +183,8 @@ class BridgeProtocolClientTest {
                 "http://127.0.0.1:" + server.getAddress().getPort(),
                 "", "", "", "", "", "", "", "",
                 "other-client", true, "",
-                "https://www.swustmc.cn/external-login/callback", false
+                "https://www.swustmc.cn/external-login/callback", false,
+                "", ""
         );
         assertFalse(client.probe(unknown, SECRET).ok());
     }
