@@ -1,0 +1,10 @@
+name: mc-interop
+displayName: MC 互操作目录
+description: mc-interop v1 统一出口：站点身份、管理员选择的实例目录与友站发现，供任意启动器消费。
+icon: i-ri:share-circle-line
+main: online.yudream.base.plugin.interop.bootstrap.McInteropPlugin
+version: 0.1.0
+softdepend: [yudream-union, ymcl-adapter]
+menu:
+  # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
+  category: mc

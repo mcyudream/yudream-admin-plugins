@@ -29,3 +29,4 @@ yudream-plugin-alipay
 yudream-plugin-wallet
 yudream-plugin-yudream-union
 yudream-plugin-mc-terrain-theme
+yudream-plugin-mc-interop

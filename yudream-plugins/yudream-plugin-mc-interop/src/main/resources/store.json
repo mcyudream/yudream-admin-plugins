@@ -1,0 +1,11 @@
+{
+  "license": "MIT",
+  "category": "Minecraft",
+  "tags": [
+    "launcher",
+    "modpack",
+    "interop",
+    "discovery"
+  ],
+  "releaseNotes": "0.1.0：新增 mc-interop v1 统一出口插件。管理员勾选发布的整合包/服务器实例以标准发现清单对外提供（含 artifact 下载地址与 sha1/sha512），支持友站声明；任意实现 mc-interop v1 的启动器可据此发现目录、下载整合包并加入服务器。"
+}

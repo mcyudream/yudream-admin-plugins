@@ -1,0 +1,6 @@
+/* mc-interop 管理页布局：表格页内部纵排，避免内容撑高滚动容器。 */
+.mc-interop-table-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
