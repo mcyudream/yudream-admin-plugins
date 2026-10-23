@@ -11,7 +11,7 @@ import FileBrowserPanel from '../../components/FileBrowserPanel.vue'
 import FileEditorModal from '../../components/FileEditorModal.vue'
 import { useChunkedDownload } from '../../composables/useChunkedDownload.ts'
 import { MCPANEL_PERMISSION, accountHasPermission } from '../../composables/permissions.ts'
-import { errorMessage, formatDateTime, formatSize } from '../../composables/utils.ts'
+import { errorMessage, formatDateTime, formatSize, toNumberOr } from '../../composables/utils.ts'
 import { withTimeout } from '../../utils/fileContent.ts'
 import { relativeFilePath, createTextFileAccess } from '../../utils/textFileAccess.ts'
 
@@ -106,7 +106,10 @@ async function downloadRow(row: Record<string, unknown>) {
   const id = nodeId.value
   const scopeRoot = root.value
   const path = filePath(row)
-  try { await download.start(String(row.name), (offset, length) => api.nodeFileReadChunk(id, scopeRoot, path, offset, length)) }
+  // 目录列表给出的文件大小用于下载预检与完整性校验（节点的分块响应不带总大小）。
+  const size = toNumberOr(row.size, -1)
+  try { await download.start(String(row.name), (offset, length) => api.nodeFileReadChunk(id, scopeRoot, path, offset, length),
+    size >= 0 ? size : undefined) }
   catch (cause) { toast.error(errorMessage(cause, '下载失败')) }
 }
 

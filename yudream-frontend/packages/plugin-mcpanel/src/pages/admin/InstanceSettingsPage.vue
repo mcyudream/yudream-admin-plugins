@@ -207,6 +207,33 @@ function confirmRemovePort(action: 'confirm' | 'cancel' | 'close', done: () => v
   })()
 }
 
+const closeOpen = ref(false)
+
+function confirmClosePorts(action: 'confirm' | 'cancel' | 'close', done: () => void) {
+  if (action !== 'confirm') {
+    done()
+    return
+  }
+  void (async () => {
+    if (portBusy.value) {
+      return
+    }
+    portBusy.value = true
+    try {
+      portsView.value = await extra.closeInstancePorts(instanceId.value) as typeof portsView.value
+      toast.success('已关闭全部端口开放')
+      void load()
+      done()
+    }
+    catch (e) {
+      toast.error(errorMessage(e, '关闭端口开放失败'))
+    }
+    finally {
+      portBusy.value = false
+    }
+  })()
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -462,7 +489,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
             </YdButton>
           </div>
           <div v-if="!portsView?.ports?.length" class="mcp-form-hint">
-            尚未分配端口。
+            端口已全部关闭：实例不对节点宿主机发布任何端口，玩家与代理都无法直连（重新开放会在端口池内分配新主端口）。
           </div>
           <div v-if="canManage && !running" class="flex flex-wrap items-end gap-3">
             <label class="mcp-form-item w-32">
@@ -479,6 +506,14 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
             </label>
             <YdButton :loading="portBusy" @click="addPort">
               开放端口
+            </YdButton>
+            <YdButton
+              v-if="portsView?.ports?.length"
+              variant="destructive"
+              :disabled="portBusy"
+              @click="closeOpen = true"
+            >
+              关闭全部端口开放
             </YdButton>
           </div>
           <span class="mcp-form-hint">
@@ -545,6 +580,20 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
     <p v-if="removeTarget" class="text-sm">
       确认回收端口 <span class="font-mono">{{ removeTarget.hostPort }}/{{ removeTarget.proto }}</span>？
       节点会按剩余端口重建容器，实例保持停止态；该端口随之释放回节点端口池。
+    </p>
+  </YdModal>
+  <YdModal
+    v-model="closeOpen"
+    title="关闭全部端口开放"
+    confirm-button-text="确认关闭"
+    :confirm-button-loading="portBusy"
+    :before-close="confirmClosePorts"
+  >
+    <p class="text-sm">
+      确认关闭该实例的全部 {{ portsView?.ports?.length ?? 0 }} 个端口？
+      关闭后容器不再向节点宿主机发布任何端口——玩家与代理（含代理组子服互通）都无法直连本实例，
+      仅代理与实例同机走内网/容器网络等替代路径时可用；实例域名与 P2P 直连也随之失效。
+      端口全部释放回节点端口池，重新开放时分配新主端口。存档与配置不受影响，实例保持停止态。
     </p>
   </YdModal>
 </template>

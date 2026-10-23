@@ -452,6 +452,45 @@ public class McpanelInstanceAppService {
         return applyPorts(actor, current, node, desired, null);
     }
 
+    /**
+     * 关闭全部端口开放（实例须停止）：容器按零发布端口重建，实例不再从节点宿主机
+     * 对外暴露任何端口。主端口允许随本用例一并关闭——「主端口不可移除」约束锚定的
+     * 是玩家侧连接地址与节点 server-port 回写，只在逐端口增删时有意义；重新开放走
+     * 既有 addPort（新分配端口成为新的主端口）。注意：代理纳管的子服互通地址是
+     * 「节点地址 + 宿主端口」，关闭后代理与玩家都无法直连，仅适用于走内网/容器网络
+     * 互通或不需对外提供服务的实例。节点下发失败时全量回滚台账与聚合。
+     */
+    public Map<String, Object> closeAllPorts(String actor, String scopeKey, String id) {
+        McpanelInstance current = findAccessible(scopeKey, id);
+        McpanelNode node = requireNode(current.nodeId());
+        requireStoppedForPorts(current);
+        if (current.ports().isEmpty()) {
+            return portsViewOf(current, node);
+        }
+        int closed = current.ports().size();
+        long stamp = System.currentTimeMillis();
+        if (!instanceRepository.mutateState(current.id(), base -> base.withPorts(List.of(), stamp))) {
+            throw new McpanelBusinessException("instance.conflict", 409,
+                    "实例状态正在变化，端口保存冲突，请稍后重试");
+        }
+        try {
+            McpanelInstance updated = instanceRepository.findById(current.id()).orElse(current);
+            call(node.id(), "instance.update",
+                    withIk(withLinkEnv(updated.toNodePayload()),
+                            "panel-ports-close-" + current.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+            for (McpanelInstance.PortMapping mapping : current.ports()) {
+                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+            }
+            audit.record(actor, "instance.ports.close", "instance", current.id(),
+                    current.name() + "：关闭全部端口开放（" + closed + " 个）", current.tenantId());
+            return portsViewOf(instanceRepository.findById(current.id()).orElse(updated), node);
+        } catch (RuntimeException error) {
+            instanceRepository.mutateState(current.id(),
+                    fresh -> current.withPorts(current.ports(), fresh.updatedAt()));
+            throw error;
+        }
+    }
+
     private static void requireStoppedForPorts(McpanelInstance current) {
         if ("running".equalsIgnoreCase(current.state())) {
             throw new McpanelBusinessException("instance-running", 409, "请先停止实例再修改端口");

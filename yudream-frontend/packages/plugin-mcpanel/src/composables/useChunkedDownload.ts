@@ -9,7 +9,7 @@ export function useChunkedDownload() {
   let controller: AbortController | null = null
 
   function cancel() { controller?.abort() }
-  async function start(name: string, fetchChunk: (offset: number, length: number) => Promise<unknown>) {
+  async function start(name: string, fetchChunk: (offset: number, length: number) => Promise<unknown>, expectedSize?: number) {
     if (active.value) return
     const own = new AbortController()
     controller = own
@@ -19,6 +19,7 @@ export function useChunkedDownload() {
     try {
       const parts = await collectFileChunks(async (offset, length) => await fetchChunk(offset, length) as FileChunk, {
         signal: own.signal,
+        expectedSize,
         onProgress: (loaded, total) => { progress.value = total ? Math.round(loaded / total * 100) : 100 },
       })
       own.signal.throwIfAborted()

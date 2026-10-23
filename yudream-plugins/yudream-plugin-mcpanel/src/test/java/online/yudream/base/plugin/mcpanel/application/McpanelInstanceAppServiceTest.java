@@ -910,4 +910,122 @@ class McpanelInstanceAppServiceTest {
         assertEquals(1L, ports.countByNode("node-1"));
         assertEquals(1, instancePorts("inst-pj").size());
     }
+
+    // ---------- 关闭全部端口开放 ----------
+
+    @Test
+    void closeAllPortsClearsSpecLedgerAndSendsEmptyPortsPayload() {
+        onlineNode();
+        List<String> methods = new java.util.ArrayList<>();
+        List<String> audits = new java.util.ArrayList<>();
+        Map<String, Object> updatePayload = new java.util.concurrent.ConcurrentHashMap<>();
+        McpanelInstanceAppService service = new McpanelInstanceAppService(instances, nodes, ports,
+                (nodeId, method, payload) -> {
+                    methods.add(method);
+                    if ("instance.create".equals(method)) {
+                        return CompletableFuture.completedFuture(Map.of("state", "created"));
+                    }
+                    if ("instance.update".equals(method)) {
+                        updatePayload.putAll(payload);
+                    }
+                    return CompletableFuture.completedFuture(Map.of("state", "created"));
+                },
+                new PortAllocator(ports),
+                (actor, action, targetType, targetId, detail, tenantId) -> audits.add(action + ":" + detail),
+                new McpanelInstanceAppService.TenancyScope() {
+                    @Override
+                    public boolean canAccess(String scopeKey, McpanelInstance instance) {
+                        return true;
+                    }
+
+                    @Override
+                    public String tenantOf(Object requestContext, McpanelNode node) {
+                        return null;
+                    }
+                },
+                new online.yudream.base.plugin.mcpanel.application.service.MinecraftLinkService(java.util.Optional::empty), null);
+        service.create("user:1", "user:1", spec("inst-close1", "paper"));
+        service.addPort("user:1", "user:1", "inst-close1", "tcp", 25570);
+        assertEquals(2L, ports.countByNode("node-1"));
+        methods.clear();
+        audits.clear();
+
+        Map<String, Object> view = service.closeAllPorts("user:1", "user:1", "inst-close1");
+
+        // 容器按零发布端口重建；台账全部释放；视图为空列表
+        assertEquals(List.of("instance.update"), methods);
+        assertTrue(((List<?>) updatePayload.get("ports")).isEmpty());
+        assertTrue(String.valueOf(updatePayload.get("ik")).startsWith("panel-ports-close-inst-close1"));
+        assertEquals(0L, ports.countByNode("node-1"));
+        assertTrue(instancePorts("inst-close1").isEmpty());
+        assertTrue(((List<?>) view.get("ports")).isEmpty());
+        assertEquals(1, audits.size());
+        assertTrue(audits.get(0).startsWith("instance.ports.close:"));
+    }
+
+    @Test
+    void closeAllPortsRequiresStoppedAndIsIdempotentWhenEmpty() {
+        onlineNode();
+        List<String> methods = new java.util.ArrayList<>();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            methods.add(method);
+            return Map.of("state", "created");
+        });
+        service.create("user:1", "user:1", spec("inst-close2", "paper"));
+        instances.mutateState("inst-close2", base -> base.withState("running", null, 1L));
+        McpanelBusinessException error = assertThrows(McpanelBusinessException.class,
+                () -> service.closeAllPorts("user:1", "user:1", "inst-close2"));
+        assertEquals("instance-running", error.code());
+        assertEquals(1L, ports.countByNode("node-1"));
+
+        // 已关闭（无端口）时幂等返回视图，不再下发节点
+        instances.mutateState("inst-close2", base -> base.withState("exited", null, 1L));
+        methods.clear();
+        instances.save(instances.findById("inst-close2").orElseThrow().withPorts(List.of(), 1L));
+        Map<String, Object> view = service.closeAllPorts("user:1", "user:1", "inst-close2");
+        assertTrue(methods.isEmpty());
+        assertTrue(((List<?>) view.get("ports")).isEmpty());
+    }
+
+    @Test
+    void closeAllPortsNodeFailureRestoresLedgerAndSpec() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method)) {
+                return Map.of("state", "created");
+            }
+            if ("instance.update".equals(method)) {
+                throw new McpanelBusinessException("node.offline", 502, "节点离线");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-close3", "paper"));
+
+        assertThrows(McpanelBusinessException.class,
+                () -> service.closeAllPorts("user:1", "user:1", "inst-close3"));
+
+        // 节点下发失败：聚合端口与台账全部回滚，端口未释放
+        assertEquals(1, instancePorts("inst-close3").size());
+        assertEquals(1L, ports.countByNode("node-1"));
+    }
+
+    @Test
+    void closedInstanceCanReopenPortAsNewPrimary() {
+        onlineNode();
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("instance.create".equals(method) || "instance.update".equals(method)) {
+                return Map.of("state", "created");
+            }
+            return Map.of();
+        });
+        service.create("user:1", "user:1", spec("inst-close4", "paper"));
+        service.closeAllPorts("user:1", "user:1", "inst-close4");
+        assertEquals(0, instancePorts("inst-close4").size());
+
+        // 重新开放：走既有 addPort，新分配端口成为新的主端口
+        Map<String, Object> view = service.addPort("user:1", "user:1", "inst-close4", "tcp", null);
+        assertEquals(1, instancePorts("inst-close4").size());
+        assertEquals(1L, ports.countByNode("node-1"));
+        assertTrue(Boolean.TRUE.equals(((Map<?, ?>) ((List<?>) view.get("ports")).get(0)).get("primary")));
+    }
 }

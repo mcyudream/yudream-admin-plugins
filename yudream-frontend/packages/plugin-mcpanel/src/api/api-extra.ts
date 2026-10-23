@@ -34,6 +34,8 @@ export function createMcPanelApi(sdk: YuDreamPluginSdk) {
     /** 回收附加端口（主端口由后端拒绝）。 */
     removeInstancePort: (id: string, port: number, proto: string) =>
       sdk.http.request(`${inst(id)}/ports/${port}${query({ proto })}`, { method: 'DELETE' }),
+    /** 关闭全部端口开放（实例须停止）：容器按零发布端口重建；重新开放走 addInstancePort。 */
+    closeInstancePorts: (id: string) => sdk.http.post(`${inst(id)}/ports/close`, {}),
     deleteInstance: (id: string, purge: boolean) =>
       sdk.http.request<void>(`${inst(id)}${query({ purge })}`, { method: 'DELETE' }),
     instanceAction: (id: string, action: 'start' | 'stop' | 'restart' | 'kill', timeoutSec?: number) =>

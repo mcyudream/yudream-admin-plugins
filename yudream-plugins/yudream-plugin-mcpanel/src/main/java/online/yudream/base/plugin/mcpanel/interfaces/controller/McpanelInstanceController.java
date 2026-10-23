@@ -50,6 +50,11 @@ public class McpanelInstanceController {
         return facade.portRemove(request);
     }
 
+    @PluginHttpEndpoint(method = "POST", path = "/admin/instances/{instanceId}/ports/close", permission = McpanelPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse portsClose(PluginHttpRequest request) {
+        return facade.portsClose(request);
+    }
+
     @PluginHttpEndpoint(method = "PUT", path = "/admin/instances/{instanceId}/event-task", permission = McpanelPlugin.MANAGE_PERMISSION)
     public PluginHttpResponse saveEventTask(PluginHttpRequest request) {
         return facade.eventTaskSave(request);

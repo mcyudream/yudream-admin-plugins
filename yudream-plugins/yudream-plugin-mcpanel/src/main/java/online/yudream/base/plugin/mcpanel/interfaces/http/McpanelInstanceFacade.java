@@ -333,6 +333,13 @@ public class McpanelInstanceFacade {
         });
     }
 
+    /** 关闭全部端口开放（实例须停止）：容器按零发布端口重建，重新开放走开放端口。 */
+    public PluginHttpResponse portsClose(PluginHttpRequest request) {
+        return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () ->
+                PluginHttpResponse.ok(instances.closeAllPorts(HttpGuards.actorOf(request), scope(request),
+                        segment(request.path(), 3))));
+    }
+
     /** 事件触发型任务开关（对标 MCSM eventTask）：运行中可随时保存，不触达节点。 */
     public PluginHttpResponse eventTaskSave(PluginHttpRequest request) {
         return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {

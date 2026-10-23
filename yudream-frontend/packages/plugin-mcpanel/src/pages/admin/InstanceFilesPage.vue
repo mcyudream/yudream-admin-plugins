@@ -462,7 +462,10 @@ function downloadRow(row: Record<string, unknown>) {
   if (row.isDir || download.active.value) return
     const path = rowPath(row)
   const id = instanceId.value
-  void download.start(String(row.name), (offset, length) => extra.readFileChunk(id, path, offset, length)).catch(error => toast.error(errorMessage(error, '下载失败')))
+  // 目录列表给出的文件大小用于下载预检与完整性校验（节点的分块响应不带总大小）。
+  const size = toNumberOr(row.size, -1)
+  void download.start(String(row.name), (offset, length) => extra.readFileChunk(id, path, offset, length),
+    size >= 0 ? size : undefined).catch(error => toast.error(errorMessage(error, '下载失败')))
 }
 
 async function copyRowPath(row: Record<string, unknown>) {
