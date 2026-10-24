@@ -183,7 +183,7 @@ class CatalogServiceTest {
 
         assertEquals(1, body.get("imported"));
         CatalogEntry imported = repository.findEntry("survival.srv-1").orElseThrow();
-        assertEquals("https://mc.yudream.app/mip/api/packs/survival/versions/1/mrpack",
+        assertEquals("https://mc.yudream.app/api/plugins/ymcl-adapter/mip/api/packs/survival/versions/1/mrpack",
                 imported.artifactUrl());
         assertEquals("yap-mip", imported.distSystem());
         assertEquals("survival", imported.distPackId());

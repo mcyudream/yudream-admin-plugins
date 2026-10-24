@@ -440,13 +440,22 @@ public class CatalogService {
                     }
                     Map<String, Object> pack = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().convertValue(packValue, Map.class);
                     String id = text(pack.get("id"));
-                    if (id == null || !seen.add(id)) {
+                    if (id == null) {
                         continue;
+                    }
+                    // id 冲突用命名空间规避（siteId.id）保留友站条目展示；仍冲突（重名叠加）才丢弃
+                    String localId = id;
+                    if (!seen.add(localId)) {
+                        localId = siteId + "." + id;
+                        if (!seen.add(localId)) {
+                            continue;
+                        }
                     }
                     Map<String, Object> source = new LinkedHashMap<>();
                     source.put("siteId", siteId);
                     source.put("domain", domain == null ? "" : domain);
                     pack.put("source", source);
+                    pack.put("id", localId);
                     merged.add(pack);
                 }
             } catch (Exception e) {
