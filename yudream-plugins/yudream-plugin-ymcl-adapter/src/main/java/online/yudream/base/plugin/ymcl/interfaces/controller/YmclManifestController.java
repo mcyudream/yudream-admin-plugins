@@ -252,6 +252,13 @@ public class YmclManifestController {
         if (sort != null) {
             item.put("sort", sort);
         }
+        // provider 贡献页的渲染器与数据源绑定：缺字段启动器无法渲染页面
+        if (page.renderer() != null && !page.renderer().isBlank()) {
+            item.put("renderer", page.renderer().trim());
+        }
+        if (page.dataSource() != null && !page.dataSource().isBlank()) {
+            item.put("dataSource", page.dataSource().trim());
+        }
         item.put("required_permission", page.requiredPermission());
         return item;
     }
@@ -345,6 +352,8 @@ public class YmclManifestController {
         allow.add("client:open-url");
         allow.add("client:copy");
         allow.add("client:install-pack");
+        // 友站条目一键链路：下载哈希校验 → 导入实例 → quick-play 直连。
+        allow.add("client:install-and-join");
         allow.add("client:reload");
         allow.add("server:*");
         actions.put("allow", allow);
