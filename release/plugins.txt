@@ -32,3 +32,10 @@ yudream-plugin-mc-terrain-theme
 yudream-plugin-mc-interop
 yudream-plugin-cas
 yudream-plugin-ai-office
+yudream-plugin-codex-task-notify
+yudream-plugin-neco-pixel
+yudream-plugin-pony
+yudream-plugin-qq-binding
+yudream-plugin-student-info
+yudream-plugin-timeline
+yudream-plugin-wordle

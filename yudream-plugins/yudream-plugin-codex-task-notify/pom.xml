@@ -12,6 +12,7 @@
     </parent>
 
     <artifactId>yudream-plugin-codex-task-notify</artifactId>
+    <version>1.0.0</version>
 
     <build>
         <resources>
