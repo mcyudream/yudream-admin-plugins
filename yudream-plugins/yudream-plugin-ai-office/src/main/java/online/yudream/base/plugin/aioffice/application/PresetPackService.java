@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /** 预设包导入/导出：预设只是站点配置的打包载体，导入即复制为站点数据，插件升级不覆盖站点定制。 */
 public class PresetPackService {
@@ -99,7 +100,7 @@ public class PresetPackService {
     private Map<String, Object> importJson(JsonNode root, boolean overwrite) {
         int[] counters = {0, 0};
         for (JsonNode node : root.path("schemas")) {
-            OfficeSchema parsed = new OfficeSchema(null, node.path("code").asText(),
+            OfficeSchema parsed = new OfficeSchema(UUID.randomUUID().toString(), node.path("code").asText(),
                     node.path("name").asText(), false, fields(node.path("fields")), System.currentTimeMillis());
             Optional<OfficeSchema> existing = repository.schemaByCode(parsed.code());
             if (existing.isPresent() && !overwrite) {

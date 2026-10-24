@@ -17,8 +17,8 @@ public record OfficeSchema(
 
     public OfficeSchema {
         code = require(code, "schema 编码不能为空");
-        if (!code.matches("[a-z][a-z0-9_]{0,31}")) {
-            throw new IllegalArgumentException("schema 编码只能用小写字母/数字/下划线，且以字母开头");
+        if (!code.matches("[a-z][a-z0-9_-]{0,31}")) {
+            throw new IllegalArgumentException("schema 编码只能用小写字母/数字/下划线/中划线，且以字母开头");
         }
         name = require(name, "schema 名称不能为空");
         fields = fields == null ? List.of() : List.copyOf(fields);
@@ -34,8 +34,8 @@ public record OfficeSchema(
                            List<String> options) {
         public FieldDef {
             key = require(key, "字段 key 不能为空");
-            if (!key.matches("[a-z][a-z0-9_]{0,31}")) {
-                throw new IllegalArgumentException("字段 key 只能用小写字母/数字/下划线，且以字母开头：" + key);
+            if (!key.matches("[a-zA-Z][a-zA-Z0-9_]{0,31}")) {
+                throw new IllegalArgumentException("字段 key 只能用字母/数字/下划线，且以字母开头：" + key);
             }
             label = require(label, "字段名称不能为空");
             type = type == null || type.isBlank() ? "text" : type.trim().toLowerCase(Locale.ROOT);
