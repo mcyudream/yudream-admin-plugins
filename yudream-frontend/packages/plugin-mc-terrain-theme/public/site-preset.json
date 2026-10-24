@@ -314,7 +314,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -409,7 +409,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -504,7 +504,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -599,7 +599,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -694,7 +694,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -789,7 +789,7 @@
                 "tag": "span",
                 "attributes": {
                  "data-yd-text": "label",
-                 "class": "slot-label x-d1yn99 x-pjnefu"
+                 "class": "hb-tag x-d1yn99"
                 },
                 "styles": {},
                 "children": [],
@@ -4555,7 +4555,8 @@
        "height": "32px",
        "display": "block",
        "filter": "drop-shadow(1px 1px 0 rgba(0,0,0,.5))",
-       "image-rendering": "pixelated"
+       "image-rendering": "pixelated",
+       "margin-bottom": "10px"
       },
       "responsive": {
        "mobile": {
@@ -4863,6 +4864,26 @@
        "border": "1px solid #9e78e2",
        "font-size": "11px"
       }
+     },
+     {
+      "name": "hb-tag",
+      "styles": {
+       "position": "absolute",
+       "left": "2px",
+       "right": "2px",
+       "bottom": "2px",
+       "text-align": "center",
+       "font-size": "8px",
+       "line-height": "1.1",
+       "color": "#f0f0f0",
+       "text-shadow": "1px 1px 0 #000",
+       "opacity": ".8",
+       "pointer-events": "none",
+       "white-space": "nowrap",
+       "overflow": "hidden",
+       "font-family": "'Minecraft',monospace"
+      },
+      "responsive": {}
      },
      {
       "name": "x-itlyn7",
@@ -11666,7 +11687,7 @@
       },
       {
        "id": "nav-2",
-       "label": "活动平台",
+       "label": "活动",
        "url": "/activities",
        "iconAssetId": "df9d5478-97f7-49ca-bf04-dd4d1faa3db2",
        "requires": [
@@ -11684,7 +11705,7 @@
       },
       {
        "id": "nav-4",
-       "label": "插件市场",
+       "label": "市场",
        "url": "/market",
        "iconAssetId": "c0fbbbdd-6656-4c14-b85c-8518abc2fefb",
        "requires": [
