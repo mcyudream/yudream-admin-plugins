@@ -45,6 +45,9 @@ public class ConfigService {
             profile = rebuilt;
         }
         return repository.saveSettings(current.withMeta(profileSchema, cycle, currency, styleGuide, provider, model)
+                .withImages(body.containsKey("wordImageEmbed")
+                        ? Boolean.parseBoolean(String.valueOf(body.get("wordImageEmbed")))
+                        : current.wordImageEmbed())
                 .withProfile(profile));
     }
 

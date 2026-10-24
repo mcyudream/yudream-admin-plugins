@@ -60,6 +60,7 @@ public class OfficeDocumentRepository implements OfficeRepository {
         document.put("styleGuide", settings.styleGuide());
         document.put("aiProviderCode", settings.aiProviderCode());
         document.put("aiModelCode", settings.aiModelCode());
+        document.put("wordImageEmbed", settings.wordImageEmbed());
         document.put("activePresetCode", settings.activePresetCode());
         document.put("updatedAt", settings.updatedAt());
         documents.save(SETTINGS, OfficeSettings.ID, document);
@@ -73,7 +74,16 @@ public class OfficeDocumentRepository implements OfficeRepository {
         }
         return new OfficeSettings(text(document, "profileSchemaCode"), profile, text(document, "financeCycle"),
                 text(document, "currency"), text(document, "styleGuide"), text(document, "aiProviderCode"),
-                text(document, "aiModelCode"), text(document, "activePresetCode"), num(document, "updatedAt"));
+                text(document, "aiModelCode"), boolOrNull(document, "wordImageEmbed"),
+                text(document, "activePresetCode"), num(document, "updatedAt"));
+    }
+
+    private static Boolean boolOrNull(Map<?, ?> document, String key) {
+        Object value = document.get(key);
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        return value == null ? null : Boolean.parseBoolean(String.valueOf(value));
     }
 
     // ---------- schema ----------

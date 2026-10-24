@@ -9,10 +9,12 @@ import online.yudream.base.plugin.aioffice.domain.aggregate.OfficePackage;
 import online.yudream.base.plugin.aioffice.domain.aggregate.OfficePrompt;
 import online.yudream.base.plugin.aioffice.domain.aggregate.OfficeSettings;
 import online.yudream.base.plugin.aioffice.domain.repo.OfficeRepository;
+import online.yudream.base.plugin.aioffice.domain.service.ImageMappingSupport;
 import online.yudream.base.plugin.aioffice.domain.service.MappingResolver;
 import online.yudream.base.plugin.aioffice.infrastructure.support.ActivityPlatformBridge;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.document.PluginRenderedDocument;
+import online.yudream.base.plugin.spi.system.document.PluginWordTemplateImage;
 import online.yudream.base.plugin.spi.system.document.PluginWordTemplateService;
 import online.yudream.base.plugin.spi.system.document.PluginWordTemplateSummary;
 import online.yudream.base.plugin.spi.system.FrameworkServices;
@@ -25,6 +27,7 @@ import online.yudream.base.plugin.spi.system.storage.PluginFileStore;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -261,6 +264,7 @@ public class GenerationService {
         }
         Map<String, Object> ctx = context(job.sourceType(), job.sourceId(), job.period());
         Map<String, Object> data = MappingResolver.buildRenderData(docType.mappings(), ctx, job.draft());
+        applyImageMappings(docType, data);
         PluginWordTemplateService wordTemplates = wordTemplatesOrNull();
         if (wordTemplates == null) {
             throw new IllegalArgumentException("宿主 Word 模板能力未启用（平台能力 document-template）");
@@ -399,6 +403,54 @@ public class GenerationService {
     }
 
     // ---------- 内部 ----------
+
+    /**
+     * 嵌图转换：映射声明为图片（顶层 transform=image[:宽px]、行数据源 image:前缀）时，
+     * 把解析出的文件键/附件描述转换为 SPI 图片值；开关关闭、非图片或不可读时置空串，
+     * 避免老引擎把未知类型渲染成对象 toString 垃圾串。
+     */
+    private void applyImageMappings(OfficeDocType docType, Map<String, Object> data) {
+        boolean embed = repository.settings().embedImages();
+        for (String var : ImageMappingSupport.topLevelImageVars(docType.mappings())) {
+            Object value = data.get(var);
+            PluginWordTemplateImage image = embed
+                    ? ImageMappingSupport.toImage(value, this::loadImageBytes)
+                    : null;
+            data.put(var, image != null ? image : "");
+        }
+        Map<String, List<String>> rowVars = ImageMappingSupport.rowImageVars(docType.mappings());
+        for (Map.Entry<String, List<String>> entry : rowVars.entrySet()) {
+            if (!(data.get(entry.getKey()) instanceof List<?> rows)) {
+                continue;
+            }
+            List<Object> converted = new ArrayList<>();
+            for (Object row : rows) {
+                if (row instanceof Map<?, ?> raw) {
+                    Map<String, Object> mutable = new LinkedHashMap<>();
+                    raw.forEach((key, value) -> mutable.put(String.valueOf(key), value));
+                    for (String rowVar : entry.getValue()) {
+                        PluginWordTemplateImage image = embed
+                                ? ImageMappingSupport.toImage(mutable.get(rowVar), this::loadImageBytes)
+                                : null;
+                        mutable.put(rowVar, image != null ? image : "");
+                    }
+                    converted.add(mutable);
+                }
+                else {
+                    converted.add(row);
+                }
+            }
+            data.put(entry.getKey(), converted);
+        }
+    }
+
+    private byte[] loadImageBytes(String fileKey) {
+        try (InputStream input = files.get(fileKey).inputStream()) {
+            return input.readAllBytes();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     private static String type(String sourceType) {
         if (sourceType == null || sourceType.isBlank()) {

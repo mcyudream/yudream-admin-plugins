@@ -88,6 +88,7 @@ async function save() {
       styleGuide: settings.value.styleGuide,
       aiProviderCode: settings.value.aiProviderCode,
       aiModelCode: settings.value.aiModelCode,
+      wordImageEmbed: settings.value.wordImageEmbed,
     })
     toast.success('设置已保存')
   }
@@ -206,6 +207,10 @@ function resetPreset() {
                   :options="[{ label: '按月', value: 'MONTHLY' }, { label: '按季（预留）', value: 'QUARTERLY' }]"
                 />
               </label>
+              <div class="flex items-center gap-2 text-sm">
+                <span>模板嵌图（Word 模板 img 占位符嵌入图片；宿主引擎低于 2.38.0 时关闭）</span>
+                <YdSwitch v-model="settings.wordImageEmbed" size="sm" />
+              </div>
               <label class="flex flex-col gap-1 text-sm">
                 <span class="text-secondary-foreground/80">站点写作规范（注入所有 AI 提示词）</span>
                 <YdTextarea v-model="settings.styleGuide" :rows="5" placeholder="正式公文风；章节用汉字序号；落款用全称…" />

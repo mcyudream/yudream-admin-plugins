@@ -12,6 +12,7 @@ public record OfficeSettings(
         String styleGuide,
         String aiProviderCode,
         String aiModelCode,
+        Boolean wordImageEmbed,
         String activePresetCode,
         long updatedAt
 ) {
@@ -25,22 +26,33 @@ public record OfficeSettings(
         styleGuide = text(styleGuide, "");
         aiProviderCode = text(aiProviderCode, "");
         aiModelCode = text(aiModelCode, "");
+        // 默认开启；宿主引擎低于 2.38.0（不支持嵌图）时由站点关闭
+        wordImageEmbed = wordImageEmbed == null ? Boolean.TRUE : wordImageEmbed;
         activePresetCode = text(activePresetCode, "");
     }
 
     public static OfficeSettings empty() {
-        return new OfficeSettings("org-club", Map.of(), "MONTHLY", "CNY", "", "", "", "", 0);
+        return new OfficeSettings("org-club", Map.of(), "MONTHLY", "CNY", "", "", "", null, "", 0);
+    }
+
+    public boolean embedImages() {
+        return Boolean.TRUE.equals(wordImageEmbed);
     }
 
     public OfficeSettings withProfile(Map<String, Object> newProfile) {
         return new OfficeSettings(profileSchemaCode, newProfile, financeCycle, currency, styleGuide,
-                aiProviderCode, aiModelCode, activePresetCode, System.currentTimeMillis());
+                aiProviderCode, aiModelCode, wordImageEmbed, activePresetCode, System.currentTimeMillis());
     }
 
     public OfficeSettings withMeta(String profileSchema, String cycle, String currency, String styleGuide,
                                    String provider, String model) {
         return new OfficeSettings(profileSchema, profile, cycle, currency, styleGuide, provider, model,
-                activePresetCode, System.currentTimeMillis());
+                wordImageEmbed, activePresetCode, System.currentTimeMillis());
+    }
+
+    public OfficeSettings withImages(Boolean embed) {
+        return new OfficeSettings(profileSchemaCode, profile, financeCycle, currency, styleGuide,
+                aiProviderCode, aiModelCode, embed, activePresetCode, System.currentTimeMillis());
     }
 
     private static String text(String value, String fallback) {

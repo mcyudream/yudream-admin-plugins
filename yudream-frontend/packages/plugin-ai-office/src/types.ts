@@ -201,6 +201,7 @@ export interface OfficeSettings {
   styleGuide: string
   aiProviderCode: string
   aiModelCode: string
+  wordImageEmbed: boolean
   activePresetCode: string
   updatedAt: number
 }

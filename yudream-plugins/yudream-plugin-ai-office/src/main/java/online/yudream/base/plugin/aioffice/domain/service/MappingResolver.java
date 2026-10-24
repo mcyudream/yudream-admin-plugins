@@ -36,6 +36,10 @@ public final class MappingResolver {
         if (trimmed.startsWith("ctx:")) {
             return lookup(context, trimmed.substring(4).trim());
         }
+        // image: 前缀按路径取原始值（文件键/附件描述），渲染时再转换为图片值
+        if (trimmed.toLowerCase(java.util.Locale.ROOT).startsWith("image:")) {
+            return lookup(context, trimmed.substring(6).trim());
+        }
         // 无前缀时按 ctx: 宽容处理，便于手写映射
         return lookup(context, trimmed);
     }

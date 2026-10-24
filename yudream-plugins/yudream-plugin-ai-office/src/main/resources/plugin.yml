@@ -3,7 +3,7 @@ displayName: AI 模板办公
 description: 数据模型 + 宿主 Word 模板映射 + AI 起草，生成活动总结、策划书、经费报表等办公文档；支持财务凭证登记、审核与周期结算。
 icon: i-ri:file-text-line
 main: online.yudream.base.plugin.aioffice.bootstrap.AiOfficePlugin
-version: 0.1.0
+version: 0.2.0
 menu:
   # 自定义一级共享分类「办公」：模板/生成/财务/数据集都在分类下
   category:

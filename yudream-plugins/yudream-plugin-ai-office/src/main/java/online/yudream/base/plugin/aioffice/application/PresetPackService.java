@@ -196,7 +196,7 @@ public class PresetPackService {
             OfficeSettings current = repository.settings();
             repository.saveSettings(new OfficeSettings(current.profileSchemaCode(), current.profile(),
                     current.financeCycle(), current.currency(), current.styleGuide(), current.aiProviderCode(),
-                    current.aiModelCode(), presetCode, System.currentTimeMillis()));
+                    current.aiModelCode(), current.wordImageEmbed(), presetCode, System.currentTimeMillis()));
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("created", counters[0]);
