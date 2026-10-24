@@ -72,3 +72,24 @@ export interface McInteropPeerForm {
   domain: string
   manifestUrl: string
 }
+
+// ----- mc-interop v1 出口条目（合并视图/互采用） -----
+export interface InteropPackEntry {
+  id: string
+  name?: string
+  summary?: string
+  revision?: number
+  game_version?: string
+  loader?: string
+  loader_version?: string
+  artifact?: { format?: string; url: string; size?: number; sha1?: string | null; sha512?: string | null } | null
+  server?: { address: string; port?: number }
+  source?: { site_id: string; domain?: string; stale?: boolean }
+}
+
+export interface InteropSiteDocument {
+  site?: { id: string; name?: string; description?: string; domain?: string }
+  packs: InteropPackEntry[]
+  peers: { site_id: string; name?: string; manifest_url?: string }[]
+  updated_at?: string
+}

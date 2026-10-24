@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropSettings } from '../types'
+import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropSettings, InteropSiteDocument } from '../types'
 
 export function createMcInteropApi(sdk: YuDreamPluginSdk) {
   return {
@@ -20,6 +20,8 @@ export function createMcInteropApi(sdk: YuDreamPluginSdk) {
       }),
     deleteEntry: (id: string) =>
       sdk.http.request(`/admin/entries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    mergedEntries: () =>
+      sdk.http.get<InteropSiteDocument>('/admin/entries/merged'),
     importFromAdapter: () =>
       sdk.http.request<{ imported: number; skipped: string[] }>('/admin/entries/import-adapter', {
         method: 'POST',
