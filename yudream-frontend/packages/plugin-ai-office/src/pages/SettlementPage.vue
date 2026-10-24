@@ -95,7 +95,7 @@ function closeTime(batch: SettlementBatch) {
     </template>
     <template #actions>
       <div class="flex flex-wrap items-center gap-2">
-        <YdInput v-model="period" placeholder="yyyy-MM 或 起/止" class="w-56" />
+        <YdInput v-model="period" placeholder="yyyy-MM 或 起/止，多段逗号分隔" class="w-64" />
         <YdButton variant="outline" :loading="loading" @click="load">查询</YdButton>
         <YdButton :loading="closing" @click="requestClose">关账结算</YdButton>
       </div>

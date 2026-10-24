@@ -70,6 +70,7 @@ async function load() {
 
 async function save() {
   if (!settings.value) {
+    toast.warning('配置尚未加载完成，无法保存')
     return
   }
   saving.value = true

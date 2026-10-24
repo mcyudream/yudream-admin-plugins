@@ -118,10 +118,16 @@ public class GenerationService {
                 ctx.put("target", target);
             }
             default -> {
-                long[] bounds = FinanceService.periodBounds(normalizedPeriod);
+                long[][] segments = FinanceService.periodSegments(normalizedPeriod);
                 List<Map<String, Object>> list = new ArrayList<>();
                 StringBuilder activitiesText = new StringBuilder();
-                for (ActivityBrief brief : activities.activitiesBetween(bounds[0], bounds[1])) {
+                Map<String, ActivityBrief> uniqueActivities = new LinkedHashMap<>();
+                for (long[] segment : segments) {
+                    for (ActivityBrief brief : activities.activitiesBetween(segment[0], segment[1])) {
+                        uniqueActivities.putIfAbsent(brief.id(), brief);
+                    }
+                }
+                for (ActivityBrief brief : uniqueActivities.values()) {
                     list.add(activityMap(brief));
                     if (activitiesText.length() > 0) {
                         activitiesText.append("\n");
@@ -136,8 +142,16 @@ public class GenerationService {
                 // 数据对象记录：非活动平台站点的主路径（任意 schema 的实例按创建时间入周期）
                 List<Map<String, Object>> recordMaps = new ArrayList<>();
                 StringBuilder recordsText = new StringBuilder();
+                Map<String, online.yudream.base.plugin.aioffice.domain.aggregate.OfficeDatasetRecord> uniqueRecords
+                        = new LinkedHashMap<>();
+                for (long[] segment : segments) {
+                    for (online.yudream.base.plugin.aioffice.domain.aggregate.OfficeDatasetRecord record
+                            : repository.datasetRecordsByPeriod(segment[0], segment[1])) {
+                        uniqueRecords.putIfAbsent(record.id(), record);
+                    }
+                }
                 for (online.yudream.base.plugin.aioffice.domain.aggregate.OfficeDatasetRecord record
-                        : repository.datasetRecordsByPeriod(bounds[0], bounds[1])) {
+                        : uniqueRecords.values()) {
                     Map<String, Object> map = new LinkedHashMap<>();
                     map.put("id", record.id());
                     map.put("schemaCode", record.schemaCode());
@@ -159,7 +173,13 @@ public class GenerationService {
                 target.put("period", normalizedPeriod);
                 target.put("activityCount", list.size());
                 ctx.put("target", target);
-                for (ActivityEffectSummary effect : activities.acceptedEffectsBetween(bounds[0], bounds[1])) {
+                Map<String, ActivityEffectSummary> uniqueEffects = new LinkedHashMap<>();
+                for (long[] segment : segments) {
+                    for (ActivityEffectSummary effect : activities.acceptedEffectsBetween(segment[0], segment[1])) {
+                        uniqueEffects.putIfAbsent(effect.id(), effect);
+                    }
+                }
+                for (ActivityEffectSummary effect : uniqueEffects.values()) {
                     effects.add(effectMap(effect));
                 }
             }
@@ -219,8 +239,13 @@ public class GenerationService {
         result.put("available", activities.available());
         List<Map<String, Object>> options = new ArrayList<>();
         if (activities.available()) {
-            long[] bounds = FinanceService.periodBounds(period);
-            for (ActivityBrief brief : activities.activitiesBetween(bounds[0], bounds[1])) {
+            Map<String, ActivityBrief> unique = new LinkedHashMap<>();
+            for (long[] segment : FinanceService.periodSegments(period)) {
+                for (ActivityBrief brief : activities.activitiesBetween(segment[0], segment[1])) {
+                    unique.putIfAbsent(brief.id(), brief);
+                }
+            }
+            for (ActivityBrief brief : unique.values()) {
                 Map<String, Object> option = new LinkedHashMap<>();
                 option.put("id", brief.id());
                 option.put("title", brief.title());

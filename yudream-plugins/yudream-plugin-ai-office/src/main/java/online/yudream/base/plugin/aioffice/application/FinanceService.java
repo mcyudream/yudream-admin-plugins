@@ -168,10 +168,7 @@ public class FinanceService {
 
     /** 周期总览：批次状态 + 当期已采纳合计 + 待审数量。 */
     public Map<String, Object> overview(String period) {
-        long[] bounds = periodBounds(period);
-        List<OfficeFinanceRecord> accepted = repository.financeRecordsByPeriod(bounds[0], bounds[1]).stream()
-                .filter(OfficeFinanceRecord::accepted)
-                .toList();
+        List<OfficeFinanceRecord> accepted = acceptedRecordsInPeriod(period);
         long income = accepted.stream()
                 .filter(record -> record.direction().equals(OfficeFinanceRecord.DIRECTION_INCOME))
                 .mapToLong(OfficeFinanceRecord::amountCents).sum();
@@ -202,10 +199,7 @@ public class FinanceService {
         if (existing != null && existing.closed()) {
             throw new IllegalArgumentException("该周期已关账");
         }
-        long[] bounds = periodBounds(period);
-        List<OfficeFinanceRecord> accepted = repository.financeRecordsByPeriod(bounds[0], bounds[1]).stream()
-                .filter(OfficeFinanceRecord::accepted)
-                .toList();
+        List<OfficeFinanceRecord> accepted = acceptedRecordsInPeriod(period);
         long income = accepted.stream()
                 .filter(record -> record.direction().equals(OfficeFinanceRecord.DIRECTION_INCOME))
                 .mapToLong(OfficeFinanceRecord::amountCents).sum();
@@ -223,7 +217,22 @@ public class FinanceService {
         return saved;
     }
 
-    /** 上一个已关账批次（结束时间早于本周期开始）的结转结余；没有则为 0。 */
+    /** 周期内已采纳记录（多段合并去重，按发生时间排序）。 */
+    public List<OfficeFinanceRecord> acceptedRecordsInPeriod(String period) {
+        long[][] segments = periodSegments(period);
+        Map<String, OfficeFinanceRecord> unique = new java.util.LinkedHashMap<>();
+        for (long[] segment : segments) {
+            for (OfficeFinanceRecord record : repository.financeRecordsByPeriod(segment[0], segment[1])) {
+                unique.putIfAbsent(record.id(), record);
+            }
+        }
+        return unique.values().stream()
+                .filter(OfficeFinanceRecord::accepted)
+                .sorted(java.util.Comparator.comparingLong(OfficeFinanceRecord::occurredAt))
+                .toList();
+    }
+
+    /** 上一个已关账批次（结束时间早于本周期最早开始）的结转结余；没有则为 0。 */
     private long carryInFromPrevious(String period) {
         long start = periodStart(period);
         return repository.settlementBatches().stream()
@@ -243,20 +252,54 @@ public class FinanceService {
     }
 
     /**
-     * 周期 → [起始 00:00, 结束 23:59:59.999] 的 epoch millis。
-     * 支持两种写法：月度 "yyyy-MM"；任意时间范围 "yyyy-MM-dd/yyyy-MM-dd"（如 2026-09-01/2026-12-01）。
+     * 周期 → 时间段列表（epoch millis，按起始排序并合并重叠/相接段）。
+     * 支持多段：段间用逗号分隔，段内两种写法——月度 "yyyy-MM"、任意范围 "yyyy-MM-dd/yyyy-MM-dd"。
+     * 例：2026-10 ｜ 2026-09-01/2026-12-01 ｜ 2026-09-01/2026-12-01,2027-03-01/2027-06-30
      */
-    public static long[] periodBounds(String period) {
+    public static long[][] periodSegments(String period) {
         if (period == null || period.isBlank()) {
             throw new IllegalArgumentException("周期不能为空");
         }
-        String trimmed = period.trim();
+        List<long[]> segments = new ArrayList<>();
+        for (String raw : period.trim().split(",")) {
+            if (raw.isBlank()) {
+                continue;
+            }
+            long[] bounds = singleSegmentBounds(raw.trim());
+            segments.add(bounds);
+        }
+        if (segments.isEmpty()) {
+            throw new IllegalArgumentException("周期不能为空：" + period);
+        }
+        segments.sort(java.util.Comparator.comparingLong(segment -> segment[0]));
+        // 合并重叠/相接段，避免跨段重复统计
+        List<long[]> merged = new ArrayList<>();
+        for (long[] segment : segments) {
+            if (!merged.isEmpty() && segment[0] <= merged.get(merged.size() - 1)[1] + 1) {
+                long[] last = merged.get(merged.size() - 1);
+                last[1] = Math.max(last[1], segment[1]);
+            }
+            else {
+                merged.add(new long[]{segment[0], segment[1]});
+            }
+        }
+        return merged.toArray(new long[0][]);
+    }
+
+    /** 兼容旧调用：返回合并后的外包络 [最早开始, 最晚结束]。 */
+    public static long[] periodBounds(String period) {
+        long[][] segments = periodSegments(period);
+        return new long[]{segments[0][0], segments[segments.length - 1][1]};
+    }
+
+    private static long[] singleSegmentBounds(String segment) {
+        String trimmed = segment;
         if (trimmed.matches("\\d{4}-\\d{2}")) {
             YearMonth month;
             try {
                 month = YearMonth.parse(trimmed);
             } catch (java.time.format.DateTimeParseException e) {
-                throw new IllegalArgumentException("周期不存在：" + period, e);
+                throw new IllegalArgumentException("周期月份无效：" + segment, e);
             }
             long from = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
             long to = month.plusMonths(1).atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -264,17 +307,18 @@ public class FinanceService {
         }
         String[] parts = trimmed.split("/");
         if (parts.length != 2 || !parts[0].matches("\\d{4}-\\d{2}-\\d{2}") || !parts[1].matches("\\d{4}-\\d{2}-\\d{2}")) {
-            throw new IllegalArgumentException("周期格式应为 yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd：" + period);
+            throw new IllegalArgumentException(
+                    "周期段格式应为 yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd，多段用逗号分隔：" + segment);
         }
         try {
             long from = java.time.LocalDate.parse(parts[0]).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
             long to = java.time.LocalDate.parse(parts[1]).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
             if (to <= from) {
-                throw new IllegalArgumentException("周期结束必须晚于开始：" + period);
+                throw new IllegalArgumentException("周期段结束必须晚于开始：" + segment);
             }
             return new long[]{from, to - 1};
         } catch (java.time.format.DateTimeParseException e) {
-            throw new IllegalArgumentException("周期日期无效：" + period, e);
+            throw new IllegalArgumentException("周期日期无效：" + segment, e);
         }
     }
 
@@ -295,11 +339,10 @@ public class FinanceService {
 
     /** 当期已采纳支出/收入的行数据（供文档渲染），已按发生时间排序。 */
     public List<Map<String, Object>> periodRows(String period, String direction) {
-        long[] bounds = periodBounds(period);
         List<Map<String, Object>> rows = new ArrayList<>();
         java.text.SimpleDateFormat date = new java.text.SimpleDateFormat("yyyy年MM月dd日");
-        for (OfficeFinanceRecord record : repository.financeRecordsByPeriod(bounds[0], bounds[1])) {
-            if (!record.accepted() || !record.direction().equals(direction)) {
+        for (OfficeFinanceRecord record : acceptedRecordsInPeriod(period)) {
+            if (!record.direction().equals(direction)) {
                 continue;
             }
             Map<String, Object> row = new java.util.LinkedHashMap<>();

@@ -13,12 +13,12 @@ public interface ActivityEffectApi {
     /** 单个活动的全部已采纳效果。 */
     List<ActivityEffectSummary> acceptedEffects(String activityId);
 
-    /** 活动开始/结束时间落在窗口内的活动的已采纳效果（按活动分组顺序返回，不保证全局排序）。 */
+    /** 与时间窗口重叠（开始或结束任一时刻在窗口内）的活动的已采纳效果。 */
     List<ActivityEffectSummary> acceptedEffectsBetween(long fromInclusive, long toInclusive);
 
     /** 活动摘要（含参与人数统计）。 */
     Optional<ActivityBrief> activity(String activityId);
 
-    /** 活动开始时间落在窗口内的已发布/已结束活动。 */
+    /** 与时间窗口重叠（开始或结束任一时刻在窗口内）的已发布/已结束活动，已结束但与窗口有交集的活动同样返回。 */
     List<ActivityBrief> activitiesBetween(long fromInclusive, long toInclusive);
 }

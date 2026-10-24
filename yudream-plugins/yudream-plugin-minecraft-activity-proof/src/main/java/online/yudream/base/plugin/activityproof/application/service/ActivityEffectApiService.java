@@ -60,8 +60,10 @@ public class ActivityEffectApiService implements ActivityEffectApi {
                 break;
             }
             for (Activity activity : batch) {
+                // 重叠语义：开始或结束任一时刻落在窗口内即参与；已结束但与窗口有交集的活动同样返回
                 long start = activity.activityStart() > 0 ? activity.activityStart() : activity.publishedAt();
-                if (start >= fromInclusive && start <= toInclusive && activity.status() != null) {
+                long end = activity.activityEnd() > 0 ? activity.activityEnd() : start;
+                if (activity.status() != null && start <= toInclusive && end >= fromInclusive) {
                     result.add(toBrief(activity));
                 }
             }

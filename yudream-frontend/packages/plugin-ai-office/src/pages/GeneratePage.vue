@@ -448,7 +448,7 @@ function removeJob(row: DocJob) {
       <label v-if="createForm.sourceType === 'RECORD'" class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数据记录</span>
         <YdSelect v-model="createForm.sourceId" :options="datasetOptions()" />
       </label>
-      <label class="flex flex-col gap-1 text-sm" @change="loadActivityOptions"><span class="text-secondary-foreground/80">周期（yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd）</span>
+      <label class="flex flex-col gap-1 text-sm" @change="loadActivityOptions"><span class="text-secondary-foreground/80">周期（yyyy-MM、yyyy-MM-dd/yyyy-MM-dd，多段逗号分隔）</span>
         <YdInput v-model="createForm.period" placeholder="2026-10" />
       </label>
       <div>

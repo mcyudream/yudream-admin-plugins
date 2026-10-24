@@ -56,8 +56,9 @@ async function runPrecheck() {
     toast.warning('请选择打包定义')
     return
   }
-  if (!/^\d{4}-\d{2}$/.test(packageForm.value.period) && !/^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(packageForm.value.period)) {
-    toast.warning('周期格式：yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd（如 2026-09-01/2026-12-01）')
+  const segment = /^\d{4}-\d{2}$|^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/
+  if (!packageForm.value.period.split(',').every(part => segment.test(part.trim()))) {
+    toast.warning('周期格式：yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd，多段用逗号分隔（如 2026-09-01/2026-12-01,2027-03-01/2027-06-30）')
     return
   }
   packageLoading.value = true
@@ -120,13 +121,13 @@ function readyText(row: PrecheckRow) {
   <YdTablePageLayout title="打包导出" :show-search="false" stats-title="怎么用">
     <template #stats>
       <div class="text-sm text-muted-foreground">
-        选择打包定义与周期（支持月度 <code>yyyy-MM</code> 或时间范围 <code>yyyy-MM-dd/yyyy-MM-dd</code>，如 2026-09-01/2026-12-01）→ 预检 → 未定稿的行可「去生成」→ 导出 zip。导出永远包含已定稿文档；缺料自动附「缺料清单.txt」，补齐后重新导出即可覆盖。
+        选择打包定义与周期（月度 <code>yyyy-MM</code>、范围 <code>yyyy-MM-dd/yyyy-MM-dd</code>，多段逗号分隔如 <code>2026-09-01/2026-12-01,2027-03-01/2027-06-30</code>）→ 预检 → 未定稿的行可「去生成」→ 导出 zip。导出永远包含已定稿文档；缺料自动附「缺料清单.txt」，补齐后重新导出即可覆盖。
       </div>
     </template>
     <template #actions>
       <div class="flex flex-wrap items-center gap-2">
         <YdSelect v-model="packageForm.code" class="w-52" :options="packageOptions()" />
-        <YdInput v-model="packageForm.period" class="w-56" placeholder="yyyy-MM 或 起/止" />
+        <YdInput v-model="packageForm.period" class="w-72" placeholder="yyyy-MM 或 起/止，多段逗号分隔" />
         <YdButton variant="outline" :loading="packageLoading" @click="runPrecheck">预检</YdButton>
         <YdButton :loading="exporting" @click="exportZip">导出 zip</YdButton>
       </div>

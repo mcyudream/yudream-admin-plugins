@@ -27,19 +27,29 @@ public record OfficeSettlementBatch(
         closedBy = closedBy == null ? "" : closedBy.trim();
     }
 
-    /** 周期写法：月度 "yyyy-MM"，或任意时间范围 "yyyy-MM-dd/yyyy-MM-dd"（如 2026-09-01/2026-12-01）。 */
+    /** 周期写法：月度 "yyyy-MM"、范围 "yyyy-MM-dd/yyyy-MM-dd"，多段逗号分隔（如 2026-09-01/2026-12-01,2027-03-01/2027-06-30）。 */
     public static boolean isValidPeriod(String period) {
         if (period == null || period.isBlank()) {
             return false;
         }
-        String trimmed = period.trim();
-        if (trimmed.matches("\\d{4}-\\d{2}")) {
-            return true;
+        boolean any = false;
+        for (String raw : period.trim().split(",")) {
+            String segment = raw.trim();
+            if (segment.isEmpty()) {
+                continue;
+            }
+            any = true;
+            if (segment.matches("\\d{4}-\\d{2}")) {
+                continue;
+            }
+            String[] parts = segment.split("/");
+            if (parts.length != 2
+                    || !parts[0].matches("\\d{4}-\\d{2}-\\d{2}")
+                    || !parts[1].matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return false;
+            }
         }
-        String[] parts = trimmed.split("/");
-        return parts.length == 2
-                && parts[0].matches("\\d{4}-\\d{2}-\\d{2}")
-                && parts[1].matches("\\d{4}-\\d{2}-\\d{2}");
+        return any;
     }
 
     public static OfficeSettlementBatch open(String period, long balanceCarryIn) {
