@@ -81,8 +81,13 @@ export function useProofSettings(sdk: YuDreamPluginSdk) {
       templates.value = []
       return
     }
-    templates.value = await api.admin.templates()
-    toast.success('模板列表已刷新')
+    try {
+      templates.value = await api.admin.templates()
+      toast.success('模板列表已刷新')
+    }
+    catch (error) {
+      toast.warning(errorMessage(error, '刷新模板列表失败'))
+    }
   }
 
   async function selectTemplate() {

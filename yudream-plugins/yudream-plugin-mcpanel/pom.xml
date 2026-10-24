@@ -9,9 +9,8 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-
-    <artifactId>yudream-plugin-mcpanel</artifactId>
-    <version>0.22.18</version>
+<artifactId>yudream-plugin-mcpanel</artifactId>
+    <version>0.22.19</version>
 
     <properties>
         <!-- SFTP 网关：内嵌 SSH 服务端/客户端（纯 Java，随插件 shade 进 JAR） -->

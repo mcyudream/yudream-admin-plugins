@@ -128,6 +128,9 @@ async function loadCatalog() {
     catalogRows.value = page.records ?? []
     catalogPager.total = Number(page.total ?? 0)
   }
+  catch (e) {
+    toast.error(errorMessage(e, '加载快速开始包失败'))
+  }
   finally {
     catalogLoading.value = false
   }
@@ -227,10 +230,11 @@ function openCatalogCreate() {
   formOpen.value = true
 }
 
-async function saveCatalog() {
+/** 保存成功返回 true；校验失败与接口失败都保持弹窗打开，由 catalogError 展示原因。 */
+async function saveCatalog(): Promise<boolean> {
   if (!catalogForm.name.trim()) {
     catalogError.value = '请填写包名称'
-    return
+    return false
   }
   catalogSubmitting.value = true
   try {
@@ -239,9 +243,11 @@ async function saveCatalog() {
     toast.success('快速开始包已保存')
     void loadPackages()
     void loadCatalog()
+    return true
   }
   catch (e) {
     catalogError.value = errorMessage(e, '保存失败')
+    return false
   }
   finally {
     catalogSubmitting.value = false
@@ -398,7 +404,11 @@ const rowActions: ActionMenuItem<unknown>[] = [
       class="max-w-[min(32rem,calc(100vw-2rem))]"
       :before-close="(action: 'confirm' | 'cancel' | 'close', done: () => void) => {
         if (action === 'confirm') {
-          void saveCatalog().then(() => done())
+          void saveCatalog().then((ok) => {
+            if (ok) {
+              done()
+            }
+          })
         }
         else {
           done()

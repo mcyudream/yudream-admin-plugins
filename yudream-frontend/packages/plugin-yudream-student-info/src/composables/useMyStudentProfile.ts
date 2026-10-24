@@ -35,6 +35,9 @@ export function useMyStudentProfile(sdk: YuDreamPluginSdk) {
       Object.assign(form, profileFields(profile.value))
       toast.success('学生信息已保存')
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存学生信息失败')
+    }
     finally {
       saving.value = false
     }

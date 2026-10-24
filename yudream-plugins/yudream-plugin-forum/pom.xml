@@ -9,8 +9,8 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>yudream-plugin-forum</artifactId>
-    <version>1.0.19</version>
+<artifactId>yudream-plugin-forum</artifactId>
+    <version>1.0.20</version>
     <build>
         <plugins>
             <plugin>

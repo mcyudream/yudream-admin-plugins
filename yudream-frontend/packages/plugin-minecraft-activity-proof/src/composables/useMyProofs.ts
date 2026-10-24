@@ -20,6 +20,9 @@ export function useMyProofs(sdk: YuDreamPluginSdk) {
       records.value = result.records
       pager.total = Number(result.total) || 0
     }
+    catch (error) {
+      toast.warning(errorMessage(error, '加载盖章记录失败'))
+    }
     finally {
       loading.value = false
     }

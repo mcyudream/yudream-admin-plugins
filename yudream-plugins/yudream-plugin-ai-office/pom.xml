@@ -9,9 +9,8 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-
-    <artifactId>yudream-plugin-ai-office</artifactId>
-    <version>0.2.0</version>
+<artifactId>yudream-plugin-ai-office</artifactId>
+    <version>0.2.1</version>
 
     <build>
         <resources>

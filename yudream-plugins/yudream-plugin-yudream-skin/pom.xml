@@ -9,9 +9,8 @@
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-
-    <artifactId>yudream-plugin-yudream-skin</artifactId>
-    <version>1.6.0</version>
+<artifactId>yudream-plugin-yudream-skin</artifactId>
+    <version>1.6.1</version>
 
     <build>
         <resources>

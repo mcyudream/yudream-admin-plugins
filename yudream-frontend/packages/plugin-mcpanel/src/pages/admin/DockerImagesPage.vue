@@ -263,7 +263,11 @@ function openPull(image = '') {
 
 async function submitPull(done: () => void) {
   const image = pullImage.value.trim()
-  if (!image || pulling.value || !nodeId.value) {
+  if (!image) {
+    toast.warning('请填写要拉取的镜像地址')
+    return
+  }
+  if (pulling.value || !nodeId.value) {
     return
   }
   pulling.value = true

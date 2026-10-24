@@ -29,7 +29,7 @@ function create() { form.value = empty(); open.value = true }
 function edit(value: CrawlJob) { form.value = { ...value }; open.value = true }
 async function save() { saving.value = true; try { await api.saveJob(form.value); toast.success('定时任务已保存'); open.value = false; await load() } catch (cause) { toast.error(errorText(cause, '保存定时任务失败')) } finally { saving.value = false } }
 async function toggle(value: CrawlJob) { toggling.value = value.id; try { await api.saveJob({ ...value, enabled: !value.enabled }); toast.success(value.enabled ? '定时任务已停用' : '定时任务已启用'); await load() } catch (cause) { toast.error(errorText(cause, '更新定时任务状态失败')) } finally { toggling.value = '' } }
-function remove(value: CrawlJob) { modal.confirm({ title: '删除定时任务', content: '历史内容和投递记录将保留。', onConfirm: async () => { await api.deleteJob(value.id); toast.success('定时任务已删除'); if (rows.value.length === 1 && page.value > 1) page.value--; await load() } }) }
+function remove(value: CrawlJob) { modal.confirm({ title: '删除定时任务', content: '历史内容和投递记录将保留。', onConfirm: async () => { try { await api.deleteJob(value.id); toast.success('定时任务已删除'); if (rows.value.length === 1 && page.value > 1) page.value--; await load() } catch (cause) { toast.error(errorText(cause, '删除定时任务失败')) } } }) }
 onMounted(load)
 
 /** 行操作统一收进操作菜单 */

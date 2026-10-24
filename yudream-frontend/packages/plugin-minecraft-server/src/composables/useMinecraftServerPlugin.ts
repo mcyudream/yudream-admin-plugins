@@ -268,6 +268,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       toast.success('服务器已保存')
       await load(true)
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存服务器失败')
+    }
     finally {
       saving.value = false
     }
@@ -351,6 +354,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       const response = await (admin ? api.downloadAdminMap(serverId) : api.downloadPublicMap(serverId))
       triggerDownload(response, `${serverId}-map.zip`)
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '下载地图失败')
+    }
     finally {
       mapOperating.value = false
     }
@@ -378,7 +384,7 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
   /**
    * 一键解析群组服：拉取代理端桥接已上报的子服表并挂到当前服务器。
    * 代理的子服列表无法从 Admin 侧探测（Server List Ping 不返回子服），
-   * 未安装桥接时后端会返回具体原因，这里不做额外包装，直接让错误冒泡。
+   * 未安装桥接时后端会返回具体原因，这里把原因 toast 给用户。
    */
   async function resolveTopology(server?: MinecraftServer) {
     const target = server || selectedServer.value
@@ -393,6 +399,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
         current.topology = topology
       }
       toast.success(`已解析出 ${topology.servers.length} 个子服`)
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '解析拓扑失败')
     }
     finally {
       resolvingTopology.value = false
@@ -437,6 +446,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       playerActivitiesPager.page = 1
       await loadSideData(target.id)
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '开启赛季失败')
+    }
     finally {
       saving.value = false
     }
@@ -457,6 +469,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
         playerActivitiesPager.page = 1
         await loadSideData(selectedId.value)
       }
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '撤回操作失败')
     }
     finally {
       saving.value = false
@@ -555,6 +570,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       await load(true)
       toast.success(server.enabled ? '服务器已结束并归档' : '服务器已恢复运营')
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '操作失败')
+    }
     finally {
       saving.value = false
     }
@@ -586,6 +604,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
         newServer()
       }
       toast.success('服务器已删除')
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除服务器失败')
     }
     finally {
       saving.value = false
@@ -666,6 +687,9 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
       replaceServer(saved)
       editServer(saved)
       toast.success('周目整合包绑定已保存')
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存赛季绑定失败')
     }
     finally {
       saving.value = false

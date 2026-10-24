@@ -22,6 +22,9 @@ export function useAdminActivities(sdk: YuDreamPluginSdk) {
       activities.value = result.records
       pager.total = Number(result.total) || 0
     }
+    catch (error) {
+      toast.warning(errorMessage(error, '加载活动列表失败'))
+    }
     finally {
       loading.value = false
     }

@@ -548,22 +548,22 @@ const rowActions: ActionMenuItem<unknown>[] = [
             </YdTooltip>
             <template v-if="canUse">
               <YdTooltip v-if="stateOf(row) !== 'running'" text="启动">
-                <YdButton size="icon-sm" variant="ghost" :disabled="actingId === String(row.id)" @click="act(row, 'start')">
+                <YdButton size="icon-sm" variant="ghost" :disabled="actingId !== ''" @click="act(row, 'start')">
                   <YdIcon name="i-ri:play-line" />
                 </YdButton>
               </YdTooltip>
               <YdTooltip v-else text="停止">
-                <YdButton size="icon-sm" variant="ghost" :disabled="actingId === String(row.id)" @click="act(row, 'stop')">
+                <YdButton size="icon-sm" variant="ghost" :disabled="actingId !== ''" @click="act(row, 'stop')">
                   <YdIcon name="i-ri:stop-line" />
                 </YdButton>
               </YdTooltip>
               <YdTooltip text="重启">
-                <YdButton size="icon-sm" variant="ghost" :disabled="actingId === String(row.id)" @click="act(row, 'restart')">
+                <YdButton size="icon-sm" variant="ghost" :disabled="actingId !== ''" @click="act(row, 'restart')">
                   <YdIcon name="i-ri:restart-line" />
                 </YdButton>
               </YdTooltip>
               <YdTooltip text="强杀">
-                <YdButton size="icon-sm" variant="ghost" class="text-destructive" :disabled="actingId === String(row.id)" @click="act(row, 'kill')">
+                <YdButton size="icon-sm" variant="ghost" class="text-destructive" :disabled="actingId !== ''" @click="act(row, 'kill')">
                   <YdIcon name="i-ri:close-circle-line" />
                 </YdButton>
               </YdTooltip>

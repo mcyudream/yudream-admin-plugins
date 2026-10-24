@@ -235,7 +235,12 @@ function promptRename(row: Record<string, unknown>) {
 function submitRename(done: () => void) {
   const from = renameFrom.value
   const to = renameTo.value.trim()
-  if (!to || to === from) {
+  if (!to) {
+    toast.warning('请填写新名称')
+    return
+  }
+  if (to === from) {
+    toast.info('名称未变化')
     done()
     return
   }
@@ -289,7 +294,11 @@ function customUpload(options: { file?: File }) {
 
 function doUpload(done: () => void) {
   const file = uploadFileRef.value
-  if (!file || uploadBusy.value) {
+  if (!file) {
+    toast.warning('请先选择要上传的文件')
+    return
+  }
+  if (uploadBusy.value) {
     return
   }
   const target = uploadPath.value.trim() || file.name
@@ -492,7 +501,7 @@ function ctxGroups(row: Record<string, unknown>): CtxMenuItem[][] {
       {
         label: '下载',
         icon: 'i-ri:download-2-line',
-        disabled: isDir,
+        disabled: isDir || download.active.value,
         handle: () => downloadRow(row),
       },
       {

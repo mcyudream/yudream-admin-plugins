@@ -68,9 +68,14 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     if (!activity.value) {
       return
     }
-    const result = await api.admin.participants(activity.value.id, pager.page, pager.size)
-    participants.value = result.records
-    pager.total = Number(result.total) || 0
+    try {
+      const result = await api.admin.participants(activity.value.id, pager.page, pager.size)
+      participants.value = result.records
+      pager.total = Number(result.total) || 0
+    }
+    catch (error) {
+      toast.warning(errorMessage(error, '加载参与名单失败'))
+    }
   }
 
   async function refresh() {
@@ -81,6 +86,9 @@ export function useAdminActivityDetail(sdk: YuDreamPluginSdk) {
     try {
       activity.value = await api.admin.activity(activity.value.id)
       await loadParticipants()
+    }
+    catch (error) {
+      toast.warning(errorMessage(error, '刷新活动详情失败'))
     }
     finally {
       loading.value = false

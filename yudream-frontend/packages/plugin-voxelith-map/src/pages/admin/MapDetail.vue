@@ -1736,7 +1736,7 @@ onBeforeUnmount(() => {
                     variant="ghost"
                     title="更新：重新渲染该维度"
                     :loading="dimensionActionId === choice.id"
-                    :disabled="isBusy(choice.state as MapAdmin['state'])"
+                    :disabled="dimensionActionId !== '' || isBusy(choice.state as MapAdmin['state'])"
                     @click="renderDimension(choice)"
                   >
                     <YdIcon name="i-mdi:refresh" />
@@ -1745,7 +1745,7 @@ onBeforeUnmount(() => {
                     size="sm"
                     variant="ghost"
                     title="下载：该维度的存档压缩包"
-                    :disabled="dimensionActionId === choice.id"
+                    :disabled="dimensionActionId !== ''"
                     @click="downloadDimensionWorld(choice)"
                   >
                     <YdIcon name="i-mdi:download" />

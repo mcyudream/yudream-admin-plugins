@@ -52,14 +52,20 @@ export function useProofRecords(sdk: YuDreamPluginSdk) {
   }
 
   async function uploadStampedPdf(record: ActivityProofExportRecord, file: File) {
-    const nextRecord = await api.admin.uploadStampedPdf(record.id, {
-      filename: file.name,
-      contentType: file.type || 'application/pdf',
-      base64: await fileToBase64(file),
-    })
-    records.value = records.value.map(item => item.id === nextRecord.id ? nextRecord : item)
-    toast.success('盖章 PDF 已上传')
-    return nextRecord
+    try {
+      const nextRecord = await api.admin.uploadStampedPdf(record.id, {
+        filename: file.name,
+        contentType: file.type || 'application/pdf',
+        base64: await fileToBase64(file),
+      })
+      records.value = records.value.map(item => item.id === nextRecord.id ? nextRecord : item)
+      toast.success('盖章 PDF 已上传')
+      return nextRecord
+    }
+    catch (error) {
+      toast.warning(errorMessage(error, '上传盖章 PDF 失败'))
+      return undefined
+    }
   }
 
   function remove(record: ActivityProofExportRecord) {

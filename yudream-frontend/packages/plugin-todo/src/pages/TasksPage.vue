@@ -595,7 +595,7 @@ function confirmDelete(task: TodoTask) {
                 :aria-label="row.original.subTaskParentId
                   ? (row.original.status === 'done' ? '把小任务标记为未完成' : '把小任务标记为已完成')
                   : (row.original.status === 'done' ? '标记为未完成' : '标记为已完成')"
-                :disabled="togglingId === row.original.id || row.original.archived"
+                :disabled="togglingId !== '' || togglingId === row.original.id || row.original.archived"
                 @click="toggleDone(row.original)"
               >
                 <YdIcon v-if="row.original.status === 'done'" name="i-ri:check-line" />
@@ -679,6 +679,7 @@ function confirmDelete(task: TodoTask) {
                 v-else
                 size="sm"
                 variant="outline"
+                :disabled="joiningSubTaskId !== ''"
                 :loading="joiningSubTaskId === row.original.id"
                 @click="joinSubTask(row.original)"
               >

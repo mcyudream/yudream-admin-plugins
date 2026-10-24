@@ -44,9 +44,9 @@ const groupSelectOptions = computed(() => {
 
 function empty(): GroupBinding { return { id: uid(), siteId: '', connectionId: '', platform: 'milky', selfId: '', channelId: '', enabled: true, quietStart: '', quietEnd: '', cooldownSeconds: 0, hourlyLimit: 0, lastDeliveryAt: 0, createdAt: 0, updatedAt: 0 } }
 async function load() { loading.value = true; error.value = ''; try { const [result, sitePage, connectionOptions] = await Promise.all([api.bindings(page.value, size.value), api.sites(1, 200), api.connections()]); rows.value = result.records; total.value = result.total; sites.value = sitePage.records; connections.value = connectionOptions } catch (cause) { error.value = errorText(cause, '加载定时推送目标失败') } finally { loading.value = false } }
-async function changeConnection(connectionId: unknown) { groupOptions.value = connectionId ? await api.groups(String(connectionId)) : []; form.value.channelId = ''; extraGroupId.value = '' }
+async function changeConnection(connectionId: unknown) { try { groupOptions.value = connectionId ? await api.groups(String(connectionId)) : [] } catch (cause) { toast.error(errorText(cause, '加载群列表失败')); groupOptions.value = [] } form.value.channelId = ''; extraGroupId.value = '' }
 function create() { form.value = empty(); groupOptions.value = []; extraGroupId.value = ''; open.value = true }
-async function edit(value: GroupBinding) { form.value = { ...value }; extraGroupId.value = ''; groupOptions.value = await api.groups(value.connectionId); open.value = true }
+async function edit(value: GroupBinding) { form.value = { ...value }; extraGroupId.value = ''; try { groupOptions.value = await api.groups(value.connectionId) } catch (cause) { toast.error(errorText(cause, '加载群列表失败')); groupOptions.value = [] } open.value = true }
 function addExtraGroup() {
   const id = extraGroupId.value.trim()
   if (!id) return
@@ -55,7 +55,7 @@ function addExtraGroup() {
 }
 async function save() { saving.value = true; try { const connection = connections.value.find(value => value.id === form.value.connectionId); form.value.platform = connection?.protocol || connection?.platform || form.value.platform; form.value.selfId = connection?.userId || connection?.selfId || form.value.selfId; await api.saveBinding(form.value); toast.success('定时推送目标已保存'); open.value = false; await load() } catch (cause) { toast.error(errorText(cause, '保存定时推送目标失败')) } finally { saving.value = false } }
 async function toggle(value: GroupBinding) { toggling.value = value.id; try { await api.saveBinding({ ...value, enabled: !value.enabled }); toast.success(value.enabled ? '定时推送已停用' : '定时推送已启用'); await load() } catch (cause) { toast.error(errorText(cause, '更新定时推送状态失败')) } finally { toggling.value = '' } }
-function remove(value: GroupBinding) { modal.confirm({ title: '删除定时推送目标', content: '删除后定时采集任务不再主动推送到此群。即时链接回复不受影响。', onConfirm: async () => { await api.deleteBinding(value.id); toast.success('定时推送目标已删除'); await load() } }) }
+function remove(value: GroupBinding) { modal.confirm({ title: '删除定时推送目标', content: '删除后定时采集任务不再主动推送到此群。即时链接回复不受影响。', onConfirm: async () => { try { await api.deleteBinding(value.id); toast.success('定时推送目标已删除'); await load() } catch (cause) { toast.error(errorText(cause, '删除定时推送目标失败')) } } }) }
 onMounted(load)
 
 /** 行操作统一收进操作菜单 */

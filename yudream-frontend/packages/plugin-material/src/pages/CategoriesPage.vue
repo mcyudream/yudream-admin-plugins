@@ -95,7 +95,7 @@ onMounted(() => model.loadCategories())
     </template>
   </YdTablePageLayout>
 
-  <YdModal v-model="editOpen" :title="editTarget ? '编辑分类' : '新建分类'" :confirm-button-loading="saving" @confirm="submit">
+  <YdModal v-model="editOpen" :title="editTarget ? '编辑分类' : '新建分类'" :confirm-button-loading="saving" :confirm-button-disabled="!editName.trim()" @confirm="submit">
     <YdForm :model="{ name: editName, sort: editSort }" layout="vertical">
       <div class="flex flex-col gap-4">
         <YdFormItem label="分类名称" required>

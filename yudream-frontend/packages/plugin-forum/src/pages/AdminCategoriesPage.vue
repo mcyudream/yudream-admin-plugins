@@ -57,7 +57,11 @@ function openEdit(category: Category) {
 }
 
 async function save() {
-  if (!editName.value.trim() || saving.value) return
+  if (!editName.value.trim()) {
+    toast.warning('请填写分类名称')
+    return
+  }
+  if (saving.value) return
   saving.value = true
   try {
     if (editTarget.value) {

@@ -139,11 +139,23 @@ export function useInstanceUploads(sdk: YuDreamPluginSdk, instanceId: Ref<string
 
   async function cancelTask(taskId: string): Promise<void> {
     const id = instanceId.value
-    if (!id || taskId.startsWith('local-')) {
+    if (!id) {
       return
     }
-    await extra.cancelUploadTask(id, taskId)
-    void refresh()
+    // 本地占位任务（哈希中/服务端任务未建）：直接本地标记取消，不打服务端
+    if (taskId.startsWith('local-')) {
+      patchLocal(taskId, { state: 'canceled', error: '已取消' })
+      return
+    }
+    try {
+      await extra.cancelUploadTask(id, taskId)
+      void refresh()
+    }
+    catch (error) {
+      // 面板行内反馈取消失败原因（调用方 void 调用不接异常）
+      const reason = String((error as Error)?.message ?? '未知错误')
+      patchLocal(taskId, { state: 'failed', error: '取消失败：' + reason })
+    }
   }
 
   function isHashing(taskId: string): boolean {

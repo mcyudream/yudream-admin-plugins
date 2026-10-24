@@ -103,7 +103,7 @@ async function test(kind: 'fetch' | 'parse') {
     testResult.value = JSON.stringify(result, null, 2)
   } catch (cause) { testResult.value = errorText(cause, '测试失败') }
 }
-function remove(row: Site) { confirm.confirm({ title: '删除站点', content: `确认删除“${row.name}”？将级联删除全部子链接规则、模板版本、内容记录、投递记录、定时任务、推送目标和访问凭据。`, onConfirm: async () => { await api.deleteSite(row.id); toast.success('站点及关联数据已删除'); if (rows.value.length === 1 && page.value > 1) page.value--; await load() } }) }
+function remove(row: Site) { confirm.confirm({ title: '删除站点', content: `确认删除“${row.name}”？将级联删除全部子链接规则、模板版本、内容记录、投递记录、定时任务、推送目标和访问凭据。`, onConfirm: async () => { try { await api.deleteSite(row.id); toast.success('站点及关联数据已删除'); if (rows.value.length === 1 && page.value > 1) page.value--; await load() } catch (cause) { toast.error(errorText(cause, '删除站点失败')) } } }) }
 async function toggle(row: Site) { toggling.value = row.id; try { await api.saveSite({ ...row, enabled: !row.enabled }); toast.success(row.enabled ? '站点规则已停用' : '站点规则已启用'); await load() } catch (cause) { toast.error(errorText(cause, '更新站点状态失败')) } finally { toggling.value = '' } }
 async function loadPatterns() { const values = await Promise.all(rows.value.map(async row => { const routes = await api.routeRules(row.id); if (routes.length) return [row.id, routes.map(value => value.rules.detailUrlPattern).join('、')] as const; const legacy = await api.rules(row.id); return [row.id, legacy?.detailUrlPattern || '未配置'] as const })); patterns.value = Object.fromEntries(values) }
 onMounted(load)

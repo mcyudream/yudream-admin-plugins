@@ -40,8 +40,10 @@ async function handleUpload(options: { file: File }) {
   if (!uploadTarget.value || uploading.value) return
   uploading.value = true
   try {
-    await model.uploadStampedPdf(uploadTarget.value, options.file)
-    uploadVisible.value = false
+    const uploaded = await model.uploadStampedPdf(uploadTarget.value, options.file)
+    if (uploaded) {
+      uploadVisible.value = false
+    }
   }
   finally {
     uploading.value = false

@@ -145,7 +145,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 
     
     
-    <YdModal v-model="editOpen" :title="editTarget ? '编辑分类' : '新建分类'" :confirm-button-loading="saving" @confirm="submit">
+    <YdModal v-model="editOpen" :title="editTarget ? '编辑分类' : '新建分类'" :confirm-button-loading="saving" :confirm-button-disabled="!editName.trim()" @confirm="submit">
       <div class="flex flex-col gap-3">
         <label class="flex flex-col gap-1 text-sm">
           <span class="text-secondary-foreground/80">分类名称</span>
@@ -161,6 +161,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
       v-model="mergeOpen"
       title="合并分类"
       :confirm-button-loading="merging"
+      :confirm-button-disabled="!mergeTargetId || mergeSources.length === 0"
       confirm-button-text="确认合并"
       @confirm="submitMerge"
     >

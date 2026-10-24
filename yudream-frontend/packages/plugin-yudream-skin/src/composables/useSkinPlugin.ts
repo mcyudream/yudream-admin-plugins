@@ -327,6 +327,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('角色已创建')
       await load()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '创建角色失败')
+    }
     finally {
       saving.value = ''
     }
@@ -339,6 +342,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('角色已创建')
       await load()
       return player
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '创建角色失败')
+      return undefined
     }
     finally {
       saving.value = ''
@@ -391,6 +398,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       await load()
       selectPlayer(player)
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '角色重命名失败')
+    }
     finally {
       saving.value = ''
     }
@@ -403,6 +413,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('角色名称已更新')
       await load()
       return player
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '角色重命名失败')
+      return undefined
     }
     finally {
       saving.value = ''
@@ -426,6 +440,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('角色已删除')
       await load()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除角色失败')
+    }
     finally {
       saving.value = ''
     }
@@ -440,6 +457,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       }
       toast.success('角色已删除')
       await load()
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除角色失败')
     }
     finally {
       saving.value = ''
@@ -462,6 +482,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('材质绑定已保存')
       await load()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存材质绑定失败')
+    }
     finally {
       saving.value = ''
     }
@@ -474,6 +497,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('材质绑定已保存')
       await load()
       return player
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存材质绑定失败')
+      return undefined
     }
     finally {
       saving.value = ''
@@ -509,6 +536,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('默认角色已切换')
       await refreshAfterMutation()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '切换默认角色失败')
+    }
     finally {
       saving.value = ''
     }
@@ -543,6 +573,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       await load()
       selectTexture(texture)
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '上传材质失败')
+    }
     finally {
       saving.value = ''
     }
@@ -555,6 +588,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('材质已上传')
       await load()
       return texture
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '上传材质失败')
+      return undefined
     }
     finally {
       saving.value = ''
@@ -571,6 +608,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('材质已删除')
       await load()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除材质失败')
+    }
     finally {
       saving.value = ''
     }
@@ -584,6 +624,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       await load({ includeCloset: false, includePlayers: false, includeTextures: true, scope: 'admin' })
       selectTexture(texture)
       return texture
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '更新材质信息失败')
+      return undefined
     }
     finally {
       saving.value = ''
@@ -599,6 +643,10 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       selectTexture(texture)
       return texture
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '更新材质信息失败')
+      return undefined
+    }
     finally {
       saving.value = ''
     }
@@ -613,6 +661,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       }
       toast.success('材质已删除')
       await load({ includeCloset: true, includePlayers: true, includeTextures: true, scope: 'user' })
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除材质失败')
     }
     finally {
       saving.value = ''
@@ -631,6 +682,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('衣柜项已保存')
       await load()
       selectClosetItem(item)
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存衣柜项失败')
     }
     finally {
       saving.value = ''
@@ -682,6 +736,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success(collect ? '已保存到衣柜并应用到当前角色' : `外观已应用到 ${player.name}`)
       await refreshAfterMutation()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '应用外观失败')
+    }
     finally {
       saving.value = ''
     }
@@ -719,6 +776,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('衣柜显示名称已更新')
       await refreshAfterMutation()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '衣柜项重命名失败')
+    }
     finally {
       saving.value = ''
     }
@@ -741,6 +801,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('衣柜项已删除')
       await refreshAfterMutation()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除衣柜项失败')
+    }
     finally {
       saving.value = ''
     }
@@ -753,6 +816,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       Object.assign(settingsForm, settings.value)
       toast.success('皮肤站配置已保存')
       await load()
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存皮肤站配置失败')
     }
     finally {
       saving.value = ''
@@ -770,6 +836,9 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
       toast.success('迁移已开始')
       openMigrationLog()
       connectMigrationEvents()
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '启动迁移失败')
     }
     finally {
       saving.value = ''

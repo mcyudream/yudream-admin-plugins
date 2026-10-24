@@ -313,17 +313,22 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       checkIns.value = []
       return
     }
-    const [nextDetails, nextEvents, nextCheckIns] = await Promise.all([
-      api.details(selectedProjectId.value),
-      api.events(selectedProjectId.value),
-      api.projectCheckIns(selectedProjectId.value),
-    ])
-    details.value = nextDetails
-    events.value = nextEvents
-    checkIns.value = nextCheckIns
-    await resolveDetailUsers(nextDetails)
-    await resolveUsers(nextCheckIns.map(item => item.userId))
-    selectedDetailId.value = selectedDetailId.value || nextDetails[0]?.id || ''
+    try {
+      const [nextDetails, nextEvents, nextCheckIns] = await Promise.all([
+        api.details(selectedProjectId.value),
+        api.events(selectedProjectId.value),
+        api.projectCheckIns(selectedProjectId.value),
+      ])
+      details.value = nextDetails
+      events.value = nextEvents
+      checkIns.value = nextCheckIns
+      await resolveDetailUsers(nextDetails)
+      await resolveUsers(nextCheckIns.map(item => item.userId))
+      selectedDetailId.value = selectedDetailId.value || nextDetails[0]?.id || ''
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '加载项目数据失败')
+    }
   }
 
   function selectProject(project: ProjectProgressProject) {
@@ -363,6 +368,9 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       toast.success('项目已保存')
       await reloadProjectData()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存项目失败')
+    }
     finally {
       saving.value = false
     }
@@ -379,6 +387,9 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       selectedProjectId.value = projects.value[0]?.id || ''
       toast.success('项目已删除')
       await reloadProjectData()
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除项目失败')
     }
     finally {
       saving.value = false
@@ -400,6 +411,9 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       syncProjectMembersFromDetail(saved)
       selectDetail(saved)
       toast.success('工作细节已保存')
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存工作细节失败')
     }
     finally {
       saving.value = false
@@ -709,12 +723,24 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
   }
 
   async function loadMinecraftServers(includeDisabled = false) {
-    minecraftServers.value = await api.minecraftServers(includeDisabled)
+    try {
+      minecraftServers.value = await api.minecraftServers(includeDisabled)
+    }
+    catch (error) {
+      minecraftServers.value = []
+      toast.error(error instanceof Error && error.message ? error.message : '加载 MC 服务器列表失败')
+    }
     return minecraftServers.value
   }
 
   async function loadNotificationConnections() {
-    notificationConnections.value = await api.notificationConnections()
+    try {
+      notificationConnections.value = await api.notificationConnections()
+    }
+    catch (error) {
+      notificationConnections.value = []
+      toast.error(error instanceof Error && error.message ? error.message : '加载通知连接失败')
+    }
     return notificationConnections.value
   }
 
@@ -724,6 +750,10 @@ export function useProjectProgress(sdk: YuDreamPluginSdk) {
       const result = await fn()
       toast.success(success)
       return result
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '操作失败')
+      return undefined
     }
     finally {
       saving.value = false

@@ -3,7 +3,7 @@ displayName: 网站卡片
 description: 抓取网站内容并生成可定时投递的群聊卡片。
 icon: i-ri:layout-4-line
 main: online.yudream.plugin.webcard.bootstrap.WebCardPlugin
-version: 1.1.6
+version: 1.1.7
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: tools

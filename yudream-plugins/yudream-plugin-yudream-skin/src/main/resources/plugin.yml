@@ -3,7 +3,7 @@ displayName: Minecraft 皮肤
 description: 管理 Minecraft 角色、皮肤、披风和衣柜。
 icon: i-ri:t-shirt-2-line
 main: online.yudream.base.plugin.skin.bootstrap.YuDreamSkinPlugin
-version: 1.6.0
+version: 1.6.1
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: mc

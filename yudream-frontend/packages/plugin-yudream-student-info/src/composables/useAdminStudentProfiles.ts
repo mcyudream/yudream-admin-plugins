@@ -24,6 +24,9 @@ export function useAdminStudentProfiles(sdk: YuDreamPluginSdk) {
       records.value = result.records
       pagination.total = result.total
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '加载学生档案失败')
+    }
     finally {
       loading.value = false
     }
@@ -74,6 +77,9 @@ export function useAdminStudentProfiles(sdk: YuDreamPluginSdk) {
       resetForm()
       await load()
     }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '保存学生档案失败')
+    }
     finally {
       saving.value = false
     }
@@ -88,6 +94,9 @@ export function useAdminStudentProfiles(sdk: YuDreamPluginSdk) {
       const lastPage = Math.max(1, Math.ceil(totalAfterDelete / pagination.size))
       pagination.page = Math.min(pagination.page, lastPage)
       await load()
+    }
+    catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : '删除学生档案失败')
     }
     finally {
       deletingUserId.value = ''

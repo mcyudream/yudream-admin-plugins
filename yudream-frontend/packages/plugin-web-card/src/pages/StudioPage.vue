@@ -462,7 +462,7 @@ onMounted(load)
           </div>
           <div class="composer">
             <YdTextarea v-model="message" :rows="4" :disabled="sending" placeholder="粘贴网址，然后描述卡片样式、目标群和推送方式…" @keydown.ctrl.enter.prevent="send"/>
-            <div class="composer-footer"><span>Ctrl + Enter 发送。方案应用前不会改变现有配置。</span><YdButton :disabled="sending || !message.trim()" @click="send"><YdIcon :name="sending ? 'i-ri:loader-4-line' : 'i-ri:send-plane-2-line'"/>{{ sending ? '生成中' : '发送' }}</YdButton></div>
+            <div class="composer-footer"><span>Ctrl + Enter 发送。方案应用前不会改变现有配置。</span><YdButton :disabled="!activeId || sending || !message.trim()" @click="send"><YdIcon :name="sending ? 'i-ri:loader-4-line' : 'i-ri:send-plane-2-line'"/>{{ sending ? '生成中' : '发送' }}</YdButton></div>
           </div>
         </main>
 
@@ -519,7 +519,7 @@ onMounted(load)
               </div>
             </template>
             <div v-else class="inspector-empty">Agent 生成方案后，可在这里逐项检查和修改。</div>
-            <div v-if="pending" class="action-row"><YdButton variant="outline" @click="reject">放弃</YdButton><YdButton variant="outline" :disabled="saving || !dirty" @click="saveProposal()"><YdIcon name="i-ri:save-3-line"/>保存修改</YdButton><YdButton :disabled="applying || saving" @click="apply"><YdIcon name="i-ri:check-line"/>应用方案</YdButton></div>
+            <div v-if="pending" class="action-row"><YdButton variant="outline" @click="reject">放弃</YdButton><YdButton variant="outline" :disabled="saving || !dirty" @click="saveProposal()"><YdIcon name="i-ri:save-3-line"/>保存修改</YdButton><YdButton :disabled="applying || saving || !draft" @click="apply"><YdIcon name="i-ri:check-line"/>应用方案</YdButton></div>
           </section>
 
           <section class="inspector-section preview-section">

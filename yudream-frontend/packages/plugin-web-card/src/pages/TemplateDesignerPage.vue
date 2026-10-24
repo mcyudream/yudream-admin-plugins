@@ -155,22 +155,27 @@ async function loadVersions() {
   }
   name.value = template.name
   selectedSite.value = template.siteId
-  const [result, rules, draftVersion] = await Promise.all([
-    api.versions(template.id, versionPage.value, versionSize.value),
-    loadRules(template.siteId),
-    template.draftVersionId ? api.version(template.draftVersionId) : Promise.resolve(undefined),
-  ])
-  if (request !== versionsRequest || selected.value !== template.id) return
-  versions.value = result.records.sort((left, right) => right.version - left.version)
-  versionTotal.value = result.total
-  const draft = draftVersion ?? versions.value[0]
-  currentRules.value = draft?.parseRules ?? rules
-  mode.value = draft?.mode ?? template.mode ?? 'STRUCTURED'
-  layoutText.value = normalizedLayout(draft?.structuredLayout)
-  html.value = draft?.html || DEFAULT_HTML
-  css.value = draft?.css || DEFAULT_CSS
-  previewFields.value = draft?.fixture ?? {}
-  editorTab.value = mode.value === 'ADVANCED' ? 'html' : 'layout'
+  try {
+    const [result, rules, draftVersion] = await Promise.all([
+      api.versions(template.id, versionPage.value, versionSize.value),
+      loadRules(template.siteId),
+      template.draftVersionId ? api.version(template.draftVersionId) : Promise.resolve(undefined),
+    ])
+    if (request !== versionsRequest || selected.value !== template.id) return
+    versions.value = result.records.sort((left, right) => right.version - left.version)
+    versionTotal.value = result.total
+    const draft = draftVersion ?? versions.value[0]
+    currentRules.value = draft?.parseRules ?? rules
+    mode.value = draft?.mode ?? template.mode ?? 'STRUCTURED'
+    layoutText.value = normalizedLayout(draft?.structuredLayout)
+    html.value = draft?.html || DEFAULT_HTML
+    css.value = draft?.css || DEFAULT_CSS
+    previewFields.value = draft?.fixture ?? {}
+    editorTab.value = mode.value === 'ADVANCED' ? 'html' : 'layout'
+  }
+  catch (cause) {
+    error.value = errorText(cause, '加载模板版本失败')
+  }
 }
 
 async function loadVersionHistory() {

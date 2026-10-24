@@ -194,6 +194,9 @@ async function saveForm() {
     targetName = editing.value.name
     if (name !== editing.value.name) {
       const renamed = await props.model.renameAdminPlayer(editing.value.name, { name })
+      if (!renamed) {
+        return
+      }
       targetName = renamed.name
     }
     if (form.skinHash !== (editing.value.skinHash || '') || form.capeHash !== (editing.value.capeHash || '')) {
@@ -202,6 +205,9 @@ async function saveForm() {
   }
   else {
     const created = await props.model.createAdminPlayer({ name, ownerId })
+    if (!created) {
+      return
+    }
     if (form.skinHash || form.capeHash) {
       await props.model.assignAdminTextures(created.name, { skinHash: form.skinHash, capeHash: form.capeHash })
     }
