@@ -2,7 +2,7 @@
 import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { InteropPackEntry } from '../types'
-import { YdAlert, YdButton, YdLoadingOverlay, YdTablePageLayout, YdTag, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdLoadingOverlay, YdResponsiveEnhancedTable, YdTablePageLayout, YdTag, useYdToast } from '@yudream/components'
 import { onMounted, reactive } from 'vue'
 import { createMcInteropApi } from '../api/mc-interop-api'
 
