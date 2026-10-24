@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { OfficeSchema, SchemaFieldDef } from '../types'
-import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, useYdModal, useYdToast } from "@yudream/components"
+import { YdAlert, YdButton, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, useYdModal, useYdToast } from "@yudream/components"
 import { onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 import { formatTime } from '../types'
@@ -194,15 +194,15 @@ function remove(schema: OfficeSchema) {
   >
     <div class="flex flex-col gap-3">
       <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-        <YdLabel label="编码（字母开头，可用中划线）" required>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">编码（字母开头，可用中划线）</span>
           <YdInput v-model="form.code" :disabled="!!editing" placeholder="activity" />
-        </YdLabel>
-        <YdLabel label="名称" required>
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">名称</span>
           <YdInput v-model="form.name" placeholder="活动" />
-        </YdLabel>
-        <YdLabel label="角色" required>
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">角色</span>
           <YdSelect v-model="form.role" :options="roleOptions" />
-        </YdLabel>
+        </label>
       </div>
       <div class="flex items-center justify-between">
         <span class="text-sm text-secondary-foreground/80">字段定义</span>
@@ -212,23 +212,23 @@ function remove(schema: OfficeSchema) {
       </div>
       <div v-for="(field, index) in form.fields" :key="index" class="rounded border p-2">
         <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
-          <YdLabel label="key（字母开头）" required>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">key（字母开头）</span>
             <YdInput v-model="field.key" placeholder="title" />
-          </YdLabel>
-          <YdLabel label="名称" required>
+          </label>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">名称</span>
             <YdInput v-model="field.label" placeholder="活动名称" />
-          </YdLabel>
+          </label>
         </div>
         <div class="mt-2 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
-          <YdLabel label="类型">
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">类型</span>
             <YdSelect v-model="field.type" :options="fieldTypes" />
-          </YdLabel>
-          <YdLabel v-if="field.type === 'select'" label="选项（逗号分隔）">
+          </label>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">选项（逗号分隔）</span>
             <YdInput
               :model-value="field.options.join('，')"
               @update:model-value="field.options = String($event).split(/[,，]/).map(item => item.trim()).filter(Boolean)"
             />
-          </YdLabel>
+          </label>
         </div>
         <div class="mt-2 flex items-center gap-3">
           <span class="text-sm">必填</span>

@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { CredentialKind, FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
-import { YdAlert, YdFileUpload, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, useYdModal, useYdToast } from '@yudream/components'
+import { YdAlert, YdFileUpload, YdInput, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createOfficeMeApi, errorMessage, saveBlob } from '../api/office-api'
 import { formatTime, moneyText } from '../types'
@@ -260,40 +260,40 @@ function statusText(status: string) {
     @confirm="submit"
   >
     <div class="flex flex-col gap-3">
-      <YdLabel label="方向" required>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">方向</span>
         <YdSelect
           v-model="direction"
           :options="[{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]"
           @change="load"
         />
-      </YdLabel>
-      <YdLabel label="类别" required>
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">类别</span>
         <YdSelect v-model="form.categoryCode" :options="categoryOptions()" placeholder="选择类别" />
-      </YdLabel>
-      <YdLabel label="摘要" required>
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">摘要</span>
         <YdInput v-model="form.title" maxlength="100" placeholder="如：活动奖品采购" />
-      </YdLabel>
+      </label>
       <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
-        <YdLabel label="金额（元）" required>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">金额（元）</span>
           <YdInput v-model="form.amountYuan" placeholder="0.00" />
-        </YdLabel>
-        <YdLabel label="数量">
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数量</span>
           <YdInput v-model="form.quantity" placeholder="选填" />
-        </YdLabel>
-        <YdLabel label="单价（元）">
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">单价（元）</span>
           <YdInput v-model="form.unitPriceYuan" placeholder="选填" />
-        </YdLabel>
+        </label>
       </div>
-      <YdLabel label="发生日期">
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">发生日期</span>
         <YdInput v-model="form.occurredAt" placeholder="yyyy-MM-dd" />
-      </YdLabel>
-      <YdLabel label="用途">
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">用途</span>
         <YdInput v-model="form.purpose" placeholder="选填" />
-      </YdLabel>
-      <YdLabel label="资金来源">
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">资金来源</span>
         <YdInput v-model="form.fundSource" placeholder="选填，如：校上拨款-校级活动" />
-      </YdLabel>
-      <YdLabel label="发票 / 支付截图（最多 10 个，单个不超过 50MB）">
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">发票 / 支付截图（最多 10 个，单个不超过 50MB）</span>
         <YdFileUpload
           v-model="uploadFiles"
           multiple
@@ -301,7 +301,7 @@ function statusText(status: string) {
           :http-request="handleUpload"
           description="拖放或点击上传"
         />
-      </YdLabel>
+      </label>
       <div v-if="attachments.length" class="flex flex-col gap-2">
         <div v-for="attachment in attachments" :key="attachment.fileKey"
           class="flex items-center gap-2 rounded border p-2">

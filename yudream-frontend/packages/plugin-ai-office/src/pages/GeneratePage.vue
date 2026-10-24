@@ -2,7 +2,7 @@
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { DatasetRecord, DocJob, OfficeDocType, PreviewResult } from '../types'
-import { YdButton, YdDrawer, YdDynamicSearchForm, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { YdButton, YdDrawer, YdDynamicSearchForm, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage, saveBlob } from '../api/office-api'
 import { formatTime, jobStatusText } from '../types'
@@ -16,17 +16,6 @@ const api = createOfficeAdminApi(props.sdk)
 const docTypes = ref<OfficeDocType[]>([])
 const datasetRecords = ref<DatasetRecord[]>([])
 const loading = ref(false)
-const creating = ref(false)
-
-// 新建生成
-const createForm = ref({
-  docTypeCode: '',
-  sourceType: 'MONTH',
-  sourceId: '',
-  period: new Date().toISOString().slice(0, 7),
-})
-const preview = ref<PreviewResult | null>(null)
-const previewLoading = ref(false)
 
 const sourceTypeOptions = [
   { label: '活动平台活动', value: 'ACTIVITY' },
@@ -56,7 +45,7 @@ const jobsLoading = ref(false)
 const jobFilter = reactive({ docTypeCode: '', status: '' })
 const searchQuery = ref<Record<string, any>>({ docTypeCode: '', status: '' })
 
-type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'SELECT' }
+type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'TEXT' | 'SELECT' }
 
 function searchField(config: SearchFieldInput): SearchFieldConfig {
   const { controlType = 'TEXT', order = 0, showWhenFolded = false, width = '200px', ...rest } = config
@@ -100,11 +89,11 @@ function resetJobSearch() {
 }
 
 const jobColumns: TableColumn<DocJob>[] = [
-  { id: 'docType', header: '文档类型', width: 160, enableSorting: false },
-  { id: 'target', header: '目标', minWidth: 200, enableSorting: false },
-  { id: 'status', header: '状态', width: 120, enableSorting: false },
+  { id: 'docType', header: '文档类型', width: 160 },
+  { id: 'target', header: '目标', minWidth: 200 },
+  { id: 'status', header: '状态', width: 120 },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
-  { id: 'result', header: '产物', minWidth: 180, enableSorting: false },
+  { id: 'result', header: '产物', minWidth: 180 },
 ]
 
 const jobActions: ActionMenuItem<DocJob>[] = [
@@ -117,6 +106,18 @@ const jobDrawerOpen = ref(false)
 const job = ref<DocJob | null>(null)
 const draftEntries = ref<{ key: string, value: string }[]>([])
 const jobBusy = ref(false)
+
+// 新建任务（弹窗内完成：表单 → 预览 → 创建）
+const createVisible = ref(false)
+const creating = ref(false)
+const previewLoading = ref(false)
+const preview = ref<PreviewResult | null>(null)
+const createForm = ref({
+  docTypeCode: '',
+  sourceType: 'MONTH',
+  sourceId: '',
+  period: new Date().toISOString().slice(0, 7),
+})
 
 onMounted(load)
 
@@ -161,6 +162,17 @@ async function loadDatasetOptions() {
   }
 }
 
+function openCreate() {
+  createForm.value = {
+    docTypeCode: '',
+    sourceType: 'MONTH',
+    sourceId: '',
+    period: new Date().toISOString().slice(0, 7),
+  }
+  preview.value = null
+  createVisible.value = true
+}
+
 function onSourceTypeChange() {
   preview.value = null
   if (createForm.value.sourceType === 'RECORD') {
@@ -190,7 +202,7 @@ async function runPreview() {
   }
 }
 
-async function createJob() {
+async function submitCreate() {
   if (!createForm.value.docTypeCode) {
     toast.warning('请选择文档类型')
     return
@@ -203,7 +215,8 @@ async function createJob() {
       sourceId: createForm.value.sourceId,
       period: createForm.value.period,
     })
-    toast.success('任务已创建，可在下方任务列表中 AI 起草')
+    toast.success('任务已创建：到任务列表点「详情」进行 AI 起草与定稿')
+    createVisible.value = false
     await loadJobs()
   }
   catch (cause) {
@@ -302,11 +315,17 @@ function removeJob(row: DocJob) {
 </script>
 
 <template>
-  <YdTablePageLayout title="生成任务" stats-title="生成流程">
+  <YdTablePageLayout title="生成任务" :show-search="false" stats-title="生成流程">
     <template #stats>
       <div class="text-sm text-muted-foreground">
-        流程：新建任务 → AI 起草（或手写草稿）→ 编辑确认 → 渲染定稿 → 到「打包导出」按周期组装 zip（缺料自动附清单）。
+        流程：新建任务 → AI 起草（或手写草稿）→ 编辑确认 → 渲染定稿 → 到「打包导出」按周期组装 zip（缺料自动附清单）。周期支持 <code>yyyy-MM</code> 或时间范围 <code>yyyy-MM-dd/yyyy-MM-dd</code>。
       </div>
+    </template>
+
+    <template #actions>
+      <YdButton @click="openCreate">
+        <YdIcon name="i-ri:add-line" />新建任务
+      </YdButton>
     </template>
 
     <template #search="{ fold }">
@@ -320,69 +339,35 @@ function removeJob(row: DocJob) {
       />
     </template>
 
-    <template #actions>
-      <YdButton @click="runPreview" :loading="previewLoading" variant="outline">预览映射</YdButton>
-      <YdButton @click="createJob" :loading="creating">新建任务</YdButton>
-    </template>
-
     <template #table>
       <YdLoadingOverlay :loading="loading || jobsLoading">
-        <div class="flex h-full min-h-0 flex-col">
-          <div class="flex flex-wrap items-end gap-2 pb-3">
-            <YdLabel label="文档类型">
-              <YdSelect v-model="createForm.docTypeCode" class="w-52" :options="docTypeOptions()" />
-            </YdLabel>
-            <YdLabel label="目标">
-              <YdSelect v-model="createForm.sourceType" class="w-44" :options="sourceTypeOptions" @change="onSourceTypeChange" />
-            </YdLabel>
-            <YdLabel v-if="createForm.sourceType === 'ACTIVITY'" label="活动 ID">
-              <YdInput v-model="createForm.sourceId" class="w-56" placeholder="从活动平台复制" />
-            </YdLabel>
-            <YdLabel v-if="createForm.sourceType === 'RECORD'" label="数据记录">
-              <YdSelect v-model="createForm.sourceId" class="w-56" :options="datasetOptions()" />
-            </YdLabel>
-            <YdLabel label="周期">
-              <YdInput v-model="createForm.period" class="w-56" placeholder="yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd" />
-            </YdLabel>
-          </div>
-          <table v-if="preview" class="office-preview-table">
-            <thead>
-              <tr><th>变量</th><th>数据源</th><th>解析值</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in preview.rows" :key="row.var">
-                <td>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></td>
-                <td>{{ row.source }}</td>
-                <td :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="min-h-0 flex-1">
-            <YdResponsiveEnhancedTable
-              :columns="jobColumns"
-              :data="jobs"
-              row-key="id"
-              table-root-class="rounded-lg overflow-hidden"
-              table-class="min-w-[980px]"
-              border
-              stripe
-              column-visibility
-              :actions="jobActions"
-              empty-text="还没有生成任务"
-            >
-              <template #cell-docType="{ row }">{{ row.original.docTypeCode }}</template>
-              <template #cell-target="{ row }">{{ row.original.sourceType }} / {{ row.original.sourceId || row.original.period }}</template>
-              <template #cell-status="{ row }">
-                <YdTag :variant="row.original.status === 'final' ? 'default' : 'outline'">{{ jobStatusText(row.original.status) }}</YdTag>
-                <div v-if="row.original.error" class="max-w-60 truncate text-xs text-muted-foreground" :title="row.original.error">{{ row.original.error }}</div>
-              </template>
-              <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
-              <template #cell-result="{ row }">
-                <span class="truncate" :title="row.original.resultFilename">{{ row.original.resultFilename || '—' }}</span>
-              </template>
-            </YdResponsiveEnhancedTable>
-          </div>
-        </div>
+        <YdResponsiveEnhancedTable
+          :columns="jobColumns"
+          :data="jobs"
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[980px]"
+          border
+          stripe
+          column-visibility
+          :actions="jobActions"
+          empty-text="还没有生成任务，点右上角「新建任务」开始"
+        >
+          <template #cell-docType="{ row }">{{ row.original.docTypeCode }}</template>
+          <template #cell-target="{ row }">
+            <span class="truncate" :title="`${row.original.sourceType} / ${row.original.sourceId || row.original.period}`">
+              {{ row.original.sourceType }} / {{ String(row.original.sourceId || row.original.period).slice(0, 8) }}
+            </span>
+          </template>
+          <template #cell-status="{ row }">
+            <YdTag :variant="row.original.status === 'final' ? 'default' : 'outline'">{{ jobStatusText(row.original.status) }}</YdTag>
+            <div v-if="row.original.error" class="max-w-60 truncate text-xs text-muted-foreground" :title="row.original.error">{{ row.original.error }}</div>
+          </template>
+          <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
+          <template #cell-result="{ row }">
+            <span class="truncate" :title="row.original.resultFilename">{{ row.original.resultFilename || '—' }}</span>
+          </template>
+        </YdResponsiveEnhancedTable>
       </YdLoadingOverlay>
     </template>
 
@@ -396,6 +381,54 @@ function removeJob(row: DocJob) {
       />
     </template>
   </YdTablePageLayout>
+
+  <YdModal
+    v-model="createVisible"
+    title="新建生成任务"
+    confirm-button-text="创建任务"
+    :confirm-button-loading="creating"
+    :show-cancel-button="!creating"
+    cancel-button-text="取消"
+    width-class="max-w-3xl"
+    @confirm="submitCreate"
+  >
+    <div class="flex flex-col gap-3">
+      <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">文档类型</span>
+          <YdSelect v-model="createForm.docTypeCode" :options="docTypeOptions()" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">目标</span>
+          <YdSelect v-model="createForm.sourceType" :options="sourceTypeOptions" @change="onSourceTypeChange" />
+        </label>
+      </div>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">活动 ID（从活动平台复制）</span>
+        <YdInput v-model="createForm.sourceId" placeholder="活动ID" />
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数据记录</span>
+        <YdSelect v-model="createForm.sourceId" :options="datasetOptions()" />
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">周期（yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd）</span>
+        <YdInput v-model="createForm.period" placeholder="2026-10" />
+      </label>
+      <div>
+        <YdButton size="sm" variant="outline" :loading="previewLoading" @click="runPreview">
+          <YdIcon name="i-ri:eye-line" />预览映射
+        </YdButton>
+      </div>
+      <table v-if="preview" class="office-preview-table">
+        <thead>
+          <tr><th>变量</th><th>数据源</th><th>解析值</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in preview.rows" :key="row.var">
+            <td>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></td>
+            <td>{{ row.source }}</td>
+            <td :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </YdModal>
 
   <YdDrawer
     v-model="jobDrawerOpen"
@@ -421,9 +454,9 @@ function removeJob(row: DocJob) {
       <p class="text-sm text-muted-foreground">
         状态：{{ jobStatusText(job.status) }}。AI 产物一律进入草稿，人工编辑保存后才能渲染定稿。
       </p>
-      <YdLabel v-for="entry in draftEntries" :key="entry.key" :label="`草稿：${entry.key}`">
+      <label v-for="entry in draftEntries" :key="entry.key" class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">草稿：{{ entry.key }}</span>
         <YdTextarea v-model="entry.value" :rows="6" />
-      </YdLabel>
+      </label>
       <p v-if="!draftEntries.length" class="text-sm text-muted-foreground">
         暂无草稿；点击「AI 起草」为 ai: 映射生成正文。
       </p>

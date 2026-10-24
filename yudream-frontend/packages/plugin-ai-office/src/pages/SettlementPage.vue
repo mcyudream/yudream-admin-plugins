@@ -5,7 +5,7 @@ import type { SettlementBatch, SettlementOverview } from '../types'
 import { YdAlert, YdButton, YdInput, YdLoadingOverlay, YdResponsiveEnhancedTable, YdTablePageLayout, YdTag, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
-import { moneyText } from '../types'
+import { formatTime, moneyText } from '../types'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 
@@ -76,7 +76,7 @@ function requestClose() {
 }
 
 function closeTime(batch: SettlementBatch) {
-  return batch.closedAt ? new Date(batch.closedAt).toLocaleString('zh-CN', { hour12: false }) : '—'
+  return formatTime(batch.closedAt)
 }
 </script>
 

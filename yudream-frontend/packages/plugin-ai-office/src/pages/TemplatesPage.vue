@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { DocTypeMapping, OfficeDocType, WordTemplateOption } from '../types'
-import { YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 
@@ -207,22 +207,22 @@ function remove(docType: OfficeDocType) {
   >
     <div class="flex flex-col gap-3">
       <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-        <YdLabel label="编码" required>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">编码</span>
           <YdInput v-model="form.code" :disabled="!!editing" placeholder="activity-summary" />
-        </YdLabel>
-        <YdLabel label="名称" required>
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">名称</span>
           <YdInput v-model="form.name" placeholder="活动总结" />
-        </YdLabel>
-        <YdLabel label="阶段标签（站点自定，如：事前/事后/月度）">
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">阶段标签（站点自定，如：事前/事后/月度）</span>
           <YdInput v-model="form.stage" placeholder="general" />
-        </YdLabel>
-        <YdLabel label="宿主 Word 模板">
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">宿主 Word 模板</span>
           <YdSelect v-model="form.wordTemplateCode" :options="templateOptions" />
-        </YdLabel>
+        </label>
       </div>
-      <YdLabel label="产物文件命名（可用 {target.title}、{org.name}、{month汉字}）">
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">产物文件命名（可用 {target.title}、{org.name}、{month汉字}）</span>
         <YdInput v-model="form.fileNamePattern" placeholder="“{target.title}”活动总结" />
-      </YdLabel>
+      </label>
       <div class="flex items-center justify-between">
         <span class="text-sm text-secondary-foreground/80">占位符映射</span>
         <YdButton size="sm" variant="outline" @click="addMapping">
@@ -231,23 +231,23 @@ function remove(docType: OfficeDocType) {
       </div>
       <div v-for="(mapping, index) in form.mappings" :key="index" class="rounded border p-2">
         <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2">
-          <YdLabel label="变量（占位符名）" required>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">变量（占位符名）</span>
             <YdInput v-model="mapping.var" placeholder="activityName" />
-          </YdLabel>
-          <YdLabel label="数据源" required>
+          </label>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数据源</span>
             <YdInput v-model="mapping.source" placeholder="ctx:target.title" />
-          </YdLabel>
-          <YdLabel label="变换（选填）">
+          </label>
+          <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">变换（选填）</span>
             <YdInput v-model="mapping.transform" placeholder="date:yyyy年MM月dd日" />
-          </YdLabel>
+          </label>
         </div>
-        <YdLabel label="列表项映射（仅 list: 数据源，JSON：{&quot;行变量&quot;:&quot;item.字段&quot;}；图片列写 image:item.fileKey）">
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">列表项映射（仅 list: 数据源，JSON：{&quot;行变量&quot;:&quot;item.字段&quot;}；图片列写 image:item.fileKey）</span>
           <YdTextarea
             :model-value="JSON.stringify(mapping.itemMapping)"
             :rows="2"
             @update:model-value="tryParseItemMapping(mapping, String($event))"
           />
-        </YdLabel>
+        </label>
         <YdButton size="sm" variant="outline" class="mt-2" @click="removeMapping(index)">移除</YdButton>
       </div>
     </div>

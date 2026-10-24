@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { OfficeCategory, OfficeSchema } from '../types'
-import { YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, useYdModal, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 
@@ -202,26 +202,26 @@ function remove(category: OfficeCategory) {
   >
     <div class="flex flex-col gap-3">
       <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-        <YdLabel label="方向" required>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">方向</span>
           <YdSelect v-model="form.direction" :options="directionOptions" />
-        </YdLabel>
-        <YdLabel label="编码" required>
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">编码</span>
           <YdInput v-model="form.code" :disabled="!!editing" placeholder="校级活动" />
-        </YdLabel>
+        </label>
       </div>
-      <YdLabel label="名称" required>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">名称</span>
         <YdInput v-model="form.name" placeholder="校级活动支出" />
-      </YdLabel>
-      <YdLabel label="登记字段（逗号分隔：quantity,unitPriceCents,buyerName,purpose,fundSource 的子集）">
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">登记字段（逗号分隔：quantity,unitPriceCents,buyerName,purpose,fundSource 的子集）</span>
         <YdInput v-model="form.fields" placeholder="quantity,unitPriceCents,buyerName,purpose,fundSource" />
-      </YdLabel>
-      <YdLabel label="扩展字段模型（可选：按数据模型增加自定义维度，映射用 item.data.字段key 取值）">
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">扩展字段模型（可选：按数据模型增加自定义维度，映射用 item.data.字段key 取值）</span>
         <YdSelect v-model="form.schemaCode" :options="entitySchemaOptions" />
-      </YdLabel>
+      </label>
       <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-        <YdLabel label="排序">
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">排序</span>
           <YdInput v-model="form.sort" />
-        </YdLabel>
+        </label>
         <div class="flex items-center gap-2 text-sm">
           <span>启用</span>
           <YdSwitch v-model="form.enabled" size="sm" />

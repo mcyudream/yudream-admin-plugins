@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { OfficePrompt } from '../types'
-import { YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdTablePageLayout, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdTablePageLayout, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 
@@ -148,19 +148,19 @@ function remove(prompt: OfficePrompt) {
   >
     <div class="flex flex-col gap-3">
       <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-        <YdLabel label="编码" required>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">编码</span>
           <YdInput v-model="form.code" :disabled="!!editing" placeholder="activity-summary-body" />
-        </YdLabel>
-        <YdLabel label="名称" required>
+        </label>
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">名称</span>
           <YdInput v-model="form.name" placeholder="活动总结正文起草" />
-        </YdLabel>
+        </label>
       </div>
-      <YdLabel label="System（可空，站点写作规范会自动追加）">
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">System（可空，站点写作规范会自动追加）</span>
         <YdTextarea v-model="form.system" :rows="3" />
-      </YdLabel>
-      <YdLabel label="User 正文（用 {target.title} 等点路径引用上下文）" required>
+      </label>
+      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">User 正文（用 {target.title} 等点路径引用上下文）</span>
         <YdTextarea v-model="form.user" :rows="6" />
-      </YdLabel>
+      </label>
     </div>
   </YdModal>
 </template>

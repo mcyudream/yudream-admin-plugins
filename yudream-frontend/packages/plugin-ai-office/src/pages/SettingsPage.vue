@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AiProviderOption, OfficeSchema, OfficeSettings, PresetInfo } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, YdTextarea, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, YdTextarea, useYdToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage, saveBlob } from '../api/office-api'
 
@@ -153,13 +153,13 @@ async function exportPreset() {
         <template #profile>
           <YdSettingsSection title="组织档案" description="组织名称、挂靠单位等；字段面由档案数据模型决定，映射用 ctx:org.字段key 引用。">
             <form v-if="settings" class="grid max-w-3xl gap-4" @submit.prevent="save">
-              <YdLabel label="档案数据模型">
+              <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">档案数据模型</span>
                 <YdSelect v-model="settings.profileSchemaCode" :options="schemaOptions()" />
-              </YdLabel>
-              <YdLabel v-for="field in profileFields" :key="field.key" :label="`${field.label}（ctx:org.${field.key}）`">
+              </label>
+              <label v-for="field in profileFields" :key="field.key" class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">{{ field.label }}（ctx:org.{{ field.key }}）</span>
                 <YdTextarea v-if="field.type === 'longtext'" v-model="settings!.profile[field.key]" :rows="2" />
                 <YdInput v-else v-model="settings!.profile[field.key]" />
-              </YdLabel>
+              </label>
               <p v-if="!profileFields.length" class="text-sm text-muted-foreground">
                 请先在「数据模型」中配置档案结构，或导入预设包。
               </p>
@@ -170,26 +170,26 @@ async function exportPreset() {
           <YdSettingsSection title="写作与 AI" description="AI 提供商由平台能力配置；这里选择本插件使用的提供商与模型，并维护站点写作规范（自动并入提示词）。">
             <form v-if="settings" class="grid max-w-3xl gap-4" @submit.prevent="save">
               <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4">
-                <YdLabel label="AI 提供商">
+                <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">AI 提供商</span>
                   <YdSelect v-model="settings.aiProviderCode" :options="providerOptions()" />
-                </YdLabel>
-                <YdLabel label="模型">
+                </label>
+                <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">模型</span>
                   <YdSelect v-model="settings.aiModelCode" :options="modelOptions()" />
-                </YdLabel>
+                </label>
               </div>
-              <YdLabel label="周期粒度">
+              <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">周期粒度</span>
                 <YdSelect
                   v-model="settings.financeCycle"
                   :options="[{ label: '按月', value: 'MONTHLY' }, { label: '按季（预留）', value: 'QUARTERLY' }]"
                 />
-              </YdLabel>
+              </label>
               <div class="flex items-center gap-2 text-sm">
                 <span>模板嵌图（Word 模板 img 占位符嵌入图片；宿主引擎低于 2.38.0 时关闭）</span>
                 <YdSwitch v-model="settings.wordImageEmbed" size="sm" />
               </div>
-              <YdLabel label="站点写作规范（注入所有 AI 提示词）">
+              <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">站点写作规范（注入所有 AI 提示词）</span>
                 <YdTextarea v-model="settings.styleGuide" :rows="5" placeholder="正式公文风；章节用汉字序号；落款用全称…" />
-              </YdLabel>
+              </label>
               <p v-if="!providers.length" class="text-sm text-muted-foreground">
                 未读取到 AI 提供商：请确认平台「AI」能力已启用并配置了提供商。
               </p>

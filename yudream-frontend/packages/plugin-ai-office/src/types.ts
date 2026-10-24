@@ -234,11 +234,13 @@ export function moneyText(cents: number | string | undefined | null): string {
   return remainder === 0 ? String(yuan) : `${yuan}.${String(remainder).padStart(2, '0')}`
 }
 
-export function formatTime(epoch: number | undefined | null): string {
-  if (!epoch) {
+export function formatTime(epoch: number | string | undefined | null): string {
+  // 宿主 JSON 里 epoch 可能是数字字符串，必须先 Number 归一，否则 Invalid Date
+  const value = epoch == null || epoch === '' ? Number.NaN : Number(epoch)
+  if (Number.isNaN(value) || value <= 0) {
     return '—'
   }
-  return new Date(epoch).toLocaleString('zh-CN', { hour12: false })
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
 export function jobStatusText(status: string): string {

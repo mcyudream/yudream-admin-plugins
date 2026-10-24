@@ -2,7 +2,7 @@
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { DatasetRecord, OfficeSchema } from '../types'
-import { YdAlert, YdButton, YdDynamicSearchForm, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdDynamicSearchForm, YdInput, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 import { formatTime, moneyText } from '../types'
@@ -258,7 +258,7 @@ function displayValue(record: DatasetRecord, key: string) {
   >
     <div class="flex flex-col gap-3">
       <template v-for="field in activeSchema?.fields ?? []" :key="field.key">
-        <YdLabel :label="`${field.label}（${field.key}）${field.required ? ' *' : ''}`">
+        <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">{{ `${field.label}（${field.key}）${field.required ? ' *' : ''}` }}</span>
           <YdTextarea v-if="field.type === 'longtext'" v-model="formData[field.key]" :rows="3" />
           <YdSelect
             v-else-if="field.type === 'select' && field.options.length"
@@ -266,7 +266,7 @@ function displayValue(record: DatasetRecord, key: string) {
             :options="field.options.map(option => ({ label: option, value: option }))"
           />
           <YdInput v-else v-model="formData[field.key]" :placeholder="field.type" />
-        </YdLabel>
+        </label>
       </template>
       <p v-if="!activeSchema?.fields.length" class="text-sm text-muted-foreground">
         该数据模型没有字段定义。
