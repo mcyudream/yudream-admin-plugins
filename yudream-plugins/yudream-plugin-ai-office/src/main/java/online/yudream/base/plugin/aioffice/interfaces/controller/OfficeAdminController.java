@@ -230,6 +230,12 @@ public class OfficeAdminController {
         return http.generateContext(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/admin/generate/activity-options",
+            permission = OfficePermissions.GENERATE)
+    public PluginHttpResponse activityOptions(PluginHttpRequest request) {
+        return http.activityOptions(request);
+    }
+
     @PluginHttpEndpoint(method = "POST", path = "/admin/generate/preview", permission = OfficePermissions.GENERATE)
     public PluginHttpResponse generatePreview(PluginHttpRequest request) {
         return http.generatePreview(request);

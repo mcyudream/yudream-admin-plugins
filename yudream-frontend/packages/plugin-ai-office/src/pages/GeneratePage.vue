@@ -15,6 +15,8 @@ const api = createOfficeAdminApi(props.sdk)
 
 const docTypes = ref<OfficeDocType[]>([])
 const datasetRecords = ref<DatasetRecord[]>([])
+const activityOptionsList = ref<{ id: string, title: string, activityStartText: string }[]>([])
+const activityBridgeAvailable = ref(true)
 const loading = ref(false)
 
 const sourceTypeOptions = [
@@ -35,6 +37,35 @@ const datasetOptions = () => [
     value: record.id,
   })),
 ]
+
+const activitySelectOptions = () => [
+  { label: '选择活动', value: '' },
+  ...activityOptionsList.value.map(item => ({
+    label: `${item.title}（${item.activityStartText || '未设时间'}）`,
+    value: item.id,
+  })),
+]
+
+/** 拉取周期内的活动下拉选项；活动平台缺失时提示。 */
+async function loadActivityOptions() {
+  if (createForm.value.sourceType !== 'ACTIVITY') {
+    return
+  }
+  try {
+    const data = await api.activityOptions(createForm.value.period)
+    activityBridgeAvailable.value = data.available
+    activityOptionsList.value = data.options ?? []
+    if (!data.available) {
+      toast.warning('未安装活动平台（minecraft-activity-proof），无法按活动生成')
+    }
+    else if (!activityOptionsList.value.length) {
+      toast.warning('该周期内没有活动')
+    }
+  }
+  catch {
+    activityBridgeAvailable.value = false
+  }
+}
 
 // 任务列表 + 筛选
 const jobs = ref<DocJob[]>([])
@@ -171,12 +202,17 @@ function openCreate() {
   }
   preview.value = null
   createVisible.value = true
+  void loadActivityOptions()
 }
 
 function onSourceTypeChange() {
   preview.value = null
+  createForm.value.sourceId = ''
   if (createForm.value.sourceType === 'RECORD') {
     void loadDatasetOptions()
+  }
+  if (createForm.value.sourceType === 'ACTIVITY') {
+    void loadActivityOptions()
   }
 }
 
@@ -401,13 +437,18 @@ function removeJob(row: DocJob) {
           <YdSelect v-model="createForm.sourceType" :options="sourceTypeOptions" @change="onSourceTypeChange" />
         </label>
       </div>
-      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">活动 ID（从活动平台复制）</span>
-        <YdInput v-model="createForm.sourceId" placeholder="活动ID" />
+      <label v-if="createForm.sourceType === 'ACTIVITY'" class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">活动（周期内）</span>
+        <YdSelect
+          v-model="createForm.sourceId"
+          :options="activitySelectOptions()"
+          :disabled="!activityBridgeAvailable"
+          :placeholder="activityBridgeAvailable ? '选择活动' : '需安装活动平台'"
+        />
       </label>
-      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数据记录</span>
+      <label v-if="createForm.sourceType === 'RECORD'" class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">数据记录</span>
         <YdSelect v-model="createForm.sourceId" :options="datasetOptions()" />
       </label>
-      <label class="flex flex-col gap-1 text-sm"><span class="text-secondary-foreground/80">周期（yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd）</span>
+      <label class="flex flex-col gap-1 text-sm" @change="loadActivityOptions"><span class="text-secondary-foreground/80">周期（yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd）</span>
         <YdInput v-model="createForm.period" placeholder="2026-10" />
       </label>
       <div>

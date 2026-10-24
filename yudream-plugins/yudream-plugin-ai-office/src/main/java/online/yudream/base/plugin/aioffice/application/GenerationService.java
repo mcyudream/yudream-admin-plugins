@@ -213,6 +213,27 @@ public class GenerationService {
 
     // ---------- 任务生命周期 ----------
 
+    /** 活动选项（按周期过滤，供前端下拉选择活动，替代手填 ID）。 */
+    public Map<String, Object> activityOptions(String period) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("available", activities.available());
+        List<Map<String, Object>> options = new ArrayList<>();
+        if (activities.available()) {
+            long[] bounds = FinanceService.periodBounds(period);
+            for (ActivityBrief brief : activities.activitiesBetween(bounds[0], bounds[1])) {
+                Map<String, Object> option = new LinkedHashMap<>();
+                option.put("id", brief.id());
+                option.put("title", brief.title());
+                option.put("status", brief.status());
+                option.put("participantCount", brief.participantCount());
+                option.put("activityStartText", dateText(brief.activityStart()));
+                options.add(option);
+            }
+        }
+        result.put("options", options);
+        return result;
+    }
+
     public OfficeDocJob createJob(String docTypeCode, String sourceType, String sourceId, String period,
                                   String operatorId) {
         requireDocType(docTypeCode);

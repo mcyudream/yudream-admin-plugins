@@ -404,6 +404,12 @@ public class OfficeHttpFacade {
                 orDefault(firstQuery(request, "period"), ""))));
     }
 
+    /** 活动下拉选项（按周期过滤；活动平台未安装时 available=false）。 */
+    public PluginHttpResponse activityOptions(PluginHttpRequest request) {
+        return guard(() -> PluginHttpResponse.ok(generation.activityOptions(
+                orDefault(firstQuery(request, "period"), ""))));
+    }
+
     public PluginHttpResponse generatePreview(PluginHttpRequest request) {
         return guard(() -> {
             PreviewRequest body = JsonSupport.read(request.body(), PreviewRequest.class);

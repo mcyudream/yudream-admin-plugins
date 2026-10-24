@@ -118,6 +118,8 @@ export function createOfficeAdminApi(sdk: YuDreamPluginSdk) {
     closeSettlement: (period: string) =>
       sdk.http.post<SettlementBatch>('/admin/settlements/close', { period }),
 
+    activityOptions: (period: string) =>
+      sdk.http.get<{ available: boolean, options: { id: string, title: string, status: string, participantCount: number, activityStartText: string }[] }>(`/admin/generate/activity-options${query({ period })}`),
     generateContext: (sourceType: string, sourceId: string, period: string) =>
       sdk.http.get<Record<string, unknown>>(`/admin/generate/context${query({ sourceType, sourceId, period })}`),
     preview: (data: { docTypeCode: string, sourceType: string, sourceId: string, period: string }) =>
