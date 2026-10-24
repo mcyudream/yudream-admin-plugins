@@ -456,18 +456,16 @@ function removeJob(row: DocJob) {
           <YdIcon name="i-ri:eye-line" />预览映射
         </YdButton>
       </div>
-      <table v-if="preview" class="office-preview-table">
-        <thead>
-          <tr><th>变量</th><th>数据源</th><th>解析值</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in preview.rows" :key="row.var">
-            <td>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></td>
-            <td>{{ row.source }}</td>
-            <td :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="preview" class="office-preview-table" role="table" aria-label="映射预览">
+        <div role="row" class="office-preview-row office-preview-head">
+          <span>变量</span><span>数据源</span><span>解析值</span>
+        </div>
+        <div v-for="row in preview.rows" :key="row.var" role="row" class="office-preview-row">
+          <span>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></span>
+          <span>{{ row.source }}</span>
+          <span :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</span>
+        </div>
+      </div>
     </div>
   </YdModal>
 
@@ -504,3 +502,27 @@ function removeJob(row: DocJob) {
     </div>
   </YdDrawer>
 </template>
+
+<style scoped>
+.office-preview-table {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border-2, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.office-preview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) minmax(0, 6fr);
+  gap: 8px;
+  padding: 6px 10px;
+}
+.office-preview-row + .office-preview-row {
+  border-top: 1px solid var(--color-border-1, #f0f0f0);
+}
+.office-preview-head {
+  font-weight: 600;
+  background: var(--color-fill-1, #f7f8fa);
+}
+</style>

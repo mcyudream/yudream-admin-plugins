@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AiProviderOption, OfficeSchema, OfficeSettings, PresetInfo } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, YdTextarea, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, YdTextarea, useYdToast, useYdFilePicker } from '@yudream/components'
 import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage, saveBlob } from '../api/office-api'
 
@@ -110,10 +110,18 @@ async function importPreset(preset: PresetInfo) {
   }
 }
 
-async function onPresetFileChosen(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
+const pickPresetFile = useYdFilePicker({ accept: '.json' })
+
+function choosePresetFile() {
+  void pickPresetFile.open().then((files) => {
+    const file = files[0]
+    if (file) {
+      void onPresetFileChosen(file)
+    }
+  })
+}
+
+async function onPresetFileChosen(file: File) {
   if (!file) {
     return
   }
@@ -217,10 +225,7 @@ async function exportPreset() {
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <label class="text-sm">
-                  <input type="file" accept=".json" @change="onPresetFileChosen">
-                  上传自定义预设 JSON
-                </label>
+                <YdButton size="sm" variant="outline" @click="choosePresetFile">上传自定义预设 JSON</YdButton>
                 <YdButton size="sm" variant="outline" @click="exportPreset">
                   <YdIcon name="i-ri:download-line" />导出当前配置
                 </YdButton>

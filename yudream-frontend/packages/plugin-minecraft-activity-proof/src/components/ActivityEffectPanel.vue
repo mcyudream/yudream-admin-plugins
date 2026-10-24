@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { ActivityEffect, ActivityEffectAttachment } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdTag, YdTextarea, useYdToast } from '@yudream/components'
+import { YdButton, YdIcon, YdInput, YdModal, YdTag, YdTextarea, useYdToast, useYdFilePicker } from '@yudream/components'
 import { computed, ref, watch } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
 import { formatTime } from '../composables/utils'
@@ -60,10 +60,17 @@ function openModal() {
   modalVisible.value = true
 }
 
-async function onFilesChosen(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
+const pickEffectFiles = useYdFilePicker({ multiple: true })
+
+function chooseEffectFiles() {
+  void pickEffectFiles.open().then((files) => {
+    if (files.length) {
+      void onFilesChosen(files)
+    }
+  })
+}
+
+async function onFilesChosen(files: File[]) {
   if (!files.length) {
     return
   }
@@ -191,8 +198,12 @@ function errorMessage(cause: unknown, fallback: string): string {
       </label>
       <div class="flex flex-col gap-1 text-sm">
         <span class="text-secondary-foreground/80">图片 / 视频 / 文档（最多 20 个，单个不超过 200MB）</span>
-        <input type="file" multiple @change="onFilesChosen">
-        <span v-if="uploading" class="text-sm text-muted-foreground">上传中…</span>
+        <div>
+          <YdButton size="sm" variant="outline" :loading="uploading" @click="chooseEffectFiles">
+            <YdIcon name="i-ri:upload-2-line" />选择文件上传
+          </YdButton>
+          <span v-if="uploading" class="ml-2 text-sm text-muted-foreground">上传中…</span>
+        </div>
       </div>
       <div v-if="pending.length" class="flex flex-col gap-2">
         <div v-for="(attachment, index) in pending" :key="attachment.fileKey"

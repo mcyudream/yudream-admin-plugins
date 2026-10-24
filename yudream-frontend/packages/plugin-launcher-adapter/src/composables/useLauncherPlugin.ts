@@ -128,8 +128,14 @@ export function useLauncherPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function copy(value: string, message = '已复制') {
-    await navigator.clipboard.writeText(value)
-    toast.success(message)
+    // 与组件库 YdChatActions 同一惯例：Clipboard API 可用性随安全上下文，失败引导手动复制
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(message)
+    }
+    catch {
+      toast.error('复制失败，请手动复制')
+    }
   }
 
   function cloneNavNode(node: Partial<YmclNavNode>, root: boolean): YmclNavNode {
@@ -186,7 +192,13 @@ export function useLauncherPlugin(sdk: YuDreamPluginSdk) {
   }
 
   function openYmcl() {
-    openYmclProtocol(origin)
+    const ok = openYmclProtocol(origin)
+    if (ok) {
+      toast.info('已尝试唤起 YMCL；若无反应，请确认已安装并登记 ymcl:// 协议')
+    }
+    else {
+      toast.error('无法唤起 YMCL，请检查是否已安装启动器')
+    }
   }
 
   function applyDragPayload(event: DragEvent) {
