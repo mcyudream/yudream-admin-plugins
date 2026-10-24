@@ -3,7 +3,7 @@ displayName: 统一身份认证
 description: 接入 Apereo CAS / OIDC / SSO 中转统一身份认证，作为站点第三方登录提供方。
 icon: i-ri:graduation-cap-line
 main: online.yudream.base.plugin.cas.bootstrap.CasSsoPlugin
-version: "${project.version}"
+version: 2.3.0
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: campus
