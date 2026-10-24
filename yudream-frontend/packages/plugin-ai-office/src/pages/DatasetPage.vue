@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { DatasetRecord, OfficeSchema, SchemaFieldDef } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdSelect, useYdModal, useYdToast } from '@yudream/components'
-import { computed, onMounted, reactive, ref } from 'vue'
+import type { DatasetRecord, OfficeSchema } from '../types'
+import { YdAlert, YdButton, YdDynamicSearchForm, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { computed, onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
-import { formatTime } from '../types'
+import { formatTime, moneyText } from '../types'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 
@@ -15,47 +16,104 @@ const api = createOfficeAdminApi(props.sdk)
 const schemas = ref<OfficeSchema[]>([])
 const schemaCode = ref('')
 const records = ref<DatasetRecord[]>([])
-const pager = reactive({ page: 1, size: 10, total: 0 })
+const total = ref(0)
+const page = ref(1)
+const size = ref(10)
+const pageSizes = [10, 20, 50]
 const loading = ref(false)
-
-const modalVisible = ref(false)
-const editing = ref<DatasetRecord | null>(null)
-const formData = ref<Record<string, string>>({})
-const saving = ref(false)
+const error = ref('')
 
 const activeSchema = computed(() => schemas.value.find(schema => schema.code === schemaCode.value))
-const columns = computed(() => activeSchema.value?.fields.filter(field => field.type !== 'attachments') ?? [])
-const schemaOptions = computed(() => [
-  { label: '选择数据模型', value: '' },
-  ...schemas.value.map(schema => ({ label: schema.name, value: schema.code })),
+const columns = computed<TableColumn<DatasetRecord>[]>(() => [
+  ...(activeSchema.value?.fields.filter(field => field.type !== 'attachments').map(field => ({
+    id: field.key,
+    header: field.label,
+    minWidth: 140,
+    enableSorting: false,
+  })) ?? []),
+  { id: '_createdAt', header: '创建时间', width: 170, enableSorting: false },
 ])
 
-onMounted(load)
+const searchQuery = ref<Record<string, any>>({ schemaCode: '' })
 
-async function load() {
-  loading.value = true
+const searchConfig: SearchConfig = {
+  fields: [
+    {
+      fieldName: 'schemaCode',
+      label: '数据模型',
+      controlType: 'SELECT' as SearchFieldConfig['controlType'],
+      order: 1,
+      showWhenFolded: true,
+      width: '220px',
+    } as SearchFieldConfig,
+  ],
+}
+
+const schemaOptions = () => schemas.value.map(schema => ({ label: schema.name, value: schema.code }))
+
+const optionsSources: SearchOptionsSource[] = [
+  { id: 'schemaCodeOptions', loader: schemaOptions },
+]
+
+const rowActions: ActionMenuItem<DatasetRecord>[] = [
+  { label: '编辑', icon: 'morph:pencil', onClick: row => openEdit(row) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => remove(row) },
+]
+
+function applySearch() {
+  schemaCode.value = String(searchQuery.value.schemaCode ?? '')
+  page.value = 1
+  load()
+}
+
+function resetSearch() {
+  schemaCode.value = schemas.value.length ? schemas.value[0].code : ''
+  searchQuery.value = { schemaCode: schemaCode.value }
+  page.value = 1
+  load()
+}
+
+onMounted(async () => {
   try {
     schemas.value = await api.schemas()
-    if (!schemaCode.value && schemas.value.length) {
+    if (schemas.value.length) {
       schemaCode.value = schemas.value[0].code
-    }
-    if (schemaCode.value) {
-      const data = await api.dataset(schemaCode.value, pager.page, pager.size)
-      records.value = data.records ?? []
-      pager.total = data.total ?? 0
-    }
-    else {
-      records.value = []
-      pager.total = 0
+      searchQuery.value = { schemaCode: schemaCode.value }
     }
   }
   catch (cause) {
-    toast.error(errorMessage(cause, '数据记录加载失败'))
+    toast.error(errorMessage(cause, '数据模型加载失败'))
+  }
+  await load()
+})
+
+async function load() {
+  if (!schemaCode.value) {
+    records.value = []
+    total.value = 0
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await api.dataset(schemaCode.value, page.value, size.value)
+    records.value = data.records ?? []
+    total.value = data.total ?? 0
+  }
+  catch (cause) {
+    error.value = errorMessage(cause, '数据记录加载失败')
   }
   finally {
     loading.value = false
   }
 }
+
+// ---------- 编辑 ----------
+
+const modalVisible = ref(false)
+const editing = ref<DatasetRecord | null>(null)
+const formData = ref<Record<string, string>>({})
+const saving = ref(false)
 
 function openCreate() {
   if (!activeSchema.value) {
@@ -125,91 +183,94 @@ function remove(record: DatasetRecord) {
   })
 }
 
-function displayValue(record: DatasetRecord, field: SchemaFieldDef) {
-  const value = record.data[field.key]
+function displayValue(record: DatasetRecord, key: string) {
+  const field = activeSchema.value?.fields.find(item => item.key === key)
+  const value = record.data[key]
   if (value == null || value === '') {
     return '—'
   }
-  if (field.type === 'money') {
-    const cents = Number(value)
-    return `¥${Number.isNaN(cents) ? String(value) : `${Math.trunc(cents / 100)}.${String(Math.abs(cents % 100)).padStart(2, '0')}`}`
+  if (field?.type === 'money') {
+    return `¥${moneyText(Number(value))}`
   }
   return String(value)
 }
 </script>
 
 <template>
-  <section class="office-page">
-    <YdPageHeader title="数据集">
-      <div class="flex items-center gap-2">
-        <YdSelect v-model="schemaCode" class="w-52" :options="schemaOptions" @change="pager.page = 1; load()" />
-        <YdButton :disabled="!schemaCode" @click="openCreate">
-          <YdIcon name="i-ri:add-line" />新建记录
-        </YdButton>
-      </div>
-    </YdPageHeader>
-    <YdPageMain>
-      <table v-if="records.length" class="office-preview-table">
-        <thead>
-          <tr>
-            <th v-for="field in columns" :key="field.key">{{ field.label }}</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="record in records" :key="record.id">
-            <td v-for="field in columns" :key="field.key">{{ displayValue(record, field) }}</td>
-            <td>{{ formatTime(record.createdAt) }}</td>
-            <td class="flex gap-1">
-              <YdButton size="sm" variant="outline" @click="openEdit(record)">编辑</YdButton>
-              <YdButton size="sm" variant="outline" @click="remove(record)">删除</YdButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else-if="!loading" class="text-sm text-muted-foreground">
-        {{ schemaCode ? '还没有数据记录' : '请先选择数据模型' }}
-      </p>
-    </YdPageMain>
-    <div v-if="pager.total > pager.size" class="flex justify-end">
+  <YdTablePageLayout title="数据集">
+    <template #search="{ fold }">
+      <YdDynamicSearchForm
+        v-model="searchQuery"
+        :config="searchConfig"
+        :fold="fold"
+        :options-sources="optionsSources"
+        @search="applySearch"
+        @reset="resetSearch"
+      />
+    </template>
+    <template #actions>
+      <YdButton :disabled="!schemaCode" @click="openCreate">
+        新建记录
+      </YdButton>
+    </template>
+    <template #table>
+      <YdAlert v-if="error" class="mb-3" variant="destructive" title="加载失败" :description="error" />
+      <YdLoadingOverlay :loading="loading">
+        <YdResponsiveEnhancedTable
+          :columns="columns"
+          :data="records"
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[900px]"
+          border
+          stripe
+          column-visibility
+          :actions="rowActions"
+          empty-text="还没有数据记录"
+        >
+          <template v-for="field in activeSchema?.fields.filter(item => item.type !== 'attachments') ?? []" :key="field.key" #[`cell-${field.key}`]="{ row }">
+            <span class="truncate" :title="displayValue(row.original, field.key)">{{ displayValue(row.original, field.key) }}</span>
+          </template>
+          <template #cell-_createdAt="{ row }">{{ formatTime(row.original.createdAt) }}</template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
+    <template #footer>
       <YdPagination
-        v-model:page="pager.page"
-        v-model:size="pager.size"
-        :total="pager.total"
+        v-model:page="page"
+        v-model:size="size"
+        :total="total"
+        :sizes="pageSizes"
         @page-change="load"
         @size-change="load"
       />
-    </div>
+    </template>
+  </YdTablePageLayout>
 
-    <YdModal
-      v-model="modalVisible"
-      :title="editing ? '编辑记录' : '新建记录'"
-      confirm-button-text="保存"
-      :confirm-button-loading="saving"
-      :show-cancel-button="!saving"
-      cancel-button-text="取消"
-      @confirm="submit"
-    >
-      <div class="flex flex-col gap-3">
-        <label v-for="field in activeSchema?.fields ?? []" :key="field.key" class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">{{ field.label }}（{{ field.key }}）<span v-if="field.required" class="text-red-500">*</span></span>
-          <YdTextarea
-            v-if="field.type === 'longtext'"
-            v-model="formData[field.key]"
-            :rows="3"
-          />
+  <YdModal
+    v-model="modalVisible"
+    :title="editing ? '编辑记录' : '新建记录'"
+    confirm-button-text="保存"
+    :confirm-button-loading="saving"
+    :show-cancel-button="!saving"
+    cancel-button-text="取消"
+    @confirm="submit"
+  >
+    <div class="flex flex-col gap-3">
+      <template v-for="field in activeSchema?.fields ?? []" :key="field.key">
+        <YdLabel :label="`${field.label}（${field.key}）${field.required ? ' *' : ''}`">
+          <YdTextarea v-if="field.type === 'longtext'" v-model="formData[field.key]" :rows="3" />
           <YdSelect
             v-else-if="field.type === 'select' && field.options.length"
             v-model="formData[field.key]"
             :options="field.options.map(option => ({ label: option, value: option }))"
           />
           <YdInput v-else v-model="formData[field.key]" :placeholder="field.type" />
-          <span v-if="field.type === 'select' && field.options.length" class="text-xs text-muted-foreground">
-            可选：{{ field.options.join(' / ') }}
-          </span>
-        </label>
-      </div>
-    </YdModal>
-  </section>
+        </YdLabel>
+      </template>
+      <p v-if="!activeSchema?.fields.length" class="text-sm text-muted-foreground">
+        该数据模型没有字段定义。
+      </p>
+    </div>
+  </YdModal>
 </template>

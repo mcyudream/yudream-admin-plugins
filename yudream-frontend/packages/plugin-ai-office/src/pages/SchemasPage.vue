@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { OfficeSchema, SchemaFieldDef } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdSelect, YdSwitch, useYdModal, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, useYdModal, useYdToast } from "@yudream/components"
 import { onMounted, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage } from '../api/office-api'
 import { formatTime } from '../types'
@@ -12,17 +13,21 @@ const toast = useYdToast()
 const confirm = useYdModal()
 const api = createOfficeAdminApi(props.sdk)
 
-const schemas = ref<OfficeSchema[]>([])
 const loading = ref(false)
-const drawerVisible = ref(false)
 const saving = ref(false)
-const editing = ref<OfficeSchema | null>(null)
-const form = ref({
-  id: '',
-  code: '',
-  name: '',
-  fields: [] as SchemaFieldDef[],
-})
+const schemas = ref<OfficeSchema[]>([])
+
+const columns: TableColumn<OfficeSchema>[] = [
+  { accessorKey: 'code', header: '编码', width: 180 },
+  { accessorKey: 'name', header: '名称', width: 180 },
+  { id: 'fields', header: '字段', minWidth: 320, enableSorting: false },
+  { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
+]
+
+const rowActions: ActionMenuItem<OfficeSchema>[] = [
+  { label: '编辑', icon: 'morph:pencil', visible: row => !row.builtin, onClick: row => openEdit(row) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, visible: row => !row.builtin, onClick: row => remove(row) },
+]
 
 const fieldTypes = [
   { label: '短文本', value: 'text' },
@@ -49,17 +54,21 @@ async function load() {
   }
 }
 
+// ---------- 编辑 ----------
+
+const modalVisible = ref(false)
+const editing = ref<OfficeSchema | null>(null)
+const form = ref<{ id: string, code: string, name: string, fields: SchemaFieldDef[] }>({
+  id: '', code: '', name: '', fields: [],
+})
+
 function openCreate() {
   editing.value = null
   form.value = { id: '', code: '', name: '', fields: [] }
-  drawerVisible.value = true
+  modalVisible.value = true
 }
 
 function openEdit(schema: OfficeSchema) {
-  if (schema.builtin) {
-    toast.warning('内置数据模型不可编辑')
-    return
-  }
   editing.value = schema
   form.value = {
     id: schema.id,
@@ -67,7 +76,7 @@ function openEdit(schema: OfficeSchema) {
     name: schema.name,
     fields: schema.fields.map(field => ({ ...field, options: [...field.options] })),
   }
-  drawerVisible.value = true
+  modalVisible.value = true
 }
 
 function addField() {
@@ -99,7 +108,7 @@ async function save() {
       await api.saveSchema(payload)
     }
     toast.success('已保存')
-    drawerVisible.value = false
+    modalVisible.value = false
     await load()
   }
   catch (cause) {
@@ -129,87 +138,90 @@ function remove(schema: OfficeSchema) {
 </script>
 
 <template>
-  <section class="office-page">
-    <YdPageHeader title="数据模型">
+  <YdTablePageLayout title="数据模型" :show-search="false">
+    <template #actions>
       <YdButton @click="openCreate">
         <YdIcon name="i-ri:add-line" />新建数据模型
       </YdButton>
-    </YdPageHeader>
-    <YdPageMain>
-      <table v-if="schemas.length" class="office-preview-table">
-        <thead>
-          <tr><th>编码</th><th>名称</th><th>字段</th><th>更新时间</th><th>操作</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="schema in schemas" :key="schema.id">
-            <td>{{ schema.code }} <YdTag v-if="schema.builtin" variant="outline">内置</YdTag></td>
-            <td>{{ schema.name }}</td>
-            <td>{{ schema.fields.map(field => `${field.label}(${field.key})`).join('、') }}</td>
-            <td>{{ formatTime(schema.updatedAt) }}</td>
-            <td class="flex gap-2">
-              <YdButton v-if="!schema.builtin" size="sm" variant="outline" @click="openEdit(schema)">编辑</YdButton>
-              <YdButton v-if="!schema.builtin" size="sm" variant="outline" @click="remove(schema)">删除</YdButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else-if="!loading" class="text-sm text-muted-foreground">
-        还没有数据模型，可在「办公设置」导入预设包获得内置结构
-      </p>
-    </YdPageMain>
+    </template>
+    <template #table>
+      <YdAlert v-if="false" variant="destructive" />
+      <YdLoadingOverlay :loading="loading">
+        <YdResponsiveEnhancedTable
+          :columns="columns"
+          :data="schemas"
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[900px]"
+          border
+          stripe
+          column-visibility
+          :actions="rowActions"
+          empty-text="还没有数据模型，可在「办公设置」导入预设包获得内置结构"
+        >
+          <template #cell-code="{ row }">
+            <strong>{{ row.original.code }}</strong>
+            <YdTag v-if="row.original.builtin" variant="outline">内置</YdTag>
+          </template>
+          <template #cell-fields="{ row }">
+            <span class="line-clamp-2 text-xs">{{ row.original.fields.map(field => `${field.label}(${field.key})`).join('、') }}</span>
+          </template>
+          <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
+  </YdTablePageLayout>
 
-    <YdModal
-      v-model="drawerVisible"
-      :title="editing ? '编辑数据模型' : '新建数据模型'"
-      confirm-button-text="保存"
-      :confirm-button-loading="saving"
-      :show-cancel-button="!saving"
-      cancel-button-text="取消"
-      @confirm="save"
-    >
-      <div class="flex flex-col gap-3">
-        <div class="grid grid-cols-2 gap-2">
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-secondary-foreground/80">编码（小写字母开头）</span>
-            <YdInput v-model="form.code" :disabled="!!editing" placeholder="activity" />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-secondary-foreground/80">名称</span>
-            <YdInput v-model="form.name" placeholder="活动" />
-          </label>
+  <YdModal
+    v-model="modalVisible"
+    :title="editing ? '编辑数据模型' : '新建数据模型'"
+    confirm-button-text="保存"
+    :confirm-button-loading="saving"
+    :show-cancel-button="!saving"
+    cancel-button-text="取消"
+    @confirm="save"
+  >
+    <div class="flex flex-col gap-3">
+      <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
+        <YdLabel label="编码（字母开头，可用中划线）" required>
+          <YdInput v-model="form.code" :disabled="!!editing" placeholder="activity" />
+        </YdLabel>
+        <YdLabel label="名称" required>
+          <YdInput v-model="form.name" placeholder="活动" />
+        </YdLabel>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-secondary-foreground/80">字段定义</span>
+        <YdButton size="sm" variant="outline" @click="addField">
+          <YdIcon name="i-ri:add-line" />加字段
+        </YdButton>
+      </div>
+      <div v-for="(field, index) in form.fields" :key="index" class="rounded border p-2">
+        <div class="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+          <YdLabel label="key（字母开头）" required>
+            <YdInput v-model="field.key" placeholder="title" />
+          </YdLabel>
+          <YdLabel label="名称" required>
+            <YdInput v-model="field.label" placeholder="活动名称" />
+          </YdLabel>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-secondary-foreground/80">字段定义</span>
-          <YdButton size="sm" variant="outline" @click="addField">
-            <YdIcon name="i-ri:add-line" />加字段
-          </YdButton>
+        <div class="mt-2 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+          <YdLabel label="类型">
+            <YdSelect v-model="field.type" :options="fieldTypes" />
+          </YdLabel>
+          <YdLabel v-if="field.type === 'select'" label="选项（逗号分隔）">
+            <YdInput
+              :model-value="field.options.join('，')"
+              @update:model-value="field.options = String($event).split(/[,，]/).map(item => item.trim()).filter(Boolean)"
+            />
+          </YdLabel>
         </div>
-        <div v-for="(field, index) in form.fields" :key="index" class="rounded border p-2">
-          <div class="grid grid-cols-2 gap-2">
-            <label class="flex flex-col gap-1 text-sm">
-              <span>key（小写）</span>
-              <YdInput v-model="field.key" placeholder="title" />
-            </label>
-            <label class="flex flex-col gap-1 text-sm">
-              <span>名称</span>
-              <YdInput v-model="field.label" placeholder="活动名称" />
-            </label>
-            <label class="flex flex-col gap-1 text-sm">
-              <span>类型</span>
-              <YdSelect v-model="field.type" :options="fieldTypes" />
-            </label>
-            <label v-if="field.type === 'select'" class="flex flex-col gap-1 text-sm">
-              <span>选项（逗号分隔）</span>
-              <YdInput :model-value="field.options.join('，')" @update:model-value="field.options = String($event).split(/[,，]/).map(item => item.trim()).filter(Boolean)" />
-            </label>
-          </div>
-          <div class="mt-2 flex items-center gap-3">
-            <span class="text-sm">必填</span>
-            <YdSwitch v-model="field.required" size="sm" />
-            <YdButton size="sm" variant="outline" class="ml-auto" @click="removeField(index)">移除</YdButton>
-          </div>
+        <div class="mt-2 flex items-center gap-3">
+          <span class="text-sm">必填</span>
+          <YdSwitch v-model="field.required" size="sm" />
+          <YdButton size="sm" variant="outline" class="ml-auto" @click="removeField(index)">移除</YdButton>
         </div>
       </div>
-    </YdModal>
-  </section>
+    </div>
+  </YdModal>
 </template>

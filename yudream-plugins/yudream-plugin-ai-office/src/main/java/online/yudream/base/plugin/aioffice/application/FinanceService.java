@@ -33,19 +33,20 @@ public class FinanceService {
 
     // ---------- 登记 ----------
 
-    /** 上传凭证附件（multipart 先落文件存储，返回引用供创建记录时提交）。 */
-    public OfficeFinanceRecord.FileRef uploadAttachment(String filename, String contentType, byte[] data) {
+    /** 上传凭证附件（multipart 先落文件存储，返回引用供创建记录时提交）。kind 可由前端指定（invoice/screenshot/proof）。 */
+    public OfficeFinanceRecord.FileRef uploadAttachment(String filename, String contentType, String kind, byte[] data) {
         if (filename == null || filename.isBlank()) {
             throw new IllegalArgumentException("请选择要上传的文件");
         }
         if (data == null || data.length == 0) {
             throw new IllegalArgumentException("上传文件内容为空");
         }
-        return storeAttachment(filename, contentType, data);
+        OfficeFinanceRecord.FileRef ref = storeAttachment(filename, contentType, data);
+        return normalizeKind(ref, kind);
     }
 
     /** 平台文件桥：前端经 sdk.files.uploadImage 先传宿主 /api/files，这里按 fileId 拷入插件存储。 */
-    public OfficeFinanceRecord.FileRef uploadPlatformFile(String fileId, String filenameHint) {
+    public OfficeFinanceRecord.FileRef uploadPlatformFile(String fileId, String filenameHint, String kind) {
         if (fileId == null || fileId.isBlank()) {
             throw new IllegalArgumentException("缺少平台文件 fileId");
         }
@@ -67,7 +68,20 @@ public class FinanceService {
         }
         String filename = filenameHint != null && !filenameHint.isBlank()
                 ? filenameHint : String.valueOf(platform.objectKey());
-        return storeAttachment(filename, platform.contentType(), data);
+        return normalizeKind(storeAttachment(filename, platform.contentType(), data), kind);
+    }
+
+    /** 凭证类型白名单归一：invoice/screenshot/proof 之外的值回落 proof。 */
+    private static OfficeFinanceRecord.FileRef normalizeKind(OfficeFinanceRecord.FileRef ref, String kind) {
+        if (kind == null || kind.isBlank()) {
+            return ref;
+        }
+        String normalized = kind.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!"invoice".equals(normalized) && !"screenshot".equals(normalized)) {
+            normalized = "proof";
+        }
+        return new OfficeFinanceRecord.FileRef(ref.fileKey(), ref.filename(), ref.contentType(), ref.size(),
+                normalized);
     }
 
     private OfficeFinanceRecord.FileRef storeAttachment(String filename, String contentType, byte[] data) {

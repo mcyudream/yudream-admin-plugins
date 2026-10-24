@@ -1,27 +1,70 @@
 <script setup lang="ts">
+import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
-import { YdButton, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdSelect, YdTag, useYdModal, useYdToast } from '@yudream/components'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { YdAlert, YdFileUpload, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, useYdModal, useYdToast } from '@yudream/components'
+import { onMounted, ref } from 'vue'
 import { createOfficeMeApi, errorMessage, saveBlob } from '../api/office-api'
 import { formatTime, moneyText } from '../types'
-import { createOfficeAdminApi } from '../api/office-api'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 
 const toast = useYdToast()
 const confirm = useYdModal()
-const meApi = createOfficeMeApi(props.sdk)
-const adminApi = createOfficeAdminApi(props.sdk)
+const api = createOfficeMeApi(props.sdk)
 
 const loading = ref(false)
+const error = ref('')
 const records = ref<FinanceRecord[]>([])
-const pager = reactive({ page: 1, size: 10, total: 0 })
+const total = ref(0)
+const page = ref(1)
+const size = ref(10)
+const pageSizes = [10, 20, 50]
 const categories = ref<OfficeCategory[]>([])
 
-const modalVisible = ref(false)
+const columns: TableColumn<FinanceRecord>[] = [
+  { id: 'title', header: '摘要', minWidth: 200, enableSorting: false },
+  { id: 'categoryCode', header: '类别', width: 130, enableSorting: false },
+  { accessorKey: 'amountCents', header: '金额', width: 120 },
+  { accessorKey: 'occurredAt', header: '发生时间', width: 170 },
+  { id: 'attachments', header: '凭证', width: 150, enableSorting: false },
+  { id: 'status', header: '状态', width: 120, enableSorting: false },
+]
+
+const rowActions: ActionMenuItem<FinanceRecord>[] = [
+  { label: '撤回', icon: 'morph:undo', danger: true, visible: row => row.status === 'pending', onClick: row => withdraw(row) },
+]
+
+onMounted(load)
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await api.finance(page.value, size.value)
+    records.value = data.records ?? []
+    total.value = data.total ?? 0
+  }
+  catch (cause) {
+    error.value = errorMessage(cause, '报销记录加载失败')
+  }
+  finally {
+    loading.value = false
+  }
+  try {
+    categories.value = await api.categories('expense')
+  }
+  catch {
+    categories.value = []
+  }
+}
+
+// ---------- 登记 ----------
+
+const createVisible = ref(false)
 const saving = ref(false)
-const form = reactive({
+const uploading = ref(false)
+const form = ref({
   categoryCode: '',
   title: '',
   amountYuan: '',
@@ -32,64 +75,38 @@ const form = reactive({
   fundSource: '',
 })
 const attachments = ref<FinanceAttachment[]>([])
-const uploading = ref(false)
+const uploadFiles = ref<File[]>([])
 
-const expenseCategories = computed(() => categories.value.filter(item => item.direction === 'expense'))
+const categoryOptions = () => categories.value.map(item => ({ label: item.name, value: item.code }))
 
-onMounted(async () => {
-  await Promise.all([load(), loadCategories()])
-})
-
-async function load() {
-  loading.value = true
-  try {
-    const data = await meApi.finance(pager.page, pager.size)
-    records.value = data.records ?? []
-    pager.total = data.total ?? 0
-  }
-  catch (cause) {
-    toast.error(errorMessage(cause, '报销记录加载失败'))
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-async function loadCategories() {
-  try {
-    categories.value = await adminApi.categories()
-  }
-  catch {
-    categories.value = []
-  }
-}
+const kindOptions = [
+  { label: '发票', value: 'invoice' },
+  { label: '支付截图', value: 'screenshot' },
+  { label: '其他凭证', value: 'proof' },
+]
 
 function openCreate() {
-  form.categoryCode = ''
-  form.title = ''
-  form.amountYuan = ''
-  form.quantity = ''
-  form.unitPriceYuan = ''
-  form.occurredAt = new Date().toISOString().slice(0, 10)
-  form.purpose = ''
-  form.fundSource = ''
+  form.value = {
+    categoryCode: '',
+    title: '',
+    amountYuan: '',
+    quantity: '',
+    unitPriceYuan: '',
+    occurredAt: new Date().toISOString().slice(0, 10),
+    purpose: '',
+    fundSource: '',
+  }
   attachments.value = []
-  modalVisible.value = true
+  createVisible.value = true
 }
 
-async function onFilesChosen(event: Event) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
-  if (!files.length) {
+async function handleUpload(options: { file: File }) {
+  if (uploading.value) {
     return
   }
   uploading.value = true
   try {
-    for (const file of files) {
-      attachments.value = [...attachments.value, await meApi.uploadAttachment(file)]
-    }
-    toast.success('凭证已上传')
+    attachments.value = [...attachments.value, await api.uploadAttachment(options.file)]
   }
   catch (cause) {
     toast.error(errorMessage(cause, '凭证上传失败'))
@@ -99,30 +116,42 @@ async function onFilesChosen(event: Event) {
   }
 }
 
+function attachmentKindLabel(kind: string) {
+  return kind === 'invoice' ? '发票' : kind === 'screenshot' ? '支付截图' : '其他凭证'
+}
+
+function downloadAttachment(record: FinanceRecord, filename: string) {
+  const attachment = record.attachments.find(item => item.filename === filename)
+  if (!attachment) {
+    return
+  }
+  const index = record.attachments.indexOf(attachment)
+  props.sdk.http.blob(`/me/finance/${encodeURIComponent(record.id)}/attachments/${index}`)
+    .then(blob => saveBlob(blob.data, filename))
+    .catch(() => toast.error('凭证下载失败'))
+}
+
 async function submit() {
-  if (!form.categoryCode || !form.title.trim() || !form.amountYuan) {
+  if (!form.value.categoryCode || !form.value.title.trim() || !form.value.amountYuan) {
     toast.warning('请填写类别、摘要与金额')
     return
   }
   saving.value = true
   try {
-    const amountCents = Math.round(Number(form.amountYuan) * 100)
-    const quantity = form.quantity ? Number(form.quantity) : 0
-    const unitPriceCents = form.unitPriceYuan ? Math.round(Number(form.unitPriceYuan) * 100) : 0
-    await meApi.createFinance({
+    await api.createFinance({
       direction: 'expense',
-      categoryCode: form.categoryCode,
-      title: form.title.trim(),
-      amountCents,
-      quantity,
-      unitPriceCents,
-      occurredAt: new Date(`${form.occurredAt}T00:00:00`).getTime(),
-      purpose: form.purpose.trim(),
-      fundSource: form.fundSource.trim(),
+      categoryCode: form.value.categoryCode,
+      title: form.value.title.trim(),
+      amountCents: Math.round(Number(form.value.amountYuan) * 100),
+      quantity: form.value.quantity ? Number(form.value.quantity) : 0,
+      unitPriceCents: form.value.unitPriceYuan ? Math.round(Number(form.value.unitPriceYuan) * 100) : 0,
+      occurredAt: new Date(`${form.value.occurredAt}T00:00:00`).getTime(),
+      purpose: form.value.purpose.trim(),
+      fundSource: form.value.fundSource.trim(),
       attachments: attachments.value,
     })
     toast.success('已提交，等待审核')
-    modalVisible.value = false
+    createVisible.value = false
     await load()
   }
   catch (cause) {
@@ -139,7 +168,7 @@ function withdraw(record: FinanceRecord) {
     content: `确认撤回「${record.title}」吗？凭证将一并清理。`,
     onConfirm: async () => {
       try {
-        await meApi.withdrawFinance(record.id)
+        await api.withdrawFinance(record.id)
         toast.success('已撤回')
         await load()
       }
@@ -150,116 +179,125 @@ function withdraw(record: FinanceRecord) {
   })
 }
 
-function downloadAttachment(record: FinanceRecord, index: number) {
-  saveBlobUrl(`/me/finance/attachment/${record.id}/${index}`, record.attachments[index]?.filename || '凭证')
-}
-
-async function saveBlobUrl(path: string, filename: string) {
-  const blob = await props.sdk.http.blob(path)
-  saveBlob(blob.data, filename)
-}
-
 function statusText(status: string) {
   return status === 'accepted' ? '已采纳' : status === 'rejected' ? '未采纳' : '待审核'
 }
 </script>
 
 <template>
-  <section class="office-page">
-    <YdPageHeader title="我的报销">
-      <YdButton @click="openCreate">
-        <YdIcon name="i-ri:add-line" />登记支出
-      </YdButton>
-    </YdPageHeader>
-    <YdPageMain>
-      <table v-if="records.length" class="office-preview-table">
-        <thead>
-          <tr><th>摘要</th><th>类别</th><th>金额</th><th>发生时间</th><th>凭证</th><th>状态</th><th>操作</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="record in records" :key="record.id">
-            <td>{{ record.title }}</td>
-            <td>{{ record.categoryCode }}</td>
-            <td>¥{{ moneyText(record.amountCents) }}</td>
-            <td>{{ formatTime(record.occurredAt) }}</td>
-            <td>
+  <YdTablePageLayout title="我的报销" :show-search="false">
+    <template #actions>
+      <YdButton @click="openCreate">登记支出</YdButton>
+    </template>
+    <template #table>
+      <YdAlert v-if="error" class="mb-3" variant="destructive" title="加载失败" :description="error" />
+      <YdLoadingOverlay :loading="loading">
+        <YdResponsiveEnhancedTable
+          :columns="columns"
+          :data="records"
+          row-key="id"
+          table-root-class="rounded-lg overflow-hidden"
+          table-class="min-w-[900px]"
+          border
+          stripe
+          :actions="rowActions"
+          empty-text="还没有报销记录"
+        >
+          <template #cell-title="{ row }">
+            <strong class="truncate" :title="row.original.title">{{ row.original.title }}</strong>
+          </template>
+          <template #cell-amountCents="{ row }">¥{{ moneyText(row.original.amountCents) }}</template>
+          <template #cell-occurredAt="{ row }">{{ formatTime(row.original.occurredAt) }}</template>
+          <template #cell-attachments="{ row }">
+            <div class="flex flex-col">
               <a
-                v-for="(attachment, index) in record.attachments"
+                v-for="attachment in row.original.attachments"
                 :key="attachment.fileKey"
-                class="mr-2 underline decoration-dotted"
+                class="truncate text-xs underline decoration-dotted"
+                :title="attachmentKindLabel(attachment.kind)"
                 href="javascript:void(0)"
-                @click="downloadAttachment(record, index)"
-              >{{ attachment.kind === 'invoice' ? '发票' : attachment.kind === 'screenshot' ? '截图' : '凭证' }}</a>
-              <span v-if="!record.attachments.length" class="text-muted-foreground">无</span>
-            </td>
-            <td>
-              <YdTag :variant="record.status === 'accepted' ? 'default' : 'outline'">{{ statusText(record.status) }}</YdTag>
-              <div v-if="record.reviewNote" class="text-xs text-muted-foreground">{{ record.reviewNote }}</div>
-            </td>
-            <td>
-              <YdButton v-if="record.status === 'pending'" size="sm" variant="outline" @click="withdraw(record)">撤回</YdButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else-if="!loading" class="text-sm text-muted-foreground">还没有报销记录</p>
-    </YdPageMain>
+                @click="downloadAttachment(row.original, attachment.filename)"
+              >{{ attachmentKindLabel(attachment.kind) }}</a>
+              <span v-if="!row.original.attachments.length" class="text-muted-foreground">无</span>
+            </div>
+          </template>
+          <template #cell-status="{ row }">
+            <YdTag :variant="row.original.status === 'accepted' ? 'default' : 'outline'">
+              {{ statusText(row.original.status) }}
+            </YdTag>
+            <div v-if="row.original.reviewNote" class="max-w-40 truncate text-xs text-muted-foreground" :title="row.original.reviewNote">
+              {{ row.original.reviewNote }}
+            </div>
+          </template>
+        </YdResponsiveEnhancedTable>
+      </YdLoadingOverlay>
+    </template>
 
-    <YdModal
-      v-model="modalVisible"
-      title="登记支出"
-      confirm-button-text="提交"
-      :confirm-button-loading="saving"
-      :show-cancel-button="!saving"
-      cancel-button-text="取消"
-      @confirm="submit"
-    >
-      <div class="flex flex-col gap-3">
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">支出类别</span>
-          <YdSelect
-            v-model="form.categoryCode"
-            placeholder="选择类别"
-            :options="expenseCategories.map(item => ({ label: item.name, value: item.code }))"
-          />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">摘要（购买了什么）</span>
-          <YdInput v-model="form.title" maxlength="100" placeholder="如：活动奖品采购" />
-        </label>
-        <div class="grid grid-cols-3 gap-2">
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-secondary-foreground/80">金额（元）</span>
-            <YdInput v-model="form.amountYuan" placeholder="0.00" />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-secondary-foreground/80">数量</span>
-            <YdInput v-model="form.quantity" placeholder="选填" />
-          </label>
-          <label class="flex flex-col gap-1 text-sm">
-            <span class="text-secondary-foreground/80">单价（元）</span>
-            <YdInput v-model="form.unitPriceYuan" placeholder="选填" />
-          </label>
-        </div>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">发生日期</span>
-          <YdInput v-model="form.occurredAt" placeholder="yyyy-MM-dd" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">用途</span>
-          <YdInput v-model="form.purpose" placeholder="选填" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">资金来源</span>
-          <YdInput v-model="form.fundSource" placeholder="选填，如：校上拨款-校级活动" />
-        </label>
-        <div class="flex flex-col gap-1 text-sm">
-          <span class="text-secondary-foreground/80">发票 / 支付截图（最多 10 个）</span>
-          <input type="file" multiple @change="onFilesChosen">
-          <span v-if="uploading" class="text-muted-foreground">上传中…</span>
-          <span v-if="attachments.length" class="text-muted-foreground">已上传 {{ attachments.length }} 个凭证</span>
-        </div>
+    <template #footer>
+      <YdPagination
+        v-model:page="page"
+        v-model:size="size"
+        :total="total"
+        :sizes="pageSizes"
+        @page-change="load"
+        @size-change="load"
+      />
+    </template>
+  </YdTablePageLayout>
+
+  <YdModal
+    v-model="createVisible"
+    title="登记支出"
+    confirm-button-text="提交"
+    :confirm-button-loading="saving"
+    :show-cancel-button="!saving"
+    cancel-button-text="取消"
+    @confirm="submit"
+  >
+    <div class="flex flex-col gap-3">
+      <YdLabel label="支出类别" required>
+        <YdSelect v-model="form.categoryCode" :options="categoryOptions()" placeholder="选择类别" />
+      </YdLabel>
+      <YdLabel label="摘要" required>
+        <YdInput v-model="form.title" maxlength="100" placeholder="如：活动奖品采购" />
+      </YdLabel>
+      <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
+        <YdLabel label="金额（元）" required>
+          <YdInput v-model="form.amountYuan" placeholder="0.00" />
+        </YdLabel>
+        <YdLabel label="数量">
+          <YdInput v-model="form.quantity" placeholder="选填" />
+        </YdLabel>
+        <YdLabel label="单价（元）">
+          <YdInput v-model="form.unitPriceYuan" placeholder="选填" />
+        </YdLabel>
       </div>
-    </YdModal>
-  </section>
+      <YdLabel label="发生日期">
+        <YdInput v-model="form.occurredAt" placeholder="yyyy-MM-dd" />
+      </YdLabel>
+      <YdLabel label="用途">
+        <YdInput v-model="form.purpose" placeholder="选填" />
+      </YdLabel>
+      <YdLabel label="资金来源">
+        <YdInput v-model="form.fundSource" placeholder="选填，如：校上拨款-校级活动" />
+      </YdLabel>
+      <YdLabel label="发票 / 支付截图（最多 10 个，单个不超过 50MB）">
+        <YdFileUpload
+          v-model="uploadFiles"
+          multiple
+          :max="10"
+          :http-request="handleUpload"
+          description="拖放或点击上传"
+        />
+      </YdLabel>
+      <div v-if="attachments.length" class="flex flex-col gap-2">
+        <div v-for="attachment in attachments" :key="attachment.fileKey"
+          class="flex items-center gap-2 rounded border p-2">
+          <span class="w-56 truncate text-xs" :title="attachment.filename">{{ attachment.filename }}</span>
+          <YdSelect v-model="attachment.kind" :options="kindOptions" class="w-40" />
+        </div>
+        <p v-if="uploading" class="text-sm text-muted-foreground">凭证上传中…</p>
+      </div>
+    </div>
+  </YdModal>
 </template>

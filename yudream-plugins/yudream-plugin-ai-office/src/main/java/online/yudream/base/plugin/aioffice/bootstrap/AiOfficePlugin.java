@@ -57,6 +57,15 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 10
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/office/prompts",
+                        name = "platform-plugin-office-prompts",
+                        title = "AI 提示词",
+                        icon = "i-ri:quill-pen-line",
+                        component = "ai-office/Prompts",
+                        permission = AiOfficePlugin.MANAGE_PERMISSION,
+                        sort = 10
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/office/schemas",
                         name = "platform-plugin-office-schemas",
                         title = "数据模型",

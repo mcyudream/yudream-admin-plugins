@@ -119,6 +119,15 @@ public class ConfigService {
         return repository.categories();
     }
 
+    /** 启用中的类别（用户面报销登记用，不含维护字段）。 */
+    public List<OfficeCategory> activeCategories(String direction) {
+        return repository.categories().stream()
+                .filter(OfficeCategory::enabled)
+                .filter(category -> direction == null || direction.isBlank()
+                        || category.direction().equals(direction))
+                .toList();
+    }
+
     public OfficeCategory saveCategory(OfficeCategory category) {
         boolean duplicated = repository.categories().stream()
                 .anyMatch(existing -> !existing.id().equals(category.id())

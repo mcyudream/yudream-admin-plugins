@@ -303,14 +303,20 @@ public class OfficeHttpFacade {
         return guard(() -> {
             PluginHttpPart file = request.parts() == null ? null : request.parts().get("file");
             if (file != null && file.isFile()) {
-                return PluginHttpResponse.ok(
-                        finance.uploadAttachment(file.filename(), file.contentType(), file.data()));
+                return PluginHttpResponse.ok(finance.uploadAttachment(file.filename(), file.contentType(),
+                        strOrNullQuery(request, "kind"), file.data()));
             }
             Map<String, Object> body = JsonSupport.readMap(request.body());
             return PluginHttpResponse.ok(finance.uploadPlatformFile(
                     String.valueOf(body.getOrDefault("fileId", "")),
-                    body.get("filename") == null ? null : String.valueOf(body.get("filename"))));
+                    body.get("filename") == null ? null : String.valueOf(body.get("filename")),
+                    strOrNullQuery(request, "kind")));
         });
+    }
+
+    /** 用户面可用的启用类别（报销登记下拉），只读不暴露维护面。 */
+    public PluginHttpResponse myCategories(PluginHttpRequest request) {
+        return guard(() -> PluginHttpResponse.ok(config.activeCategories(firstQuery(request, "direction"))));
     }
 
     public PluginHttpResponse myFinanceItem(PluginHttpRequest request, String id) {
@@ -534,6 +540,11 @@ public class OfficeHttpFacade {
     private static String firstQuery(PluginHttpRequest request, String key) {
         List<String> values = request.query().get(key);
         return values == null || values.isEmpty() ? null : values.get(0);
+    }
+
+    private static String strOrNullQuery(PluginHttpRequest request, String key) {
+        String value = firstQuery(request, key);
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static String orDefault(String value, String fallback) {

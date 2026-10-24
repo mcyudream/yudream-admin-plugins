@@ -104,9 +104,10 @@ export function createOfficeAdminApi(sdk: YuDreamPluginSdk) {
       sdk.http.post<FinanceRecord>(`/admin/finance/${encodeURIComponent(id)}/review`, data),
     deleteFinance: (id: string) =>
       sdk.http.request(`/admin/finance/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    uploadFinanceAttachment: async (file: File): Promise<FinanceAttachment> => {
+    uploadFinanceAttachment: async (file: File, kind?: string): Promise<FinanceAttachment> => {
       const uploaded = await sdk.files.uploadImage(file, { module: 'ai-office' })
-      return sdk.http.post<FinanceAttachment>('/me/finance/upload',
+      return sdk.http.post<FinanceAttachment>(
+        `/me/finance/upload${query({ kind: kind || undefined })}`,
         { fileId: uploaded.id, filename: uploaded.originalName || file.name })
     },
 
@@ -148,9 +149,13 @@ export function createOfficeMeApi(sdk: YuDreamPluginSdk) {
     createFinance: (data: Partial<FinanceRecord>) => sdk.http.post<FinanceRecord>('/me/finance', data),
     withdrawFinance: (id: string) =>
       sdk.http.request(`/me/finance/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    uploadAttachment: async (file: File): Promise<FinanceAttachment> => {
+    /** 启用中的报销类别（用户面下拉，走 /me 端点不要求管理权限）。 */
+    categories: (direction?: string) =>
+      sdk.http.get<OfficeCategory[]>(`/me/finance/categories${query({ direction })}`),
+    uploadAttachment: async (file: File, kind?: string): Promise<FinanceAttachment> => {
       const uploaded = await sdk.files.uploadImage(file, { module: 'ai-office' })
-      return sdk.http.post<FinanceAttachment>('/me/finance/upload',
+      return sdk.http.post<FinanceAttachment>(
+        `/me/finance/upload${query({ kind: kind || undefined })}`,
         { fileId: uploaded.id, filename: uploaded.originalName || file.name })
     },
   }
