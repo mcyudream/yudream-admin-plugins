@@ -29,7 +29,13 @@ const saving = ref(false)
 const gatewayInfo = ref<DownloadGatewayInfo | null>(null)
 const showSecret = ref(false)
 
-interface SourceForm extends DownloadSourceEntry {}
+/** 表单内一律 camelCase baseUrl；仅在 load/save 边界与协议视图 snake_case 互转。 */
+interface SourceForm {
+  id: string
+  provider: DownloadProvider
+  name: string | null
+  baseUrl: string | null
+}
 
 const form = ref<{
   managed: boolean
@@ -111,7 +117,7 @@ function addSource() {
     id,
     provider: newSource.value.provider,
     name: newSource.value.name.trim() || null,
-    base_url: newSource.value.baseUrl.trim() || null,
+    baseUrl: newSource.value.baseUrl.trim() || null,
   })
   newSource.value = { id: '', provider: 'custom', name: '', baseUrl: '' }
 }
@@ -233,8 +239,9 @@ async function save() {
         id: source.id,
         provider: source.provider,
         name: source.name || null,
-        // 保存契约是 camelCase（GET 协议视图是 snake_case，回显时已转换）
-        baseUrl: source.base_url || null,
+        // 保存契约是 camelCase；表单模型已统一 baseUrl（此前误读协议字段 base_url，
+        // 服务端回显的源基址保存时全变 null，custom 源触发后端 400）
+        baseUrl: source.baseUrl || null,
       })),
       categories: Object.fromEntries(
         CATEGORY_DEFS.map(def => [def.key, form.value.categories[def.key] || []]),
