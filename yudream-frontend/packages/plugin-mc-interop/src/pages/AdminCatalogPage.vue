@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, TableColumn, YdTablePageAction } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { McInteropEntry } from '../types'
+import type { InteropPackEntry, McInteropEntry } from '../types'
 import { YdAlert, YdDynamicSearchForm, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdNumberField, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { ref } from 'vue'
 import { formatDateTime } from '../composables/useMcInteropShell'
@@ -30,6 +30,18 @@ const searchConfig: SearchConfig = {
 function applySearch() {
   model.keyword = String(searchQuery.value.keyword ?? '')
   void model.search()
+}
+
+function serverAddress(pack: InteropPackEntry): string {
+  if (!pack.server) return ''
+  return pack.server.port ? `${pack.server.address}:${pack.server.port}` : pack.server.address
+}
+
+async function copyServerAddress(pack: InteropPackEntry) {
+  const address = serverAddress(pack)
+  if (!address) return
+  await navigator.clipboard.writeText(address)
+  toast.success('已复制服务器地址')
 }
 
 const columns: TableColumn<McInteropEntry>[] = [
@@ -163,7 +175,13 @@ function save() {
               rel="noopener"
               class="text-xs text-blue-500 hover:underline"
             >下载整合包</a>
-            <code class="text-xs text-secondary">{{ pack.server ? (pack.server.port ? `${pack.server.address}:${pack.server.port}` : pack.server.address) : '-' }}</code>
+            <code v-if="pack.server" class="text-xs text-secondary">{{ serverAddress(pack) }}</code>
+            <button
+              v-if="pack.server"
+              type="button"
+              class="rounded-md border border-solid border-surface-5 px-2 py-0.5 text-xs text-secondary transition-colors hover:text-contrast"
+              @click="copyServerAddress(pack)"
+            >复制地址</button>
           </div>
         </div>
       </template>

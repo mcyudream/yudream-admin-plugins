@@ -4,7 +4,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useMcInteropShell } from './useMcInteropShell'
 
 export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
-  const { api, loading, error, run } = useMcInteropShell(sdk)
+  const { api, loading, error, run, runStrict } = useMcInteropShell(sdk)
 
   const entries = ref<McInteropEntry[]>([])
   const page = ref(1)
@@ -75,7 +75,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   }
 
   function save() {
-    return run(async () => {
+    return runStrict(async () => {
       // 0 哨兵 → 未填：端口 0 = 交给 SRV/客户端默认，大小 0 = 必填校验交给后端
       await api.saveEntry({
         ...form,
@@ -88,7 +88,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   }
 
   function togglePublish(entry: McInteropEntry) {
-    return run(async () => {
+    return runStrict(async () => {
       await api.publish(entry.id, !entry.published)
       await load()
     })
@@ -101,7 +101,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   }
 
   function remove(entry: McInteropEntry) {
-    return run(async () => {
+    return runStrict(async () => {
       await api.deleteEntry(entry.id)
       await load()
     })

@@ -4,7 +4,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useMcInteropShell } from './useMcInteropShell'
 
 export function useMcInteropSite(sdk: YuDreamPluginSdk) {
-  const { api, loading, error, run } = useMcInteropShell(sdk)
+  const { api, loading, error, run, runStrict } = useMcInteropShell(sdk)
 
   const settings = ref<McInteropSettings>({})
   const peers = ref<McInteropPeer[]>([])
@@ -20,7 +20,7 @@ export function useMcInteropSite(sdk: YuDreamPluginSdk) {
   }
 
   function save() {
-    return run(async () => {
+    return runStrict(async () => {
       settings.value = await api.saveSettings({
         siteId: (settings.value.siteId ?? '').trim(),
         siteName: (settings.value.siteName ?? '').trim(),
@@ -31,7 +31,7 @@ export function useMcInteropSite(sdk: YuDreamPluginSdk) {
   }
 
   function savePeer() {
-    return run(async () => {
+    return runStrict(async () => {
       await api.savePeer({ ...peerForm })
       peerOpen.value = false
       Object.assign(peerForm, { siteId: '', name: '', description: '', domain: '', manifestUrl: '' })
@@ -42,7 +42,7 @@ export function useMcInteropSite(sdk: YuDreamPluginSdk) {
 
   function removePeer(siteId?: string) {
     if (!siteId) return Promise.resolve()
-    return run(async () => {
+    return runStrict(async () => {
       await api.deletePeer(siteId)
       const body = await api.peers()
       peers.value = body.records ?? []

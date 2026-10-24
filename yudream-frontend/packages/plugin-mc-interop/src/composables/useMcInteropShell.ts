@@ -23,7 +23,19 @@ export function useMcInteropShell(sdk: YuDreamPluginSdk) {
     }
   }
 
-  return { api, loading, error, run }
+  /**
+   * 写操作用：失败在 error.value 记录后抛出，让页面 catch 弹错误 toast，
+   * 避免 run 吞错后页面误报「已保存」。
+   */
+  async function runStrict<T>(action: () => Promise<T>): Promise<T> {
+    const result = await run(action)
+    if (result === undefined && error.value) {
+      throw new Error(error.value)
+    }
+    return result as T
+  }
+
+  return { api, loading, error, run, runStrict }
 }
 
 /** 宿主把 Long 序列化为数字字符串；epoch 毫秒转本地时间文本。 */
