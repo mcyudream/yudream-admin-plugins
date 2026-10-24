@@ -23,6 +23,8 @@ public record SettingsSaveRequest(
         /** aTrust 客户端唤起链接（自定义协议）；null 表示不修改。 */
         String atrustWakeUrl,
         /** aTrust 下载/帮助页（http/https）；null 表示不修改。 */
-        String atrustGuideUrl
+        String atrustGuideUrl,
+        /** 校外接入引导页自定义提示文案；null 表示不修改。 */
+        String bridgeNotice
 ) {
 }

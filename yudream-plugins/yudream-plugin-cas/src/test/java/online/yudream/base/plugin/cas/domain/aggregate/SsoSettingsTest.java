@@ -18,7 +18,8 @@ class SsoSettingsTest {
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
                 "", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", true,
-                "", ""
+                "", "",
+                ""
         );
         assertTrue(settings.ready());
         assertTrue(settings.loginEnabled());
@@ -34,7 +35,8 @@ class SsoSettingsTest {
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
                 "client", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/callback", true,
-                "", ""
+                "", "",
+                ""
         );
         assertFalse(settings.ready());
         assertTrue(settings.withClientSecretConfigured(true).ready());
@@ -48,7 +50,8 @@ class SsoSettingsTest {
                 settings.loginPath(), settings.validatePath(), settings.oidcIssuer(), settings.oidcAuthorizePath(),
                 settings.oidcTokenPath(), settings.oidcUserinfoPath(), settings.oidcJwksPath(), settings.oidcRegisterPath(),
                 "", false, settings.scopes(), "https://site.example/callback?from=login", true,
-                "", ""
+                "", "",
+                ""
         );
         assertEquals("https://site.example/callback?from=login&state=s1", withCallback.casServiceUrl("s1"));
     }

@@ -47,6 +47,7 @@ public final class SsoSettingsDocumentRepository implements SsoSettingsRepositor
         document.put("loginWarmup", settings.loginWarmup());
         document.put("atrustWakeUrl", settings.atrustWakeUrl());
         document.put("atrustGuideUrl", settings.atrustGuideUrl());
+        document.put("bridgeNotice", settings.bridgeNotice());
         return toSettings(documents.save(COLLECTION, ID, DocValues.stripNulls(document)));
     }
 
@@ -72,7 +73,8 @@ public final class SsoSettingsDocumentRepository implements SsoSettingsRepositor
                 orDefault(DocValues.string(document, "callbackUrl"), ""),
                 DocValues.bool(document, "loginWarmup", defaults.loginWarmup()),
                 DocValues.string(document, "atrustWakeUrl"),
-                DocValues.string(document, "atrustGuideUrl")
+                DocValues.string(document, "atrustGuideUrl"),
+                DocValues.string(document, "bridgeNotice")
         );
     }
 

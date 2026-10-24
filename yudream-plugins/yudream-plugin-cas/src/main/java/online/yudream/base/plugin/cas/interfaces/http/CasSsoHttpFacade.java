@@ -58,6 +58,7 @@ public final class CasSsoHttpFacade {
                 body.loginWarmup() == null ? current.loginWarmup() : body.loginWarmup(),
                 firstNonBlank(body.atrustWakeUrl(), current.atrustWakeUrl()),
                 firstNonBlank(body.atrustGuideUrl(), current.atrustGuideUrl()),
+                firstNonBlank(body.bridgeNotice(), current.bridgeNotice()),
                 false
         );
         return PluginHttpResponse.ok(settings.save(incoming, body.clientSecret()));
@@ -89,7 +90,7 @@ public final class CasSsoHttpFacade {
                 Map.of("Cache-Control", "no-store"),
                 "text/html; charset=UTF-8",
                 warmupPage(target, current.loginWarmup(), current.displayName(),
-                        current.atrustWakeUrl(), current.atrustGuideUrl()),
+                        current.atrustWakeUrl(), current.atrustGuideUrl(), current.bridgeNotice()),
                 false);
     }
 
@@ -100,7 +101,7 @@ public final class CasSsoHttpFacade {
      * 不引入任何外部资源（不依赖宿主的 CSS，也不会闪烁）。
      */
     static String warmupPage(String target, boolean warmup, String displayName,
-                                     String atrustWakeUrl, String atrustGuideUrl) {
+                                     String atrustWakeUrl, String atrustGuideUrl, String bridgeNotice) {
         String preheat = warmup
                 ? """
                   try {
@@ -112,10 +113,14 @@ public final class CasSsoHttpFacade {
                   """
                 : "go();";
         String name = html(displayName);
-        if (atrustWakeUrl != null && !atrustWakeUrl.isBlank()) {
-            return guidePage(target, preheat, name, atrustWakeUrl, atrustGuideUrl);
+        if (atrustGuideEnabled(atrustWakeUrl, bridgeNotice)) {
+            return guidePage(target, preheat, name, atrustWakeUrl, atrustGuideUrl, bridgeNotice);
         }
         return autoPage(target, preheat, name);
+    }
+
+    private static boolean atrustGuideEnabled(String wakeUrl, String notice) {
+        return (wakeUrl != null && !wakeUrl.isBlank()) || (notice != null && !notice.isBlank());
     }
 
     /** 默认预热页：自动预热并跳转（未配置 aTrust 唤醒链接时的行为，保持不变）。 */
@@ -228,11 +233,23 @@ public final class CasSsoHttpFacade {
      * 「继续登录」写入 localStorage 后回到自动跳转行为；跳转目标仍由服务端按 state 重建，无任意跳转参数。
      */
     private static String guidePage(String target, String preheat, String name,
-                                            String atrustWakeUrl, String atrustGuideUrl) {
+                                            String atrustWakeUrl, String atrustGuideUrl, String bridgeNotice) {
         boolean hasGuideUrl = atrustGuideUrl != null && !atrustGuideUrl.isBlank();
         String guideLink = hasGuideUrl
                 ? "<p class=\"fallback\"><a href=\"" + html(atrustGuideUrl)
                         + "\" target=\"_blank\" rel=\"noreferrer\">没有安装客户端？打开下载与帮助</a></p>"
+                : "";
+        // 自定义提示：整体 HTML 转义后按原文换行展示
+        String notice = bridgeNotice == null || bridgeNotice.isBlank()
+                ? ""
+                : "<div class=\"notice\">" + html(bridgeNotice) + "</div>";
+        // 深链协议直接以 <a href> 外露：唤起行为交给浏览器协议处理，比 JS location 更可靠，且地址可见可复制
+        boolean hasWake = atrustWakeUrl != null && !atrustWakeUrl.isBlank();
+        String wakeStep = hasWake
+                ? "<div class=\"step\">"
+                        + "<a id=\"wake\" class=\"btn\" href=\"" + html(atrustWakeUrl) + "\">① 唤醒认证客户端</a>"
+                        + "<span class=\"hint\">若无反应，请先安装并登录校外认证客户端；链接无响应时可长按复制到客户端打开</span>"
+                        + "</div>"
                 : "";
         return """
                 <!doctype html>
@@ -309,8 +326,32 @@ public final class CasSsoHttpFacade {
                       border-color: var(--yb-accent);
                       color: #fff;
                     }
-                    .step button:hover { filter: brightness(1.05); }
+                    .step button:hover, .step .btn:hover { filter: brightness(1.05); }
                     .step .hint { color: var(--yb-sub); font-size: 12px; }
+                    .step .btn {
+                      display: block;
+                      padding: 10px 12px;
+                      font-size: 14px;
+                      text-align: center;
+                      text-decoration: none;
+                      border-radius: 6px;
+                      border: 1px solid var(--yb-border);
+                      background: var(--yb-card);
+                      color: var(--yb-text);
+                      word-break: break-all;
+                    }
+                    .notice {
+                      margin: 0 0 14px;
+                      padding: 10px 12px;
+                      font-size: 13px;
+                      line-height: 1.6;
+                      text-align: left;
+                      white-space: pre-wrap;
+                      overflow-wrap: anywhere;
+                      border: 1px solid var(--yb-border);
+                      border-radius: 6px;
+                      background: color-mix(in srgb, var(--yb-accent) 6%, var(--yb-card));
+                    }
                     .fallback { margin: 6px 0 0; font-size: 12px; color: var(--yb-sub); }
                     .fallback a { color: inherit; }
                     @media (prefers-reduced-motion: reduce) {
@@ -322,12 +363,10 @@ public final class CasSsoHttpFacade {
                   <div class="card">
                     <p class="title">正在前往@@NAME@@</p>
                     <p class="sub">校外访问需先连接校外认证客户端（如 aTrust）；已在校园网内可直接继续。</p>
+                    @@NOTICE@@
+                    @@WAKE_STEP@@
                     <div class="step">
-                      <button id="wake" type="button">① 唤醒认证客户端</button>
-                      <span class="hint">若无反应，请先安装并登录校外认证客户端</span>
-                    </div>
-                    <div class="step">
-                      <button id="go" type="button" class="primary">② 我已连接，继续登录</button>
+                      <button id="go" type="button" class="primary">@@GO_LABEL@@</button>
                       <span class="hint">继续后本机下次不再显示此提示</span>
                     </div>
                     @@GUIDE_LINK@@
@@ -335,19 +374,12 @@ public final class CasSsoHttpFacade {
                   <script>
                   (function () {
                     var target = @@TARGET@@;
-                    var wake = @@WAKE@@;
                     var KEY = 'cas-atrust-continue';
                     var done = false;
                     function go() {
                       if (done) { return; }
                       done = true;
                       location.replace(target);
-                    }
-                    var wakeBtn = document.getElementById('wake');
-                    if (wakeBtn) {
-                      wakeBtn.addEventListener('click', function () {
-                        window.location.href = wake;
-                      });
                     }
                     var goBtn = document.getElementById('go');
                     if (goBtn) {
@@ -366,7 +398,9 @@ public final class CasSsoHttpFacade {
                 """
                 .replace("@@NAME@@", name)
                 .replace("@@TARGET@@", jsString(target))
-                .replace("@@WAKE@@", jsString(atrustWakeUrl))
+                .replace("@@NOTICE@@", notice)
+                .replace("@@WAKE_STEP@@", wakeStep)
+                .replace("@@GO_LABEL@@", hasWake ? "② 我已连接，继续登录" : "我已连接，继续登录")
                 .replace("@@GUIDE_LINK@@", guideLink)
                 .replace("@@PREHEAT@@", preheat);
     }

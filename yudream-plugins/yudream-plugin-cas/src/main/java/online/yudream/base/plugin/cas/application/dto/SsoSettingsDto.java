@@ -24,6 +24,7 @@ public record SsoSettingsDto(
         boolean loginWarmup,
         String atrustWakeUrl,
         String atrustGuideUrl,
+        String bridgeNotice,
         boolean ready
 ) {
     public static SsoSettingsDto from(SsoSettings settings) {
@@ -48,6 +49,7 @@ public record SsoSettingsDto(
                 settings.loginWarmup(),
                 settings.atrustWakeUrl(),
                 settings.atrustGuideUrl(),
+                settings.bridgeNotice(),
                 settings.ready()
         );
     }
@@ -73,7 +75,8 @@ public record SsoSettingsDto(
                 callbackUrl,
                 loginWarmup,
                 atrustWakeUrl,
-                atrustGuideUrl
+                atrustGuideUrl,
+                bridgeNotice
         );
     }
 }

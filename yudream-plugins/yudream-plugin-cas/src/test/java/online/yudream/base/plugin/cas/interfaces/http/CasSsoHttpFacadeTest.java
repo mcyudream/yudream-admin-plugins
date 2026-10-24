@@ -197,16 +197,32 @@ class CasSsoHttpFacadeTest {
                 ready.casBaseUrl(), ready.loginPath(), ready.validatePath(), ready.oidcIssuer(),
                 ready.oidcAuthorizePath(), ready.oidcTokenPath(), ready.oidcUserinfoPath(), ready.oidcJwksPath(),
                 ready.oidcRegisterPath(), ready.clientId(), ready.clientSecretConfigured(), ready.scopes(),
-                ready.callbackUrl(), ready.loginWarmup(), "atrustclient://login", "https://help.example/atrust", false), null);
+                ready.callbackUrl(), ready.loginWarmup(), "atrustclient://login", "https://help.example/atrust", "", false), null);
 
         String html = String.valueOf(env.facade.warmup(request(Map.of("state", List.of("s1")))).body());
         // 引导模式：展示唤醒与继续按钮 + 帮助链接；唤醒链接经 JS 转义注入
-        assertTrue(html.contains("唤醒认证客户端"), html);
+        assertTrue(html.contains("① 唤醒认证客户端"), html);
+        assertTrue(html.contains("href=\"atrustclient://login\""), html);
         assertTrue(html.contains("我已连接，继续登录"), html);
         assertTrue(html.contains("打开下载与帮助"), html);
         assertTrue(html.contains("atrustclient://login"), html);
         assertTrue(html.contains("cas-atrust-continue"), html);
         assertFalse(html.contains("setTimeout(go, 1600)"), html);
+    }
+
+    @Test
+    void warmupPageShowsNoticeOnlyGuideWithoutWakeUrl() {
+        Env env = new Env();
+        SsoSettingsDto ready = casReady();
+        env.settings.save(new SsoSettingsDto(ready.enabled(), ready.protocol(), ready.displayName(), ready.icon(),
+                ready.casBaseUrl(), ready.loginPath(), ready.validatePath(), ready.oidcIssuer(),
+                ready.oidcAuthorizePath(), ready.oidcTokenPath(), ready.oidcUserinfoPath(), ready.oidcJwksPath(),
+                ready.oidcRegisterPath(), ready.clientId(), ready.clientSecretConfigured(), ready.scopes(),
+                ready.callbackUrl(), ready.loginWarmup(), "", "", "登录前请先连接校园网", false), null);
+        String html = String.valueOf(env.facade.warmup(request(Map.of("state", List.of("s1")))).body());
+        assertTrue(html.contains("登录前请先连接校园网"), html);
+        assertFalse(html.contains("唤醒认证客户端"), html);
+        assertTrue(html.contains("我已连接，继续登录"), html);
     }
 
     @Test
@@ -226,7 +242,7 @@ class CasSsoHttpFacadeTest {
                 ready.casBaseUrl(), ready.loginPath(), ready.validatePath(), ready.oidcIssuer(),
                 ready.oidcAuthorizePath(), ready.oidcTokenPath(), ready.oidcUserinfoPath(), ready.oidcJwksPath(),
                 ready.oidcRegisterPath(), ready.clientId(), ready.clientSecretConfigured(), ready.scopes(),
-                ready.callbackUrl(), ready.loginWarmup(), "not-a-scheme", "", false);
+                ready.callbackUrl(), ready.loginWarmup(), "not-a-scheme", "", "", false);
         IllegalArgumentException wakeError = assertThrows(IllegalArgumentException.class, () -> env.settings.save(badWake, null));
         assertTrue(wakeError.getMessage().contains("aTrust 唤醒链接"), wakeError.getMessage());
 
@@ -234,7 +250,7 @@ class CasSsoHttpFacadeTest {
                 ready.casBaseUrl(), ready.loginPath(), ready.validatePath(), ready.oidcIssuer(),
                 ready.oidcAuthorizePath(), ready.oidcTokenPath(), ready.oidcUserinfoPath(), ready.oidcJwksPath(),
                 ready.oidcRegisterPath(), ready.clientId(), ready.clientSecretConfigured(), ready.scopes(),
-                ready.callbackUrl(), ready.loginWarmup(), "atrustclient://login", "javascript:alert(1)", false);
+                ready.callbackUrl(), ready.loginWarmup(), "atrustclient://login", "javascript:alert(1)", "", false);
         IllegalArgumentException guideError = assertThrows(IllegalArgumentException.class, () -> env.settings.save(badGuide, null));
         assertTrue(guideError.getMessage().contains("aTrust 帮助页"), guideError.getMessage());
     }
@@ -307,7 +323,7 @@ class CasSsoHttpFacadeTest {
                 base.loginPath(), base.validatePath(), base.oidcIssuer(), base.oidcAuthorizePath(), base.oidcTokenPath(),
                 base.oidcUserinfoPath(), base.oidcJwksPath(), base.oidcRegisterPath(), base.clientId(),
                 base.clientSecretConfigured(), base.scopes(), base.callbackUrl(), base.loginWarmup(),
-                base.atrustWakeUrl(), base.atrustGuideUrl(), base.ready());
+                base.atrustWakeUrl(), base.atrustGuideUrl(), base.bridgeNotice(), base.ready());
     }
 
     private static SsoSettingsDto casReady(boolean loginWarmup) {
@@ -317,7 +333,7 @@ class CasSsoHttpFacadeTest {
                 SsoSettings.DEFAULT_OIDC_ISSUER, SsoSettings.DEFAULT_OIDC_AUTHORIZE_PATH, SsoSettings.DEFAULT_OIDC_TOKEN_PATH,
                 SsoSettings.DEFAULT_OIDC_USERINFO_PATH, SsoSettings.DEFAULT_OIDC_JWKS_PATH, SsoSettings.DEFAULT_OIDC_REGISTER_PATH,
                 "", false, SsoSettings.DEFAULT_SCOPES, "https://site.example/api/external-login/callback", loginWarmup,
-                "", "", false);
+                "", "", "", false);
     }
 
     private static final class Env {

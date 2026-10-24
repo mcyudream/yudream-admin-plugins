@@ -53,8 +53,12 @@ public final class BridgeProtocolClient implements SsoProtocolClient {
         payload.put("code", code);
         payload.put("ts", ts);
         payload.put("sign", sign);
-        HttpClientSupport.HttpResponse response =
-                HttpClientSupport.postJson(settings.bridgeExchangeUrl(), null, JsonSupport.write(payload));
+        HttpClientSupport.HttpResponse response;
+        try {
+            response = HttpClientSupport.postJson(settings.bridgeExchangeUrl(), null, JsonSupport.write(payload));
+        } catch (IllegalStateException e) {
+            throw new IllegalStateException(connectFailureMessage(e.getMessage()), e);
+        }
 
         if (!response.ok()) {
             throw new IllegalStateException(exchangeErrorMessage(response.status(), response.body()));
@@ -128,6 +132,18 @@ public final class BridgeProtocolClient implements SsoProtocolClient {
             case 503 -> "SSO 中转服务已停用";
             default -> "SSO 中转换票失败（HTTP " + status + (error.isBlank() ? "" : " " + error) + "）";
         };
+    }
+
+    /** 连不上认证服务时把底层超时/拒连翻译成可行动的提示：该服务通常仅校园网可达。 */
+    static String connectFailureMessage(String cause) {
+        String detail = cause == null ? "" : cause;
+        if (detail.contains("timed out") || detail.contains("timeout")) {
+            return "连接认证服务超时：认证服务一般仅校园网可达，请确认服务器已接入校园网或经零信任客户端（aTrust）接入后重试";
+        }
+        if (detail.contains("refused") || detail.contains("unreachable") || detail.contains("UnknownHost")) {
+            return "无法连接认证服务：请确认认证服务地址配置正确、服务器网络可达（校外需接入校园网或 aTrust）";
+        }
+        return detail;
     }
 
     static String hmacSha256Hex(String secret, String message) {

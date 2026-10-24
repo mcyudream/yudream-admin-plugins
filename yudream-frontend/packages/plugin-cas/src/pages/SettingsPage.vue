@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AccessControl, SsoSettings } from '../types'
-import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdPageHeader, YdSelect, YdSettingsLayout, YdSettingsSection, YdSwitch, YdTextarea, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createCasApi } from '../api/cas-api'
 import { errorMessage } from '../types'
@@ -56,6 +56,7 @@ const form = reactive<SsoSettings>({
   loginWarmup: true,
   atrustWakeUrl: '',
   atrustGuideUrl: '',
+  bridgeNotice: '',
   ready: false,
 })
 
@@ -357,6 +358,12 @@ onMounted(() => {
               <YdLabel label="校外接入下载 / 帮助页">
                 <YdInput v-model="form.atrustGuideUrl" class="w-full" maxlength="300" placeholder="https://…（引导页新窗口打开，留空不展示）" />
               </YdLabel>
+            </div>
+            <div class="cas-field">
+              <YdLabel label="校外接入提示文案">
+                <YdTextarea v-model="form.bridgeNotice" :rows="3" maxlength="600" placeholder="自定义引导页提示（支持换行），留空不展示。例如：登录前请先连接校园网；如超时请重试或联系管理员。" />
+              </YdLabel>
+              <span class="cas-hint">展示在引导页顶部，与唤醒按钮、继续登录并列；只配提示不配唤醒链接时，引导页仅显示提示与继续按钮。</span>
             </div>
             <p class="cas-hint">
               code 一次性且 60 秒有效，后端不会重试同一个 code；中转服务对换票接口有限流（30 次/分钟/IP）。

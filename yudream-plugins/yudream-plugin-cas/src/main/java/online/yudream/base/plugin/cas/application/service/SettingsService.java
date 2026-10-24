@@ -73,6 +73,9 @@ public final class SettingsService {
         if (!guideUrl.isEmpty() && !guideUrl.startsWith("http://") && !guideUrl.startsWith("https://")) {
             throw new IllegalArgumentException("aTrust 帮助页必须是 http/https 地址");
         }
+        if (incoming.bridgeNotice() != null && incoming.bridgeNotice().length() > 600) {
+            throw new IllegalArgumentException("校外接入提示文案不能超过 600 字");
+        }
         if (clientSecret != null && !clientSecret.isBlank()) {
             secrets.put(clientSecret);
         }
@@ -116,7 +119,8 @@ public final class SettingsService {
                     settings.callbackUrl(),
                     settings.loginWarmup(),
                     settings.atrustWakeUrl(),
-                    settings.atrustGuideUrl()
+                    settings.atrustGuideUrl(),
+                    settings.bridgeNotice()
             );
             remember(repository.save(updated));
         } else {

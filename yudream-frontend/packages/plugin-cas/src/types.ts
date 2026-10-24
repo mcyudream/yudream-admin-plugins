@@ -22,6 +22,8 @@ export interface SsoSettings {
   atrustWakeUrl: string
   /** aTrust 下载/帮助页（http/https）；空=不展示。 */
   atrustGuideUrl: string
+  /** 校外接入引导页自定义提示文案（可换行）；空=不展示。 */
+  bridgeNotice: string
   ready: boolean
 }
 

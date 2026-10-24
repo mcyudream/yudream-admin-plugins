@@ -57,6 +57,8 @@ oute）
     private final String atrustWakeUrl;
     /** aTrust 下载/帮助页（http/https），引导页新窗口打开；空=不展示。 */
     private final String atrustGuideUrl;
+    /** 校外接入引导页的自定义提示文案（可换行）；空=不展示。 */
+    private final String bridgeNotice;
 
     public SsoSettings(
             boolean enabled,
@@ -78,7 +80,8 @@ oute）
             String callbackUrl,
             boolean loginWarmup,
             String atrustWakeUrl,
-            String atrustGuideUrl
+            String atrustGuideUrl,
+            String bridgeNotice
     ) {
         this.enabled = enabled;
         this.protocol = protocol == null ? SsoProtocol.CAS : protocol;
@@ -100,6 +103,7 @@ oute）
         this.loginWarmup = loginWarmup;
         this.atrustWakeUrl = trimToEmpty(atrustWakeUrl);
         this.atrustGuideUrl = trimToEmpty(atrustGuideUrl);
+        this.bridgeNotice = trimToEmpty(bridgeNotice);
     }
 
     public static SsoSettings defaults() {
@@ -123,6 +127,7 @@ oute）
                 "",
                 true,
                 "",
+                "",
                 ""
         );
     }
@@ -132,7 +137,7 @@ oute）
                 enabled, protocol, displayName, icon, casBaseUrl, loginPath, validatePath,
                 oidcIssuer, oidcAuthorizePath, oidcTokenPath, oidcUserinfoPath, oidcJwksPath,
                 oidcRegisterPath, clientId, configured, scopes, callbackUrl, loginWarmup,
-                atrustWakeUrl, atrustGuideUrl
+                atrustWakeUrl, atrustGuideUrl, bridgeNotice
         );
     }
 
@@ -285,9 +290,13 @@ oute）
         return atrustGuideUrl;
     }
 
-    /** aTrust 引导是否已配置：配置后预热页先展示「唤醒 aTrust / 继续登录」引导，而非直接自动跳转。 */
+    public String bridgeNotice() {
+        return bridgeNotice;
+    }
+
+    /** 校外接入引导是否已配置（唤醒链接或自定义提示任一）：配置后预热页先展示引导，而非直接自动跳转。 */
     public boolean atrustGuideEnabled() {
-        return !blank(atrustWakeUrl);
+        return !blank(atrustWakeUrl) || !blank(bridgeNotice);
     }
 
     public SsoSettings withLoginWarmup(boolean warmup) {
@@ -295,7 +304,7 @@ oute）
                 enabled, protocol, displayName, icon, casBaseUrl, loginPath, validatePath,
                 oidcIssuer, oidcAuthorizePath, oidcTokenPath, oidcUserinfoPath, oidcJwksPath,
                 oidcRegisterPath, clientId, clientSecretConfigured, scopes, callbackUrl, warmup,
-                atrustWakeUrl, atrustGuideUrl
+                atrustWakeUrl, atrustGuideUrl, bridgeNotice
         );
     }
 

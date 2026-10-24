@@ -54,7 +54,8 @@ class BridgeProtocolClientTest {
                 "",
                 "https://www.swustmc.cn/external-login/callback",
                 false,
-                "", ""
+                "", "",
+                ""
         );
     }
 
@@ -184,7 +185,8 @@ class BridgeProtocolClientTest {
                 "", "", "", "", "", "", "", "",
                 "other-client", true, "",
                 "https://www.swustmc.cn/external-login/callback", false,
-                "", ""
+                "", "",
+                ""
         );
         assertFalse(client.probe(unknown, SECRET).ok());
     }
