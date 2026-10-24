@@ -361,6 +361,9 @@ public class CatalogService {
         site.put("description", text(settings.get("description")) == null ? "" : text(settings.get("description")));
         site.put("domain", identity != null && identity.origin() != null && !identity.origin().isBlank()
                 ? stripScheme(identity.origin()) : text(settings.get("domain")));
+        // origin 供启动器一键动作回传（安装并进服需要完整 origin 定位下载端点）
+        site.put("origin", identity != null && identity.origin() != null && !identity.origin().isBlank()
+                ? identity.origin() : text(settings.get("origin")));
 
         List<Map<String, Object>> packs = new ArrayList<>();
         long latest = settingsUpdated(settings);

@@ -69,5 +69,11 @@ public class McInteropPlugin implements YuDreamPlugin {
         CatalogService catalog = new CatalogService(repository, identity, adapterCatalog);
         context.registerHttpController(new InteropPublicController(catalog));
         context.registerHttpController(new InteropAdminController(catalog, repository));
+        // yda 域内贡献「友站服务器」页面（YmclContributionProvider；ymcl-adapter 缺失时跳过）
+        if (context.dependencyAvailable("ymcl-adapter")) {
+            context.registerExtension(online.yudream.base.plugin.ymcl.api.YmclContributionProvider.class,
+                    new online.yudream.base.plugin.interop.infrastructure.launcher.InteropYmclContributionProvider(
+                            catalog::siteDocument));
+        }
     }
 }
