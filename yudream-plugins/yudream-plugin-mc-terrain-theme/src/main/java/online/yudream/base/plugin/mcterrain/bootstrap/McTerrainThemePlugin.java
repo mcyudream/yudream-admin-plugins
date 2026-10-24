@@ -1,5 +1,6 @@
 package online.yudream.base.plugin.mcterrain.bootstrap;
 
+import online.yudream.base.plugin.spi.annotation.PluginFrontend;
 import online.yudream.base.plugin.spi.annotation.PluginSpec;
 import online.yudream.base.plugin.spi.annotation.PluginTheme;
 import online.yudream.base.plugin.spi.core.YuDreamPlugin;
@@ -13,6 +14,7 @@ import online.yudream.base.plugin.spi.theme.PluginThemeScope;
  */
 @PluginSpec(code = McTerrainThemePlugin.CODE, name = "方块地形主题", version = McTerrainThemePlugin.VERSION,
         description = "Minecraft 风格公开站主题：六个地形世界、底部物品栏导航、像素面板与音效，站点由网站工作台编辑")
+@PluginFrontend(moduleName = "mc-terrain-theme")
 @PluginTheme(code = "mc-terrain", name = "方块地形",
         description = "六个地形世界与底部物品栏导航的 Minecraft 风格公开站；服务器、活动等由对应插件页面承载",
         scopes = {PluginThemeScope.SITE},
