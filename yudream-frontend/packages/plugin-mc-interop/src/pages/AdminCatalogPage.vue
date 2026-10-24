@@ -156,6 +156,13 @@ function save() {
             <span v-if="pack.revision != null" class="text-xs text-secondary">r{{ pack.revision }}</span>
             <span v-if="pack.game_version" class="text-xs text-secondary">MC {{ pack.game_version }}</span>
             <span v-if="pack.loader" class="text-xs text-secondary">{{ pack.loader }}{{ pack.loader_version ? ` ${pack.loader_version}` : '' }}</span>
+            <a
+              v-if="pack.artifact"
+              :href="pack.artifact.url"
+              target="_blank"
+              rel="noopener"
+              class="text-xs text-blue-500 hover:underline"
+            >下载整合包</a>
             <code class="text-xs text-secondary">{{ pack.server ? (pack.server.port ? `${pack.server.address}:${pack.server.port}` : pack.server.address) : '-' }}</code>
           </div>
         </div>
