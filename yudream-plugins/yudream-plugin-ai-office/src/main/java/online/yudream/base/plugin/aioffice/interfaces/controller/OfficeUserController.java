@@ -32,6 +32,11 @@ public class OfficeUserController {
         return http.myCategories(request);
     }
 
+    @PluginHttpEndpoint(method = "GET", path = "/me/finance/credential-kinds", permission = OfficePermissions.VIEW)
+    public PluginHttpResponse credentialKinds(PluginHttpRequest request) {
+        return http.myCredentialKinds(request);
+    }
+
     @PluginHttpEndpoint(method = "POST", path = "/me/finance/upload", permission = OfficePermissions.FINANCE)
     public PluginHttpResponse uploadAttachment(PluginHttpRequest request) {
         return http.myFinanceUpload(request);

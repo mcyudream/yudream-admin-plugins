@@ -279,6 +279,7 @@ public class FinanceService {
             row.put("dateText", date.format(new java.util.Date(record.occurredAt())));
             row.put("purpose", record.purpose());
             row.put("fundSource", record.fundSource());
+            row.put("data", new java.util.LinkedHashMap<>(record.data()));
             rows.add(row);
         }
         return rows;

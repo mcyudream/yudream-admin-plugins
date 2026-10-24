@@ -12,9 +12,15 @@ export interface OfficeSchema {
   id: string
   code: string
   name: string
+  role: 'profile' | 'entity'
   builtin: boolean
   fields: SchemaFieldDef[]
   updatedAt: number
+}
+
+export interface CredentialKind {
+  code: string
+  label: string
 }
 
 export interface DocTypeMapping {
@@ -28,7 +34,7 @@ export interface OfficeDocType {
   id: string
   code: string
   name: string
-  stage: 'before' | 'after' | 'general'
+  stage: string
   wordTemplateCode: string
   schemaCodes: string[]
   mappings: DocTypeMapping[]
@@ -52,6 +58,7 @@ export interface OfficeCategory {
   code: string
   name: string
   fields: string[]
+  schemaCode: string
   sort: number
   enabled: boolean
 }
@@ -94,6 +101,7 @@ export interface FinanceRecord {
   occurredAt: number
   purpose: string
   fundSource: string
+  data: Record<string, unknown>
   attachments: FinanceAttachment[]
   status: 'pending' | 'accepted' | 'rejected'
   reviewedBy: string
@@ -202,6 +210,7 @@ export interface OfficeSettings {
   aiProviderCode: string
   aiModelCode: string
   wordImageEmbed: boolean
+  credentialKinds: CredentialKind[]
   activePresetCode: string
   updatedAt: number
 }

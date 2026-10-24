@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
+import type { CredentialKind, FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
 import { YdAlert, YdFileUpload, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
 import { createOfficeMeApi, errorMessage, saveBlob } from '../api/office-api'
@@ -21,6 +21,8 @@ const page = ref(1)
 const size = ref(10)
 const pageSizes = [10, 20, 50]
 const categories = ref<OfficeCategory[]>([])
+const kinds = ref<CredentialKind[]>([])
+const direction = ref('expense')
 
 const columns: TableColumn<FinanceRecord>[] = [
   { id: 'title', header: '摘要', minWidth: 200, enableSorting: false },
@@ -52,7 +54,12 @@ async function load() {
     loading.value = false
   }
   try {
-    categories.value = await api.categories('expense')
+    const [categoryData, kindData] = await Promise.all([
+      api.categories(direction.value),
+      api.credentialKinds(),
+    ])
+    categories.value = categoryData
+    kinds.value = kindData
   }
   catch {
     categories.value = []
@@ -65,6 +72,7 @@ const createVisible = ref(false)
 const saving = ref(false)
 const uploading = ref(false)
 const form = ref({
+  direction: 'expense',
   categoryCode: '',
   title: '',
   amountYuan: '',
@@ -79,14 +87,11 @@ const uploadFiles = ref<File[]>([])
 
 const categoryOptions = () => categories.value.map(item => ({ label: item.name, value: item.code }))
 
-const kindOptions = [
-  { label: '发票', value: 'invoice' },
-  { label: '支付截图', value: 'screenshot' },
-  { label: '其他凭证', value: 'proof' },
-]
+const kindOptions = () => kinds.value.map(kind => ({ label: kind.label, value: kind.code }))
 
 function openCreate() {
   form.value = {
+    direction: direction.value,
     categoryCode: '',
     title: '',
     amountYuan: '',
@@ -139,7 +144,7 @@ async function submit() {
   saving.value = true
   try {
     await api.createFinance({
-      direction: 'expense',
+      direction: form.value.direction as 'income' | 'expense',
       categoryCode: form.value.categoryCode,
       title: form.value.title.trim(),
       amountCents: Math.round(Number(form.value.amountYuan) * 100),
@@ -255,7 +260,14 @@ function statusText(status: string) {
     @confirm="submit"
   >
     <div class="flex flex-col gap-3">
-      <YdLabel label="支出类别" required>
+      <YdLabel label="方向" required>
+        <YdSelect
+          v-model="direction"
+          :options="[{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]"
+          @change="load"
+        />
+      </YdLabel>
+      <YdLabel label="类别" required>
         <YdSelect v-model="form.categoryCode" :options="categoryOptions()" placeholder="选择类别" />
       </YdLabel>
       <YdLabel label="摘要" required>
@@ -294,7 +306,7 @@ function statusText(status: string) {
         <div v-for="attachment in attachments" :key="attachment.fileKey"
           class="flex items-center gap-2 rounded border p-2">
           <span class="w-56 truncate text-xs" :title="attachment.filename">{{ attachment.filename }}</span>
-          <YdSelect v-model="attachment.kind" :options="kindOptions" class="w-40" />
+          <YdSelect v-model="attachment.kind" :options="kindOptions()" class="w-40" />
         </div>
         <p v-if="uploading" class="text-sm text-muted-foreground">凭证上传中…</p>
       </div>

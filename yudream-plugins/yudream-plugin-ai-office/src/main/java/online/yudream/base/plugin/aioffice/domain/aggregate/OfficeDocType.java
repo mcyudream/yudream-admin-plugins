@@ -25,7 +25,8 @@ public record OfficeDocType(
             throw new IllegalArgumentException("文档类型编码只能用小写字母/数字/下划线/中划线：" + code);
         }
         name = require(name, "文档类型名称不能为空");
-        stage = stage == null || stage.isBlank() ? "general" : stage.trim().toLowerCase(java.util.Locale.ROOT);
+        // 阶段是站点自定的展示标签（数据驱动），不设枚举白名单；缺省回 general
+        stage = stage == null || stage.isBlank() ? "general" : stage.trim();
         wordTemplateCode = text(wordTemplateCode);
         schemaCodes = schemaCodes == null ? List.of() : List.copyOf(schemaCodes);
         mappings = mappings == null ? List.of() : List.copyOf(mappings);

@@ -133,6 +133,28 @@ public class GenerationService {
                 }
                 ctx.put("activities", list);
                 ctx.put("activitiesText", activitiesText.toString());
+                // 数据对象记录：非活动平台站点的主路径（任意 schema 的实例按创建时间入周期）
+                List<Map<String, Object>> recordMaps = new ArrayList<>();
+                StringBuilder recordsText = new StringBuilder();
+                for (online.yudream.base.plugin.aioffice.domain.aggregate.OfficeDatasetRecord record
+                        : repository.datasetRecordsByPeriod(bounds[0], bounds[1])) {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("id", record.id());
+                    map.put("schemaCode", record.schemaCode());
+                    map.put("createdAt", record.createdAt());
+                    map.put("createdAtText", dateText(record.createdAt()));
+                    map.putAll(record.data());
+                    map.put("attachments", attachmentListWithUrls(record.attachments()));
+                    recordMaps.add(map);
+                    Object title = record.data().getOrDefault("title", record.data().get("name"));
+                    if (recordsText.length() > 0) {
+                        recordsText.append("\n");
+                    }
+                    recordsText.append("【").append(record.schemaCode()).append("】")
+                            .append(title == null ? "" : title);
+                }
+                ctx.put("records", recordMaps);
+                ctx.put("recordsText", recordsText.toString());
                 Map<String, Object> target = new LinkedHashMap<>();
                 target.put("period", normalizedPeriod);
                 target.put("activityCount", list.size());
@@ -145,8 +167,12 @@ public class GenerationService {
         ctx.put("effects", effects);
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("participants", participants);
-        stats.put("activityCount", ctx.containsKey("activities") ? ((List<?>) ctx.get("activities")).size() : 1);
+        stats.put("activityCount", ctx.containsKey("activities") ? ((List<?>) ctx.get("activities")).size() : 0);
+        stats.put("recordCount", ctx.containsKey("records") ? ((List<?>) ctx.get("records")).size() : 0);
         stats.put("effectCount", effects.size());
+        // 实体总数 = 活动平台活动 + 数据对象记录（非社团站点只有后者）
+        stats.put("entityCount", ((Number) stats.get("activityCount")).intValue()
+                + ((Number) stats.get("recordCount")).intValue());
         ctx.put("stats", stats);
         ctx.put("finance", financeContext(normalizedPeriod));
         return ctx;

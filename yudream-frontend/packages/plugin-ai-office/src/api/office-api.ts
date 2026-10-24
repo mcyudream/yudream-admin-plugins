@@ -1,6 +1,7 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type {
   AiProviderOption,
+  CredentialKind,
   DatasetRecord,
   DocJob,
   FinanceAttachment,
@@ -152,6 +153,9 @@ export function createOfficeMeApi(sdk: YuDreamPluginSdk) {
     /** 启用中的报销类别（用户面下拉，走 /me 端点不要求管理权限）。 */
     categories: (direction?: string) =>
       sdk.http.get<OfficeCategory[]>(`/me/finance/categories${query({ direction })}`),
+    /** 凭证类型字典（站点设置的数据驱动字典）。 */
+    credentialKinds: () =>
+      sdk.http.get<CredentialKind[]>('/me/finance/credential-kinds'),
     uploadAttachment: async (file: File, kind?: string): Promise<FinanceAttachment> => {
       const uploaded = await sdk.files.uploadImage(file, { module: 'ai-office' })
       return sdk.http.post<FinanceAttachment>(

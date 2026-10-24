@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
+import type { CredentialKind, FinanceAttachment, FinanceRecord, OfficeCategory } from '../types'
 import { YdAlert, YdDynamicSearchForm, YdFileUpload, YdInput, YdLabel, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, ref } from 'vue'
-import { createOfficeAdminApi, errorMessage } from '../api/office-api'
+import { createOfficeAdminApi, createOfficeMeApi, errorMessage } from '../api/office-api'
 import { formatTime, moneyText } from '../types'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
@@ -12,6 +12,7 @@ const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const toast = useYdToast()
 const confirm = useYdModal()
 const api = createOfficeAdminApi(props.sdk)
+const meApi = createOfficeMeApi(props.sdk)
 
 const loading = ref(false)
 const acting = ref(false)
@@ -22,6 +23,7 @@ const page = ref(1)
 const size = ref(10)
 const pageSizes = [10, 20, 50]
 const categories = ref<OfficeCategory[]>([])
+const kinds = ref<CredentialKind[]>([])
 const direction = ref('')
 const status = ref('')
 const categoryCode = ref('')
@@ -119,6 +121,8 @@ const attachments = ref<FinanceAttachment[]>([])
 const uploadFiles = ref<File[]>([])
 const uploading = ref(false)
 
+const kindOptions = () => kinds.value.map(kind => ({ label: kind.label, value: kind.code }))
+
 const createCategoryOptions = () => categories.value
   .filter(item => item.direction === createForm.value.direction)
   .map(item => ({ label: item.name, value: item.code }))
@@ -146,10 +150,13 @@ async function load() {
     loading.value = false
   }
   try {
-    categories.value = await api.categories()
+    const [categoryData, kindData] = await Promise.all([api.categories(), meApi.credentialKinds()])
+    categories.value = categoryData
+    kinds.value = kindData
   }
   catch {
     categories.value = []
+    kinds.value = []
   }
 }
 
@@ -399,8 +406,13 @@ function statusText(status: string) {
           description="拖放或点击上传，最多 10 个，单个不超过 50MB"
         />
       </YdLabel>
+      <div v-if="attachments.length" class="flex flex-col gap-2">
+        <div v-for="attachment in attachments" :key="attachment.fileKey" class="flex items-center gap-2 rounded border p-2">
+          <span class="w-56 truncate text-xs" :title="attachment.filename">{{ attachment.filename }}</span>
+          <YdSelect v-model="attachment.kind" :options="kindOptions()" class="w-40" />
+        </div>
+      </div>
       <p v-if="uploading" class="text-sm text-muted-foreground">凭证上传中…</p>
-      <p v-if="attachments.length" class="text-sm text-muted-foreground">已上传 {{ attachments.length }} 个凭证</p>
       <p class="text-sm text-muted-foreground">保存后默认待审核；拥有审核权限者可在台账中采纳。</p>
     </div>
   </YdModal>

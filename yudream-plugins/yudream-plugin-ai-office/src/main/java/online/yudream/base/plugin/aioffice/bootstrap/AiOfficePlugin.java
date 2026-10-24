@@ -93,6 +93,15 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                         sort = 13
                 ),
                 @PluginRoute(
+                        path = "/platform/plugins/office/categories",
+                        name = "platform-plugin-office-categories",
+                        title = "经费类别",
+                        icon = "i-ri:price-tag-3-line",
+                        component = "ai-office/Categories",
+                        permission = AiOfficePlugin.MANAGE_PERMISSION,
+                        sort = 13
+                ),
+                @PluginRoute(
                         path = "/platform/plugins/office/settlement",
                         name = "platform-plugin-office-settlement",
                         title = "周期结算",

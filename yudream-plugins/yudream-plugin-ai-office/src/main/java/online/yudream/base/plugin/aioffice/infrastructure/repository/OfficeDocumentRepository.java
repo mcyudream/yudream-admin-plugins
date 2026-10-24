@@ -61,6 +61,14 @@ public class OfficeDocumentRepository implements OfficeRepository {
         document.put("aiProviderCode", settings.aiProviderCode());
         document.put("aiModelCode", settings.aiModelCode());
         document.put("wordImageEmbed", settings.wordImageEmbed());
+        document.put("credentialKinds", settings.credentialKinds().stream()
+                .map(kind -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("code", kind.code());
+                    item.put("label", kind.label());
+                    return item;
+                })
+                .collect(java.util.stream.Collectors.toList()));
         document.put("activePresetCode", settings.activePresetCode());
         document.put("updatedAt", settings.updatedAt());
         documents.save(SETTINGS, OfficeSettings.ID, document);
@@ -72,9 +80,17 @@ public class OfficeDocumentRepository implements OfficeRepository {
         if (document.get("profile") instanceof Map<?, ?> raw) {
             raw.forEach((key, value) -> profile.put(String.valueOf(key), value));
         }
+        List<OfficeSettings.CredentialKind> kinds = new ArrayList<>();
+        if (document.get("credentialKinds") instanceof List<?> rawKinds) {
+            for (Object item : rawKinds) {
+                if (item instanceof Map<?, ?> map) {
+                    kinds.add(new OfficeSettings.CredentialKind(text(map, "code"), text(map, "label")));
+                }
+            }
+        }
         return new OfficeSettings(text(document, "profileSchemaCode"), profile, text(document, "financeCycle"),
                 text(document, "currency"), text(document, "styleGuide"), text(document, "aiProviderCode"),
-                text(document, "aiModelCode"), boolOrNull(document, "wordImageEmbed"),
+                text(document, "aiModelCode"), boolOrNull(document, "wordImageEmbed"), kinds,
                 text(document, "activePresetCode"), num(document, "updatedAt"));
     }
 
@@ -110,6 +126,7 @@ public class OfficeDocumentRepository implements OfficeRepository {
         document.put("id", schema.id());
         document.put("code", schema.code());
         document.put("name", schema.name());
+        document.put("role", schema.role());
         document.put("builtin", schema.builtin());
         List<Map<String, Object>> fields = new ArrayList<>();
         for (OfficeSchema.FieldDef field : schema.fields()) {
@@ -147,7 +164,7 @@ public class OfficeDocumentRepository implements OfficeRepository {
             }
         }
         return new OfficeSchema(text(document, "id"), text(document, "code"), text(document, "name"),
-                bool(document, "builtin"), fields, num(document, "updatedAt"));
+                text(document, "role"), bool(document, "builtin"), fields, num(document, "updatedAt"));
     }
 
     // ---------- doc type ----------
@@ -284,6 +301,7 @@ public class OfficeDocumentRepository implements OfficeRepository {
         document.put("code", category.code());
         document.put("name", category.name());
         document.put("fields", new ArrayList<>(category.fields()));
+        document.put("schemaCode", category.schemaCode());
         document.put("sort", category.sort());
         document.put("enabled", category.enabled());
         documents.save(CATEGORIES, category.id(), document);
@@ -301,7 +319,8 @@ public class OfficeDocumentRepository implements OfficeRepository {
             raw.forEach(field -> fields.add(String.valueOf(field)));
         }
         return new OfficeCategory(text(document, "id"), text(document, "direction"), text(document, "code"),
-                text(document, "name"), fields, (int) num(document, "sort"), bool(document, "enabled"));
+                text(document, "name"), fields, text(document, "schemaCode"), (int) num(document, "sort"),
+                bool(document, "enabled"));
     }
 
     // ---------- package ----------
@@ -373,6 +392,18 @@ public class OfficeDocumentRepository implements OfficeRepository {
                         1, Integer.MAX_VALUE));
         records.sort(Comparator.comparingLong(OfficeDatasetRecord::createdAt).reversed());
         return pageOf(records, page, size);
+    }
+
+    @Override
+    public List<OfficeDatasetRecord> datasetRecordsByPeriod(long fromInclusive, long toInclusive) {
+        List<OfficeDatasetRecord> records = new ArrayList<>();
+        for (OfficeDatasetRecord record : toDatasetRecords(all(DATASET_RECORDS))) {
+            if (record.createdAt() >= fromInclusive && record.createdAt() <= toInclusive) {
+                records.add(record);
+            }
+        }
+        records.sort(java.util.Comparator.comparingLong(OfficeDatasetRecord::createdAt));
+        return records;
     }
 
     @Override
@@ -487,6 +518,7 @@ public class OfficeDocumentRepository implements OfficeRepository {
         document.put("occurredAt", record.occurredAt());
         document.put("purpose", record.purpose());
         document.put("fundSource", record.fundSource());
+        document.put("data", new LinkedHashMap<>(record.data()));
         document.put("attachments", fileRefDocuments(record.attachments()));
         document.put("status", record.status());
         document.put("reviewedBy", record.reviewedBy());
@@ -517,10 +549,18 @@ public class OfficeDocumentRepository implements OfficeRepository {
                 text(document, "categoryCode"), text(document, "subCategory"), text(document, "title"),
                 num(document, "amountCents"), num(document, "quantity"), num(document, "unitPriceCents"),
                 text(document, "buyerId"), text(document, "buyerName"), num(document, "occurredAt"),
-                text(document, "purpose"), text(document, "fundSource"),
+                text(document, "purpose"), text(document, "fundSource"), dataMap(document.get("data")),
                 fileRefs(document.get("attachments")), text(document, "status"), text(document, "reviewedBy"),
                 num(document, "reviewedAt"), text(document, "reviewNote"), text(document, "settlementBatchId"),
                 text(document, "createdBy"), num(document, "createdAt"));
+    }
+
+    private static Map<String, Object> dataMap(Object raw) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        if (raw instanceof Map<?, ?> map) {
+            map.forEach((key, value) -> data.put(String.valueOf(key), value));
+        }
+        return data;
     }
 
     private static List<Map<String, Object>> fileRefDocuments(List<OfficeFinanceRecord.FileRef> refs) {

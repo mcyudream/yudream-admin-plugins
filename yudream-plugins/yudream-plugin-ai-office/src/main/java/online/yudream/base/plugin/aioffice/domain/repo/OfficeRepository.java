@@ -83,6 +83,9 @@ public interface OfficeRepository {
 
     List<OfficeDatasetRecord> datasetRecords(String schemaCode, int page, int size);
 
+    /** 创建时间落在窗口内的数据对象记录（周期聚合用，低频扫描）。 */
+    List<OfficeDatasetRecord> datasetRecordsByPeriod(long fromInclusive, long toInclusive);
+
     long countDatasetRecords(String schemaCode);
 
     Optional<OfficeDatasetRecord> datasetRecord(String id);

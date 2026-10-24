@@ -101,14 +101,15 @@ public class PresetPackService {
         int[] counters = {0, 0};
         for (JsonNode node : root.path("schemas")) {
             OfficeSchema parsed = new OfficeSchema(UUID.randomUUID().toString(), node.path("code").asText(),
-                    node.path("name").asText(), false, fields(node.path("fields")), System.currentTimeMillis());
+                    node.path("name").asText(), node.path("role").asText("entity"), false,
+                    fields(node.path("fields")), System.currentTimeMillis());
             Optional<OfficeSchema> existing = repository.schemaByCode(parsed.code());
             if (existing.isPresent() && !overwrite) {
                 counters[1]++;
                 continue;
             }
             OfficeSchema schema = existing.isPresent()
-                    ? new OfficeSchema(existing.get().id(), parsed.code(), parsed.name(), false,
+                    ? new OfficeSchema(existing.get().id(), parsed.code(), parsed.name(), parsed.role(), false,
                             parsed.fields(), System.currentTimeMillis())
                     : parsed;
             repository.saveSchema(schema);
@@ -132,8 +133,9 @@ public class PresetPackService {
         for (JsonNode node : root.path("categories")) {
             List<String> fields = new ArrayList<>();
             node.path("fields").forEach(field -> fields.add(field.asText()));
-            OfficeCategory parsed = OfficeCategory.create(node.path("direction").asText(),
-                    node.path("code").asText(), node.path("name").asText(), fields, node.path("sort").asInt(0));
+            OfficeCategory parsed = new OfficeCategory(UUID.randomUUID().toString(),
+                    node.path("direction").asText(), node.path("code").asText(), node.path("name").asText(),
+                    fields, node.path("schemaCode").asText(""), node.path("sort").asInt(0), true);
             Optional<OfficeCategory> existing = repository.categories().stream()
                     .filter(item -> item.direction().equals(parsed.direction())
                             && item.code().equals(parsed.code()))
@@ -144,7 +146,7 @@ public class PresetPackService {
             }
             OfficeCategory category = existing.isPresent()
                     ? new OfficeCategory(existing.get().id(), parsed.direction(), parsed.code(), parsed.name(),
-                            parsed.fields(), parsed.sort(), true)
+                            parsed.fields(), parsed.schemaCode(), parsed.sort(), true)
                     : parsed;
             repository.saveCategory(category);
             counters[0]++;
@@ -197,7 +199,8 @@ public class PresetPackService {
             OfficeSettings current = repository.settings();
             repository.saveSettings(new OfficeSettings(current.profileSchemaCode(), current.profile(),
                     current.financeCycle(), current.currency(), current.styleGuide(), current.aiProviderCode(),
-                    current.aiModelCode(), current.wordImageEmbed(), presetCode, System.currentTimeMillis()));
+                    current.aiModelCode(), current.wordImageEmbed(), current.credentialKinds(), presetCode,
+                    System.currentTimeMillis()));
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("created", counters[0]);

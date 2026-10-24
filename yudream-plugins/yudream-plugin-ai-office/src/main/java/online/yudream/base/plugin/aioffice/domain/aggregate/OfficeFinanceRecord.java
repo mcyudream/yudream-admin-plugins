@@ -2,7 +2,10 @@ package online.yudream.base.plugin.aioffice.domain.aggregate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /** 财务台账记录：收入/支出 + 凭证附件（发票、支付截图），经审核后纳入周期结算。金额一律为分。 */
@@ -20,6 +23,7 @@ public record OfficeFinanceRecord(
         long occurredAt,
         String purpose,
         String fundSource,
+        Map<String, Object> data,
         List<FileRef> attachments,
         String status,
         String reviewedBy,
@@ -52,6 +56,7 @@ public record OfficeFinanceRecord(
         occurredAt = Math.max(occurredAt, 0);
         purpose = text(purpose);
         fundSource = text(fundSource);
+        data = data == null ? Map.of() : new java.util.LinkedHashMap<>(data);
         attachments = attachments == null ? List.of() : List.copyOf(attachments);
         status = status == null || status.isBlank() ? STATUS_PENDING : status.trim().toLowerCase(Locale.ROOT);
         reviewedBy = text(reviewedBy);
@@ -77,7 +82,7 @@ public record OfficeFinanceRecord(
                                              String fundSource, List<FileRef> attachments, String createdBy) {
         return new OfficeFinanceRecord(UUID.randomUUID().toString(), direction, categoryCode, subCategory, title,
                 amountCents, quantity, unitPriceCents, buyerId, buyerName, occurredAt, purpose, fundSource,
-                attachments, STATUS_PENDING, "", 0, "", "", createdBy, System.currentTimeMillis());
+                Map.of(), attachments, STATUS_PENDING, "", 0, "", "", createdBy, System.currentTimeMillis());
     }
 
     public boolean accepted() {
@@ -97,14 +102,14 @@ public record OfficeFinanceRecord(
             throw new IllegalArgumentException("该记录已审核过");
         }
         return new OfficeFinanceRecord(id, direction, categoryCode, subCategory, title, amountCents, quantity,
-                unitPriceCents, buyerId, buyerName, occurredAt, purpose, fundSource, attachments,
+                unitPriceCents, buyerId, buyerName, occurredAt, purpose, fundSource, data, attachments,
                 accept ? STATUS_ACCEPTED : STATUS_REJECTED, reviewer, System.currentTimeMillis(), note,
                 settlementBatchId, createdBy, createdAt);
     }
 
     public OfficeFinanceRecord withSettlement(String batchId) {
         return new OfficeFinanceRecord(id, direction, categoryCode, subCategory, title, amountCents, quantity,
-                unitPriceCents, buyerId, buyerName, occurredAt, purpose, fundSource, attachments, status,
+                unitPriceCents, buyerId, buyerName, occurredAt, purpose, fundSource, data, attachments, status,
                 reviewedBy, reviewedAt, reviewNote, batchId, createdBy, createdAt);
     }
 

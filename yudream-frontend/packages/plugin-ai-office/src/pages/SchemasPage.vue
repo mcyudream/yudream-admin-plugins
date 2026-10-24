@@ -17,9 +17,12 @@ const loading = ref(false)
 const saving = ref(false)
 const schemas = ref<OfficeSchema[]>([])
 
+const roleLabel = (role: string) => (role === 'profile' ? '站点档案' : '业务对象')
+
 const columns: TableColumn<OfficeSchema>[] = [
   { accessorKey: 'code', header: '编码', width: 180 },
-  { accessorKey: 'name', header: '名称', width: 180 },
+  { accessorKey: 'name', header: '名称', width: 160 },
+  { id: 'role', header: '角色', width: 100, enableSorting: false },
   { id: 'fields', header: '字段', minWidth: 320, enableSorting: false },
   { accessorKey: 'updatedAt', header: '更新时间', width: 170 },
 ]
@@ -58,13 +61,18 @@ async function load() {
 
 const modalVisible = ref(false)
 const editing = ref<OfficeSchema | null>(null)
-const form = ref<{ id: string, code: string, name: string, fields: SchemaFieldDef[] }>({
-  id: '', code: '', name: '', fields: [],
+const form = ref<{ id: string, code: string, name: string, role: string, fields: SchemaFieldDef[] }>({
+  id: '', code: '', name: '', role: 'entity', fields: [],
 })
+
+const roleOptions = [
+  { label: '业务对象（可多实例，作为生成目标/周期聚合）', value: 'entity' },
+  { label: '站点档案（单实例，映射用 ctx:org.字段）', value: 'profile' },
+]
 
 function openCreate() {
   editing.value = null
-  form.value = { id: '', code: '', name: '', fields: [] }
+  form.value = { id: '', code: '', name: '', role: 'entity', fields: [] }
   modalVisible.value = true
 }
 
@@ -74,6 +82,7 @@ function openEdit(schema: OfficeSchema) {
     id: schema.id,
     code: schema.code,
     name: schema.name,
+    role: schema.role,
     fields: schema.fields.map(field => ({ ...field, options: [...field.options] })),
   }
   modalVisible.value = true
@@ -98,6 +107,7 @@ async function save() {
       id: form.value.id || undefined,
       code: form.value.code.trim(),
       name: form.value.name.trim(),
+      role: form.value.role as 'profile' | 'entity',
       builtin: false,
       fields: form.value.fields.filter(field => field.key.trim() && field.label.trim()),
     }
@@ -163,6 +173,7 @@ function remove(schema: OfficeSchema) {
             <strong>{{ row.original.code }}</strong>
             <YdTag v-if="row.original.builtin" variant="outline">内置</YdTag>
           </template>
+          <template #cell-role="{ row }">{{ roleLabel(row.original.role) }}</template>
           <template #cell-fields="{ row }">
             <span class="line-clamp-2 text-xs">{{ row.original.fields.map(field => `${field.label}(${field.key})`).join('、') }}</span>
           </template>
@@ -188,6 +199,9 @@ function remove(schema: OfficeSchema) {
         </YdLabel>
         <YdLabel label="名称" required>
           <YdInput v-model="form.name" placeholder="活动" />
+        </YdLabel>
+        <YdLabel label="角色" required>
+          <YdSelect v-model="form.role" :options="roleOptions" />
         </YdLabel>
       </div>
       <div class="flex items-center justify-between">

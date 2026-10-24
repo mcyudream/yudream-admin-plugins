@@ -73,8 +73,8 @@ public class OfficeHttpFacade {
             if ("PUT".equals(request.method())) {
                 OfficeSchema schema = JsonSupport.read(request.body(), OfficeSchema.class);
                 return PluginHttpResponse.ok(config.saveSchema(
-                        new OfficeSchema(id, schema.code(), schema.name(), schema.builtin(), schema.fields(),
-                                System.currentTimeMillis())));
+                        new OfficeSchema(id, schema.code(), schema.name(), schema.role(), schema.builtin(),
+                                schema.fields(), System.currentTimeMillis())));
             }
             config.deleteSchema(id);
             return PluginHttpResponse.ok(Map.of("ok", true));
@@ -135,7 +135,8 @@ public class OfficeHttpFacade {
             if ("PUT".equals(request.method())) {
                 OfficeCategory category = JsonSupport.read(request.body(), OfficeCategory.class);
                 return PluginHttpResponse.ok(config.saveCategory(new OfficeCategory(id, category.direction(),
-                        category.code(), category.name(), category.fields(), category.sort(), category.enabled())));
+                        category.code(), category.name(), category.fields(), category.schemaCode(),
+                        category.sort(), category.enabled())));
             }
             config.deleteCategory(id);
             return PluginHttpResponse.ok(Map.of("ok", true));
@@ -319,6 +320,11 @@ public class OfficeHttpFacade {
         return guard(() -> PluginHttpResponse.ok(config.activeCategories(firstQuery(request, "direction"))));
     }
 
+    /** 凭证类型字典（站点设置的数据驱动字典，供上传时下拉选择）。 */
+    public PluginHttpResponse myCredentialKinds(PluginHttpRequest request) {
+        return guard(() -> PluginHttpResponse.ok(config.settings().credentialKinds()));
+    }
+
     public PluginHttpResponse myFinanceItem(PluginHttpRequest request, String id) {
         return guard(() -> {
             finance.requireOwned(id, currentUserId(request));
@@ -491,7 +497,7 @@ public class OfficeHttpFacade {
                 record.buyerId() == null || record.buyerId().isBlank() ? userId : record.buyerId(),
                 record.buyerName() == null || record.buyerName().isBlank() ? userName : record.buyerName(),
                 record.occurredAt() > 0 ? record.occurredAt() : System.currentTimeMillis(),
-                record.purpose(), record.fundSource(), record.attachments(), record.status(),
+                record.purpose(), record.fundSource(), record.data(), record.attachments(), record.status(),
                 record.reviewedBy(), record.reviewedAt(), record.reviewNote(), record.settlementBatchId(),
                 userId, System.currentTimeMillis());
     }
@@ -575,8 +581,8 @@ public class OfficeHttpFacade {
 
     private static OfficeSchema withId(OfficeSchema schema) {
         return schema.id() == null || schema.id().isBlank()
-                ? new OfficeSchema(UUID.randomUUID().toString(), schema.code(), schema.name(), schema.builtin(),
-                        schema.fields(), System.currentTimeMillis())
+                ? new OfficeSchema(UUID.randomUUID().toString(), schema.code(), schema.name(), schema.role(),
+                        schema.builtin(), schema.fields(), System.currentTimeMillis())
                 : schema;
     }
 
@@ -598,7 +604,8 @@ public class OfficeHttpFacade {
     private static OfficeCategory withId(OfficeCategory category) {
         return category.id() == null || category.id().isBlank()
                 ? new OfficeCategory(UUID.randomUUID().toString(), category.direction(), category.code(),
-                        category.name(), category.fields(), category.sort(), category.enabled())
+                        category.name(), category.fields(), category.schemaCode(), category.sort(),
+                        category.enabled())
                 : category;
     }
 

@@ -10,10 +10,14 @@ public record OfficeSchema(
         String id,
         String code,
         String name,
+        String role,
         boolean builtin,
         List<FieldDef> fields,
         long updatedAt
 ) {
+
+    public static final String ROLE_PROFILE = "profile";
+    public static final String ROLE_ENTITY = "entity";
 
     public OfficeSchema {
         code = require(code, "schema 编码不能为空");
@@ -21,11 +25,19 @@ public record OfficeSchema(
             throw new IllegalArgumentException("schema 编码只能用小写字母/数字/下划线/中划线，且以字母开头");
         }
         name = require(name, "schema 名称不能为空");
+        role = role == null || role.isBlank() ? ROLE_ENTITY : role.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!ROLE_PROFILE.equals(role) && !ROLE_ENTITY.equals(role)) {
+            throw new IllegalArgumentException("schema 角色只能是 profile 或 entity：" + role);
+        }
         fields = fields == null ? List.of() : List.copyOf(fields);
     }
 
+    public boolean profile() {
+        return ROLE_PROFILE.equals(role);
+    }
+
     public static OfficeSchema create(String code, String name, List<FieldDef> fields, boolean builtin) {
-        return new OfficeSchema(UUID.randomUUID().toString(), code, name, builtin, fields,
+        return new OfficeSchema(UUID.randomUUID().toString(), code, name, ROLE_ENTITY, builtin, fields,
                 System.currentTimeMillis());
     }
 

@@ -17,14 +17,6 @@ const saving = ref(false)
 const docTypes = ref<OfficeDocType[]>([])
 const wordTemplates = ref<WordTemplateOption[]>([])
 
-const stageOptions = [
-  { label: '事前（报备/策划）', value: 'before' },
-  { label: '事后（总结/展示）', value: 'after' },
-  { label: '通用', value: 'general' },
-]
-
-const stageLabel = (stage: string) => stageOptions.find(option => option.value === stage)?.label ?? stage
-
 const columns: TableColumn<OfficeDocType>[] = [
   { accessorKey: 'code', header: '编码', width: 190 },
   { accessorKey: 'name', header: '名称', width: 160 },
@@ -122,7 +114,7 @@ async function save() {
       id: form.value.id || undefined,
       code: form.value.code.trim(),
       name: form.value.name.trim(),
-      stage: form.value.stage as 'before' | 'after' | 'general',
+      stage: form.value.stage,
       wordTemplateCode: form.value.wordTemplateCode,
       schemaCodes: [],
       mappings: form.value.mappings.filter(mapping => mapping.var.trim() && mapping.source.trim()),
@@ -192,7 +184,7 @@ function remove(docType: OfficeDocType) {
           empty-text="还没有文档类型，可在「办公设置」导入预设包"
         >
           <template #cell-stage="{ row }">
-            <YdTag variant="outline">{{ stageLabel(row.original.stage) }}</YdTag>
+            <YdTag variant="outline">{{ row.original.stage || '通用' }}</YdTag>
           </template>
           <template #cell-template="{ row }">{{ row.original.wordTemplateCode || '—' }}</template>
           <template #cell-mappings="{ row }">{{ row.original.mappings.length }}</template>
@@ -221,8 +213,8 @@ function remove(docType: OfficeDocType) {
         <YdLabel label="名称" required>
           <YdInput v-model="form.name" placeholder="活动总结" />
         </YdLabel>
-        <YdLabel label="阶段">
-          <YdSelect v-model="form.stage" :options="stageOptions" />
+        <YdLabel label="阶段标签（站点自定，如：事前/事后/月度）">
+          <YdInput v-model="form.stage" placeholder="general" />
         </YdLabel>
         <YdLabel label="宿主 Word 模板">
           <YdSelect v-model="form.wordTemplateCode" :options="templateOptions" />

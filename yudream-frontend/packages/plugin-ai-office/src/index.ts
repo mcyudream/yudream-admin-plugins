@@ -4,6 +4,7 @@ import './styles.css'
 import DatasetPage from './pages/DatasetPage.vue'
 import FinancePage from './pages/FinancePage.vue'
 import GeneratePage from './pages/GeneratePage.vue'
+import CategoriesPage from './pages/CategoriesPage.vue'
 import MyFinancePage from './pages/MyFinancePage.vue'
 import PromptsPage from './pages/PromptsPage.vue'
 import SchemasPage from './pages/SchemasPage.vue'
@@ -16,6 +17,7 @@ export const Templates = TemplatesPage
 export const Prompts = PromptsPage
 export const Schemas = SchemasPage
 export const Generate = GeneratePage
+export const Categories = CategoriesPage
 export const Finance = FinancePage
 export const Settlement = SettlementPage
 export const Dataset = DatasetPage
@@ -27,6 +29,7 @@ export const routes = {
   Prompts,
   Schemas,
   Generate,
+  Categories,
   Finance,
   Settlement,
   Dataset,
@@ -36,6 +39,7 @@ export const routes = {
   'ai-office/Prompts': PromptsPage,
   'ai-office/Schemas': SchemasPage,
   'ai-office/Generate': GeneratePage,
+  'ai-office/Categories': CategoriesPage,
   'ai-office/Finance': FinancePage,
   'ai-office/Settlement': SettlementPage,
   'ai-office/Dataset': DatasetPage,

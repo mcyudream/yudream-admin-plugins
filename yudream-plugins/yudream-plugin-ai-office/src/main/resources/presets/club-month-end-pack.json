@@ -1,7 +1,7 @@
 {
   "code": "club-month-end-pack",
   "name": "社团月末材料包",
-  "description": "学生社团月末材料六件套：活动报备表、策划书（事前），效果展示、活动总结（事后），月度经费报表、月度工作总结（月度）。导入后请在平台管理端按 wordTemplates 清单上传对应 docx 模板。",
+  "description": "样例预设（社团场景示例，非社团站点可整体替换或从零自建）——月末材料六件套：活动报备表、策划书（事前），效果展示、活动总结（事后），月度经费报表、月度工作总结（月度）。导入后请在平台管理端按 wordTemplates 清单上传对应 docx 模板。",
   "settings": {
     "profileSchemaCode": "org-club",
     "styleGuide": "正式公文风格；章节采用汉字序号（一、二、三）；落款使用组织全称；不得编造未经提供的数据；语言平实准确。"
@@ -49,7 +49,8 @@
           "label": "落款全称",
           "type": "text"
         }
-      ]
+      ],
+      "role": "profile"
     },
     {
       "code": "activity",
@@ -92,7 +93,8 @@
           "label": "活动介绍",
           "type": "longtext"
         }
-      ]
+      ],
+      "role": "entity"
     }
   ],
   "prompts": [

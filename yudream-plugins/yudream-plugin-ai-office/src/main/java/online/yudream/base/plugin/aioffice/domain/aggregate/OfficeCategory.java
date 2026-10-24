@@ -11,6 +11,7 @@ public record OfficeCategory(
         String code,
         String name,
         List<String> fields,
+        String schemaCode,
         int sort,
         boolean enabled
 ) {
@@ -23,10 +24,11 @@ public record OfficeCategory(
         code = require(code, "类别编码不能为空");
         name = require(name, "类别名称不能为空");
         fields = fields == null ? List.of() : List.copyOf(fields);
+        schemaCode = schemaCode == null ? "" : schemaCode.trim();
     }
 
     public static OfficeCategory create(String direction, String code, String name, List<String> fields, int sort) {
-        return new OfficeCategory(UUID.randomUUID().toString(), direction, code, name, fields, sort, true);
+        return new OfficeCategory(UUID.randomUUID().toString(), direction, code, name, fields, "", sort, true);
     }
 
     public boolean income() {
