@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActionMenuItem, SearchConfig, SearchFieldConfig, TableColumn, YdTablePageAction } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { InteropPackEntry, InteropSiteDocument, McInteropEntry } from '../types'
+import type { McInteropEntry } from '../types'
 import { YdAlert, YdDynamicSearchForm, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdNumberField, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { ref } from 'vue'
 import { formatDateTime } from '../composables/useMcInteropShell'
@@ -54,30 +54,10 @@ const rowActions: ActionMenuItem<McInteropEntry>[] = [
 
 const pageActions: YdTablePageAction[] = [
   { label: '从适配器导入', icon: 'morph:download', onClick: importFromAdapter },
-  { label: '加载合并视图', icon: 'morph:git-merge', onClick: loadMerged },
   { label: '新增条目', icon: 'morph:plus', onClick: () => model.openCreate() },
 ]
 
-/** 合并视图：本站已发布条目 + peers 互采的友站条目（协议出口形状） */
-const merged = ref<InteropSiteDocument | null>(null)
-const mergedLoading = ref(false)
 
-async function loadMerged() {
-  mergedLoading.value = true
-  try {
-    merged.value = await model.mergedEntries()
-  } catch (cause) {
-    toast.error(cause instanceof Error ? cause.message : '合并视图加载失败')
-  } finally {
-    mergedLoading.value = false
-  }
-}
-
-function mergedServer(pack: InteropPackEntry): string {
-  const server = pack.server
-  if (!server) return '-'
-  return server.port ? `${server.address}:${server.port}` : server.address
-}
 
 async function importFromAdapter() {
   try {
@@ -160,11 +140,11 @@ function save() {
         </YdResponsiveEnhancedTable>
       </YdLoadingOverlay>
 
-      <template v-if="merged">
+      <template v-if="model.merged">
         <h3 class="m-0 mt-4 text-base font-semibold text-contrast">合并视图（本站已发布 + 友站互采）</h3>
         <div class="flex flex-col gap-2">
           <div
-            v-for="pack in merged.packs"
+            v-for="pack in model.merged.packs"
             :key="pack.id + ':' + (pack.source?.site_id ?? 'own')"
             class="flex flex-wrap items-center gap-2 rounded-lg border border-solid border-surface-5 p-2"
           >
@@ -176,7 +156,7 @@ function save() {
             <span v-if="pack.revision != null" class="text-xs text-secondary">r{{ pack.revision }}</span>
             <span v-if="pack.game_version" class="text-xs text-secondary">MC {{ pack.game_version }}</span>
             <span v-if="pack.loader" class="text-xs text-secondary">{{ pack.loader }}{{ pack.loader_version ? ` ${pack.loader_version}` : '' }}</span>
-            <code class="text-xs text-secondary">{{ mergedServer(pack) }}</code>
+            <code class="text-xs text-secondary">{{ pack.server ? (pack.server.port ? `${pack.server.address}:${pack.server.port}` : pack.server.address) : '-' }}</code>
           </div>
         </div>
       </template>
@@ -196,7 +176,7 @@ function save() {
     v-model="model.editOpen"
     :title="model.editing ? '编辑条目' : '新增条目'"
     show-cancel-button
-    class="sm:max-w-2xl"
+    class="sm:max-w-xl"
     :confirm-loading="model.loading"
     @confirm="save"
   >

@@ -11,6 +11,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   const size = ref(20)
   const total = ref(0)
   const keyword = ref('')
+  const merged = ref<InteropSiteDocument | null>(null)
 
   const editOpen = ref(false)
   const editing = ref<McInteropEntry | null>(null)
@@ -46,6 +47,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
       const body = await api.entries(page.value, size.value, keyword.value.trim() || undefined)
       entries.value = body.records ?? []
       total.value = Number(body.total ?? 0)
+      merged.value = await api.mergedEntries().catch(() => null)
     })
   }
 
@@ -98,10 +100,6 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
     return body
   }
 
-  async function mergedEntries(): Promise<InteropSiteDocument> {
-    return api.mergedEntries()
-  }
-
   function remove(entry: McInteropEntry) {
     return run(async () => {
       await api.deleteEntry(entry.id)
@@ -114,6 +112,6 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   return reactive({
     loading, error, entries, page, size, total, keyword,
     editOpen, editing, form,
-    load, search, changePage, openCreate, openEdit, save, togglePublish, importFromAdapter, mergedEntries, remove,
+    load, search, changePage, openCreate, openEdit, save, togglePublish, importFromAdapter, merged, remove,
   })
 }

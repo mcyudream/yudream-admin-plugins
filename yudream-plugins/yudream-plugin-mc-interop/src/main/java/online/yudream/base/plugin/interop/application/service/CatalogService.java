@@ -262,11 +262,13 @@ public class CatalogService {
             String name = (row.packName() == null || row.packName().isBlank() ? row.packId() : row.packName())
                     + (row.serverName() != null && !row.serverName().isBlank() ? " · " + row.serverName() : "");
             try {
-                saveEntry(new CatalogEntry(entryId, name,
+                // mrpackPath 为插件内相对路径（/mip/...），完整地址需挂 ymcl-adapter 的 /api 前缀
+            String adapterBase = origin.isBlank() ? "" : origin + "/api/plugins/ymcl-adapter";
+            saveEntry(new CatalogEntry(entryId, name,
                     row.serverAddress() == null ? null : "绑定服务器：" + row.serverAddress(),
                     revision, row.gameVersion() == null ? "unknown" : row.gameVersion(),
                     loader, row.loaderVersion(), "mrpack",
-                    origin + row.mrpackPath(), row.sizeBytes(), null, row.sha512(),
+                    adapterBase + row.mrpackPath(), row.sizeBytes(), null, row.sha512(),
                     "yap-mip", row.packId(), row.version(),
                     row.serverAddress(), null, true, System.currentTimeMillis()));
                 imported++;
