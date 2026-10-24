@@ -10,6 +10,12 @@ import java.util.Map;
 /** 联合认证 JSON 读写（Jackson；保持插入序以支撑断言规范化签名）。 */
 public final class JsonSupport {
 
+    /** 供插件内互采等场景复用的共享 ObjectMapper（宿主类路径提供 Jackson）。 */
+    public static com.fasterxml.jackson.databind.ObjectMapper getMapper() {
+        return MAPPER;
+    }
+
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private JsonSupport() {

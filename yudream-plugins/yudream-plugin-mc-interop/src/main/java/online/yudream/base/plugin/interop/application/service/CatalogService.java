@@ -3,6 +3,7 @@ package online.yudream.base.plugin.interop.application.service;
 import online.yudream.base.plugin.interop.domain.McInteropBusinessException;
 import online.yudream.base.plugin.interop.domain.aggregate.CatalogEntry;
 import online.yudream.base.plugin.interop.infrastructure.repository.InteropRepository;
+import online.yudream.base.plugin.interop.infrastructure.support.JsonSupport;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,6 +39,13 @@ public class CatalogService {
     private final java.util.function.Supplier<online.yudream.base.plugin.interop.domain.aggregate.SiteIdentityRecord> unionIdentity;
     /** ymcl-adapter 聚合目录（软依赖桥；未装适配器时为 null → 手填兜底）。 */
     private final java.util.function.Supplier<List<online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry>> adapterCatalog;
+
+    /** peers 互采合并缓存（5 分钟），避免出口每次请求都外拉友站清单。 */
+    private volatile List<Map<String, Object>> mergedPeerPacksCache;
+    private volatile long mergedPeerPacksAt;
+    private final java.net.http.HttpClient interopHttp = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(5))
+            .build();
 
     public CatalogService(InteropRepository repository) {
         this(repository, null, null);
@@ -361,6 +369,7 @@ public class CatalogService {
             latest = Math.max(latest, entry.updatedAt());
             packs.add(entryView(entry));
         }
+        mergePeerPacks(packs, latest);
 
         List<Map<String, Object>> peers = new ArrayList<>();
         for (Map<String, Object> peer : repository.allPeers()) {
@@ -380,6 +389,71 @@ public class CatalogService {
         document.put("peers", peers);
         document.put("updatedAt", ISO_UTC.format(Instant.ofEpochMilli(latest)));
         return document;
+    }
+
+    /**
+     * peers 互采合并（协议 §7.2）：拉取各友站清单，条目带 source 溯源；
+     * 与本站/已合并条目 id 冲突即丢弃；单站失败只跳过。缓存 5 分钟。
+     */
+    @SuppressWarnings("unchecked")
+    private void mergePeerPacks(List<Map<String, Object>> packs, long latestOwn) {
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> cached = mergedPeerPacksCache;
+        if (cached != null && now - mergedPeerPacksAt < 5 * 60_000L) {
+            packs.addAll(cached);
+            return;
+        }
+        List<Map<String, Object>> merged = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (Map<String, Object> pack : packs) {
+            seen.add(text(pack.get("id")));
+        }
+        for (Map<String, Object> peer : repository.allPeers()) {
+            String siteId = text(peer.get("id"));
+            String manifestUrl = text(peer.get("manifestUrl"));
+            String domain = text(peer.get("domain"));
+            if (siteId == null || manifestUrl == null || !manifestUrl.startsWith("https://")) {
+                continue;
+            }
+            try {
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(manifestUrl))
+                        .timeout(java.time.Duration.ofSeconds(15))
+                        .header("Accept", "application/json")
+                        .GET()
+                        .build();
+                java.net.http.HttpResponse<byte[]> response =
+                        interopHttp.send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                if (response.statusCode() != 200 || response.body().length > 1024 * 1024) {
+                    continue;
+                }
+                Map<String, Object> remote = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().readValue(
+                        new String(response.body(), StandardCharsets.UTF_8), Map.class);
+                if (!(remote.get("packs") instanceof List<?> remotePacks)) {
+                    continue;
+                }
+                for (Object packValue : remotePacks) {
+                    if (!(packValue instanceof Map)) {
+                        continue;
+                    }
+                    Map<String, Object> pack = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().convertValue(packValue, Map.class);
+                    String id = text(pack.get("id"));
+                    if (id == null || !seen.add(id)) {
+                        continue;
+                    }
+                    Map<String, Object> source = new LinkedHashMap<>();
+                    source.put("siteId", siteId);
+                    source.put("domain", domain == null ? "" : domain);
+                    pack.put("source", source);
+                    merged.add(pack);
+                }
+            } catch (Exception e) {
+                // 单站失败只跳过（§7.2）
+            }
+        }
+        mergedPeerPacksCache = merged;
+        mergedPeerPacksAt = now;
+        packs.addAll(merged);
     }
 
     /** 出口内容摘要派生的强 ETag（协议 §2.2 建议由 updatedAt/revision 派生）。 */
