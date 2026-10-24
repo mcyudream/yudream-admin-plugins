@@ -36,8 +36,22 @@ export function applyYmclDragPayload(event: DragEvent, origin = siteOrigin()) {
   }
 }
 
-export function openYmcl(origin = siteOrigin()) {
-  window.location.href = ymclAddSiteUri(origin)
+/** location.href 对未注册协议通常静默无反应；改用 <a> click 并让调用方按返回值提示。 */
+export function openYmcl(origin = siteOrigin()): boolean {
+  const uri = ymclAddSiteUri(origin)
+  try {
+    const link = document.createElement('a')
+    link.href = uri
+    link.rel = 'noreferrer'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    window.setTimeout(() => link.remove(), 0)
+    return true
+  }
+  catch {
+    return false
+  }
 }
 
 export function absoluteUrl(url: string) {

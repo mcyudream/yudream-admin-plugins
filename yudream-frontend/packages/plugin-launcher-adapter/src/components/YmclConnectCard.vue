@@ -22,12 +22,19 @@ void props.sdk
 const origin = computed(() => siteOrigin())
 
 async function copyOrigin() {
-  await navigator.clipboard.writeText(origin.value)
-  toast.success('域站基址已复制')
+  try {
+    await navigator.clipboard.writeText(origin.value)
+    toast.success('域站基址已复制')
+  }
+  catch {
+    toast.error('复制失败，请手动复制')
+  }
 }
 
 function openYmcl() {
-  openYmclProtocol(origin.value)
+  if (!openYmclProtocol(origin.value)) {
+    toast.error('无法唤起 YMCL，请检查是否已安装启动器')
+  }
 }
 
 function handleDragStart(event: DragEvent) {
