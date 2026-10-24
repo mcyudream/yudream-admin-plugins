@@ -77,9 +77,18 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
                 @PluginRoute(
                         path = "/platform/plugins/office/generate",
                         name = "platform-plugin-office-generate",
-                        title = "生成与打包",
+                        title = "生成任务",
                         icon = "i-ri:magic-line",
                         component = "ai-office/Generate",
+                        permission = AiOfficePlugin.GENERATE_PERMISSION,
+                        sort = 12
+                ),
+                @PluginRoute(
+                        path = "/platform/plugins/office/packages",
+                        name = "platform-plugin-office-packages",
+                        title = "打包导出",
+                        icon = "i-ri:folder-zip-line",
+                        component = "ai-office/Packages",
                         permission = AiOfficePlugin.GENERATE_PERMISSION,
                         sort = 12
                 ),

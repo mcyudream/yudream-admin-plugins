@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { YdLoadingOverlay, YdTablePageLayout } from '@yudream/components'
+import type { ActionMenuItem, SearchConfig, SearchFieldConfig, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { ActivityEffect } from '../types'
-import { YdButton, YdIcon, YdModal, YdPagination, YdResponsiveEnhancedTable, YdSelect, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { YdDynamicSearchForm, YdLoadingOverlay, YdModal, YdPagination, YdResponsiveEnhancedTable, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
 import { onMounted, reactive, ref } from 'vue'
 import { createActivityProofApi } from '../api/activity-proof-api'
 import { formatTime } from '../composables/utils'
@@ -20,24 +19,44 @@ const loading = ref(false)
 const records = ref<ActivityEffect[]>([])
 const pager = reactive({ page: 1, size: 10, total: 0 })
 const filters = reactive({ activityId: '', status: '' })
-const reviewVisible = ref(false)
-const reviewAccept = ref(true)
-const reviewNote = ref('')
-const reviewTarget = ref<ActivityEffect | null>(null)
-const reviewSaving = ref(false)
+const searchQuery = ref<Record<string, any>>({ activityId: '', status: '' })
+
+type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'TEXT' | 'SELECT' }
+
+function searchField(config: SearchFieldInput): SearchFieldConfig {
+  const { controlType = 'TEXT', order = 0, showWhenFolded = false, width = '200px', ...rest } = config
+  return { ...rest, fieldName: config.fieldName, label: config.label, controlType: controlType as SearchFieldConfig['controlType'], order, showWhenFolded, width }
+}
+
+const statusOptions = [
+  { label: '待审核', value: 'submitted' },
+  { label: '已采纳', value: 'accepted' },
+  { label: '未采纳', value: 'rejected' },
+]
+
+const searchConfig: SearchConfig = {
+  fields: [
+    searchField({ fieldName: 'activityId', label: '活动 ID', placeholder: '按活动编号筛选', order: 1, showWhenFolded: true, width: '220px' }),
+    searchField({ fieldName: 'status', label: '状态', controlType: 'SELECT', order: 2, width: '160px' }),
+  ],
+}
+
+const optionsSources = [
+  { id: 'statusOptions', loader: () => statusOptions },
+]
 
 const columns: TableColumn<ActivityEffect>[] = [
   { id: 'activity', header: '活动', width: 200, fixed: 'left' },
   { id: 'text', header: '效果说明', minWidth: 220 },
   { id: 'attachments', header: '附件', width: 240 },
-  { id: 'submitted', header: '提交时间', width: 160 },
+  { accessorKey: 'submittedAt', header: '提交时间', width: 160 },
   { id: 'status', header: '状态', width: 100 },
 ]
 
-const rowActions: ActionMenuItem<unknown>[] = [
-  { label: '采纳', icon: 'morph:check', visible: row => (row as ActivityEffect).status === 'submitted', onClick: row => openReview(row as ActivityEffect, true) },
-  { label: '驳回', icon: 'morph:circle-x', visible: row => (row as ActivityEffect).status === 'submitted', onClick: row => openReview(row as ActivityEffect, false) },
-  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => remove(row as ActivityEffect) },
+const rowActions: ActionMenuItem<ActivityEffect>[] = [
+  { label: '采纳', icon: 'morph:check', visible: row => row.status === 'submitted', onClick: row => openReview(row, true) },
+  { label: '驳回', icon: 'morph:circle-x', danger: true, visible: row => row.status === 'submitted', onClick: row => openReview(row, false) },
+  { label: '删除', icon: 'morph:trash-2', danger: true, onClick: row => remove(row) },
 ]
 
 onMounted(load)
@@ -65,6 +84,20 @@ async function load() {
     loading.value = false
   }
 }
+
+function applySearch() {
+  filters.activityId = String(searchQuery.value.activityId ?? '')
+  filters.status = String(searchQuery.value.status ?? '')
+  pager.page = 1
+  load()
+}
+
+// 搜索审核状态
+const reviewVisible = ref(false)
+const reviewTarget = ref<ActivityEffect | null>(null)
+const reviewAccept = ref(true)
+const reviewNote = ref('')
+const reviewSaving = ref(false)
 
 function openReview(effect: ActivityEffect, accept: boolean) {
   reviewTarget.value = effect
@@ -98,7 +131,7 @@ async function submitReview() {
 function remove(effect: ActivityEffect) {
   confirm.confirm({
     title: '删除效果提交',
-    content: `确认删除这条效果提交吗？附件文件将一并清理，不可恢复。`,
+    content: '确认删除这条效果提交吗？附件文件将一并清理，不可恢复。',
     onConfirm: async () => {
       try {
         await api.admin.deleteEffect(effect.id)
@@ -142,36 +175,27 @@ function errorMessage(cause: unknown, fallback: string): string {
 
 <template>
   <YdTablePageLayout title="活动效果审核">
-    <template #search>
-      <div class="flex w-full flex-wrap items-center gap-2">
-        <YdSelect
-          v-model="filters.status"
-          placeholder="全部状态"
-          clearable
-          class="w-40"
-          :options="[
-            { label: '待审核', value: 'submitted' },
-            { label: '已采纳', value: 'accepted' },
-            { label: '未采纳', value: 'rejected' },
-          ]"
-          @change="pager.page = 1; load()"
-        />
-        <YdButton variant="outline" @click="pager.page = 1; load()">
-          <YdIcon name="i-ri:search-line" />查询
-        </YdButton>
-      </div>
+    <template #search="{ fold }">
+      <YdDynamicSearchForm
+        v-model="searchQuery"
+        :config="searchConfig"
+        :fold="fold"
+        :options-sources="optionsSources"
+        @search="applySearch"
+        @reset="applySearch"
+      />
     </template>
     <template #table>
       <YdLoadingOverlay :loading="loading">
         <YdResponsiveEnhancedTable
-          :actions="rowActions"
+          :columns="columns"
+          :data="records"
           row-key="id"
           table-root-class="proof-table-scroll"
           table-class="proof-table-w1280"
           border
           stripe
-          :columns="columns"
-          :data="records"
+          :actions="rowActions"
           empty-text="暂无效果提交"
         >
           <template #cell-activity="{ row }">
@@ -194,13 +218,12 @@ function errorMessage(cause: unknown, fallback: string): string {
                 target="_blank"
                 rel="noopener"
               >
-                <YdIcon :name="attachment.kind === 'image' ? 'i-ri:image-line' : attachment.kind === 'video' ? 'i-ri:video-line' : 'i-ri:file-line'" />
                 {{ attachment.caption || attachment.filename }}
               </a>
               <span v-if="!row.original.attachments.length" class="text-sm text-muted-foreground">无附件</span>
             </div>
           </template>
-          <template #cell-submitted="{ row }">{{ formatTime(row.original.submittedAt) }}</template>
+          <template #cell-submittedAt="{ row }">{{ formatTime(row.original.submittedAt) }}</template>
           <template #cell-status="{ row }">
             <YdTag :variant="row.original.status === 'accepted' ? 'default' : 'outline'">
               {{ statusText(row.original.status) }}

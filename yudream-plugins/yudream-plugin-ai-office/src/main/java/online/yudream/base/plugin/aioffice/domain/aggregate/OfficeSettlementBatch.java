@@ -20,11 +20,26 @@ public record OfficeSettlementBatch(
 
     public OfficeSettlementBatch {
         period = require(period, "结算周期不能为空");
-        if (!period.matches("\\d{4}-\\d{2}")) {
-            throw new IllegalArgumentException("结算周期格式应为 yyyy-MM：" + period);
+        if (!isValidPeriod(period)) {
+            throw new IllegalArgumentException("结算周期格式应为 yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd：" + period);
         }
         status = status == null || status.isBlank() ? STATUS_OPEN : status.trim().toLowerCase(Locale.ROOT);
         closedBy = closedBy == null ? "" : closedBy.trim();
+    }
+
+    /** 周期写法：月度 "yyyy-MM"，或任意时间范围 "yyyy-MM-dd/yyyy-MM-dd"（如 2026-09-01/2026-12-01）。 */
+    public static boolean isValidPeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return false;
+        }
+        String trimmed = period.trim();
+        if (trimmed.matches("\\d{4}-\\d{2}")) {
+            return true;
+        }
+        String[] parts = trimmed.split("/");
+        return parts.length == 2
+                && parts[0].matches("\\d{4}-\\d{2}-\\d{2}")
+                && parts[1].matches("\\d{4}-\\d{2}-\\d{2}");
     }
 
     public static OfficeSettlementBatch open(String period, long balanceCarryIn) {

@@ -473,7 +473,7 @@ public class OfficeHttpFacade {
             String period = orDefault(firstQuery(request, "period"), FinanceService.currentPeriod());
             boolean skipMissing = "true".equalsIgnoreCase(firstQuery(request, "skipMissing"));
             byte[] zip = generation.exportPackage(code, period, skipMissing, currentUserId(request));
-            String filename = "ai-office-" + code + "-" + period + ".zip";
+            String filename = "ai-office-" + code + "-" + FinanceService.safePeriodLabel(period) + ".zip";
             return new PluginHttpResponse(200,
                     Map.of("Content-Disposition", "attachment; filename*=UTF-8''"
                             + URLEncoder.encode(filename, StandardCharsets.UTF_8)),

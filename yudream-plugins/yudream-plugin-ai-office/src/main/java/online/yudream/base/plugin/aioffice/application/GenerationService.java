@@ -318,7 +318,7 @@ public class GenerationService {
 
     // ---------- 打包导出 ----------
 
-    /** 打包预检：每个打包项在周期内的生成状态。 */
+    /** 打包预检：每个打包项在周期内的生成状态（含生成目标字段，供前端一键去生成）。 */
     public List<Map<String, Object>> precheck(String packageCode, String period) {
         OfficePackage aPackage = repository.packageByCode(packageCode)
                 .orElseThrow(() -> new IllegalArgumentException("打包定义不存在：" + packageCode));
@@ -339,6 +339,8 @@ public class GenerationService {
                 row.put("docTypeName", docType == null ? item.docTypeCode() : docType.name());
                 row.put("targetId", targetId);
                 row.put("targetLabel", targetLabel);
+                row.put("sourceType", sourceTypeOf(item.target()));
+                row.put("period", period);
                 row.put("ready", finalJob.isPresent());
                 row.put("jobId", finalJob.map(OfficeDocJob::id).orElse(""));
                 row.put("filename", finalJob.map(OfficeDocJob::resultFilename).orElse(""));
@@ -349,13 +351,14 @@ public class GenerationService {
         return rows;
     }
 
-    /** 打包导出 zip：优先复用已定稿产物，缺失项按 skipMissing 决定跳过或报错。 */
+    /** 打包导出 zip：复用已定稿产物；缺料不阻断，写入「缺料清单.txt」随包交付。 */
     public byte[] exportPackage(String packageCode, String period, boolean skipMissing, String operatorId) {
         OfficePackage aPackage = repository.packageByCode(packageCode)
                 .orElseThrow(() -> new IllegalArgumentException("打包定义不存在：" + packageCode));
         List<String> missing = new ArrayList<>();
         Map<String, byte[]> entries = new LinkedHashMap<>();
         List<String[]> entryNames = new ArrayList<>();
+        // 缺料不再阻断打包：就绪文档正常导出，缺料写入清单文件随包交付
         String rootDir = safeDir(MappingResolver.interpolate(aPackage.dirPattern(),
                 Map.of("org", repository.settings().profile()), Map.of())
                 .replace("{month汉字}", chineseMonth(period))
@@ -391,15 +394,21 @@ public class GenerationService {
                 entries.put(job.id(), content);
             }
         }
-        if (!missing.isEmpty() && !skipMissing) {
-            throw new IllegalArgumentException("存在未定稿文档：" + String.join("；", missing)
-                    + "。请先生成或选择跳过缺失项。");
+        if (entryNames.isEmpty()) {
+            throw new IllegalArgumentException("周期内没有可导出的文档："
+                    + (missing.isEmpty() ? "打包项没有任何目标" : String.join("；", missing)));
         }
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(buffer)) {
             for (String[] entry : entryNames) {
                 zip.putNextEntry(new ZipEntry(entry[0]));
                 zip.write(entries.get(entry[1]));
+                zip.closeEntry();
+            }
+            if (!missing.isEmpty()) {
+                zip.putNextEntry(new ZipEntry((rootDir.isBlank() ? "" : rootDir + "/") + "缺料清单.txt"));
+                zip.write(("以下文档在导出时尚未定稿，请在本插件生成后重新导出：\n\n"
+                        + String.join("\n", missing)).getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
             zip.finish();
@@ -635,7 +644,8 @@ public class GenerationService {
 
     private static String chineseMonth(String period) {
         if (period == null || !period.matches("\\d{4}-\\d{2}")) {
-            return period == null ? "" : period;
+            // 范围周期等其他写法原样返回（'/' 会破坏 zip 路径，转全角 ～）
+            return period == null ? "" : period.replace('/', '～');
         }
         String[] digits = {"〇", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
                 "十一", "十二"};

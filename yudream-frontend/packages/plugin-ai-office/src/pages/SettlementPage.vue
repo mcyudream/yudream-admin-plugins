@@ -81,7 +81,7 @@ function closeTime(batch: SettlementBatch) {
 </script>
 
 <template>
-  <YdTablePageLayout title="周期结算">
+  <YdTablePageLayout title="周期结算" stats-title="周期总览">
     <template #stats>
       <YdAlert v-if="error" variant="destructive" title="加载失败" :description="error" />
       <dl v-if="overview" class="office-kv">
@@ -95,7 +95,7 @@ function closeTime(batch: SettlementBatch) {
     </template>
     <template #actions>
       <div class="flex flex-wrap items-center gap-2">
-        <YdInput v-model="period" placeholder="yyyy-MM" class="w-36" />
+        <YdInput v-model="period" placeholder="yyyy-MM 或 起/止" class="w-56" />
         <YdButton variant="outline" :loading="loading" @click="load">查询</YdButton>
         <YdButton :loading="closing" @click="requestClose">关账结算</YdButton>
       </div>

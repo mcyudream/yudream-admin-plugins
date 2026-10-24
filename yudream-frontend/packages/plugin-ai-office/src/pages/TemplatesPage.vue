@@ -158,7 +158,7 @@ function remove(docType: OfficeDocType) {
 </script>
 
 <template>
-  <YdTablePageLayout title="文档类型" :show-search="false">
+  <YdTablePageLayout title="文档类型" :show-search="false" stats-title="映射写法">
     <template #stats>
       <div class="text-sm text-muted-foreground">
         文档类型绑定宿主 Word 模板与占位符映射。数据源：<code>ctx:点路径</code> ｜ <code>list:点路径</code>（表格循环）｜ <code>image:点路径</code>（嵌图）｜ <code>ai:提示词编码</code> ｜ <code>text:字面量</code>；变换：<code>date:yyyy年MM月dd日</code> ｜ <code>money</code> ｜ <code>join:、</code> ｜ <code>image:宽px</code>

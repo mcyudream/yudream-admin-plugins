@@ -171,6 +171,8 @@ export interface PrecheckRow {
   docTypeName: string
   targetId: string
   targetLabel: string
+  sourceType: string
+  period: string
   ready: boolean
   jobId: string
   filename: string

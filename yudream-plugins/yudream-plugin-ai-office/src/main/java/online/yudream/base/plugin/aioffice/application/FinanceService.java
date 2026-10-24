@@ -223,30 +223,69 @@ public class FinanceService {
         return saved;
     }
 
-    /** 上一个已关账批次的结转结余；没有则为 0。 */
+    /** 上一个已关账批次（结束时间早于本周期开始）的结转结余；没有则为 0。 */
     private long carryInFromPrevious(String period) {
+        long start = periodStart(period);
         return repository.settlementBatches().stream()
                 .filter(OfficeSettlementBatch::closed)
-                .filter(batch -> batch.period().compareTo(period) < 0)
-                .max(java.util.Comparator.comparing(OfficeSettlementBatch::period))
+                .filter(batch -> periodEndOf(batch.period()) < start)
+                .max(java.util.Comparator.comparingLong(batch -> periodEndOf(batch.period())))
                 .map(OfficeSettlementBatch::balanceCarryOut)
                 .orElse(0L);
     }
 
-    /** "yyyy-MM" → [当月1日 00:00, 次月1日 00:00) 的 epoch millis。 */
-    public static long[] periodBounds(String period) {
-        if (period == null || !period.matches("\\d{4}-\\d{2}")) {
-            throw new IllegalArgumentException("周期格式应为 yyyy-MM：" + period);
-        }
-        YearMonth month;
+    private static long periodEndOf(String period) {
         try {
-            month = YearMonth.parse(period);
-        } catch (java.time.format.DateTimeParseException e) {
-            throw new IllegalArgumentException("周期不存在：" + period, e);
+            return periodBounds(period)[1];
+        } catch (IllegalArgumentException e) {
+            return 0L;
         }
-        long from = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        long to = month.plusMonths(1).atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        return new long[]{from, to - 1};
+    }
+
+    /**
+     * 周期 → [起始 00:00, 结束 23:59:59.999] 的 epoch millis。
+     * 支持两种写法：月度 "yyyy-MM"；任意时间范围 "yyyy-MM-dd/yyyy-MM-dd"（如 2026-09-01/2026-12-01）。
+     */
+    public static long[] periodBounds(String period) {
+        if (period == null || period.isBlank()) {
+            throw new IllegalArgumentException("周期不能为空");
+        }
+        String trimmed = period.trim();
+        if (trimmed.matches("\\d{4}-\\d{2}")) {
+            YearMonth month;
+            try {
+                month = YearMonth.parse(trimmed);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("周期不存在：" + period, e);
+            }
+            long from = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long to = month.plusMonths(1).atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            return new long[]{from, to - 1};
+        }
+        String[] parts = trimmed.split("/");
+        if (parts.length != 2 || !parts[0].matches("\\d{4}-\\d{2}-\\d{2}") || !parts[1].matches("\\d{4}-\\d{2}-\\d{2}")) {
+            throw new IllegalArgumentException("周期格式应为 yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd：" + period);
+        }
+        try {
+            long from = java.time.LocalDate.parse(parts[0]).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            long to = java.time.LocalDate.parse(parts[1]).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            if (to <= from) {
+                throw new IllegalArgumentException("周期结束必须晚于开始：" + period);
+            }
+            return new long[]{from, to - 1};
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("周期日期无效：" + period, e);
+        }
+    }
+
+    /** 周期起始时刻（结余链按时间衔接，兼容月度与范围两种写法）。 */
+    public static long periodStart(String period) {
+        return periodBounds(period)[0];
+    }
+
+    /** 周期展示名转安全文件名片段：'/' 会破坏 zip 目录结构，替换为 '～'。 */
+    public static String safePeriodLabel(String period) {
+        return period == null ? "" : period.trim().replace('/', '～');
     }
 
     /** 当期月份（站点时区）。 */

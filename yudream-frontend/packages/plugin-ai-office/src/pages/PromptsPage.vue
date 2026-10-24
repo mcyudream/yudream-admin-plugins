@@ -105,7 +105,7 @@ function remove(prompt: OfficePrompt) {
 </script>
 
 <template>
-  <YdTablePageLayout title="AI 提示词" :show-search="false">
+  <YdTablePageLayout title="AI 提示词" :show-search="false" stats-title="引用方式">
     <template #stats>
       <div class="text-sm text-muted-foreground">
         提示词被文档类型映射以 <code>ai:提示词编码</code> 引用；user 正文用 <code>{点路径}</code> 引用上下文（如 <code>{target.title}</code>、<code>{finance.expenseTotal}</code>）。站点写作规范会在生成时自动并入 system。

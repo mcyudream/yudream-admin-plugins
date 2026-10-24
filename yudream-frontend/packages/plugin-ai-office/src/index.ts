@@ -6,6 +6,7 @@ import FinancePage from './pages/FinancePage.vue'
 import GeneratePage from './pages/GeneratePage.vue'
 import CategoriesPage from './pages/CategoriesPage.vue'
 import MyFinancePage from './pages/MyFinancePage.vue'
+import PackagesPage from './pages/PackagesPage.vue'
 import PromptsPage from './pages/PromptsPage.vue'
 import SchemasPage from './pages/SchemasPage.vue'
 import SettlementPage from './pages/SettlementPage.vue'
@@ -17,6 +18,7 @@ export const Templates = TemplatesPage
 export const Prompts = PromptsPage
 export const Schemas = SchemasPage
 export const Generate = GeneratePage
+export const Packages = PackagesPage
 export const Categories = CategoriesPage
 export const Finance = FinancePage
 export const Settlement = SettlementPage
@@ -29,6 +31,7 @@ export const routes = {
   Prompts,
   Schemas,
   Generate,
+  Packages,
   Categories,
   Finance,
   Settlement,
@@ -39,6 +42,7 @@ export const routes = {
   'ai-office/Prompts': PromptsPage,
   'ai-office/Schemas': SchemasPage,
   'ai-office/Generate': GeneratePage,
+  'ai-office/Packages': PackagesPage,
   'ai-office/Categories': CategoriesPage,
   'ai-office/Finance': FinancePage,
   'ai-office/Settlement': SettlementPage,

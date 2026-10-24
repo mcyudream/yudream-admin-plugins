@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ActionMenuItem, TableColumn } from '@yudream/components'
+import type { ActionMenuItem, SearchConfig, SearchFieldConfig, SearchOptionsSource, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { DatasetRecord, DocJob, OfficeDocType, OfficePackage, PrecheckRow, PreviewResult } from '../types'
-import { YdAlert, YdButton, YdDrawer, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdResponsiveEnhancedTable, YdSelect, YdSwitch, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
-import { onMounted, ref } from 'vue'
+import type { DatasetRecord, DocJob, OfficeDocType, PreviewResult } from '../types'
+import { YdButton, YdDrawer, YdDynamicSearchForm, YdIcon, YdInput, YdLabel, YdLoadingOverlay, YdResponsiveEnhancedTable, YdSelect, YdTablePageLayout, YdTag, YdTextarea, useYdModal, useYdToast } from '@yudream/components'
+import { onMounted, reactive, ref } from 'vue'
 import { createOfficeAdminApi, errorMessage, saveBlob } from '../api/office-api'
 import { formatTime, jobStatusText } from '../types'
 
@@ -14,7 +14,6 @@ const confirm = useYdModal()
 const api = createOfficeAdminApi(props.sdk)
 
 const docTypes = ref<OfficeDocType[]>([])
-const packages = ref<OfficePackage[]>([])
 const datasetRecords = ref<DatasetRecord[]>([])
 const loading = ref(false)
 const creating = ref(false)
@@ -31,8 +30,8 @@ const previewLoading = ref(false)
 
 const sourceTypeOptions = [
   { label: '活动平台活动', value: 'ACTIVITY' },
-  { label: '数据集记录', value: 'RECORD' },
-  { label: '周期聚合（月度）', value: 'MONTH' },
+  { label: '数据对象记录', value: 'RECORD' },
+  { label: '周期聚合', value: 'MONTH' },
 ]
 
 const docTypeOptions = () => [
@@ -48,12 +47,57 @@ const datasetOptions = () => [
   })),
 ]
 
-// 任务列表
+// 任务列表 + 筛选
 const jobs = ref<DocJob[]>([])
 const jobTotal = ref(0)
 const jobPage = ref(1)
 const jobSize = ref(10)
 const jobsLoading = ref(false)
+const jobFilter = reactive({ docTypeCode: '', status: '' })
+const searchQuery = ref<Record<string, any>>({ docTypeCode: '', status: '' })
+
+type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'SELECT' }
+
+function searchField(config: SearchFieldInput): SearchFieldConfig {
+  const { controlType = 'TEXT', order = 0, showWhenFolded = false, width = '200px', ...rest } = config
+  return { ...rest, fieldName: config.fieldName, label: config.label, controlType: controlType as SearchFieldConfig['controlType'], order, showWhenFolded, width }
+}
+
+const jobStatusOptions = () => [
+  { label: '待起草', value: 'draft' },
+  { label: '草稿待定稿', value: 'drafted' },
+  { label: '已定稿', value: 'final' },
+  { label: '失败', value: 'failed' },
+]
+
+const docTypeFilterOptions = () => docTypes.value.map(item => ({ label: item.name, value: item.code }))
+
+const jobSearchConfig: SearchConfig = {
+  fields: [
+    searchField({ fieldName: 'docTypeCode', label: '文档类型', controlType: 'SELECT', order: 1, width: '220px' }),
+    searchField({ fieldName: 'status', label: '状态', controlType: 'SELECT', order: 2, width: '180px' }),
+  ],
+}
+
+const jobOptionsSources: SearchOptionsSource[] = [
+  { id: 'docTypeCodeOptions', loader: docTypeFilterOptions },
+  { id: 'statusOptions', loader: jobStatusOptions },
+]
+
+function applyJobSearch() {
+  jobFilter.docTypeCode = String(searchQuery.value.docTypeCode ?? '')
+  jobFilter.status = String(searchQuery.value.status ?? '')
+  jobPage.value = 1
+  loadJobs()
+}
+
+function resetJobSearch() {
+  jobFilter.docTypeCode = ''
+  jobFilter.status = ''
+  searchQuery.value = { docTypeCode: '', status: '' }
+  jobPage.value = 1
+  loadJobs()
+}
 
 const jobColumns: TableColumn<DocJob>[] = [
   { id: 'docType', header: '文档类型', width: 160, enableSorting: false },
@@ -74,24 +118,12 @@ const job = ref<DocJob | null>(null)
 const draftEntries = ref<{ key: string, value: string }[]>([])
 const jobBusy = ref(false)
 
-// 打包
-const packageForm = ref({ code: '', period: new Date().toISOString().slice(0, 7), skipMissing: false })
-const precheckRows = ref<PrecheckRow[]>([])
-const packageLoading = ref(false)
-const exporting = ref(false)
-
-const packageOptions = () => [
-  { label: '选择打包定义', value: '' },
-  ...packages.value.map(item => ({ label: item.name, value: item.code })),
-]
-
 onMounted(load)
 
 async function load() {
   loading.value = true
   try {
     docTypes.value = await api.docTypes()
-    packages.value = await api.packages()
     await loadJobs()
   }
   catch (cause) {
@@ -105,7 +137,12 @@ async function load() {
 async function loadJobs() {
   jobsLoading.value = true
   try {
-    const data = await api.jobs({ page: jobPage.value, size: jobSize.value })
+    const data = await api.jobs({
+      docTypeCode: jobFilter.docTypeCode || undefined,
+      status: jobFilter.status || undefined,
+      page: jobPage.value,
+      size: jobSize.value,
+    })
     jobs.value = data.records ?? []
     jobTotal.value = data.total ?? 0
   }
@@ -262,139 +299,101 @@ function removeJob(row: DocJob) {
     },
   })
 }
-
-async function runPrecheck() {
-  if (!packageForm.value.code) {
-    toast.warning('请选择打包定义')
-    return
-  }
-  packageLoading.value = true
-  try {
-    precheckRows.value = await api.packagePrecheck(packageForm.value.code, packageForm.value.period)
-  }
-  catch (cause) {
-    toast.error(errorMessage(cause, '预检失败'))
-  }
-  finally {
-    packageLoading.value = false
-  }
-}
-
-async function exportZip() {
-  if (!packageForm.value.code) {
-    toast.warning('请选择打包定义')
-    return
-  }
-  exporting.value = true
-  try {
-    const blob = await api.exportPackage(packageForm.value.code, packageForm.value.period, packageForm.value.skipMissing)
-    saveBlob(blob.data, `ai-office-${packageForm.value.code}-${packageForm.value.period}.zip`)
-  }
-  catch (cause) {
-    toast.error(errorMessage(cause, '打包导出失败'))
-  }
-  finally {
-    exporting.value = false
-  }
-}
 </script>
 
 <template>
-  <YdTablePageLayout title="生成与打包" :show-search="false">
+  <YdTablePageLayout title="生成任务" stats-title="生成流程">
     <template #stats>
-      <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-end gap-2">
-          <YdLabel label="文档类型">
-            <YdSelect v-model="createForm.docTypeCode" class="w-52" :options="docTypeOptions()" />
-          </YdLabel>
-          <YdLabel label="目标">
-            <YdSelect v-model="createForm.sourceType" class="w-44" :options="sourceTypeOptions" @change="onSourceTypeChange" />
-          </YdLabel>
-          <YdLabel v-if="createForm.sourceType === 'ACTIVITY'" label="活动 ID">
-            <YdInput v-model="createForm.sourceId" class="w-56" placeholder="从活动平台复制" />
-          </YdLabel>
-          <YdLabel v-if="createForm.sourceType === 'RECORD'" label="数据记录">
-            <YdSelect v-model="createForm.sourceId" class="w-56" :options="datasetOptions()" />
-          </YdLabel>
-          <YdLabel label="周期">
-            <YdInput v-model="createForm.period" class="w-32" placeholder="yyyy-MM" />
-          </YdLabel>
-          <YdButton variant="outline" :loading="previewLoading" @click="runPreview">预览映射</YdButton>
-          <YdButton :loading="creating" @click="createJob">创建任务</YdButton>
-        </div>
-        <table v-if="preview" class="office-preview-table">
-          <thead>
-            <tr><th>变量</th><th>数据源</th><th>解析值</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in preview.rows" :key="row.var">
-              <td>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></td>
-              <td>{{ row.source }}</td>
-              <td :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="text-sm text-muted-foreground">
+        流程：新建任务 → AI 起草（或手写草稿）→ 编辑确认 → 渲染定稿 → 到「打包导出」按周期组装 zip（缺料自动附清单）。
       </div>
     </template>
 
+    <template #search="{ fold }">
+      <YdDynamicSearchForm
+        v-model="searchQuery"
+        :config="jobSearchConfig"
+        :fold="fold"
+        :options-sources="jobOptionsSources"
+        @search="applyJobSearch"
+        @reset="resetJobSearch"
+      />
+    </template>
+
+    <template #actions>
+      <YdButton @click="runPreview" :loading="previewLoading" variant="outline">预览映射</YdButton>
+      <YdButton @click="createJob" :loading="creating">新建任务</YdButton>
+    </template>
+
     <template #table>
-      <YdAlert v-if="false" variant="destructive" />
-      <YdLoadingOverlay :loading="jobsLoading">
-        <YdResponsiveEnhancedTable
-          :columns="jobColumns"
-          :data="jobs"
-          row-key="id"
-          table-root-class="rounded-lg overflow-hidden"
-          table-class="min-w-[980px]"
-          border
-          stripe
-          column-visibility
-          :actions="jobActions"
-          empty-text="还没有生成任务"
-        >
-          <template #cell-docType="{ row }">{{ row.original.docTypeCode }}</template>
-          <template #cell-target="{ row }">{{ row.original.sourceType }} / {{ row.original.sourceId || row.original.period }}</template>
-          <template #cell-status="{ row }">
-            <YdTag :variant="row.original.status === 'final' ? 'default' : 'outline'">{{ jobStatusText(row.original.status) }}</YdTag>
-            <div v-if="row.original.error" class="max-w-60 truncate text-xs text-muted-foreground" :title="row.original.error">{{ row.original.error }}</div>
-          </template>
-          <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
-          <template #cell-result="{ row }">
-            <span class="truncate" :title="row.original.resultFilename">{{ row.original.resultFilename || '—' }}</span>
-          </template>
-        </YdResponsiveEnhancedTable>
+      <YdLoadingOverlay :loading="loading || jobsLoading">
+        <div class="flex h-full min-h-0 flex-col">
+          <div class="flex flex-wrap items-end gap-2 pb-3">
+            <YdLabel label="文档类型">
+              <YdSelect v-model="createForm.docTypeCode" class="w-52" :options="docTypeOptions()" />
+            </YdLabel>
+            <YdLabel label="目标">
+              <YdSelect v-model="createForm.sourceType" class="w-44" :options="sourceTypeOptions" @change="onSourceTypeChange" />
+            </YdLabel>
+            <YdLabel v-if="createForm.sourceType === 'ACTIVITY'" label="活动 ID">
+              <YdInput v-model="createForm.sourceId" class="w-56" placeholder="从活动平台复制" />
+            </YdLabel>
+            <YdLabel v-if="createForm.sourceType === 'RECORD'" label="数据记录">
+              <YdSelect v-model="createForm.sourceId" class="w-56" :options="datasetOptions()" />
+            </YdLabel>
+            <YdLabel label="周期">
+              <YdInput v-model="createForm.period" class="w-56" placeholder="yyyy-MM 或 yyyy-MM-dd/yyyy-MM-dd" />
+            </YdLabel>
+          </div>
+          <table v-if="preview" class="office-preview-table">
+            <thead>
+              <tr><th>变量</th><th>数据源</th><th>解析值</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in preview.rows" :key="row.var">
+                <td>{{ row.var }} <YdTag v-if="row.ai" variant="outline">AI</YdTag></td>
+                <td>{{ row.source }}</td>
+                <td :class="{ 'text-muted-foreground': row.missing }">{{ row.missing ? '（缺失）' : String(row.value) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="min-h-0 flex-1">
+            <YdResponsiveEnhancedTable
+              :columns="jobColumns"
+              :data="jobs"
+              row-key="id"
+              table-root-class="rounded-lg overflow-hidden"
+              table-class="min-w-[980px]"
+              border
+              stripe
+              column-visibility
+              :actions="jobActions"
+              empty-text="还没有生成任务"
+            >
+              <template #cell-docType="{ row }">{{ row.original.docTypeCode }}</template>
+              <template #cell-target="{ row }">{{ row.original.sourceType }} / {{ row.original.sourceId || row.original.period }}</template>
+              <template #cell-status="{ row }">
+                <YdTag :variant="row.original.status === 'final' ? 'default' : 'outline'">{{ jobStatusText(row.original.status) }}</YdTag>
+                <div v-if="row.original.error" class="max-w-60 truncate text-xs text-muted-foreground" :title="row.original.error">{{ row.original.error }}</div>
+              </template>
+              <template #cell-updatedAt="{ row }">{{ formatTime(row.original.updatedAt) }}</template>
+              <template #cell-result="{ row }">
+                <span class="truncate" :title="row.original.resultFilename">{{ row.original.resultFilename || '—' }}</span>
+              </template>
+            </YdResponsiveEnhancedTable>
+          </div>
+        </div>
       </YdLoadingOverlay>
     </template>
 
     <template #footer>
-      <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-end gap-2">
-          <YdLabel label="打包定义">
-            <YdSelect v-model="packageForm.code" class="w-52" :options="packageOptions()" />
-          </YdLabel>
-          <YdLabel label="周期">
-            <YdInput v-model="packageForm.period" class="w-32" placeholder="yyyy-MM" />
-          </YdLabel>
-          <YdButton variant="outline" :loading="packageLoading" @click="runPrecheck">预检</YdButton>
-          <span class="flex items-center gap-1 text-sm">跳过缺失 <YdSwitch v-model="packageForm.skipMissing" size="sm" /></span>
-          <YdButton :loading="exporting" @click="exportZip">导出 zip</YdButton>
-        </div>
-        <table v-if="precheckRows.length" class="office-preview-table">
-          <thead>
-            <tr><th>文档类型</th><th>目标</th><th>状态</th><th>产物</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in precheckRows" :key="`${row.docTypeCode}-${row.targetId}`">
-              <td>{{ row.docTypeName }}</td>
-              <td>{{ row.targetLabel }}</td>
-              <td>
-                <YdTag :variant="row.ready ? 'default' : 'outline'">{{ row.ready ? '已定稿' : (row.missing ? '类型缺失' : '未定稿') }}</YdTag>
-              </td>
-              <td>{{ row.filename || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <YdPagination
+        v-model:page="jobPage"
+        v-model:size="jobSize"
+        :total="jobTotal"
+        @page-change="loadJobs"
+        @size-change="loadJobs"
+      />
     </template>
   </YdTablePageLayout>
 
