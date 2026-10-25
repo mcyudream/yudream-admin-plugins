@@ -25,7 +25,7 @@
         <yudream.plugin.minecraft-server.version>1.14.1</yudream.plugin.minecraft-server.version>
         <yudream.plugin.ymcl-adapter.version>0.13.0</yudream.plugin.ymcl-adapter.version>
         <yudream.plugin.authlib-injector.version>1.4.0</yudream.plugin.authlib-injector.version>
-        <yudream.plugin.yudream-union.version>0.3.1</yudream.plugin.yudream-union.version>
+        <yudream.plugin.yudream-union.version>0.3.2</yudream.plugin.yudream-union.version>
         <yudream.plugin.mc-interop.version>0.2.5</yudream.plugin.mc-interop.version>
         <yudream.plugin.launcher-adapter.version>0.7.4</yudream.plugin.launcher-adapter.version>
         <yudream.plugin.student-info.version>1.1.5</yudream.plugin.student-info.version>

@@ -368,6 +368,12 @@ public class FederationJoinService implements UnionFederationService {
      * 断言签名 canonical JSON：固定字段顺序、只接受协议字段，避免第三方实现依赖
      * JSON parser 的 Map 遍历顺序，也防止未签名扩展字段被悄然解释。
      */
+    /**
+     * 断言规范化（签名与验签共用同一字节序列）。时间戳字段统一归一为 Long：
+     * 签名方内存里是 long（JSON 无引号），但断言经宿主 HTTP 下发时宿主的全局
+     * Long→字符串序列化会把它变成带引号字符串——验证方若按收到的字符串形态
+     * 重建规范串，字节必然与签名时不一致，导致跨站断言全部验签失败。
+     */
     public static String canonicalAssertion(Map<String, Object> assertion) {
         Map<String, Object> ordered = new LinkedHashMap<>();
         for (String field : List.of("profileId", "profileName", "serverId", "aud", "issuerKeyId", "jti",
@@ -375,6 +381,9 @@ public class FederationJoinService implements UnionFederationService {
             Object value = assertion.get(field);
             if (value == null || String.valueOf(value).isBlank()) {
                 throw UnionBusinessException.invalid("联合断言缺少字段：" + field);
+            }
+            if ("issuedAt".equals(field) || "expiresAt".equals(field)) {
+                value = Long.valueOf(String.valueOf(value).trim());
             }
             ordered.put(field, value);
         }

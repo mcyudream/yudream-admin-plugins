@@ -248,6 +248,28 @@ class FederationJoinServiceTest {
         assertFalse(fixture.repository.pageAudit(1, 50, null, "at", true).isEmpty());
     }
 
+    @Test
+    void canonicalNormalizesWireStringTimestampsToNumbers() {
+        // 宿主下发会把 Long 时间戳序列化为字符串；验签方重建规范串必须还原为数字形态，
+        // 否则与签名方（内存 long 无引号）字节不一致，跨站断言全部验签失败。
+        Map<String, Object> wireForm = new LinkedHashMap<>();
+        wireForm.put("profileId", PROFILE_ID);
+        wireForm.put("profileName", "Godot");
+        wireForm.put("serverId", SERVER_ID);
+        wireForm.put("aud", LOCAL_SITE);
+        wireForm.put("issuerKeyId", "0e3fc9d2271047adeb0979dedd34edef");
+        wireForm.put("jti", "e7f4df00ccd93dd0eead7b3db5ebadc0");
+        wireForm.put("issuedAt", "1792948061456");
+        wireForm.put("expiresAt", "1792948121456");
+        wireForm.put("textures", textureValue("https://peer.test/api/plugins/yudream-skin/textures"));
+
+        String canonical = FederationJoinService.canonicalAssertion(wireForm);
+
+        assertTrue(canonical.contains("\"issuedAt\":1792948061456"));
+        assertTrue(canonical.contains("\"expiresAt\":1792948121456"));
+        assertFalse(canonical.contains("\"issuedAt\":\""));
+    }
+
     private static String textureValue(String textureBaseUrl) {
         return textureValue(textureBaseUrl, "Notch");
     }
