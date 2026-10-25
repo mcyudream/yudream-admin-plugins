@@ -152,9 +152,15 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
     private Map<String, Object> serverView(String serverId) {
         for (YmclContributionProvider provider : context.extensions(YmclContributionProvider.class)) {
             Object bindings = provider.serverBindings();
+            // 未贡献绑定的 provider（如 mc-interop）default 返回 null；
+            // List.of 不接受 null 元素，须先短路。
+            if (bindings == null) {
+                continue;
+            }
             List<?> groups = bindings instanceof List<?> items ? items : List.of(bindings);
             for (Object group : groups) {
-                List<?> list = group instanceof List<?> items ? items : List.of(group);
+                List<?> list = group instanceof List<?> items ? items
+                        : group == null ? List.of() : List.of(group);
                 for (Object item : list) {
                     if (item instanceof Map<?, ?> view
                             && serverId != null
