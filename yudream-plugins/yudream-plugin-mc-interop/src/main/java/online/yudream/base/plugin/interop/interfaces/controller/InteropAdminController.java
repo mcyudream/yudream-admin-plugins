@@ -87,6 +87,12 @@ public class InteropAdminController {
 
     /** 合并视图：本站已发布条目 + peers 互采的友站条目（协议出口形状，source 溯源）。 */
 
+    /** 合并视图：本站已发布条目 + peers 互采的友站条目（协议出口形状，source 溯源）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/admin/entries/merged", permission = "plugin:mc-interop:view")
+    public Object merged(PluginHttpRequest request) {
+        return catalog.siteDocument();
+    }
+
     @PluginHttpEndpoint(method = "POST", path = "/admin/entries/import-adapter", permission = "plugin:mc-interop:manage")
     public Object importAdapter(PluginHttpRequest request) {
         return catalog.importFromAdapter();
