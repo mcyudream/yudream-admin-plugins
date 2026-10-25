@@ -28,8 +28,8 @@ const rowActions: ActionMenuItem<UnionPeer>[] = [
 ]
 
 const pageActions: YdTablePageAction[] = [
-  { label: '签发注册令牌', icon: 'morph:key', onClick: () => model.issueToken() },
-  { label: '注册受信站', icon: 'morph:plus', onClick: () => model.openEnroll() },
+  { label: '签发邀请码', icon: 'morph:key', onClick: () => model.issueToken() },
+  { label: '凭邀请码注册到对端', icon: 'morph:plus', onClick: () => model.openEnroll() },
 ]
 
 function remove(peer: UnionPeer) {
@@ -54,15 +54,15 @@ function remove(peer: UnionPeer) {
     <template #stats>
       <div class="grid gap-2 text-sm text-muted-foreground">
         <p>受信站是本站在 hasJoined 未命中时会回源查询断言的站点；信任单向，双向互通需各自注册对方。</p>
-        <p>注册流程：本页「签发注册令牌」→ 通过可信渠道把令牌交给对端管理员 → 持令牌在此注册；注册即 TOFU 固定对端 TLS 证书指纹与联合签名公钥。</p>
-        <p>对端密钥轮换后执行「刷新公钥」；「互通自检」可随时核对发现文档与公钥指纹是否一致。</p>
+        <p>严格邀请码模式，不允许自产自销：要把对端注册进来，请在本页「签发邀请码」并把码交给对端管理员，由对方在自己面板「凭邀请码注册到对端」（后端代理调用本站机器接口完成写入）；反向同理，本页粘贴对端签发的邀请码即可把本站注册进对端目录。</p>
+        <p>注册即 TOFU 固定对端 TLS 证书指纹与联合签名公钥。join-assertions 为可选能力：未接入 authlib 断言回供的站点（旧版/魔改分支）也可仅做受信目录与封禁互通。对端密钥轮换后执行「刷新公钥」，「互通自检」可随时核对。</p>
       </div>
     </template>
     <template #table>
       <div class="flex h-full min-h-0 flex-col gap-3">
         <YdAlert v-if="model.error" class="shrink-0" variant="destructive" title="加载失败" :description="model.error" />
         <div v-if="model.issuedToken" class="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-dashed p-3">
-          <span class="text-sm text-muted-foreground">一次性注册令牌（5 分钟内有效，仅此一次显示）：</span>
+          <span class="text-sm text-muted-foreground">邀请码（5 分钟内有效，仅此一次显示）：交给对端管理员，对方在自己面板「凭邀请码注册到对端」后，本站即写入其受信目录：</span>
           <code class="min-w-0 flex-1 truncate font-mono text-xs" :title="model.issuedToken">{{ model.issuedToken }}</code>
           <YdCopyButton :text="model.issuedToken" label="复制" size="sm" variant="outline" />
         </div>
@@ -103,24 +103,24 @@ function remove(peer: UnionPeer) {
     </template>
   </YdTablePageLayout>
 
-  <YdModal v-model="model.enrollOpen" title="注册受信站点">
+  <YdModal v-model="model.enrollOpen" title="凭邀请码把本站注册到对端">
     <YdAlert v-if="model.enrollError" class="mb-3" variant="destructive" title="注册失败" :description="model.enrollError" />
     <YdForm :model="model.enrollForm" layout="vertical">
       <div class="flex flex-col gap-4">
-        <YdFormItem label="对端 origin" required>
-          <YdInput v-model="model.enrollForm.origin" placeholder="https://peer.example.com" />
+        <YdFormItem label="对端 origin（邀请方站点）" required>
+          <YdInput v-model="model.enrollForm.peerOrigin" placeholder="https://peer.example.com" />
         </YdFormItem>
-        <YdFormItem label="一次性注册令牌" required>
-          <YdInput v-model="model.enrollForm.enrollToken" placeholder="对端管理员确认的注册令牌" />
+        <YdFormItem label="对端签发的邀请码" required>
+          <YdInput v-model="model.enrollForm.enrollToken" placeholder="对端管理员在其面板「签发邀请码」后发给你的一次性令牌" />
         </YdFormItem>
         <YdFormItem label="备注">
-          <YdInput v-model="model.enrollForm.note" placeholder="可选" />
+          <YdInput v-model="model.enrollForm.note" placeholder="可选，展示在对端目录" />
         </YdFormItem>
       </div>
     </YdForm>
-    <p class="mt-2 text-xs text-muted-foreground">注册即 TOFU 固定对端 TLS 证书指纹与联合签名公钥；请通过可信渠道核对指纹。</p>
+    <p class="mt-2 text-xs text-muted-foreground">提交后本站会代理调用对端机器接口，把本站写进对端受信目录（对端将固定本站证书指纹与签名公钥）；邀请码只在对端有效，5 分钟内一次性使用。</p>
     <template #footer>
-      <YdButton :loading="model.loading" @click="model.enroll()">注册</YdButton>
+      <YdButton :loading="model.loading" @click="model.enroll()">注册到对端</YdButton>
     </template>
   </YdModal>
 </template>

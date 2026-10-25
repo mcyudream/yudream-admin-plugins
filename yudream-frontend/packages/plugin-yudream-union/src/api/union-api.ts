@@ -17,8 +17,9 @@ export function createUnionApi(sdk: YuDreamPluginSdk) {
     issueEnrollToken: () => sdk.http.post<{ enrollToken: string; expiresAt: number }>('/admin/enroll-tokens', {}),
     pagePeers: (page: number, pageSize: number) =>
       sdk.http.get<UnionPage<UnionPeer>>(`/admin/peers?page=${page}&pageSize=${pageSize}`),
-    enrollPeer: (body: { origin: string; enrollToken: string; note?: string }) =>
-      sdk.http.post<{ status: string; peerSecret?: string }>('/admin/peers', body),
+    selfEnrollPeer: (body: { peerOrigin: string; enrollToken: string; note?: string }) =>
+      sdk.http.post<{ peerSiteCode?: string; peerSiteName?: string; status?: string; peerSecret?: string }>(
+        '/admin/peers/self-enroll', body),
     setPeerStatus: (siteCode: string, status: string) =>
       sdk.http.request<UnionPeer>(`/admin/peers/${encodeURIComponent(siteCode)}/status`, { method: 'POST', data: { status } }),
     refreshPeer: (siteCode: string) =>

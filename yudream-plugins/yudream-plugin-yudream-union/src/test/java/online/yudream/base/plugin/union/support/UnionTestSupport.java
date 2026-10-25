@@ -86,6 +86,9 @@ public final class UnionTestSupport {
     /** 固定响应的出站客户端桩（url → body，可注入响应变换模拟篡改）。 */
     public static final class FakePeerHttpClient extends PeerHttpClient {
         public final Map<String, String> responses = new ConcurrentHashMap<>();
+        /** POST 预置响应：值可带 "NNN:" 前缀指定状态码（如 "401:{...}"），缺省 200。 */
+        public final Map<String, String> postResponses = new ConcurrentHashMap<>();
+        public final Map<String, String> postedBodies = new ConcurrentHashMap<>();
         public java.util.function.UnaryOperator<String> mutate = body -> body;
 
         public FakePeerHttpClient() {
@@ -99,6 +102,21 @@ public final class UnionTestSupport {
                 throw new PeerHttpClient.PeerHttpException("无预置响应：" + url);
             }
             return new PeerResponse(mutate.apply(body), "f".repeat(64));
+        }
+
+        @Override
+        public PeerJsonResponse post(String url, Object jsonBody, Optional<String> pinnedCertSha256) {
+            String body = postResponses.get(url);
+            if (body == null) {
+                throw new PeerHttpClient.PeerHttpException("无预置响应：" + url);
+            }
+            postedBodies.put(url, String.valueOf(jsonBody));
+            int status = 200;
+            if (body.length() > 4 && body.charAt(3) == ':') {
+                status = Integer.parseInt(body.substring(0, 3));
+                body = body.substring(4);
+            }
+            return new PeerJsonResponse(status, mutate.apply(body), "f".repeat(64));
         }
     }
 

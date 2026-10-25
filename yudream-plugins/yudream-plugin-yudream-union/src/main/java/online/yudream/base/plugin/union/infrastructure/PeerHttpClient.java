@@ -25,6 +25,10 @@ public class PeerHttpClient {
     public record PeerResponse(String body, String tlsCertSha256) {
     }
 
+    /** 带 HTTP 状态的站间响应：POST 用于机器面调用，非 2xx 由调用方按对端错误体透传。 */
+    public record PeerJsonResponse(int status, String body, String tlsCertSha256) {
+    }
+
     public static final class PeerHttpException extends RuntimeException {
         public PeerHttpException(String message) {
             super(message);
@@ -72,6 +76,46 @@ public class PeerHttpClient {
                 throw new PeerHttpException("对端 TLS 证书指纹与注册 pin 不一致");
             }
             return new PeerResponse(response.body(), leafSha256);
+        } catch (PeerHttpException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new PeerHttpException("对端不可达：" + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PeerHttpException("站间请求被中断");
+        }
+    }
+
+    /**
+     * POST 站间机器面（如 /peer/enroll 邀请码自注册）：与 GET 同一套 https/SSRF/TLS-pin
+     * 防护；非 2xx 不抛错，由调用方解析对端错误体（{error, errorMessage}）透传业务语义。
+     */
+    public PeerJsonResponse post(String url, Object jsonBody, Optional<String> pinnedCertSha256) {
+        URI uri = validate(url);
+        try {
+            HttpResponse<String> response = client.send(HttpRequest.newBuilder()
+                            .uri(uri)
+                            .timeout(Duration.ofSeconds(5))
+                            .header("User-Agent", "yudream-union/1")
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(
+                                    jsonBody == null ? "{}" : String.valueOf(jsonBody), StandardCharsets.UTF_8))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            String leafSha256 = response.sslSession()
+                    .map(session -> {
+                        try {
+                            Certificate[] chain = session.getPeerCertificates();
+                            return chain.length == 0 ? "" : certSha256(chain[0]);
+                        } catch (Exception e) {
+                            throw new PeerHttpException("无法读取对端 TLS 证书：" + e.getMessage());
+                        }
+                    })
+                    .orElseThrow(() -> new PeerHttpException("站间 HTTPS 响应缺少 TLS 会话"));
+            if (pinnedCertSha256.isPresent() && !pinnedCertSha256.get().equalsIgnoreCase(leafSha256)) {
+                throw new PeerHttpException("对端 TLS 证书指纹与注册 pin 不一致");
+            }
+            return new PeerJsonResponse(response.statusCode(), response.body(), leafSha256);
         } catch (PeerHttpException e) {
             throw e;
         } catch (IOException e) {

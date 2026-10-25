@@ -39,9 +39,10 @@ public class UnionAdminController {
         return facade.pagePeers(page, size);
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/admin/peers", permission = "plugin:yudream-union:manage")
-    public Object enrollPeer(PluginHttpRequest request) {
-        return facade.enrollPeer(request);
+    /** 邀请码自注册：凭对端签发的邀请码把本站注册进对端受信目录（严格邀请码模式，无自产自销）。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/peers/self-enroll", permission = "plugin:yudream-union:manage")
+    public Object selfEnrollPeer(PluginHttpRequest request) {
+        return facade.selfEnrollPeer(request);
     }
 
     @PluginHttpEndpoint(method = "POST", path = "/admin/peers/{siteCode}/status", permission = "plugin:yudream-union:manage")

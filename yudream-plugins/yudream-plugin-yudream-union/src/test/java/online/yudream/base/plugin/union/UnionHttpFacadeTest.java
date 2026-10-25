@@ -10,6 +10,7 @@ import online.yudream.base.plugin.union.infrastructure.PeerHttpClient;
 import online.yudream.base.plugin.union.infrastructure.UnionCryptoService;
 import online.yudream.base.plugin.union.infrastructure.repository.UnionRepository;
 import online.yudream.base.plugin.union.infrastructure.support.JsonSupport;
+import online.yudream.base.plugin.union.interfaces.controller.UnionAdminController;
 import online.yudream.base.plugin.union.interfaces.http.UnionHttpFacade;
 import online.yudream.base.plugin.union.support.UnionTestSupport;
 import online.yudream.base.plugin.union.support.UnionTestSupport.FakePeerHttpClient;
@@ -27,16 +28,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnionHttpFacadeTest {
 
     @Test
-    void adminEnrollMapsUnknownTokenToStructured400() {
+    void adminSelfEnrollMapsPeerBadTokenToStructured400() {
         UnionHttpFacade facade = facade();
-        PluginHttpResponse response = (PluginHttpResponse) facade.enrollPeer(new PluginHttpRequest(
-                "POST", "/admin/peers", Map.of(), Map.of(),
-                JsonSupport.write(Map.of("origin", "https://peer.test", "enrollToken", "no-such-token")), null));
+        facade.saveSettings(request(Map.of("siteCode", "yda", "namePrefix", "")));
+        String machineEnrollUrl = "https://peer.test" + UnionDiscoveryService.UNION_API_PREFIX + "/peer/enroll";
+        ((FakePeerHttpClient) http).postResponses.put(machineEnrollUrl,
+                "401:" + JsonSupport.write(Map.of("error", "auth.badToken", "errorMessage", "注册令牌无效")));
+        PluginHttpResponse response = (PluginHttpResponse) facade.selfEnrollPeer(new PluginHttpRequest(
+                "POST", "/admin/peers/self-enroll", Map.of(), Map.of(),
+                JsonSupport.write(Map.of("peerOrigin", "https://peer.test", "enrollToken", "invite")), null));
 
         assertEquals(400, response.status());
         assertFalse(response.wrapped());
         assertEquals("auth.badToken", String.valueOf(body(response).get("error")));
         assertTrue(String.valueOf(body(response).get("message")).contains("注册令牌无效"));
+    }
+
+    @Test
+    void adminFaceDropsDirectEnrollInFavorOfSelfEnroll() {
+        java.util.List<String> methods = java.util.Arrays.stream(UnionAdminController.class.getDeclaredMethods())
+                .map(java.lang.reflect.Method::getName)
+                .toList();
+        assertFalse(methods.contains("enrollPeer"));
+        assertTrue(methods.contains("selfEnrollPeer"));
     }
 
     @Test
@@ -67,16 +81,22 @@ class UnionHttpFacadeTest {
         return new PluginHttpRequest("PUT", "/admin/settings", Map.of(), Map.of(), JsonSupport.write(payload), null);
     }
 
+    private PeerHttpClient http;
+
     private UnionHttpFacade facade() {
         InMemoryDocumentStore store = new InMemoryDocumentStore();
         UnionRepository repository = new UnionRepository(store);
+        UnionTestSupport.TestConfig config = new UnionTestSupport.TestConfig() {
+            @Override
+            public String setting(String key) {
+                return "app.web-url".equals(key) ? "https://yda.test" : null;
+            }
+        };
         UnionCryptoService crypto = new UnionCryptoService(
-                UnionTestSupport.context(new UnionTestSupport.TestConfig() {
-                }, store), repository);
+                UnionTestSupport.context(config, store), repository);
         UnionDiscoveryService discovery = new UnionDiscoveryService(
-                UnionTestSupport.context(new UnionTestSupport.TestConfig() {
-                }, store), repository, crypto);
-        PeerHttpClient http = new FakePeerHttpClient();
+                UnionTestSupport.context(config, store), repository, crypto);
+        http = new FakePeerHttpClient();
         UnionDirectoryService directory = new UnionDirectoryService(repository, crypto, http, discovery);
         UnionBanService bans = new UnionBanService(repository, http, crypto);
         FederationJoinService federation = new FederationJoinService(

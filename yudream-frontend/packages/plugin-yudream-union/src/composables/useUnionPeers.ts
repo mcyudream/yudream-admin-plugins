@@ -15,7 +15,7 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
   const enrollOpen = ref(false)
   const enrollError = ref('')
   const issuedToken = ref('')
-  const enrollForm = reactive({ origin: '', enrollToken: '', note: '' })
+  const enrollForm = reactive({ peerOrigin: '', enrollToken: '', note: '' })
 
   async function load() {
     await run(async () => {
@@ -29,7 +29,7 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
     return run(async () => {
       const body = await api.issueEnrollToken()
       issuedToken.value = body.enrollToken
-      toast.info('已签发一次性注册令牌（5 分钟内有效，仅显示一次）')
+      toast.info('已签发邀请码（5 分钟内有效，仅显示一次）：交给对端管理员，对方凭码把他们的站注册进来')
     })
   }
 
@@ -38,26 +38,30 @@ export function useUnionPeers(sdk: YuDreamPluginSdk) {
     enrollOpen.value = true
   }
 
-  /** 失败保持弹窗打开并把错误就近展示在弹窗内：页面级 alert 会被弹窗遮挡，等于无反馈。 */
+  /**
+   * 严格邀请码模式：凭对端签发的邀请码把本站注册进对端受信目录（后端代理对端机器面）。
+   * 失败保持弹窗打开并把错误就近展示在弹窗内：页面级 alert 会被弹窗遮挡，等于无反馈。
+   */
   async function enroll() {
     enrollError.value = ''
-    if (!enrollForm.origin.trim() || !enrollForm.enrollToken.trim()) {
-      enrollError.value = '对端 origin 与一次性注册令牌均为必填'
+    if (!enrollForm.peerOrigin.trim() || !enrollForm.enrollToken.trim()) {
+      enrollError.value = '对端 origin 与对端签发的邀请码均为必填'
       return
     }
     loading.value = true
     try {
-      const body = await api.enrollPeer({
-        origin: enrollForm.origin.trim(),
+      const body = await api.selfEnrollPeer({
+        peerOrigin: enrollForm.peerOrigin.trim(),
         enrollToken: enrollForm.enrollToken.trim(),
         note: enrollForm.note.trim() || undefined,
       })
       enrollOpen.value = false
-      Object.assign(enrollForm, { origin: '', enrollToken: '', note: '' })
+      Object.assign(enrollForm, { peerOrigin: '', enrollToken: '', note: '' })
       issuedToken.value = ''
+      const target = body.peerSiteCode || body.peerSiteName || '对端'
       toast.success(body.peerSecret
-        ? `已注册受信站点（对端推送密钥仅本次显示：${body.peerSecret}）`
-        : '已注册受信站点')
+        ? `已把本站注册进 ${target} 的受信目录（对端推送密钥仅本次显示：${body.peerSecret}，可选保存用于主动推送封禁）`
+        : `已把本站注册进 ${target} 的受信目录`)
       await load()
     }
     catch (cause) {

@@ -5,6 +5,7 @@ import online.yudream.base.plugin.union.application.service.UnionDiscoveryServic
 import online.yudream.base.plugin.union.domain.UnionBusinessException;
 import online.yudream.base.plugin.union.domain.aggregate.UnionPeer;
 import online.yudream.base.plugin.union.infrastructure.UnionCryptoService;
+import online.yudream.base.plugin.union.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.union.infrastructure.repository.UnionRepository;
 import online.yudream.base.plugin.union.support.UnionTestSupport;
 import online.yudream.base.plugin.union.support.UnionTestSupport.FakePeerHttpClient;
@@ -34,13 +35,25 @@ class UnionDirectoryServiceTest {
                         FakePeerHttpClient http) {
 
         static Deps create() {
+            return create(Map.of());
+        }
+
+        static Deps create(Map<String, String> frameworkSettings) {
             InMemoryDocumentStore store = new InMemoryDocumentStore();
             UnionRepository repository = new UnionRepository(store);
             UnionCryptoService crypto = new UnionCryptoService(
                     UnionTestSupport.context(new UnionTestSupport.TestConfig() {
+                        @Override
+                        public String setting(String key) {
+                            return frameworkSettings.get(key);
+                        }
                     }, store), repository);
             UnionDiscoveryService discovery = new UnionDiscoveryService(
                     UnionTestSupport.context(new UnionTestSupport.TestConfig() {
+                        @Override
+                        public String setting(String key) {
+                            return frameworkSettings.get(key);
+                        }
                     }, store), repository, crypto);
             FakePeerHttpClient http = new FakePeerHttpClient();
             return new Deps(repository, crypto, discovery,
@@ -129,6 +142,64 @@ class UnionDirectoryServiceTest {
         deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair()));
         Map<String, Object> failed = deps.directory.selfTest("sitmc", 4_000L);
         assertFalse((Boolean) failed.get("ok"));
+    }
+
+    @Test
+    void enrollAllowsPeerWithoutJoinAssertionsFeature() {
+        Deps deps = Deps.create();
+        Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
+        // 与 authlib 解耦：对端不声明 join-assertions（旧版/魔改 authlib 或不跑 authlib）也可注册
+        deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair())
+                .replace("\"join-assertions\",", ""));
+
+        Map<String, Object> result = deps.directory.enroll(PEER_ORIGIN,
+                String.valueOf(token.get("enrollToken")), null, "admin", 2_000L);
+
+        assertTrue(deps.repository.findPeer("sitmc").isPresent());
+        assertFalse(((String) result.get("peerSecret")).isBlank());
+    }
+
+    @Test
+    void selfEnrollProxiesLocalOriginAndTokenToPeerMachineFace() {
+        Deps deps = Deps.create(Map.of("app.web-url", "https://yda.test"));
+        deps.discovery.saveSite("yda", "余梦", "");
+        String machineEnrollUrl = PEER_ORIGIN + UnionDiscoveryService.UNION_API_PREFIX + "/peer/enroll";
+        deps.http.postResponses.put(machineEnrollUrl,
+                JsonSupport.write(Map.of("status", "trusted", "peerSecret", "sec-123",
+                        "peer", Map.of("id", "sitmc", "siteName", "SIT MC"))));
+
+        Map<String, Object> result = deps.directory.selfEnroll(
+                PEER_ORIGIN, "invite-token-1", "友站互联", "admin", 2_000L);
+
+        assertEquals("sitmc", result.get("peerSiteCode"));
+        assertEquals("sec-123", result.get("peerSecret"));
+        String posted = deps.http.postedBodies.get(machineEnrollUrl);
+        assertTrue(posted.contains("\"origin\":\"https://yda.test\""));
+        assertTrue(posted.contains("\"enrollToken\":\"invite-token-1\""));
+    }
+
+    @Test
+    void selfEnrollTranslatesPeerBadTokenError() {
+        Deps deps = Deps.create(Map.of("app.web-url", "https://yda.test"));
+        deps.discovery.saveSite("yda", "余梦", "");
+        deps.http.postResponses.put(PEER_ORIGIN + UnionDiscoveryService.UNION_API_PREFIX + "/peer/enroll",
+                "401:" + JsonSupport.write(Map.of("error", "auth.badToken", "errorMessage", "注册令牌无效")));
+
+        UnionBusinessException thrown = assertThrows(UnionBusinessException.class,
+                () -> deps.directory.selfEnroll(PEER_ORIGIN, "wrong-token", null, "admin", 2_000L));
+
+        assertEquals("auth.badToken", thrown.code());
+        assertTrue(thrown.getMessage().contains("注册令牌无效"));
+    }
+
+    @Test
+    void selfEnrollRequiresLocalOriginAndSiteCode() {
+        Deps deps = Deps.create();
+
+        UnionBusinessException thrown = assertThrows(UnionBusinessException.class,
+                () -> deps.directory.selfEnroll(PEER_ORIGIN, "token", null, "admin", 2_000L));
+
+        assertTrue(thrown.getMessage().contains("origin"));
     }
 
     private static String peerMeta(String siteCode, String origin, String apiRoot, KeyPair peerKey) {

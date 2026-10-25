@@ -112,7 +112,8 @@ public class UnionDirectoryService {
         String textureBaseUrl = requiredPeerUrl(meta, "textureBaseUrl", normalizedOrigin);
         String primaryKey = requiredPem(meta.get("signaturePublickey"), "signaturePublickey");
         String backupKey = optionalPem(meta.get("backupSignaturePublickey"));
-        requireFeature(meta, "join-assertions");
+        // join-assertions 为可选能力（对端可基于任意 authlib 分支或不跑 authlib，仅做目录/封禁互通），
+        // 注册不再硬性要求；断言查询对未声明站点自然得到 204。
         // 全部远端事实验证完成后才 CAS 消费一次性令牌；网络/格式错误允许同 token 修正后重试。
         if (!repository.consumeEnrollToken(token, now)) {
             throw UnionBusinessException.tokenConsumed();
@@ -143,6 +144,64 @@ public class UnionDirectoryService {
         body.put("peerSecret", peerSecret);
         body.put("peer", peerView(peer));
         return body;
+    }
+
+    /**
+     * 邀请码自注册（严格模式，唯一的面板注册路径）：本站管理员凭**对端签发**的邀请码，
+     * 由本站后端代理调用对端机器面 /peer/enroll（origin = 本站 origin），把本站注册进
+     * 对端受信目录。不允许自产自销——本站不提供直接注册对端的入口。
+     * 成功返回对端目录条目与对端下发的推送密钥（密钥仅本次可见，保存与否可选）。
+     */
+    public Map<String, Object> selfEnroll(String peerOrigin, String enrollToken, String note, String actor, long now) {
+        if (isBlank(peerOrigin) || isBlank(enrollToken)) {
+            throw UnionBusinessException.invalid("对端 origin 与邀请码均为必填");
+        }
+        String normalizedPeerOrigin = canonicalOrigin(peerOrigin);
+        String localOrigin = discovery.configuredOrigin()
+                .orElseThrow(() -> UnionBusinessException.invalid("本站未配置对外 origin（app.web-url / app.base-url），无法自注册"));
+        if (discovery.siteCode().orElse("").isBlank()) {
+            throw UnionBusinessException.invalid("请先在本站配置 siteCode 再自注册");
+        }
+        String url = normalizedPeerOrigin + UnionDiscoveryService.UNION_API_PREFIX + "/peer/enroll";
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("origin", localOrigin);
+        body.put("enrollToken", enrollToken.trim());
+        if (!trim(note).isEmpty()) {
+            body.put("note", trim(note));
+        }
+        PeerHttpClient.PeerJsonResponse response;
+        try {
+            response = peerHttpClient.post(url, JsonSupport.write(body), Optional.empty());
+        } catch (RuntimeException e) {
+            throw UnionBusinessException.peerUnreachable("调用对端注册接口失败：" + e.getMessage());
+        }
+        Map<String, Object> remote = JsonSupport.readMap(response.body());
+        if (response.status() < 200 || response.status() >= 300) {
+            throw translatePeerError(response.status(), remote);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<?, ?> peer = remote.get("peer") instanceof Map<?, ?> rawPeer ? rawPeer : Map.of();
+        result.put("peerSiteCode", stringOrNull(peer.get("id")));
+        result.put("peerSiteName", stringOrNull(peer.get("siteName")));
+        result.put("status", stringOrNull(remote.get("status")));
+        result.put("peerSecret", stringOrNull(remote.get("peerSecret")));
+        audit(actor, "self.enroll", String.valueOf(result.get("peerSiteCode")),
+                "凭对端邀请码把本站注册进对端受信目录");
+        return result;
+    }
+
+    /** 对端机器面错误体（{error, errorMessage}）转本站业务异常，保留令牌类语义便于管理员理解。 */
+    private UnionBusinessException translatePeerError(int status, Map<String, Object> remote) {
+        String code = stringOrNull(remote.get("error"));
+        String message = stringOrNull(remote.get("errorMessage"));
+        String detail = message == null ? "对端响应状态 " + status : message;
+        if ("auth.badToken".equals(code)) {
+            return UnionBusinessException.badToken(detail);
+        }
+        if ("auth.tokenConsumed".equals(code)) {
+            return UnionBusinessException.tokenConsumed();
+        }
+        return UnionBusinessException.peerUnreachable("对端拒绝注册：" + detail);
     }
 
     /** 公钥轮换：新主钥生效时旧主钥转备钥（7 天宽限由验签方执行）。 */
@@ -312,7 +371,6 @@ public class UnionDirectoryService {
         }
         requiredPeerUrl(meta, "textureBaseUrl", expectedOrigin);
         requiredPem(meta.get("signaturePublickey"), "signaturePublickey");
-        requireFeature(meta, "join-assertions");
     }
 
     private String fingerprintOf(String publicKeyPem) {

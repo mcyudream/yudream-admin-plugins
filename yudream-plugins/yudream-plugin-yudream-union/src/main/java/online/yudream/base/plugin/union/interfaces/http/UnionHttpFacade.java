@@ -158,10 +158,10 @@ public class UnionHttpFacade {
         return body;
     }
 
-    public Object enrollPeer(PluginHttpRequest request) {
+    public Object selfEnrollPeer(PluginHttpRequest request) {
         return admin(() -> {
             Map<String, Object> body = JsonSupport.readMap(request.body());
-            return directory.enroll(stringOf(body.get("origin")), stringOf(body.get("enrollToken")),
+            return directory.selfEnroll(stringOf(body.get("peerOrigin")), stringOf(body.get("enrollToken")),
                     body.get("note") == null ? null : String.valueOf(body.get("note")),
                     principalName(request.principal(), "admin"), now());
         });
