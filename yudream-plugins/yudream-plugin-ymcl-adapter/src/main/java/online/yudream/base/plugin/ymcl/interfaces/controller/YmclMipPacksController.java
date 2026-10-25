@@ -722,8 +722,8 @@ public class YmclMipPacksController {
      * 已 yank 的版本不再出现）。启动器选更新目标取列表首项，顺序错误会导致
      * 新版本永远不生效。
      */
-    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/versions",
-            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    // MIP 玩家下载面：启动器/友站匿名装机用，目录与 sha512 本就公开发布；写操作仍走 PUBLISH 权限。
+    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/versions")
     public PluginHttpResponse versions(PluginHttpRequest request) {
         String packId = PathSegments.segment(request.path(), 3);
         Map<String, Object> pack = documents.findById(PACK_COLLECTION, packId).orElse(null);
@@ -754,8 +754,7 @@ public class YmclMipPacksController {
         }
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/manifest/{version}",
-            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/manifest/{version}")
     public PluginHttpResponse manifest(PluginHttpRequest request) {
         String packId = PathSegments.segment(request.path(), 3);
         String version = PathSegments.segment(request.path(), 5);
@@ -808,8 +807,7 @@ public class YmclMipPacksController {
      * 回原件字节；否则按 manifest 合成：http 引用进 modrinth.index.json，
      * CAS 条目进 overrides/，mip.json 以命中条目的精确路径再生成。
      */
-    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/versions/{version}/mrpack",
-            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    @PluginHttpEndpoint(method = "GET", path = "/mip/api/packs/{packId}/versions/{version}/mrpack")
     public PluginHttpResponse packMrpack(PluginHttpRequest request) {
         String packId = PathSegments.segment(request.path(), 3);
         String version = PathSegments.segment(request.path(), 5);
