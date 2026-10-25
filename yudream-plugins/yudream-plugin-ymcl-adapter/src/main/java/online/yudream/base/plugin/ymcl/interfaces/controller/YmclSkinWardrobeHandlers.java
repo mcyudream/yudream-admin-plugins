@@ -356,6 +356,40 @@ final class YmclSkinWardrobeHandlers {
     }
 
     // ------------------------------------------------------------------
+    // POST /v1/skins/official-bind — 启动器推送式正版绑定/会话续推
+    //（启动器用已入列 Azure 应用完成 Microsoft 链路，站点只验证与落库；
+    //  owner 一律取会话 principal，绝不信 payload 里的用户标识）
+    // ------------------------------------------------------------------
+    static PluginHttpResponse bindOfficial(PluginContext context, PluginHttpRequest request) {
+        Optional<PluginSkinService> skin = skinService(context);
+        if (skin.isEmpty()) {
+            return unavailable();
+        }
+        Long userId = principalUserId(request);
+        if (userId == null) {
+            return unauthorized();
+        }
+        Map<String, Object> body;
+        try {
+            body = readJson(request.body());
+        } catch (Exception error) {
+            return badRequest(400, "invalid_body", "Request body must be JSON");
+        }
+        String accessToken = textOrNull(body.get("access_token"));
+        if (accessToken == null || accessToken.isBlank()) {
+            return badRequest(400, "invalid_body", "access_token is required");
+        }
+        Long expiresAt = body.get("expires_at") instanceof Number number ? number.longValue() : null;
+        try {
+            Map<String, Object> result =
+                    skin.get().bindOfficialFromLauncher(String.valueOf(userId), accessToken, expiresAt);
+            return PluginHttpResponse.rawJson(200, result);
+        } catch (IllegalArgumentException error) {
+            return badRequest(400, "official_bind_rejected", String.valueOf(error.getMessage()));
+        }
+    }
+
+    // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
 

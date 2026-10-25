@@ -1,10 +1,12 @@
 package online.yudream.base.plugin.skin.application.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import online.yudream.base.plugin.skin.domain.aggregate.OfficialBind;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinPlayer;
 import online.yudream.base.plugin.skin.infrastructure.official.MicrosoftIdentityChain;
 import online.yudream.base.plugin.skin.infrastructure.repository.OfficialBindDocumentRepository;
 import online.yudream.base.plugin.skin.infrastructure.repository.YuDreamSkinRepository;
+import online.yudream.base.plugin.skin.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.spi.system.secret.PluginSecretStore;
 
@@ -27,8 +29,16 @@ public class OfficialBindService {
 
     public static final String SECRET_PREFIX = "official-bind:";
     public static final String SECRET_SUFFIX = ":refresh";
+    /** 启动器推送会话（launcher-session 通道）的直通凭据。 */
+    public static final String SESSION_SECRET_SUFFIX = ":session";
     /** Azure 机密客户端凭据（可选）：仅存 SecretStore，绝不落文档库。 */
     public static final String AZURE_SECRET_KEY = "official-bind:azure:client-secret";
+    /** 验证方式：网页 Microsoft OAuth（refresh_token 自带续签）。 */
+    public static final String METHOD_MICROSOFT_OAUTH = "microsoft-oauth";
+    /** 验证方式：启动器推送 Minecraft 会话（续签依赖启动器重新登录推送）。 */
+    public static final String METHOD_LAUNCHER_SESSION = "launcher-session";
+    /** 启动器未声明 expiresAt 时的兜底会话时长（官方 access_token 实际约 24h）。 */
+    private static final long LAUNCHER_SESSION_TTL = 24 * 60 * 60_000L;
     private static final long STATE_TTL = 10 * 60_000L;
     private static final long REBIND_COOLDOWN = 72 * 60 * 60_000L;
 
@@ -140,10 +150,64 @@ public class OfficialBindService {
         assertSecretStoreWritable();
         syncOfficialPlayer(ownerId, profile, now);
         safeStore(SECRET_PREFIX + officialUuid + SECRET_SUFFIX, refreshToken.getBytes(StandardCharsets.UTF_8));
-        binds.saveBind(new OfficialBind(officialUuid, ownerId, profile.name(), "microsoft-oauth",
+        binds.saveBind(new OfficialBind(officialUuid, ownerId, profile.name(), METHOD_MICROSOFT_OAUTH,
                 null, true, OfficialBind.STATUS_ACTIVE, now, now, null));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("bind", bindView(binds.findBindByUuid(officialUuid).orElseThrow()));
+        return body;
+    }
+
+    /**
+     * 启动器推送式正版绑定/会话续推：站点以 Minecraft access_token 直连官方 profile 完成
+     * 所有权验证（404 = 无 Java profile，手填 UUID 不可达），冲突裁决与网页流程一致。
+     * 已有生效绑定且官方 UUID 一致时视为会话续推（刷新直通会话与角色名快照），不一致拒绝；
+     * 会话凭据入 SecretStore，续签依赖启动器重新登录推送（本通道无 Microsoft refresh_token）。
+     */
+    public Map<String, Object> bindOfficialFromLauncher(String ownerId, String accessToken, Long expiresAt) {
+        Map<String, Object> settings = binds.settings();
+        if (!Boolean.TRUE.equals(settings.get("enabled"))) {
+            throw new IllegalArgumentException("正版绑定未开放（管理面未启用）");
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("缺少 Minecraft access_token");
+        }
+        MicrosoftIdentityChain.OfficialProfile profile;
+        try {
+            profile = verifiedProfile(accessToken.trim());
+        } catch (IllegalStateException error) {
+            // 验证失败（无 Java profile / 官方侧拒绝 / 网络异常）对启动器同为业务可重试
+            throw new IllegalArgumentException(String.valueOf(error.getMessage()), error);
+        }
+        long now = System.currentTimeMillis();
+        long expires = expiresAt == null || expiresAt <= 0 ? now + LAUNCHER_SESSION_TTL : expiresAt;
+        if (expires <= now) {
+            throw new IllegalArgumentException("推送的官方会话已过期，请在启动器中重新登录后重试");
+        }
+        Optional<OfficialBind> active = binds.findBindsByOwner(ownerId).stream()
+                .filter(bind -> OfficialBind.STATUS_ACTIVE.equals(bind.status()))
+                .findFirst();
+        OfficialBind saved;
+        if (active.isPresent()) {
+            OfficialBind bind = active.get();
+            if (!bind.officialUuid().equalsIgnoreCase(profile.id())) {
+                throw new IllegalArgumentException("已存在生效中的正版绑定（"
+                        + bind.officialNameLast() + "），请先解绑后再绑定其他账号");
+            }
+            assertSecretStoreWritable();
+            syncOfficialPlayer(ownerId, profile, now);
+            storeLauncherSession(profile.id(), accessToken.trim(), expires);
+            saved = binds.saveBind(bind.withName(profile.name(), bind.xuid(), false));
+        } else {
+            assertOfficialBindAvailable(ownerId, profile, now);
+            assertSecretStoreWritable();
+            syncOfficialPlayer(ownerId, profile, now);
+            storeLauncherSession(profile.id(), accessToken.trim(), expires);
+            saved = binds.saveBind(new OfficialBind(profile.id(), ownerId, profile.name(), METHOD_LAUNCHER_SESSION,
+                    null, false, OfficialBind.STATUS_ACTIVE, now, now, null));
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("bind", bindView(saved));
+        body.put("profile", Map.of("id", profile.id(), "name", profile.name()));
         return body;
     }
 
@@ -165,6 +229,7 @@ public class OfficialBindService {
                 .filter(bind -> OfficialBind.STATUS_ACTIVE.equals(bind.status()))
                 .forEach(bind -> {
                     safeDeleteSecret(SECRET_PREFIX + bind.officialUuid() + SECRET_SUFFIX);
+                    safeDeleteSecret(SECRET_PREFIX + bind.officialUuid() + SESSION_SECRET_SUFFIX);
                     players.findPlayerByUuid(bind.officialUuid())
                             .filter(player -> ownerId.equals(player.ownerId())
                                     && SkinPlayer.KIND_OFFICIAL.equals(player.profileKind()))
@@ -186,6 +251,9 @@ public class OfficialBindService {
                 .filter(item -> OfficialBind.STATUS_ACTIVE.equals(item.status()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("尚未绑定正版账号"));
+        if (METHOD_LAUNCHER_SESSION.equals(bind.verificationMethod())) {
+            return mintLauncherSession(bind);
+        }
         Map<String, Object> settings = binds.settings();
         MicrosoftIdentityChain chain = chain(String.valueOf(settings.get("clientId")));
         String refreshToken = safeStore(SECRET_PREFIX + bind.officialUuid() + SECRET_SUFFIX)
@@ -215,6 +283,37 @@ public class OfficialBindService {
         return body;
     }
 
+    /** 启动器推送会话的所有权验证：access_token 直连官方 profile（404 = 无 Java profile）。 */
+    protected MicrosoftIdentityChain.OfficialProfile verifiedProfile(String accessToken) {
+        return new MicrosoftIdentityChain("", "", null, new DefaultHttpExchange()).fetchProfile(accessToken);
+    }
+
+    private void storeLauncherSession(String officialUuid, String accessToken, long expiresAt) {
+        safeStore(SECRET_PREFIX + officialUuid + SESSION_SECRET_SUFFIX, JsonSupport.write(
+                Map.of("accessToken", accessToken, "expiresAt", expiresAt)).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** launcher-session 通道直通：直接发放推送的官方会话；过期/缺失时要求启动器重新登录推送。 */
+    private Map<String, Object> mintLauncherSession(OfficialBind bind) {
+        byte[] raw = safeStore(SECRET_PREFIX + bind.officialUuid() + SESSION_SECRET_SUFFIX)
+                .orElseThrow(() -> new IllegalArgumentException("官方会话凭据缺失，请在启动器中登录一次后重新推送"));
+        JsonNode session = OfficialBindDocumentRepository.parse(new String(raw, StandardCharsets.UTF_8));
+        String accessToken = session.path("accessToken").asText(null);
+        long expiresAt = session.path("expiresAt").asLong(0L);
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("官方会话凭据缺失，请在启动器中登录一次后重新推送");
+        }
+        if (expiresAt <= System.currentTimeMillis()) {
+            throw new IllegalArgumentException("官方会话已过期，请打开启动器完成一次登录以自动续签");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("accountKind", "microsoft-java");
+        body.put("minecraftAccessToken", accessToken);
+        body.put("expiresAt", expiresAt);
+        body.put("profile", Map.of("id", bind.officialUuid(), "name", bind.officialNameLast()));
+        return body;
+    }
+
     /** 链路失败时把完成授权的 Microsoft 账号带入错误信息，便于识别「选错账号」。 */
     private MicrosoftIdentityChain.OfficialSession chainLogin(MicrosoftIdentityChain chain,
                                                               MicrosoftIdentityChain.TokenGrant grant) {
@@ -230,6 +329,7 @@ public class OfficialBindService {
 
     private void disableBindingAndReleasePlayer(OfficialBind bind) {
         safeDeleteSecret(SECRET_PREFIX + bind.officialUuid() + SECRET_SUFFIX);
+        safeDeleteSecret(SECRET_PREFIX + bind.officialUuid() + SESSION_SECRET_SUFFIX);
         players.findPlayerByUuid(bind.officialUuid())
                 .filter(player -> bind.ownerId().equals(player.ownerId())
                         && SkinPlayer.KIND_OFFICIAL.equals(player.profileKind()))

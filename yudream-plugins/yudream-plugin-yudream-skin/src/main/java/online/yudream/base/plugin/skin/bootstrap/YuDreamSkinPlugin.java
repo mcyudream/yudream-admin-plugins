@@ -234,6 +234,7 @@ public class YuDreamSkinPlugin implements YuDreamPlugin {
         };
         OfficialBindService officialBind = new OfficialBindService(binds, repository,
                 context.secrets(), redirectOrigin);
+        appService.bindOfficialBindService(officialBind);
         context.registerHttpController(new OfficialBindController(officialBind));
     }
 

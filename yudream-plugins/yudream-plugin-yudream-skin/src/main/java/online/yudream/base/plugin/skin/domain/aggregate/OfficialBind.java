@@ -6,7 +6,7 @@ package online.yudream.base.plugin.skin.domain.aggregate;
  * @param officialUuid       官方 profile UUID（无连字符，绑定主键）
  * @param ownerId            宿主用户主键（string）
  * @param officialNameLast   验证时官方角色名快照（展示用；以官方为准，续签时同步）
- * @param verificationMethod microsoft-oauth | join-challenge
+ * @param verificationMethod microsoft-oauth | launcher-session | join-challenge（预留）
  * @param xuid               Xbox 用户主键（string，可空）
  * @param msRefreshStored    Microsoft refresh_token 是否已入 SecretStore（自带续签）
  * @param status             active | unbound

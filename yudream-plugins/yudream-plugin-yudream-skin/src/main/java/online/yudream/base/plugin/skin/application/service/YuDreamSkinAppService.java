@@ -45,6 +45,8 @@ public class YuDreamSkinAppService implements PluginSkinService {
     private final YuDreamSkinMigrationService migrationService;
     /** 联合命名空间前缀供给（yudream-union 可用时由 bootstrap 注入 issuerKeyId；可空）。 */
     private volatile java.util.function.Supplier<String> unionIssuerKeySupplier = () -> "";
+    /** 正版绑定服务（bootstrap 在本服务之后装配，经 setter 注入）。 */
+    private volatile OfficialBindService officialBindService;
 
     public YuDreamSkinAppService(YuDreamSkinRepository repository, YuDreamSkinMigrationService migrationService) {
         this.repository = repository;
@@ -54,6 +56,11 @@ public class YuDreamSkinAppService implements PluginSkinService {
     /** 装配期注入联合 issuerKeyId 供给（离线 UUID 派生的联合标识输入）。 */
     public void bindUnionIssuerKeySupplier(java.util.function.Supplier<String> supplier) {
         this.unionIssuerKeySupplier = supplier;
+    }
+
+    /** 装配期注入正版绑定服务（供启动器推送式绑定走跨插件 API）。 */
+    public void bindOfficialBindService(OfficialBindService officialBindService) {
+        this.officialBindService = officialBindService;
     }
 
     public YuDreamSkinSummaryDTO summary() {
@@ -521,6 +528,15 @@ public class YuDreamSkinAppService implements PluginSkinService {
         String userId = requireText(ownerId, "用户不能为空");
         SkinPlayer player = createPlayer(new CreatePlayerCmd(requireText(name, "角色名不能为空"), userId), null);
         return toProfile(player);
+    }
+
+    @Override
+    public java.util.Map<String, Object> bindOfficialFromLauncher(String ownerId, String accessToken, Long expiresAt) {
+        OfficialBindService service = officialBindService;
+        if (service == null) {
+            throw new IllegalArgumentException("正版绑定服务未就绪，请重启站点或联系管理员");
+        }
+        return service.bindOfficialFromLauncher(requireText(ownerId, "用户不能为空"), accessToken, expiresAt);
     }
 
     @Override

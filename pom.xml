@@ -20,10 +20,10 @@
         <yudream.plugin.spi.version>2.38.0</yudream.plugin.spi.version>
         <jackson.version>2.20.0</jackson.version>
         <!-- 插件间 provided 依赖在此统一锁定 provider 版本；消费方禁止用 ${project.version} 与自身版本锁步 -->
-        <yudream.plugin.yudream-skin.version>1.6.3</yudream.plugin.yudream-skin.version>
+        <yudream.plugin.yudream-skin.version>1.7.0</yudream.plugin.yudream-skin.version>
         <yudream.plugin.wallet.version>1.1.19</yudream.plugin.wallet.version>
         <yudream.plugin.minecraft-server.version>1.14.1</yudream.plugin.minecraft-server.version>
-        <yudream.plugin.ymcl-adapter.version>0.12.7</yudream.plugin.ymcl-adapter.version>
+        <yudream.plugin.ymcl-adapter.version>0.13.0</yudream.plugin.ymcl-adapter.version>
         <yudream.plugin.authlib-injector.version>1.4.0</yudream.plugin.authlib-injector.version>
         <yudream.plugin.yudream-union.version>0.3.1</yudream.plugin.yudream-union.version>
         <yudream.plugin.mc-interop.version>0.2.5</yudream.plugin.mc-interop.version>

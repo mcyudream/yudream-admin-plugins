@@ -10,7 +10,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 <artifactId>yudream-plugin-yudream-skin</artifactId>
-    <version>1.6.3</version>
+    <version>1.7.0</version>
 
     <build>
         <resources>

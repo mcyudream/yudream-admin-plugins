@@ -88,14 +88,18 @@ class OfficialBindServiceTest {
 
     private InMemoryDocuments store;
     private StubChain chain;
+    private Map<String, byte[]> vault;
+    private MicrosoftIdentityChain.OfficialProfile launcherProfile;
+    private RuntimeException launcherProfileError;
 
     private OfficialBindService service() {
         store = new InMemoryDocuments();
+        vault = new LinkedHashMap<>();
+        launcherProfile = null;
+        launcherProfileError = null;
         YuDreamSkinRepository players = new YuDreamSkinRepository(store, null);
         OfficialBindDocumentRepository binds = new OfficialBindDocumentRepository(store);
         PluginSecretStore secrets = new PluginSecretStore() {
-            private final Map<String, byte[]> vault = new LinkedHashMap<>();
-
             @Override
             public void put(String key, byte[] secret) {
                 vault.put(key, secret);
@@ -117,7 +121,19 @@ class OfficialBindServiceTest {
             protected MicrosoftIdentityChain chain(String clientId) {
                 return chain;
             }
+
+            @Override
+            protected MicrosoftIdentityChain.OfficialProfile verifiedProfile(String accessToken) {
+                if (launcherProfileError != null) {
+                    throw launcherProfileError;
+                }
+                return launcherProfile;
+            }
         };
+    }
+
+    private String sessionSecretKey(String officialUuid) {
+        return OfficialBindService.SECRET_PREFIX + officialUuid + OfficialBindService.SESSION_SECRET_SUFFIX;
     }
 
     @Test
@@ -260,6 +276,130 @@ class OfficialBindServiceTest {
         assertEquals("mc-at-2", minted.get("minecraftAccessToken"));
         assertEquals("microsoft-java", minted.get("accountKind"));
         assertEquals("refresh", chain.lastGrantType);
+    }
+
+    // ---- 启动器推送通道（launcher-session）----
+
+    @Test
+    void launcherBindRequiresEnabledSettings() {
+        OfficialBindService service = service();
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.bindOfficialFromLauncher(OWNER, "mc-at", null));
+        assertTrue(error.getMessage().contains("未开放"));
+    }
+
+    /** 验证失败（无 Java profile 等）映射为业务可重试错误，而非 500。 */
+    @Test
+    void launcherBindMapsProfileVerificationFailureToBusinessError() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfileError = new IllegalStateException("该 Microsoft 账号没有 Minecraft Java profile");
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.bindOfficialFromLauncher(OWNER, "bad-token", null));
+        assertTrue(error.getMessage().contains("没有 Minecraft Java profile"));
+    }
+
+    @Test
+    void launcherBindCreatesBindingAndStoresSession() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+
+        Map<String, Object> body = service.bindOfficialFromLauncher(OWNER, "mc-at", null);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> bind = (Map<String, Object>) body.get("bind");
+        assertEquals(OFFICIAL_UUID, bind.get("officialUuid"));
+        assertEquals(Boolean.FALSE, bind.get("msRefreshStored"));
+        assertEquals("launcher-session", store.collections.get("official_binds").get(OFFICIAL_UUID)
+                .get("verificationMethod"));
+        assertTrue(vault.containsKey(sessionSecretKey(OFFICIAL_UUID)));
+        assertEquals("official", store.collections.get("players").get(OFFICIAL_UUID).get("profileKind"));
+    }
+
+    /** 同一官方 UUID 再次推送 = 会话续推：凭据与角色名快照刷新，绑定记录不新增。 */
+    @Test
+    void launcherBindRepurshesSessionForSameOfficialUuid() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+        service.bindOfficialFromLauncher(OWNER, "mc-at-1", null);
+
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch2", null, null);
+        Map<String, Object> repushed = service.bindOfficialFromLauncher(OWNER, "mc-at-2",
+                System.currentTimeMillis() + 60_000L);
+
+        assertEquals(1, store.collections.get("official_binds").size());
+        assertTrue(new String(vault.get(sessionSecretKey(OFFICIAL_UUID)), StandardCharsets.UTF_8)
+                .contains("mc-at-2"));
+        assertEquals("Notch2", ((Map<?, ?>) repushed.get("profile")).get("name"));
+        Map<String, Object> minted = service.mintOfficialSession(OWNER);
+        assertEquals("mc-at-2", minted.get("minecraftAccessToken"));
+        assertEquals("microsoft-java", minted.get("accountKind"));
+    }
+
+    @Test
+    void launcherBindRejectsDifferentUuidWhileActive() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+        service.bindOfficialFromLauncher(OWNER, "mc-at", null);
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile("11111111111111111111111111111111",
+                "Other", null, null);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.bindOfficialFromLauncher(OWNER, "mc-at-b", null));
+        assertTrue(error.getMessage().contains("先解绑"));
+    }
+
+    @Test
+    void launcherBindRefusesUuidBoundToAnotherUser() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        Map<String, Object> started = service.start("user-other", 1_000L);
+        chain.grant = new MicrosoftIdentityChain.TokenGrant("mc-at", REFRESH_TOKEN);
+        chain.session = new MicrosoftIdentityChain.OfficialSession("mc-at", 2_000L,
+                new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null));
+        service.callback(stateOf(service, started), "code", 2_000L);
+
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.bindOfficialFromLauncher(OWNER, "mc-at", null));
+        assertTrue(error.getMessage().contains("已绑定在其他站点账号名下"));
+    }
+
+    /** 直通发放：过期/缺失会话均要求启动器重新登录推送，绝不静默失败。 */
+    @Test
+    void launcherMintRejectsExpiredOrMissingSession() throws Exception {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+        service.bindOfficialFromLauncher(OWNER, "mc-at", null);
+
+        vault.put(sessionSecretKey(OFFICIAL_UUID), ("{\"accessToken\":\"mc-at\",\"expiresAt\":"
+                + (System.currentTimeMillis() - 1_000L) + "}").getBytes(StandardCharsets.UTF_8));
+        IllegalArgumentException expired = assertThrows(IllegalArgumentException.class,
+                () -> service.mintOfficialSession(OWNER));
+        assertTrue(expired.getMessage().contains("过期"));
+
+        vault.remove(sessionSecretKey(OFFICIAL_UUID));
+        IllegalArgumentException missing = assertThrows(IllegalArgumentException.class,
+                () -> service.mintOfficialSession(OWNER));
+        assertTrue(missing.getMessage().contains("缺失"));
+    }
+
+    @Test
+    void launcherUnbindClearsSessionSecret() {
+        OfficialBindService service = service();
+        service.saveSettings(true, "client-123");
+        launcherProfile = new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null);
+        service.bindOfficialFromLauncher(OWNER, "mc-at", null);
+
+        service.unbind(OWNER);
+
+        assertFalse(vault.containsKey(sessionSecretKey(OFFICIAL_UUID)));
+        assertFalse(store.collections.get("players").containsKey(OFFICIAL_UUID));
     }
 
     // ---- helpers ----

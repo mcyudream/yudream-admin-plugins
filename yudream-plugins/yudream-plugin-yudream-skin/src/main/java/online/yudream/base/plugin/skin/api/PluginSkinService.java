@@ -3,6 +3,7 @@ package online.yudream.base.plugin.skin.api;
 import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Stable service contract exposed by the yudream-skin plugin. */
@@ -47,4 +48,11 @@ public interface PluginSkinService {
      * 纹理不存在，或非公开且非自己上传时抛出 {@link IllegalArgumentException}。
      */
     PluginSkinClosetItem collectTextureToCloset(String ownerId, String textureHash, String itemName);
+    /**
+     * 启动器推送式正版绑定/会话续推：站点用 Minecraft access_token 直连官方 profile
+     * 完成所有权验证（404 = 无 Java profile），首次建立绑定（冲突裁决同网页流程），
+     * 已有生效绑定且官方 UUID 一致时视为会话续推（刷新直通会话与角色名快照）。
+     * 返回 {bind, profile} 视图；验证失败、冲突或功能未开放抛 {@link IllegalArgumentException}。
+     */
+    Map<String, Object> bindOfficialFromLauncher(String ownerId, String accessToken, Long expiresAt);
 }

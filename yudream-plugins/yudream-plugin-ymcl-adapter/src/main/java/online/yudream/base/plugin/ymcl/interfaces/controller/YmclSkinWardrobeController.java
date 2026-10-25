@@ -128,6 +128,17 @@ public class YmclSkinWardrobeController {
         }
     }
 
+    // POST /v1/skins/official-bind — 启动器推送式正版绑定/会话续推
+    @PluginHttpEndpoint(method = "POST", path = "/v1/skins/official-bind",
+            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    public PluginHttpResponse bindOfficial(PluginHttpRequest request) {
+        try {
+            return YmclSkinWardrobeHandlers.bindOfficial(context, request);
+        } catch (LinkageError error) {
+            return unavailable();
+        }
+    }
+
     private static PluginHttpResponse unavailable() {
         return PluginHttpResponse.rawJson(501, Map.of(
                 "error", "skins_unavailable",
