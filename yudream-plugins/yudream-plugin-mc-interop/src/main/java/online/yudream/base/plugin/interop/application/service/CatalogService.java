@@ -427,10 +427,24 @@ public class CatalogService {
      */
     @SuppressWarnings("unchecked")
     private void mergePeerPacks(List<Map<String, Object>> packs, long latestOwn) {
+        // 内容身份去重：同一整合包经「本站发布 / 友站直采 / 友站从第三方导入」多路径出现时只保留一份。
+        java.util.Set<String> contentSeen = new java.util.HashSet<>();
+        for (Map<String, Object> pack : packs) {
+            String key = packContentKey(pack);
+            if (key != null) {
+                contentSeen.add(key);
+            }
+        }
         long now = System.currentTimeMillis();
         List<Map<String, Object>> cached = mergedPeerPacksCache;
         if (cached != null && now - mergedPeerPacksAt < 5 * 60_000L) {
-            packs.addAll(cached);
+            for (Map<String, Object> pack : cached) {
+                String key = packContentKey(pack);
+                if (key != null && !contentSeen.add(key)) {
+                    continue;
+                }
+                packs.add(pack);
+            }
             return;
         }
         List<Map<String, Object>> merged = new ArrayList<>();
@@ -471,6 +485,10 @@ public class CatalogService {
                     if (id == null) {
                         continue;
                     }
+                    String contentKey = packContentKey(pack);
+                    if (contentKey != null && !contentSeen.add(contentKey)) {
+                        continue;
+                    }
                     // id 冲突用命名空间规避（siteId.id）保留友站条目展示；仍冲突（重名叠加）才丢弃
                     String localId = id;
                     if (!seen.add(localId)) {
@@ -493,6 +511,32 @@ public class CatalogService {
         mergedPeerPacksCache = merged;
         mergedPeerPacksAt = now;
         packs.addAll(merged);
+    }
+
+    /**
+     * 整合包内容身份：sha512 → sha1 → artifact url。三者皆缺（无法判定是否同一包）返回 null，
+     * 调用方对该类条目不去重，避免误删真正不同的包。
+     */
+    private static String packContentKey(Map<String, Object> pack) {
+        Map<String, Object> artifact = pack.get("artifact") instanceof Map<?, ?> raw
+                ? (Map<String, Object>) raw
+                : null;
+        String sha512 = text(pack.get("sha512"));
+        if (sha512 == null || sha512.isBlank()) {
+            sha512 = artifact == null ? null : text(artifact.get("sha512"));
+        }
+        if (sha512 != null && !sha512.isBlank()) {
+            return "sha512:" + sha512.trim().toLowerCase(Locale.ROOT);
+        }
+        String sha1 = artifact == null ? null : text(artifact.get("sha1"));
+        if (sha1 != null && !sha1.isBlank()) {
+            return "sha1:" + sha1.trim().toLowerCase(Locale.ROOT);
+        }
+        String url = artifact == null ? null : text(artifact.get("url"));
+        if (url != null && !url.isBlank()) {
+            return "url:" + url.trim();
+        }
+        return null;
     }
 
     /** 出口内容摘要派生的强 ETag（协议 §2.2 建议由 updatedAt/revision 派生）。 */
