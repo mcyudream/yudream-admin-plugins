@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropSettings, InteropSiteDocument } from '../types'
+import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropSettings } from '../types'
 
 export function createMcInteropApi(sdk: YuDreamPluginSdk) {
   return {
@@ -20,32 +20,6 @@ export function createMcInteropApi(sdk: YuDreamPluginSdk) {
       }),
     deleteEntry: (id: string) =>
       sdk.http.request(`/admin/entries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    // 管理端 merged 直接返回插件内 camelCase 文档；这里归一化为协议
-    // snake_case，页面与类型统一按协议键消费。
-    mergedEntries: () =>
-      sdk.http.get<Record<string, unknown>>('/admin/entries/merged').then(body => {
-        const raw = body as Record<string, any>
-        const packs = (Array.isArray(raw.packs) ? raw.packs : []).map(pack => ({
-          ...pack,
-          game_version: pack.game_version ?? pack.gameVersion,
-          loader_version: pack.loader_version ?? pack.loaderVersion,
-          updated_at: pack.updated_at ?? pack.updatedAt,
-          source: pack.source
-            ? {
-                ...pack.source,
-                site_id: pack.source.site_id ?? pack.source.siteId,
-                domain: pack.source.domain,
-                stale: pack.source.stale,
-              }
-            : undefined,
-        }))
-        return {
-          site: raw.site,
-          packs,
-          peers: raw.peers ?? [],
-          updated_at: raw.updated_at ?? raw.updatedAt,
-        } as InteropSiteDocument
-      }),
     importFromAdapter: () =>
       sdk.http.request<{ imported: number; skipped: string[] }>('/admin/entries/import-adapter', {
         method: 'POST',
