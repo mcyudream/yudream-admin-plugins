@@ -15,6 +15,8 @@ import online.yudream.base.plugin.authlib.interfaces.request.TextureBindRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.TokenRequest;
 import online.yudream.base.plugin.spi.core.PluginContext;
 import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.authlib.infrastructure.launcher.UnionTextureRewrite;
+import online.yudream.base.plugin.spi.system.storage.PluginStoredFile;
 import online.yudream.base.plugin.skin.api.PluginSkinService;
 import online.yudream.base.plugin.skin.api.PluginSkinTexture;
 import online.yudream.base.plugin.spi.system.user.PluginUserProfile;
@@ -66,9 +68,9 @@ public class AuthlibAppService implements PluginAuthService {
     public Object metadata(String apiRoot, String textureBaseUrl) {
         Map<String, Object> body = new LinkedHashMap<>();
         Map<String, Object> meta = new LinkedHashMap<>();
-        meta.put("serverName", "YuDream Authlib Injector");
+        meta.put("serverName", serverName());
         meta.put("implementationName", "YuDream Authlib Injector Plugin");
-        meta.put("implementationVersion", "1.4.0");
+        meta.put("implementationVersion", "1.5.0");
         meta.put("links", links(apiRoot));
         meta.put("feature.non_email_login", true);
         meta.put("feature.legacy_skin_api", false);
@@ -98,6 +100,37 @@ public class AuthlibAppService implements PluginAuthService {
         } catch (RuntimeException | LinkageError e) {
             return List.of();
         }
+    }
+
+    /**
+     * 启动器展示的验证服名称：管理员自定义 > 站点描述 > 站点名称，
+     * 不再使用插件框架名；全部缺失时兜底为 Minecraft（站点设置向导保证 siteName 必填，兜底极少触发）。
+     */
+    public String serverName() {
+        return resolveServerName(repository.serverNameOverride(),
+                context.framework().setting("siteDescription"),
+                context.framework().setting("siteName"));
+    }
+
+    static String resolveServerName(java.util.Optional<String> override,
+                                    java.util.Optional<String> siteDescription,
+                                    java.util.Optional<String> siteName) {
+        return override.filter(value -> !value.isBlank())
+                .or(() -> siteDescription.filter(value -> !value.isBlank()))
+                .or(() -> siteName.filter(value -> !value.isBlank()))
+                .orElse("Minecraft");
+    }
+
+    public Map<String, Object> displaySettings() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("serverName", serverName());
+        body.put("serverNameOverride", repository.serverNameOverride().orElse(""));
+        return body;
+    }
+
+    public Map<String, Object> saveDisplaySettings(String serverNameOverride) {
+        repository.saveServerNameOverride(serverNameOverride);
+        return displaySettings();
     }
 
     public Object status(String apiRoot, String textureBaseUrl) {
@@ -248,21 +281,25 @@ public class AuthlibAppService implements PluginAuthService {
                 // nevertheless be signed so other clients accept its textures property.
                 .map(profile -> profileResponse(profile, textureBaseUrl, false))
                 // 本地未命中 → 受信站联合断言验签（YD 联合认证协议 v1）；失败退化为 204。
-                .or(() -> federatedHasJoined(username, serverId));
+                .or(() -> federatedHasJoined(username, serverId, textureBaseUrl));
     }
 
     /** 联合验签命中后用**本站密钥重签** textures 属性（信任根 = 本站 signaturePublickey）。 */
-    private Optional<Object> federatedHasJoined(String username, String serverId) {
+    private Optional<Object> federatedHasJoined(String username, String serverId, String textureBaseUrl) {
         if (federationGateway == null) {
             return Optional.empty();
         }
         try {
             return federationGateway.verifyRemoteJoin(username, serverId)
                     .map(profile -> {
+                        // 材质 URL 改写为本站代理：远程站 URL 对其他认证站客户端存在域名白名单/签名信任根问题
+                        String value = UnionTextureRewrite.rewrite(
+                                profile.textureValue(), federationTextureHosts(), textureBaseUrl);
+                        String textureValue = value != null ? value : profile.textureValue();
                         Map<String, Object> textureProperty = new LinkedHashMap<>();
                         textureProperty.put("name", "textures");
-                        textureProperty.put("value", profile.textureValue());
-                        textureProperty.put("signature", cryptoService.sign(profile.textureValue()));
+                        textureProperty.put("value", textureValue);
+                        textureProperty.put("signature", cryptoService.sign(textureValue));
                         Map<String, Object> body = new LinkedHashMap<>();
                         body.put("id", profile.uuid());
                         body.put("name", profile.name());
@@ -273,6 +310,60 @@ public class AuthlibAppService implements PluginAuthService {
         } catch (RuntimeException | LinkageError e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * 联合材质代理（/texture/union/{hash}）：先查本站皮肤库，未命中按受信站顺序回源拉取。
+     * 仅允许 https 受信 texture 主机，出站主机白名单来自 union 受信站清单。
+     */
+    public byte[] unionTexture(String hash) {
+        if (hash == null || !hash.matches("[0-9a-f]{32,128}")) {
+            return null;
+        }
+        try {
+            Optional<PluginStoredFile> local = skinService().readTexture(hash);
+            if (local.isPresent()) {
+                try (var in = local.get().inputStream()) {
+                    return in.readAllBytes();
+                }
+            }
+            for (String host : federationTextureHosts()) {
+                byte[] bytes = fetchPeerTexture(host, hash);
+                if (bytes != null) {
+                    return bytes;
+                }
+            }
+        } catch (RuntimeException | LinkageError | java.io.IOException ignored) {
+            // 代理失败按无材质处理
+        }
+        return null;
+    }
+
+    private byte[] fetchPeerTexture(String host, String hash) {
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(3))
+                    .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                    .build();
+            java.net.http.HttpResponse<byte[]> response = client.send(
+                    java.net.http.HttpRequest.newBuilder()
+                            .uri(java.net.URI.create("https://" + host + "/api/plugins/yudream-skin/textures/" + hash))
+                            .timeout(java.time.Duration.ofSeconds(8))
+                            .header("Accept", "image/png")
+                            .GET()
+                            .build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() == 200 && response.body().length > 0
+                    && response.body().length <= 512 * 1024) {
+                return response.body();
+            }
+        } catch (RuntimeException | java.io.IOException | InterruptedException ignored) {
+            // 单站失败只跳过
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return null;
     }
 
     public Object profile(String uuid, String textureBaseUrl, boolean unsigned) {

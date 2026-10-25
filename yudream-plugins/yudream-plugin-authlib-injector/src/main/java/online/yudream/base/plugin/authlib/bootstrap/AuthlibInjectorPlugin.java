@@ -21,7 +21,7 @@ import online.yudream.base.plugin.spi.core.YuDreamPlugin;
 @PluginSpec(
         code = AuthlibInjectorPlugin.CODE,
         name = "Authlib Injector",
-        version = "1.4.0",
+        version = "1.5.0",
         description = "基于系统用户和 yudream-skin 角色资料实现 authlib-injector/Yggdrasil 服务端协议，并接入 YD 联合认证。",
         dependencies = {"yudream-skin"}
 )

@@ -17,4 +17,14 @@ public class AuthlibAdminController {
     public PluginHttpResponse status(PluginHttpRequest request) {
         return http.status(request);
     }
+
+    @PluginHttpEndpoint(method = "GET", path = "/admin/settings", permission = AuthlibInjectorPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse settings(PluginHttpRequest request) {
+        return http.settings(request);
+    }
+
+    @PluginHttpEndpoint(method = "PUT", path = "/admin/settings", permission = AuthlibInjectorPlugin.MANAGE_PERMISSION)
+    public PluginHttpResponse saveSettings(PluginHttpRequest request) {
+        return http.saveSettings(request);
+    }
 }

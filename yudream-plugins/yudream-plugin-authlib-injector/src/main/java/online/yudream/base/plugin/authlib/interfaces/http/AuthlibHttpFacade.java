@@ -5,6 +5,7 @@ import online.yudream.base.plugin.authlib.application.service.AuthlibAppService.
 import online.yudream.base.plugin.authlib.application.service.AuthlibInfoService;
 import online.yudream.base.plugin.authlib.infrastructure.support.JsonSupport;
 import online.yudream.base.plugin.authlib.interfaces.request.AuthenticateRequest;
+import online.yudream.base.plugin.authlib.interfaces.request.DisplaySettingsRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.JoinRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.RefreshRequest;
 import online.yudream.base.plugin.authlib.interfaces.request.SignoutRequest;
@@ -41,6 +42,15 @@ public class AuthlibHttpFacade {
 
     public PluginHttpResponse status(PluginHttpRequest request) {
         return ali(request, PluginHttpResponse.ok(appService.status(apiRoot(request), textureBaseUrl(request))));
+    }
+
+    public PluginHttpResponse settings(PluginHttpRequest request) {
+        return ali(request, PluginHttpResponse.ok(appService.displaySettings()));
+    }
+
+    public PluginHttpResponse saveSettings(PluginHttpRequest request) {
+        return runJson(request, () -> appService.saveDisplaySettings(
+                JsonSupport.read(request.body(), DisplaySettingsRequest.class).serverName()));
     }
 
     public PluginHttpResponse authenticate(PluginHttpRequest request) {
@@ -81,6 +91,25 @@ public class AuthlibHttpFacade {
 
     public PluginHttpResponse profile(PluginHttpRequest request) {
         return runJson(request, () -> appService.profile(lastPathSegment(request.path()), textureBaseUrl(request), unsigned(request)));
+    }
+
+    /**
+     * 联合材质代理（YD 联合认证协议扩展）：本站皮肤库未命中时按受信站顺序回源拉取，
+     * 供联合玩家材质 URL 统一本站域名（客户端域名白名单与签名信任根收敛）。
+     */
+    public PluginHttpResponse unionTexture(PluginHttpRequest request) {
+        String hash = lastPathSegment(request.path());
+        byte[] bytes = appService.unionTexture(hash);
+        if (bytes == null) {
+            return PluginHttpResponse.rawJson(404, Map.of("message", "材质不存在"));
+        }
+        return new PluginHttpResponse(
+                200,
+                Map.of("Cache-Control", "public, max-age=31536000"),
+                "image/png",
+                bytes,
+                false
+        );
     }
 
     public PluginHttpResponse profiles(PluginHttpRequest request) {

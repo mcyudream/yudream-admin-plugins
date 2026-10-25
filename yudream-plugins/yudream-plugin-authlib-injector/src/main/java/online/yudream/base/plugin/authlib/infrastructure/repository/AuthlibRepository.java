@@ -16,6 +16,7 @@ public class AuthlibRepository {
     private static final String SESSIONS = "sessions";
     private static final String JOINS = "joins";
     private static final String SETTINGS = "settings";
+    private static final String DISPLAY = "display";
 
     private final PluginDocumentStore documents;
 
@@ -58,6 +59,24 @@ public class AuthlibRepository {
         document.put("privateKey", keyPair.privateKey());
         Map<String, Object> saved = documents.save(SETTINGS, "keypair", document);
         return new AuthlibKeyPair(string(saved, "publicKey"), string(saved, "privateKey"));
+    }
+
+    /** 管理员自定义验证服展示名；未配置或空白返回空。 */
+    public Optional<String> serverNameOverride() {
+        return documents.findById(SETTINGS, DISPLAY)
+                .map(document -> string(document, "serverName"))
+                .filter(value -> value != null && !value.isBlank());
+    }
+
+    /** 保存自定义展示名；空白值视为清除自定义、回到站点默认。 */
+    public void saveServerNameOverride(String value) {
+        if (value == null || value.isBlank()) {
+            documents.delete(SETTINGS, DISPLAY);
+            return;
+        }
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("serverName", value.trim());
+        documents.save(SETTINGS, DISPLAY, document);
     }
 
     private Map<String, Object> sessionDocument(AuthSession session) {

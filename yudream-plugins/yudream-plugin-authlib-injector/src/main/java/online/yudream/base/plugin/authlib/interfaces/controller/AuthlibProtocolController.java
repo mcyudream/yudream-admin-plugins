@@ -36,6 +36,10 @@ public class AuthlibProtocolController {
     @PluginHttpEndpoint(method = "GET", path = "/sessionserver/session/minecraft/hasJoined", wrapResult = false)
     public PluginHttpResponse hasJoined(PluginHttpRequest request) { return http.hasJoined(request); }
 
+    /** 联合材质代理：受信站材质经本站域名下发（客户端域名白名单与签名信任根收敛）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/texture/union/{hash}", wrapResult = false)
+    public PluginHttpResponse unionTexture(PluginHttpRequest request) { return http.unionTexture(request); }
+
     @PluginHttpEndpoint(method = "GET", path = "/sessionserver/session/minecraft/profile/{uuid}", wrapResult = false)
     public PluginHttpResponse profile(PluginHttpRequest request) { return http.profile(request); }
 
