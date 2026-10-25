@@ -226,7 +226,7 @@ public class UnionHttpFacade {
             java.util.Set.of("at", "action", "target", "actor", "actorType", "detail");
 
     public Object pageAudit(int page, int size, String keyword, String sortBy, String order) {
-        String safeSortBy = AUDIT_SORT_FIELDS.contains(sortBy) ? sortBy : "at";
+        String safeSortBy = sortBy != null && AUDIT_SORT_FIELDS.contains(sortBy) ? sortBy : "at";
         boolean descending = !"asc".equalsIgnoreCase(order);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("records", repository.pageAudit(page, size, blankToNull(keyword), safeSortBy, descending)
@@ -267,7 +267,7 @@ public class UnionHttpFacade {
     public Object federationLog(int page, int size, String site, String name, String sortBy, String order) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(200, Math.max(1, size));
-        String safeSortBy = JOIN_EVENT_SORT_FIELDS.contains(sortBy) ? sortBy : "recordedAt";
+        String safeSortBy = sortBy != null && JOIN_EVENT_SORT_FIELDS.contains(sortBy) ? sortBy : "recordedAt";
         boolean descending = !"asc".equalsIgnoreCase(order);
         // pageLog 返回的 total 已按 site/name 过滤，直接透传保证分页与筛选一致
         return federation.pageLog(blankToNull(site), blankToNull(name), safePage, safeSize,
