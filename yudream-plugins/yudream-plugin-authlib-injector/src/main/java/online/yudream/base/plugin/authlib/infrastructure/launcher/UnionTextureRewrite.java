@@ -53,8 +53,7 @@ public final class UnionTextureRewrite {
                     continue;
                 }
                 String hash = url.substring(marker + PEER_TEXTURE_MARKER.length());
-                ((ObjectNode) texture).put("url",
-                        stripTrailingSlash(localTextureBase) + "/texture/union/" + hash);
+                ((ObjectNode) texture).put("url", stripTrailingSlash(localTextureBase) + "/" + hash);
                 rewritten = true;
             }
             if (!rewritten) {

@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UnionTextureRewriteTest {
 
-    private static final String LOCAL_BASE = "https://www.swustmc.cn/api/plugins/yudream-skin/textures";
+    private static final String LOCAL_BASE = "https://www.swustmc.cn/api/plugins/authlib-injector/texture/union";
     private static final String PEER_BASE = "https://hall.mc.taru.xj.cn/api/plugins/yudream-skin/textures";
 
     private static String textureValue(String skinUrl) {

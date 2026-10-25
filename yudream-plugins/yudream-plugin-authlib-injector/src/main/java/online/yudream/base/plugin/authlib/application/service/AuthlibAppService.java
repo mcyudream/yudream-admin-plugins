@@ -268,7 +268,7 @@ public class AuthlibAppService implements PluginAuthService {
         ));
     }
 
-    public Optional<Object> hasJoined(String username, String serverId, String textureBaseUrl) {
+    public Optional<Object> hasJoined(String username, String serverId, String textureBaseUrl, String apiRoot) {
         if (!hasText(username) || !hasText(serverId)) {
             return Optional.empty();
         }
@@ -281,11 +281,12 @@ public class AuthlibAppService implements PluginAuthService {
                 // nevertheless be signed so other clients accept its textures property.
                 .map(profile -> profileResponse(profile, textureBaseUrl, false))
                 // 本地未命中 → 受信站联合断言验签（YD 联合认证协议 v1）；失败退化为 204。
-                .or(() -> federatedHasJoined(username, serverId, textureBaseUrl));
+                .or(() -> federatedHasJoined(username, serverId, textureBaseUrl, apiRoot));
     }
 
     /** 联合验签命中后用**本站密钥重签** textures 属性（信任根 = 本站 signaturePublickey）。 */
-    private Optional<Object> federatedHasJoined(String username, String serverId, String textureBaseUrl) {
+    private Optional<Object> federatedHasJoined(String username, String serverId, String textureBaseUrl,
+                                                String apiRoot) {
         if (federationGateway == null) {
             return Optional.empty();
         }
@@ -293,8 +294,10 @@ public class AuthlibAppService implements PluginAuthService {
             return federationGateway.verifyRemoteJoin(username, serverId)
                     .map(profile -> {
                         // 材质 URL 改写为本站代理：远程站 URL 对其他认证站客户端存在域名白名单/签名信任根问题
+                        // 代理基址 = 本站 authlib apiRoot（/texture/union/{hash} 端点挂在本插件）
+                        String localProxyBase = stripTrailingSlash(apiRoot) + "/texture/union";
                         String value = UnionTextureRewrite.rewrite(
-                                profile.textureValue(), federationTextureHosts(), textureBaseUrl);
+                                profile.textureValue(), federationTextureHosts(), localProxyBase);
                         String textureValue = value != null ? value : profile.textureValue();
                         Map<String, Object> textureProperty = new LinkedHashMap<>();
                         textureProperty.put("name", "textures");
