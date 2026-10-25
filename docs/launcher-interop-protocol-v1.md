@@ -67,9 +67,9 @@ GET {origin}/.well-known/mc-interop-v1.json        → SiteDocument（200）
 - `origin` 为站点 HTTPS 根；强制 HTTPS，http 请求方应自行升级。
 - 路径**版本化**（`mc-interop-v1.json`）：未来破坏性变更发布 `mc-interop-v2.json` 并并存过渡，
   已发布路径永不改变语义。
-- YDA 部署形态：由宿主反代把 well-known 路径转发到适配器插件端点（如
-  `/api/plugins/launcher-adapter/interop/v1/site`），对外不暴露插件路径细节；非 YDA 站点
-  用任意静态文件/网关实现均可——协议只约定路径与响应体。
+- YDA 部署形态：宿主**原生**在站点根路径直接提供 `/.well-known/mc-interop-v1.json`
+  （McInteropWellKnownAppService 进程内调度插件出口并与 peers 文档聚合，ETag/缓存），
+  零反代、零网关配置；非 YDA 站点用任意静态文件/网关实现均可——协议只约定路径与响应体。
 - 文档较大时的扩展路径（v1 预留，不强制实现）：SiteDocument 中集合块可改放
   `{"href": ".../mc-interop-v1/packs"}` 拆分拉取，见 §3。
 
@@ -380,7 +380,7 @@ provider 无需改签名，出口聚合器在 provider 之外补齐 modpackBindi
 ### 9.5 落地顺序
 
 1. 定稿本规范 → 2. 出口序列化器 + 双源绑定聚合（launcher-adapter 新增 interop 读端点，
-   宿主反代 well-known）→ 3. legacy-sitmc-1 ingest 导入 → 4. YMCL canonical 适配器
+   宿主原生 well-known 聚合端点）→ 3. legacy-sitmc-1 ingest 导入 → 4. YMCL canonical 适配器
    （目录/绑定/join）→ 5. 站点侧互采聚合（peers 拉取/合并/溯源）与深链。
 
 ## 10. 安全

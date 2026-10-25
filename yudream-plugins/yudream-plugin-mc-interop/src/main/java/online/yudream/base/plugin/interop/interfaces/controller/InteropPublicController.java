@@ -13,9 +13,9 @@ import java.util.Map;
 /**
  * mc-interop v1 统一出口（匿名 + 限流 + ETag/304 + 公共缓存，协议 §2）。
  *
- * <p>部署形态：宿主反代把 /.well-known/mc-interop-v1.json 转发到本端点
- * （如 nginx: location /.well-known/mc-interop-v1.json { proxy_pass …/interop/v1/site; }），
- * 协议只约定路径与响应体。</p>
+ * <p>部署形态：yda 宿主 McInteropWellKnownController 原生聚合提供
+ * /.well-known/mc-interop-v1.json（进程内调度本端点并与 peers 文档合并，
+ * ETag/缓存），无需任何反代；本端点为原始单站出口，供宿主聚合与调试直用。</p>
  */
 public class InteropPublicController {
 

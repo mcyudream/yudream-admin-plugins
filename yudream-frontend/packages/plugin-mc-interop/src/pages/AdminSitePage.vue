@@ -117,9 +117,12 @@ function removePeer(peer: McInteropPeer) {
         </YdSettingsSection>
         <YdSettingsSection
           title="出口端点"
-          description="在站点网关把 /.well-known/mc-interop-v1.json 反代到本插件端点即可完成协议部署。"
+          description="yda 宿主原生聚合提供协议入口（本站出口 + peers 互采合并，5 分钟缓存 ETag），无需任何反代或网关配置。友站发现本站即访问："
         >
-          <code class="break-all text-sm">/.well-known/mc-interop-v1.json → /api/plugins/mc-interop/interop/v1/site</code>
+          <code class="break-all text-sm">{{ model.settings.domain ? `https://${model.settings.domain}` : 'https://站点域名' }}/.well-known/mc-interop-v1.json</code>
+          <p class="mt-2 text-xs text-muted-foreground">
+            插件原始单站出口（无 peers 合并，调试用）：/api/plugins/mc-interop/interop/v1/site
+          </p>
         </YdSettingsSection>
       </template>
 
