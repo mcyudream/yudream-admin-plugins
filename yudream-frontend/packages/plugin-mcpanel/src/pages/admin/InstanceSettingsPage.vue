@@ -155,7 +155,9 @@ async function addPort() {
   if (!canManage.value || portBusy.value) {
     return
   }
-  const raw = portInput.value.trim()
+  // YdInput type=number 的 v-model 回传 number（Vue 原生行为）：统一转字符串再解析，
+  // 否则 number.trim() 抛 TypeError，点击处理器静默崩溃、表现为「点了没反应」。
+  const raw = String(portInput.value ?? '').trim()
   let port: number | undefined
   if (raw) {
     port = Number(raw)
