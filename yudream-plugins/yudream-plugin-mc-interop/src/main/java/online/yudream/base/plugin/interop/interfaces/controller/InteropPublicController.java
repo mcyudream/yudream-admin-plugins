@@ -13,9 +13,10 @@ import java.util.Map;
 /**
  * mc-interop v1 统一出口（匿名 + 限流 + ETag/304 + 公共缓存，协议 §2）。
  *
- * <p>部署形态：yda 宿主 McInteropWellKnownController 原生聚合提供
- * /.well-known/mc-interop-v1.json（进程内调度本端点并与 peers 文档合并，
- * ETag/缓存），无需任何反代；本端点为原始单站出口，供宿主聚合与调试直用。</p>
+ * <p>协议入口：{@code /api/plugins/mc-interop/.well-known/mc-interop-v1.json}——
+ * 挂在插件分发路径下，零反代零网关配置，任何部署形态直接可达；文档即
+ * siteDocument() 聚合（本站出口 + peers 互采合并）。yda 宿主另在根路径
+ * /.well-known/mc-interop-v1.json 提供同文档别名（进程内调度本控制器）。</p>
  */
 public class InteropPublicController {
 
@@ -26,8 +27,19 @@ public class InteropPublicController {
         this.catalog = catalog;
     }
 
+    /** 协议规范入口：插件路径下全环境直达。 */
+    @PluginHttpEndpoint(method = "GET", path = "/.well-known/mc-interop-v1.json", wrapResult = false)
+    public PluginHttpResponse wellKnown(PluginHttpRequest request) {
+        return document(request);
+    }
+
+    /** 早期单站路径，保留兼容（v0 起接入的启动器/友站仍在用）。 */
     @PluginHttpEndpoint(method = "GET", path = "/interop/v1/site", wrapResult = false)
     public PluginHttpResponse site(PluginHttpRequest request) {
+        return document(request);
+    }
+
+    private PluginHttpResponse document(PluginHttpRequest request) {
         if (!limiter.tryAcquire(System.currentTimeMillis())) {
             return raw(429, Map.of("message", "请求过于频繁"), null);
         }

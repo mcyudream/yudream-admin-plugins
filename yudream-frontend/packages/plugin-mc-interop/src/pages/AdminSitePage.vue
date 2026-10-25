@@ -12,6 +12,14 @@ const toast = useYdToast()
 const confirm = useYdModal()
 const activeSection = ref('site')
 
+// 协议入口挂在插件分发路径下：零反代零网关，dev/生产任何部署形态直接可达。
+const wellKnownUrl = `${window.location.origin}/api/plugins/mc-interop/.well-known/mc-interop-v1.json`
+
+async function copyWellKnownUrl() {
+  await navigator.clipboard.writeText(wellKnownUrl)
+  toast.success('已复制协议入口地址')
+}
+
 const sectionList = [
   { icon: 'i-ri:global-line', label: '站点身份', value: 'site' },
   { icon: 'i-ri:links-line', label: '友站声明', value: 'peers' },
@@ -117,11 +125,23 @@ function removePeer(peer: McInteropPeer) {
         </YdSettingsSection>
         <YdSettingsSection
           title="出口端点"
-          description="yda 宿主原生聚合提供协议入口（本站出口 + peers 互采合并，5 分钟缓存 ETag），无需任何反代或网关配置。友站发现本站即访问："
+          description="协议入口挂在插件路径下（宿主聚合本站出口 + peers 互采，ETag/5 分钟缓存），零反代零网关配置。当前部署的完整可用地址："
         >
-          <code class="break-all text-sm">{{ model.settings.domain ? `https://${model.settings.domain}` : 'https://站点域名' }}/.well-known/mc-interop-v1.json</code>
+          <div class="flex flex-wrap items-center gap-2">
+            <code class="break-all text-sm">{{ wellKnownUrl }}</code>
+            <button
+              type="button"
+              class="rounded-md border border-solid border-surface-5 px-2 py-0.5 text-xs text-secondary transition-colors hover:text-contrast"
+              @click="copyWellKnownUrl"
+            >复制</button>
+          </div>
+          <p v-if="model.settings.domain" class="mt-2 text-xs text-muted-foreground">
+            站点对外域名（{{ model.settings.domain }}）上线后，友站同样以
+            https://{{ model.settings.domain }}/api/plugins/mc-interop/.well-known/mc-interop-v1.json 发现本站。
+          </p>
           <p class="mt-2 text-xs text-muted-foreground">
-            插件原始单站出口（无 peers 合并，调试用）：/api/plugins/mc-interop/interop/v1/site
+            等价入口：宿主根别名 /.well-known/mc-interop-v1.json（宿主直连时可用）· 早期单站路径
+            /api/plugins/mc-interop/interop/v1/site
           </p>
         </YdSettingsSection>
       </template>
