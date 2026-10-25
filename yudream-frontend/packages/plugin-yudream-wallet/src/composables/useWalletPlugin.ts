@@ -18,7 +18,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const rechargeOptions = ref<WalletRechargeOptions | null>(null)
   const rechargeResult = ref<WalletRechargeResult | null>(null)
   const selectedAssetCode = ref('CNY')
-  const selectedBalanceAssetCode = ref('CNY')
+  const selectedBalanceAssetCode = ref('')
   const balancePager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const assetPager = reactive({ page: 1, size: 10, total: 0 })
   const transactionPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
@@ -187,8 +187,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       if (!assets.value.some(asset => asset.code === selectedAssetCode.value)) {
         selectedAssetCode.value = assets.value[0]?.code || ''
       }
-      if (!assets.value.some(asset => asset.code === selectedBalanceAssetCode.value)) {
-        selectedBalanceAssetCode.value = assets.value[0]?.code || ''
+      // 空串表示「全部币种」，只在已选币种被删除时回退为全部
+      if (selectedBalanceAssetCode.value && !assets.value.some(asset => asset.code === selectedBalanceAssetCode.value)) {
+        selectedBalanceAssetCode.value = ''
       }
       if (!transferableAssets.value.some(asset => asset.code === transferForm.assetCode)) {
         transferForm.assetCode = transferableAssets.value[0]?.code || ''

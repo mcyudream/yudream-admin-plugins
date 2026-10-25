@@ -9,6 +9,8 @@ const props = defineProps<{ model: WalletPluginModel }>()
 
 const changeVisible = ref(false)
 const assetOptions = computed(() => props.model.assets.map(asset => ({ label: `${asset.name} (${asset.code})`, value: asset.code })))
+/** 币种列表异步到达后会变化，作为 reloadKey 让搜索表单重载选项缓存 */
+const assetSignature = computed(() => props.model.assets.map(asset => asset.code).join(','))
 
 /** ControlType 是 components 内部的字符串枚举，桥接层只出类型，这里用字面量收敛一次 */
 type SearchFieldInput = Partial<Omit<SearchFieldConfig, 'controlType'>> & Pick<SearchFieldConfig, 'fieldName' | 'label'> & { controlType?: 'TEXT' | 'SELECT' | 'DATE_RANGE' | 'NUMBER_RANGE' | 'CHECKBOX' | 'RADIO' }
@@ -22,7 +24,7 @@ const searchQuery = ref<Record<string, any>>({ assetCode: props.model.selectedBa
 
 const searchConfig: SearchConfig = {
   fields: [
-    searchField({ fieldName: 'assetCode', label: '币种', controlType: 'SELECT', order: 1, showWhenFolded: true, width: '200px' }),
+    searchField({ fieldName: 'assetCode', label: '币种', controlType: 'SELECT', optionsSource: 'assetOptions', order: 1, showWhenFolded: true, width: '200px' }),
   ],
 }
 
@@ -77,6 +79,7 @@ function onSizeChange() {
         :config="searchConfig"
         :fold="fold"
         :options-sources="optionsSources"
+        :reload-key="assetSignature"
       />
     </template>
 
