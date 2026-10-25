@@ -72,8 +72,8 @@ public class YmclCustomPagesController {
                     .readValue(request.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                     });
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON page config"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON page config");
         }
 
         String id = str(body.get("id"));
@@ -82,39 +82,39 @@ public class YmclCustomPagesController {
             id = "custom-" + Long.toHexString(System.nanoTime());
         }
         if (!YmclCustomPages.isValidId(id)) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_id", "页面 id 须为小写字母/数字开头的小写 slug（. _ -），且不得以 native: 开头"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_id", "页面 id 须为小写字母/数字开头的小写 slug（. _ -），且不得以 native: 开头");
         }
         if (creating && collision(id)) {
-            return PluginHttpResponse.json(409, YmclSessionController.error(
-                    "page_exists", "页面 id 与内置页或提供方页面冲突: " + id));
+            return YmclSessionController.errorResponse(409, 
+                    "page_exists", "页面 id 与内置页或提供方页面冲突: " + id);
         }
 
         String renderer = str(body.get("renderer"));
         if (renderer == null || !YmclCustomPages.RENDERERS.contains(renderer)) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_renderer", "renderer 仅支持 extension（沙箱页面）/ module（可信模块）"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_renderer", "renderer 仅支持 extension（沙箱页面）/ module（可信模块）");
         }
 
         if (!(body.get("bundle") instanceof Map<?, ?> rawBundle)) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_bundle", "bundle 描述必填：{id, version, entry, sha256}"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_bundle", "bundle 描述必填：{id, version, entry, sha256}");
         }
         Map<String, Object> bundle = YmclCustomPages.normalizeBundle(rawBundle);
         if (bundle == null) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_bundle", "bundle 描述必填：{id, version, entry, sha256}，且 id/version 不含路径"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_bundle", "bundle 描述必填：{id, version, entry, sha256}，且 id/version 不含路径");
         }
         String bundleKey = bundle.get("id") + "@" + bundle.get("version");
         if (documents.findById(BUNDLE_COLLECTION, bundleKey).isEmpty()) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "bundle_not_uploaded", "页面包 " + bundleKey + " 尚未上传，请先在「扩展页面包」上传"));
+            return YmclSessionController.errorResponse(400, 
+                    "bundle_not_uploaded", "页面包 " + bundleKey + " 尚未上传，请先在「扩展页面包」上传");
         }
 
         String title = str(body.get("title"));
         if (title == null) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_title", "页面标题必填"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_title", "页面标题必填");
         }
 
         Map<String, Object> doc = new LinkedHashMap<>();
@@ -150,8 +150,8 @@ public class YmclCustomPagesController {
     public PluginHttpResponse delete(PluginHttpRequest request) {
         String id = PathSegments.segment(request.path(), 3);
         if (id == null || id.isBlank()) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_id", "缺少页面 id"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_id", "缺少页面 id");
         }
         documents.delete(YmclCustomPages.COLLECTION, id);
         eventBus.publish(YmclEventBus.TYPE_MANIFEST_UPDATED, Map.of("reason", "chrome.pages"));

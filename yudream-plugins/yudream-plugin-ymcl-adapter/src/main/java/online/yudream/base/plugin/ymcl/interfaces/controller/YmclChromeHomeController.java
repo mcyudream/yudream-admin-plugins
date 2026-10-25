@@ -75,8 +75,8 @@ public class YmclChromeHomeController {
                     .readValue(request.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                     });
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON home config"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON home config");
         }
         if (!Boolean.TRUE.equals(config.get("locked")) && !Boolean.FALSE.equals(config.get("locked"))) {
             config.put("locked", Boolean.FALSE);
@@ -114,8 +114,8 @@ public class YmclChromeHomeController {
                     .readValue(request.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                     });
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON domain config"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON domain config");
         }
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("name", blankToNull(body.get("name")));
@@ -161,8 +161,8 @@ public class YmclChromeHomeController {
                     .readValue(request.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                     });
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON navigation config"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON navigation config");
         }
 
         if (Boolean.TRUE.equals(body.get("reset"))) {
@@ -175,15 +175,15 @@ public class YmclChromeHomeController {
         }
 
         if (!(body.get("items") instanceof List<?> items)) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "items must be a JSON array"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "items must be a JSON array");
         }
         Set<String> knownPageIds = knownPageIds();
         List<Map<String, Object>> cleaned = normalizeNavItems(items, knownPageIds, 1);
         if (cleaned == null) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
+            return YmclSessionController.errorResponse(400, 
                     "invalid_body", "导航项无效：page 引用不存在、directory 缺标题，或层级超过 "
-                            + MAX_NAVIGATION_DEPTH + " 级"));
+                            + MAX_NAVIGATION_DEPTH + " 级");
         }
 
         Map<String, Object> config = new LinkedHashMap<>();
@@ -226,8 +226,8 @@ public class YmclChromeHomeController {
                     .readValue(request.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                     });
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON theme profile"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON theme profile");
         }
 
         if (Boolean.TRUE.equals(theme.get("reset"))) {

@@ -55,12 +55,12 @@ public class YmclDownloadAdminController {
         try {
             body = MAPPER.readValue(request.body(), BODY_TYPE);
         } catch (Exception error) {
-            return PluginHttpResponse.json(400, YmclSessionController.error(
-                    "invalid_body", "Request body must be a JSON config object"));
+            return YmclSessionController.errorResponse(400, 
+                    "invalid_body", "Request body must be a JSON config object");
         }
         String violation = sources.save(body);
         if (violation != null) {
-            return PluginHttpResponse.json(400, YmclSessionController.error("invalid_config", violation));
+            return YmclSessionController.errorResponse(400, "invalid_config", violation);
         }
         return PluginHttpResponse.json(200, sources.protocolView());
     }
@@ -93,8 +93,8 @@ public class YmclDownloadAdminController {
         List<String> values = request.query() == null ? null : request.query().get("id");
         boolean removed = values != null && !values.isEmpty() && sources.removeInstance(values.get(0));
         if (!removed) {
-            return PluginHttpResponse.json(404, YmclSessionController.error(
-                    "unknown_instance", "No such gateway instance"));
+            return YmclSessionController.errorResponse(404, 
+                    "unknown_instance", "No such gateway instance");
         }
         return PluginHttpResponse.json(200, java.util.Map.of("removed", true));
     }
