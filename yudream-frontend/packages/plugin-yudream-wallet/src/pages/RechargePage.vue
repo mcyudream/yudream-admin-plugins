@@ -1,24 +1,17 @@
 <script setup lang="ts">
 import type { WalletPluginModel } from '../composables/useWalletPlugin'
 import { computed } from 'vue'
-import { YdButton, YdForm, YdFormItem, YdIcon, YdInput, YdPageHeader, YdPageMain, YdSelect, YdTextarea, useYdToast } from '@yudream/components'
+import { YdButton, YdForm, YdFormItem, YdIcon, YdInput, YdPageHeader, YdPageMain, YdSelect, YdTextarea } from '@yudream/components'
 
 const props = defineProps<{ model: WalletPluginModel }>()
-const toast = useYdToast()
 const channelOptions = computed(() => props.model.paymentChannels.map(item => ({ label: item.name, value: item.code })))
 const assetOptions = computed(() => props.model.rechargeableAssets.map(item => ({ label: `${item.name} (${item.code})`, value: item.code })))
-
-async function submit() {
-  const result = await props.model.submitRecharge()
-  if (result)
-    toast.success('充值订单已创建')
-}
 </script>
 
 <template>
   <YdPageHeader title="钱包充值" description="选择支付渠道与金额，创建订单后按渠道指引完成支付" class="mb-0" />
   <YdPageMain>
-    <YdForm :model="model.rechargeForm" layout="vertical" class="max-w-xl" @submit.prevent="submit">
+    <YdForm :model="model.rechargeForm" layout="vertical" class="max-w-xl" @submit="model.submitRecharge">
       <div class="flex flex-col gap-4">
         <YdFormItem label="支付渠道" required>
           <YdSelect v-model="model.rechargeForm.channelCode" :options="channelOptions" placeholder="请选择支付渠道" />

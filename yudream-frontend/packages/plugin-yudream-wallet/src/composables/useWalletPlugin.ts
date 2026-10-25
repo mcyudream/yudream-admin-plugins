@@ -2,7 +2,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AssetForm, BalanceChangeForm, RechargeForm, RechargeSettingsForm, TimeValue, TransactionFilters, TransferForm, WalletAsset, WalletBalance, WalletPaymentChannel, WalletRechargeOptions, WalletRechargeResult, WalletRechargeRule, WalletSummary, WalletTransaction, WalletUser } from '../types'
 import { useYdToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
-import { createWalletApi } from '../api/wallet-api'
+import { createWalletApi, errorMessage } from '../api/wallet-api'
 
 export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const api = createWalletApi(sdk)
@@ -246,6 +246,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       transferForm.remark = ''
       await load(currentSurface.value)
     }
+    catch (cause) {
+      toast.error(errorMessage(cause, '转账提交失败'))
+    }
     finally {
       saving.value = false
     }
@@ -270,8 +273,12 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
         productType: 'PAGE',
         remark: rechargeForm.remark.trim() || undefined,
       })
-      toast.success('订单已创建，正在跳转支付宝')
+      toast.success('充值订单已创建')
       return rechargeResult.value
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '创建充值订单失败'))
+      return undefined
     }
     finally {
       saving.value = false
