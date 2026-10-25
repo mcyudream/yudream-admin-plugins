@@ -26,6 +26,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,13 +71,14 @@ public class AuthlibAppService implements PluginAuthService {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("serverName", serverName());
         meta.put("implementationName", "YuDream Authlib Injector Plugin");
-        meta.put("implementationVersion", "1.5.0");
+        meta.put("implementationVersion", "1.6.0");
         meta.put("links", links(apiRoot));
         meta.put("feature.non_email_login", true);
         meta.put("feature.legacy_skin_api", false);
         meta.put("feature.no_mojang_namespace", false);
         meta.put("feature.enable_mojang_anti_features", false);
         meta.put("feature.enable_profile_key", true);
+        meta.put("feature.enable_public_key_fetching", true);
         meta.put("feature.username_check", false);
         body.put("meta", meta);
         List<String> domains = new java.util.ArrayList<>(skinDomains(textureBaseUrl));
@@ -154,6 +156,7 @@ public class AuthlibAppService implements PluginAuthService {
                 "GET /sessionserver/session/minecraft/profile/{uuid}",
                 "POST /api/profiles/minecraft",
                 "POST /minecraftservices/player/certificates",
+                "GET /minecraftservices/publickeys",
                 "PUT /api/user/profile/{uuid}/{textureType}",
                 "DELETE /api/user/profile/{uuid}/{textureType}"
         ));
@@ -394,6 +397,43 @@ public class AuthlibAppService implements PluginAuthService {
     public Object playerCertificates(String accessToken) {
         AuthSession session = validSession(accessToken, null);
         return cryptoService.playerCertificateBody(session.selectedProfileId());
+    }
+
+    /**
+     * 联合公钥信任集（authlib-injector-union ≥1.4 GET /minecraftservices/publickeys）：
+     * profilePropertyKeys 与 playerCertificateKeys 两用途发同一集合 =
+     * 本站签名钥 ∪ 受信站钉扎钥（主+备，顺序去重）。无法按客户端约束解析的
+     * 受信站钥直接剔除，保证响应始终可解析；两数组都必须存在（可为空）。
+     */
+    public Object publicKeys() {
+        LinkedHashSet<String> distinct = new LinkedHashSet<>();
+        distinct.add(cryptoService.keyPair().publicKey());
+        for (String pem : trustedPeerSigningKeys()) {
+            String der = cryptoService.publicKeyDerBase64(pem);
+            if (der != null) {
+                distinct.add(der);
+            }
+        }
+        List<Map<String, Object>> keys = distinct.stream()
+                .limit(64)
+                .map(der -> Map.<String, Object>of("publicKey", der))
+                .toList();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("profilePropertyKeys", keys);
+        body.put("playerCertificateKeys", keys);
+        return body;
+    }
+
+    /** 受信站钉扎钥（union 未启用、版本过旧或调用失败时为空）。 */
+    private List<String> trustedPeerSigningKeys() {
+        if (federationGateway == null) {
+            return List.of();
+        }
+        try {
+            return federationGateway.trustedPeerSigningKeysPem();
+        } catch (RuntimeException | LinkageError e) {
+            return List.of();
+        }
     }
 
     public void setTexture(String accessToken, String uuid, String textureType, TextureBindRequest request) {

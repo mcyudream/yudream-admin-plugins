@@ -121,6 +121,11 @@ public class AuthlibHttpFacade {
         return runJson(request, () -> appService.playerCertificates(bearerToken(request)));
     }
 
+    /** 联合公钥信任集（authlib-injector-union ≥1.4；客户端不带凭据公开拉取）。 */
+    public PluginHttpResponse publicKeys(PluginHttpRequest request) {
+        return runJson(request, () -> appService.publicKeys());
+    }
+
     /**
      * 启动器免密会话兑换：调用方已持有站点登录会话（Sa-Token），宿主分发层已把
      * Authorization 解析为 principal，此处按 userId 向 ygg 签发会话，免去密码重放。

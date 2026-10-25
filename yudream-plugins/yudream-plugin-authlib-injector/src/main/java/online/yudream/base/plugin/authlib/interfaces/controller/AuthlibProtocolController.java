@@ -49,6 +49,10 @@ public class AuthlibProtocolController {
     @PluginHttpEndpoint(method = "POST", path = "/minecraftservices/player/certificates", wrapResult = false)
     public PluginHttpResponse certificates(PluginHttpRequest request) { return http.certificates(request); }
 
+    /** 联合公钥信任集：本站签名钥 + 受信站钉扎钥（authlib-injector-union ≥1.4，公开只读）。 */
+    @PluginHttpEndpoint(method = "GET", path = "/minecraftservices/publickeys", wrapResult = false)
+    public PluginHttpResponse publicKeys(PluginHttpRequest request) { return http.publicKeys(request); }
+
     @PluginHttpEndpoint(method = "POST", path = "/launcher/exchange", wrapResult = false)
     public PluginHttpResponse exchange(PluginHttpRequest request) { return http.exchange(request); }
 

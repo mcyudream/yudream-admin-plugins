@@ -19,6 +19,11 @@ public interface PluginFederationGateway {
     /** 受信站 texture 主机（合并进本站元数据 skinDomains）。 */
     List<String> trustedTextureHosts();
 
+    /** 受信站已钉扎的材质签名公钥（PEM 列表；union 未启用、版本过旧或调用失败时为空）。 */
+    default List<String> trustedPeerSigningKeysPem() {
+        return List.of();
+    }
+
     /** 已验证的远程角色（texture value 为远程站 base64 原文，URL 指向远程站）。 */
     record RemoteJoinProfile(String uuid, String name, String textureValue) {
     }

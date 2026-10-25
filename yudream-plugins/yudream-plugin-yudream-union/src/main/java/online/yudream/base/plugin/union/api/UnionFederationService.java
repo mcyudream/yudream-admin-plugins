@@ -26,6 +26,17 @@ public interface UnionFederationService {
     /** 受信站 texture 主机列表（合并进本站元数据 skinDomains）。 */
     List<String> trustedTextureHosts();
 
+    /**
+     * 受信站已钉扎的材质签名公钥（每站主钥+备钥，PEM，按目录顺序去重，仅 TRUSTED 站）。
+     *
+     * <p>供 authlib-injector 组装联合公钥信任集（authlib-injector-union ≥1.4 的
+     * {@code GET /minecraftservices/publickeys}），作为「经批准的合作站公钥」发布给
+     * 客户端做跨站材质/聊天证书验签。0.4.0 新增，默认空列表：旧实现类无需改动。</p>
+     */
+    default List<String> trustedPeerSigningKeysPem() {
+        return List.of();
+    }
+
     /** 规范化角色名是否命中本站或受信站的 ACTIVE 联合封禁。 */
     boolean isNameBanned(String name);
 

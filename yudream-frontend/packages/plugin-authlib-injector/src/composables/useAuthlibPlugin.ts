@@ -24,6 +24,7 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
     { method: 'GET', path: '/sessionserver/session/minecraft/hasJoined', note: '服务端验证玩家' },
     { method: 'GET', path: '/sessionserver/session/minecraft/profile/{uuid}', note: '查询角色材质属性' },
     { method: 'POST', path: '/api/profiles/minecraft', note: '批量查询角色' },
+    { method: 'GET', path: '/minecraftservices/publickeys', note: '联合公钥信任集（authlib-injector-union 1.4+）' },
     { method: 'PUT', path: '/api/user/profile/{uuid}/{textureType}', note: '绑定角色材质' },
     { method: 'DELETE', path: '/api/user/profile/{uuid}/{textureType}', note: '清除角色材质' },
   ])

@@ -9,9 +9,12 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Signature;
 import java.security.GeneralSecurityException;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -40,6 +43,27 @@ public class AuthlibCryptoService {
             builder.append(base64, index, Math.min(index + 76, base64.length())).append('\n');
         }
         return builder.append("-----END PUBLIC KEY-----\n").toString();
+    }
+
+    /**
+     * PEM 公钥转标准 base64 X.509 DER，供联合公钥信任集下发；非 RSA 或位数不在
+     * 2048–8192（客户端解析约束）返回 null，调用方直接剔除该把密钥。
+     */
+    public String publicKeyDerBase64(String pem) {
+        if (pem == null || pem.isBlank()) {
+            return null;
+        }
+        try {
+            String body = pem.replaceAll("-----BEGIN PUBLIC KEY-----", "")
+                    .replaceAll("-----END PUBLIC KEY-----", "")
+                    .replaceAll("\\s+", "");
+            byte[] der = Base64.getMimeDecoder().decode(body);
+            RSAPublicKey rsa = (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
+            int bits = rsa.getModulus().bitLength();
+            return bits >= 2048 && bits <= 8192 ? Base64.getEncoder().encodeToString(der) : null;
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            return null;
+        }
     }
 
     public String sign(String value) {

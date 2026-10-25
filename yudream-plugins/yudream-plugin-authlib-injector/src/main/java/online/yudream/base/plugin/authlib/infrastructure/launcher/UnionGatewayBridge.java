@@ -35,4 +35,16 @@ public class UnionGatewayBridge implements PluginFederationGateway {
                 .map(UnionFederationService::trustedTextureHosts)
                 .orElse(List.of());
     }
+
+    @Override
+    public List<String> trustedPeerSigningKeysPem() {
+        try {
+            return context.service(UNION_PLUGIN_CODE, UnionFederationService.class)
+                    .map(UnionFederationService::trustedPeerSigningKeysPem)
+                    .orElse(List.of());
+        } catch (LinkageError e) {
+            // 旧版 union（<0.4.0）接口无此方法：视为无受信站钉扎钥
+            return List.of();
+        }
+    }
 }

@@ -17,6 +17,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +62,26 @@ public class FederationJoinService implements UnionFederationService {
         this.banService = banService;
         this.discovery = discovery;
         this.executor = executor;
+    }
+
+    // ---- 联邦信任集：受信站钉扎签名钥 ----
+
+    /** 主+备钉扎钥去重输出；联合公钥信任集的「经批准的合作站公钥」来源。 */
+    @Override
+    public List<String> trustedPeerSigningKeysPem() {
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        for (UnionPeer peer : repository.allPeers()) {
+            if (!peer.trusted()) {
+                continue;
+            }
+            if (!isBlank(peer.publicKeyPem())) {
+                keys.add(peer.publicKeyPem());
+            }
+            if (!isBlank(peer.backupPublicKeyPem())) {
+                keys.add(peer.backupPublicKeyPem());
+            }
+        }
+        return List.copyOf(keys);
     }
 
     // ---- B 侧：应答断言查询 ----
