@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.skin.application.service;
 
 import online.yudream.base.plugin.skin.application.cmd.AssignTextureCmd;
+import online.yudream.base.plugin.skin.application.cmd.CreatePlayerCmd;
 import online.yudream.base.plugin.skin.bootstrap.YuDreamSkinPlugin;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinPlayer;
 import online.yudream.base.plugin.skin.domain.aggregate.SkinTexture;
@@ -206,5 +207,14 @@ class YuDreamSkinAppServiceAssignmentTest {
                 records.remove(id);
             }
         }
+    }
+
+    @Test
+    void createPlayerRejectsIllegalNamesAndAcceptsCanonical() {
+        assertThrows(IllegalArgumentException.class, () -> service.createPlayer(new CreatePlayerCmd("中文名", OWNER), null));
+        assertThrows(IllegalArgumentException.class, () -> service.createPlayer(new CreatePlayerCmd("ab", OWNER), null));
+        assertThrows(IllegalArgumentException.class, () -> service.createPlayer(new CreatePlayerCmd("a".repeat(17), OWNER), null));
+        assertThrows(IllegalArgumentException.class, () -> service.createPlayer(new CreatePlayerCmd("bad name!", OWNER), null));
+        assertEquals("Steve_01", service.createPlayer(new CreatePlayerCmd("Steve_01", OWNER), null).name());
     }
 }

@@ -107,8 +107,14 @@ public class YuDreamSkinAppService implements PluginSkinService {
         return player;
     }
 
+    /** Minecraft 角色名规则（authlib-injector 联合断言同规则）：3-16 位英文、数字或下划线。 */
+    private static final java.util.regex.Pattern PLAYER_NAME_PATTERN = java.util.regex.Pattern.compile("[A-Za-z0-9_]{3,16}");
+
     public SkinPlayer createPlayer(CreatePlayerCmd cmd, Long currentUserId) {
         String name = requireText(cmd.name(), "角色名不能为空");
+        if (!PLAYER_NAME_PATTERN.matcher(name).matches()) {
+            throw new IllegalArgumentException("角色名必须为 3-16 位英文、数字或下划线，不允许中文或特殊字符");
+        }
         repository.findPlayerByName(name).ifPresent(ignored -> {
             throw new IllegalArgumentException("角色名已存在");
         });

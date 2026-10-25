@@ -86,7 +86,7 @@
           </div>
 
           <div class="skin-inline-form">
-            <YdInput v-model="model.playerForm.name" placeholder="输入角色名，例如 Steve" />
+            <YdInput v-model="model.playerForm.name" placeholder="3-16 位英文、数字或下划线" maxlength="16" />
             <YdButton :loading="model.saving === 'player'" @click="model.createPlayer">
               <YdIcon name="i-ri:add-line" />
               创建角色

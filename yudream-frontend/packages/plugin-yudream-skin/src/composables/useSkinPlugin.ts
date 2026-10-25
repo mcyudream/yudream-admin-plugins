@@ -314,9 +314,16 @@ export function useSkinPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
+  /** Minecraft 角色名规则（后端同校验）：3-16 位英文、数字或下划线。 */
+  const PLAYER_NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
+
   async function createPlayer() {
     if (!playerForm.name) {
       toast.error('请填写角色名')
+      return
+    }
+    if (!PLAYER_NAME_PATTERN.test(playerForm.name)) {
+      toast.error('角色名必须为 3-16 位英文、数字或下划线，不允许中文或特殊字符')
       return
     }
     saving.value = 'player'
