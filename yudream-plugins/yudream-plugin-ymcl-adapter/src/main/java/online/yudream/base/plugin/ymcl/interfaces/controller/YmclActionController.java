@@ -2,7 +2,6 @@ package online.yudream.base.plugin.ymcl.interfaces.controller;
 
 import online.yudream.base.plugin.ymcl.api.YmclContributionProvider;
 import online.yudream.base.plugin.ymcl.api.YmclDataContext;
-import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.ymcl.interfaces.support.PathSegments;
 import online.yudream.base.plugin.ymcl.application.service.YmclContributionAggregator;
 import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
@@ -24,8 +23,9 @@ public class YmclActionController {
         this.aggregator = aggregator;
     }
 
-    @PluginHttpEndpoint(method = "POST", path = "/v1/action/{providerCode}/{actionCode}",
-            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    // 启动器协议面：动作鉴权由提供方内部细化（forum/activity 均自带登录守卫，匿名得到
+    // 「请先登录」）；插件 view 权限会拦掉普通玩家账号（v1 权限脱节教训）。
+    @PluginHttpEndpoint(method = "POST", path = "/v1/action/{providerCode}/{actionCode}")
     public PluginHttpResponse action(PluginHttpRequest request) {
         String providerCode = PathSegments.segment(request.path(), 2);
         String actionCode = PathSegments.segment(request.path(), 3);
@@ -42,7 +42,7 @@ public class YmclActionController {
                                 "No provider executes " + providerCode + "/" + actionCode)));
     }
 
-    /** 提供方未实现动作能力（SPI 默认方法）时按动作不存在处理，而非 500。 */
+    /** 提供方未实现动作能力按 404、业务拒绝（含匿名无身份）按 400 透传，而非 500。 */
     private PluginHttpResponse execute(YmclContributionProvider provider, String actionCode,
                                        Map<String, Object> params, YmclDataContext context) {
         try {
@@ -52,6 +52,10 @@ public class YmclActionController {
             return PluginHttpResponse.rawJson(404,
                     YmclSessionController.error("action_not_found",
                             "Provider " + provider.providerCode() + " executes no actions"));
+        } catch (RuntimeException rejected) {
+            return PluginHttpResponse.rawJson(400,
+                    YmclSessionController.error("action_rejected",
+                            rejected.getMessage() == null ? "动作被拒绝" : rejected.getMessage()));
         }
     }
 
