@@ -120,8 +120,12 @@ public class OfficialBindService {
         String ownerId = String.valueOf(stateDoc.get().get("ownerId"));
         String verifier = String.valueOf(stateDoc.get().get("codeVerifier"));
         MicrosoftIdentityChain.TokenGrant grant = chain.exchangeCode(code, verifier);
-        MicrosoftIdentityChain.OfficialSession session = chain.login(grant);
-        return completeBind(ownerId, session, grant.refreshToken(), chain, now);
+        MicrosoftIdentityChain.OfficialSession session = chainLogin(chain, grant);
+        Map<String, Object> body = completeBind(ownerId, session, grant.refreshToken(), chain, now);
+        if (grant.accountHint() != null && !grant.accountHint().isBlank()) {
+            body.put("msAccount", grant.accountHint());
+        }
+        return body;
     }
 
     private Map<String, Object> completeBind(String ownerId, MicrosoftIdentityChain.OfficialSession session,
@@ -188,7 +192,7 @@ public class OfficialBindService {
                 .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
                 .orElseThrow(() -> new IllegalArgumentException("续签凭据缺失，请重新发起一次正版绑定"));
         MicrosoftIdentityChain.TokenGrant grant = chain.refresh(refreshToken);
-        MicrosoftIdentityChain.OfficialSession session = chain.login(grant);
+        MicrosoftIdentityChain.OfficialSession session = chainLogin(chain, grant);
         if (!bind.officialUuid().equalsIgnoreCase(session.profile().id())) {
             disableBindingAndReleasePlayer(bind);
             throw new IllegalArgumentException("续签账号与已绑定正版角色不一致，已停用绑定，请重新授权");
@@ -205,7 +209,23 @@ public class OfficialBindService {
         body.put("minecraftAccessToken", session.accessToken());
         body.put("expiresAt", session.expiresAt());
         body.put("profile", Map.of("id", session.profile().id(), "name", session.profile().name()));
+        if (grant.accountHint() != null && !grant.accountHint().isBlank()) {
+            body.put("msAccount", grant.accountHint());
+        }
         return body;
+    }
+
+    /** 链路失败时把完成授权的 Microsoft 账号带入错误信息，便于识别「选错账号」。 */
+    private MicrosoftIdentityChain.OfficialSession chainLogin(MicrosoftIdentityChain chain,
+                                                              MicrosoftIdentityChain.TokenGrant grant) {
+        try {
+            return chain.login(grant);
+        } catch (RuntimeException e) {
+            String hint = grant.accountHint();
+            String detail = e.getMessage() == null ? e.toString() : e.getMessage();
+            throw new IllegalStateException(hint == null || hint.isBlank() ? detail
+                    : detail + "（本次完成授权的 Microsoft 账号：" + hint + "，请核对该账号是否持有 Java 版）", e);
+        }
     }
 
     private void disableBindingAndReleasePlayer(OfficialBind bind) {

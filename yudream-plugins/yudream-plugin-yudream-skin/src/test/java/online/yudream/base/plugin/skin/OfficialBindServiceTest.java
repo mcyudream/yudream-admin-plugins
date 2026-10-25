@@ -9,6 +9,7 @@ import online.yudream.base.plugin.spi.system.storage.PluginDocumentStore;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -285,6 +286,134 @@ class OfficialBindServiceTest {
         assertFalse(bodies.get(2).contains("client_secret="));
     }
 
+    /** 主路径：最后一跳走官方启动器通道 /launcher/login（PC_LAUNCHER + xtoken），全链带 User-Agent。 */
+    @Test
+    void minecraftLoginPrefersLauncherLoginEndpointWithUserAgent() throws Exception {
+        ScriptedHttp http = fullChainHttp();
+        http.scripted.put("launcher/login", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"access_token\":\"mc-at\",\"expires_in\":7200}"));
+
+        MicrosoftIdentityChain.OfficialSession session =
+                new MicrosoftIdentityChain("client-1", "https://cb", http)
+                        .login(new MicrosoftIdentityChain.TokenGrant("ms-at", "rt"));
+
+        assertEquals(4, http.calls.size());
+        ScriptedHttp.Call launcher = http.calls.get(2);
+        assertTrue(launcher.url().contains("/launcher/login"));
+        assertTrue(launcher.body().contains("PC_LAUNCHER"));
+        assertTrue(launcher.body().contains("XBL3.0 x=uhs-2;xsts-token"));
+        assertEquals(MicrosoftIdentityChain.USER_AGENT, launcher.headers().get("User-Agent"));
+        // 前两跳：XBL 携带 d=<MS access_token>，XSTS 面向 minecraftservices relying party
+        assertTrue(http.calls.get(0).body().contains("d=ms-at"));
+        assertTrue(http.calls.get(1).body().contains("rp://api.minecraftservices.com/"));
+        // profile 直连：Bearer = Minecraft access_token
+        ScriptedHttp.Call profile = http.calls.get(3);
+        assertEquals("GET", profile.method());
+        assertEquals("Bearer mc-at", profile.headers().get("Authorization"));
+        assertEquals("mc-at", session.accessToken());
+        assertTrue(session.expiresAt() > System.currentTimeMillis());
+    }
+
+    /** 回退：launcher/login 被拒（如 403 策略拒绝）时改走 login_with_xbox 完成登录。 */
+    @Test
+    void minecraftLoginFallsBackToLoginWithXboxWhenLauncherLoginRejected() throws Exception {
+        ScriptedHttp http = fullChainHttp();
+        http.scripted.put("launcher/login", new MicrosoftIdentityChain.HttpExchange.Response(403,
+                "{\"error\":\"denied\"}"));
+        http.scripted.put("login_with_xbox", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"access_token\":\"mc-at2\",\"expires_in\":3600}"));
+
+        MicrosoftIdentityChain.OfficialSession session =
+                new MicrosoftIdentityChain("client-1", "https://cb", http)
+                        .login(new MicrosoftIdentityChain.TokenGrant("ms-at", "rt"));
+
+        assertTrue(http.calls.get(2).url().contains("/launcher/login"));
+        assertTrue(http.calls.get(3).url().contains("login_with_xbox"));
+        assertEquals("mc-at2", session.accessToken());
+    }
+
+    /** 双端点均失败：错误信息合并两段状态码与响应体摘要，并给出排查指引。 */
+    @Test
+    void minecraftLoginFailureMergesBothEndpointsAndBodies() throws Exception {
+        ScriptedHttp http = fullChainHttp();
+        http.scripted.put("launcher/login", new MicrosoftIdentityChain.HttpExchange.Response(403,
+                "LAUNCHER_BLOCK_PAGE"));
+        http.scripted.put("login_with_xbox", new MicrosoftIdentityChain.HttpExchange.Response(403,
+                "XBOX_ENTITLEMENT_DENY"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> new MicrosoftIdentityChain("client-1", "https://cb", http)
+                        .login(new MicrosoftIdentityChain.TokenGrant("ms-at", "rt")));
+
+        String message = error.getMessage();
+        assertTrue(message.contains("Minecraft 会话获取失败"));
+        assertTrue(message.contains("launcher/login 返回 403"));
+        assertTrue(message.contains("LAUNCHER_BLOCK_PAGE"));
+        assertTrue(message.contains("login_with_xbox 返回 403"));
+        assertTrue(message.contains("XBOX_ENTITLEMENT_DENY"));
+        assertEquals(1, error.getSuppressed().length);
+    }
+
+    /** XSTS 401：错误信息带上 XErr 错误码（2148916233 = 未关联 Xbox 账号）。 */
+    @Test
+    void xstsRejectIncludesXerrCode() throws Exception {
+        ScriptedHttp http = fullChainHttp();
+        http.scripted.put("xsts.auth.xboxlive.com", new MicrosoftIdentityChain.HttpExchange.Response(401,
+                "{\"Identity\":\"0\",\"XErr\":2148916233,\"Message\":\"\",\"Redirect\":\"nowhere\"}"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> new MicrosoftIdentityChain("client-1", "https://cb", http)
+                        .login(new MicrosoftIdentityChain.TokenGrant("ms-at", "rt")));
+
+        assertTrue(error.getMessage().contains("XErr=2148916233"));
+    }
+
+    /** id_token 解析：grant 携带展示用账号标识；格式异常时安全降级为 null。 */
+    @Test
+    void tokenGrantExtractsAccountHintFromIdToken() throws Exception {
+        String payload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"preferred_username\":\"user@outlook.com\"}".getBytes(StandardCharsets.UTF_8));
+        String idToken = "eyJhbGciOiJub25lIn0." + payload + ".sig";
+        MicrosoftIdentityChain.HttpExchange http = (url, method, headers, body) ->
+                new MicrosoftIdentityChain.HttpExchange.Response(200,
+                        "{\"access_token\":\"at\",\"refresh_token\":\"rt\",\"id_token\":\"" + idToken + "\"}");
+
+        MicrosoftIdentityChain.TokenGrant grant =
+                new MicrosoftIdentityChain("client-1", "https://cb", http).exchangeCode("code", "verifier");
+        assertEquals("user@outlook.com", grant.accountHint());
+
+        MicrosoftIdentityChain.HttpExchange broken = (url, method, headers, body) ->
+                new MicrosoftIdentityChain.HttpExchange.Response(200,
+                        "{\"access_token\":\"at\",\"refresh_token\":\"rt\",\"id_token\":\"not-a-jwt\"}");
+        MicrosoftIdentityChain.TokenGrant degraded =
+                new MicrosoftIdentityChain("client-1", "https://cb", broken).exchangeCode("code", "verifier");
+        assertNull(degraded.accountHint());
+    }
+
+    /** 服务层：链路失败错误信息回显授权账号；成功结果带 msAccount。 */
+    @Test
+    void callbackSurfacesAuthorizedMicrosoftAccount() {
+        OfficialBindService failing = service();
+        failing.saveSettings(true, "client-123");
+        Map<String, Object> started = failing.start(OWNER, 1_000L);
+        chain.grant = new MicrosoftIdentityChain.TokenGrant("mc-at", REFRESH_TOKEN, "user@outlook.com");
+        chain.loginFailure = new IllegalStateException("Minecraft 会话获取失败：两通道均被拒");
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> failing.callback(stateOf(failing, started), "code", 2_000L));
+        assertTrue(failure.getMessage().contains("user@outlook.com"));
+
+        OfficialBindService success = service();
+        success.saveSettings(true, "client-123");
+        Map<String, Object> retryStart = success.start(OWNER, 1_000L);
+        chain.grant = new MicrosoftIdentityChain.TokenGrant("mc-at", REFRESH_TOKEN, "user@outlook.com");
+        chain.session = new MicrosoftIdentityChain.OfficialSession("mc-at", 2_000L,
+                new MicrosoftIdentityChain.OfficialProfile(OFFICIAL_UUID, "Notch", null, null));
+
+        Map<String, Object> body = success.callback(stateOf(success, retryStart), "code", 2_000L);
+        assertEquals("user@outlook.com", body.get("msAccount"));
+    }
+
     private String stateOf(OfficialBindService service, Map<String, Object> started) {
         // state 在 authorizeUrl 中；测试直接从 states 集合取（单一 state 文档）
         var states = store.collections.get("official_bind_states");
@@ -297,6 +426,7 @@ class OfficialBindServiceTest {
         TokenGrant grant;
         OfficialSession session;
         String lastGrantType = "";
+        RuntimeException loginFailure;
 
         StubChain() {
             super("stub-client", "https://skin.yd.test/api/plugins/yudream-skin/official-bind/callback",
@@ -323,7 +453,43 @@ class OfficialBindServiceTest {
 
         @Override
         public OfficialSession login(TokenGrant tokenGrant) {
+            if (loginFailure != null) {
+                throw loginFailure;
+            }
             return session;
         }
+    }
+
+    /** 按 URL 关键字分发的链路 HTTP 桩：记录每次调用，便于断言端点顺序、请求体与头。 */
+    static final class ScriptedHttp implements MicrosoftIdentityChain.HttpExchange {
+        record Call(String url, String method, Map<String, String> headers, String body) {
+        }
+
+        final java.util.List<Call> calls = new java.util.ArrayList<>();
+        final Map<String, Response> scripted = new LinkedHashMap<>();
+
+        @Override
+        public Response send(String url, String method, Map<String, String> headers, String body) {
+            calls.add(new Call(url, method, Map.copyOf(headers), body));
+            return scripted.entrySet().stream()
+                    .filter(entry -> url.contains(entry.getKey()))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("未编排的请求: " + url))
+                    .getValue();
+        }
+    }
+
+    /** 编排一次完整链路的默认响应（XBL → XSTS → launcher/login → profile）。 */
+    private static ScriptedHttp fullChainHttp() {
+        ScriptedHttp http = new ScriptedHttp();
+        http.scripted.put("user.auth.xboxlive.com", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"Token\":\"xbl-token\",\"DisplayClaims\":{\"xui\":[{\"uhs\":\"uhs-1\"}]}}"));
+        http.scripted.put("xsts.auth.xboxlive.com", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"Token\":\"xsts-token\",\"DisplayClaims\":{\"xui\":[{\"uhs\":\"uhs-2\"}]}}"));
+        http.scripted.put("launcher/login", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"access_token\":\"mc-at\",\"expires_in\":7200}"));
+        http.scripted.put("minecraft/profile", new MicrosoftIdentityChain.HttpExchange.Response(200,
+                "{\"id\":\"2536a169d63d54b3b19c1ee02d1fdfc5\",\"name\":\"Notch\",\"skins\":[]}"));
+        return http;
     }
 }
