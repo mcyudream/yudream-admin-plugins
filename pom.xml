@@ -34,7 +34,7 @@
         <yudream.plugin.mcpanel.version>0.22.19</yudream.plugin.mcpanel.version>
         <yudream.plugin.shop.version>1.3.9</yudream.plugin.shop.version>
         <yudream.plugin.playtime-points.version>1.4.4</yudream.plugin.playtime-points.version>
-        <yudream.plugin.project-progress.version>1.6.9</yudream.plugin.project-progress.version>
+        <yudream.plugin.project-progress.version>1.6.10</yudream.plugin.project-progress.version>
         <yudream.plugin.minecraft-activity-proof.version>2.9.1</yudream.plugin.minecraft-activity-proof.version>
     </properties>
 
