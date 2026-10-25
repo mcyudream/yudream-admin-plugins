@@ -175,13 +175,21 @@ class CatalogServiceTest {
                                 "a".repeat(128), 1024L, "/mip/api/packs/survival/versions/1/mrpack",
                                 "srv-1", "晨曦生存服", "mc.yudream.club"),
                         new online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry(
+                                "fabric-loader-entry", "Fabric 原始标识", "1", "1.21.10", "fabric-loader", "0.16.9",
+                                "b".repeat(128), 2048L, "/mip/api/packs/fle/versions/1/mrpack",
+                                "srv-1", "晨曦生存服", "mc.yudream.club"),
+                        new online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry(
+                                "no-server-pack", "纯整合包", "1", "1.21.10", "fabric", "0.16.9",
+                                "c".repeat(128), 4096L, "/mip/api/packs/nsp/versions/1/mrpack",
+                                null, null, null),
+                        new online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry(
                                 "bad", "坏条目", "1", "1.21.10", "quilt-beta", null,
                                 null, null, "/mip/api/packs/bad/versions/1/mrpack",
                                 "srv-1", "晨曦生存服", "mc.yudream.club")));
 
         Map<String, Object> body = catalog.importFromAdapter();
 
-        assertEquals(1, body.get("imported"));
+        assertEquals(3, body.get("imported"));
         CatalogEntry imported = repository.findEntry("survival.srv-1").orElseThrow();
         assertEquals("https://mc.yudream.app/api/plugins/ymcl-adapter/mip/api/packs/survival/versions/1/mrpack",
                 imported.artifactUrl());
@@ -189,6 +197,12 @@ class CatalogServiceTest {
         assertEquals("survival", imported.distPackId());
         assertTrue(imported.published());
         assertEquals(1, ((List<?>) body.get("skipped")).size());
+        // fabric-loader 原始标识归一化为 fabric
+        CatalogEntry fabric = repository.findEntry("fabric-loader-entry.srv-1").orElseThrow();
+        assertEquals("fabric", fabric.loader());
+        // 纯整合包不绑服务器：serverAddress 可空
+        CatalogEntry noServer = repository.findEntry("no-server-pack.null").orElseThrow();
+        assertEquals(null, noServer.serverAddress());
     }
 
     // ---- helpers ----

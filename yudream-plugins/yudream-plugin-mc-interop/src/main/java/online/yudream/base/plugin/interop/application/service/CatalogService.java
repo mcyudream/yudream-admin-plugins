@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -133,9 +134,10 @@ public class CatalogService {
                 || input.loaderVersion().length() > 64)) {
             throw new McInteropBusinessException("非 vanilla 必须填 loaderVersion");
         }
-        if (input.serverAddress() == null || input.serverAddress().isBlank()
-                || input.serverAddress().length() > 255) {
-            throw new McInteropBusinessException("server.address 必填");
+        // 绑定服务器为可选：纯整合包不提供 server 字段
+        if (input.serverAddress() != null && !input.serverAddress().isBlank()
+                && input.serverAddress().length() > 255) {
+            throw new McInteropBusinessException("server.address ≤255 字");
         }
         if (input.serverPort() != null && (input.serverPort() < 1 || input.serverPort() > 65535)) {
             throw new McInteropBusinessException("server.port 必须在 1-65535");
@@ -198,7 +200,7 @@ public class CatalogService {
                 hasArtifact ? sha1 : null, hasArtifact ? sha512 : null,
                 hasArtifact ? distSystem : null, hasArtifact ? blankToNull(input.distPackId()) : null,
                 hasArtifact ? blankToNull(input.distVersionId()) : null,
-                input.serverAddress().trim(), input.serverPort(), input.published(),
+                blankToNull(input.serverAddress()), input.serverPort(), input.published(),
                 System.currentTimeMillis());
         repository.saveEntry(entry);
         return entry;
@@ -244,7 +246,7 @@ public class CatalogService {
         int imported = 0;
         List<String> skipped = new ArrayList<>();
         for (online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry row : rows) {
-            String loader = row.loaderType() == null ? "vanilla" : row.loaderType().toLowerCase();
+            String loader = normalizeLoader(row.loaderType());
             if (!List.of("vanilla", "fabric", "forge", "neoforge", "quilt").contains(loader)) {
                 skipped.add(row.packId() + "（loader " + row.loaderType() + " 不受支持）");
                 continue;
@@ -280,6 +282,20 @@ public class CatalogService {
         body.put("imported", imported);
         body.put("skipped", skipped);
         return body;
+    }
+
+    /** mrpack loader 标识归一化：Fabric/Quilt/NeoForge 的 manifest id 带 -loader 后缀，映射到白名单词。 */
+    private static String normalizeLoader(String loaderType) {
+        if (loaderType == null || loaderType.isBlank()) {
+            return "vanilla";
+        }
+        String normalized = loaderType.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "fabric-loader" -> "fabric";
+            case "quilt-loader" -> "quilt";
+            case "neoforge-loader" -> "neoforge";
+            default -> normalized;
+        };
     }
 
     private String effectiveOrigin() {
@@ -510,12 +526,14 @@ public class CatalogService {
         if (entry.loaderVersion() != null) {
             view.put("loaderVersion", entry.loaderVersion());
         }
-        Map<String, Object> server = new LinkedHashMap<>();
-        server.put("address", entry.serverAddress());
-        if (entry.serverPort() != null) {
-            server.put("port", asInt(entry.serverPort()));
+        if (entry.serverAddress() != null) {
+            Map<String, Object> server = new LinkedHashMap<>();
+            server.put("address", entry.serverAddress());
+            if (entry.serverPort() != null) {
+                server.put("port", asInt(entry.serverPort()));
+            }
+            view.put("server", server);
         }
-        view.put("server", server);
         return view;
     }
 
