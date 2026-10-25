@@ -225,6 +225,31 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     void loadBridgeSettings(server.id)
   }
 
+  /** 管理面按 id 直取详情并回填编辑表单：目标不一定在当前分页列表里，禁止依赖列表 find */
+  async function editServerById(id: string) {
+    selectedId.value = id
+    try {
+      const detail = await api.adminDetail(id)
+      replaceServer(detail)
+      editServer(detail)
+    }
+    catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : '服务器加载失败，请稍后重试')
+      newServer()
+    }
+  }
+
+  /** 管理面子页（周目/操作记录/玩家统计）按 id 聚焦目标服务器并加载侧数据 */
+  async function focusServer(id: string) {
+    selectedId.value = id
+    try {
+      await loadSideData(id)
+    }
+    catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : '服务器详情加载失败，请稍后重试')
+    }
+  }
+
   // FaTable 的行模型按 data 数组引用做缓存，必须整组替换而非 push/splice，否则表格不刷新
   function addEndpoint() {
     serverForm.endpoints = [...serverForm.endpoints, blankEndpoint(serverForm.endpoints.length * 10)]
@@ -869,6 +894,8 @@ export function useMinecraftServerPlugin(sdk: YuDreamPluginSdk) {
     selectServer,
     newServer,
     editServer,
+    editServerById,
+    focusServer,
     addEndpoint,
     removeEndpoint,
     saveServer,
