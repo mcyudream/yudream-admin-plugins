@@ -133,6 +133,26 @@ public class AuthlibAppService implements PluginAuthService {
         return displaySettings();
     }
 
+    /** 站点签名密钥信息：公钥 PEM/指纹，供联盟共享钥核对与导入。 */
+    public Map<String, Object> signingKeyInfo() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("publicKeyPem", cryptoService.publicKeyPem());
+        body.put("fingerprint", cryptoService.publicKeyFingerprint());
+        body.put("algorithm", "RSA");
+        return body;
+    }
+
+    /** 导入联盟共享材质签名密钥（PEM 对）：导入后本站下发的材质签名改用该密钥。 */
+    public void importSigningKeyPair(String publicKeyPem, String privateKeyPem) {
+        cryptoService.importKeyPair(publicKeyPem, privateKeyPem);
+    }
+
+    /** 丢弃导入的密钥对，重新自生成。 */
+    public Map<String, Object> resetSigningKeyPair() {
+        cryptoService.regenerateAndSave();
+        return signingKeyInfo();
+    }
+
     public Object status(String apiRoot, String textureBaseUrl) {
         String normalizedApiRoot = stripTrailingSlash(apiRoot);
         String normalizedTextureBaseUrl = stripTrailingSlash(textureBaseUrl);

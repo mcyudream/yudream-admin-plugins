@@ -112,6 +112,27 @@ public class AuthlibHttpFacade {
         );
     }
 
+    /** 站点签名密钥信息（联盟共享钥核对用）。 */
+    public PluginHttpResponse signingKey(PluginHttpRequest request) {
+        return runJson(request, () -> appService.signingKeyInfo());
+    }
+
+    public PluginHttpResponse importSigningKey(PluginHttpRequest request) {
+        return runJson(request, () -> {
+            Map<String, Object> body = request.body() == null || request.body().isBlank()
+                    ? Map.of()
+                    : JsonSupport.read(request.body(), Map.class);
+            appService.importSigningKeyPair(
+                    body.get("publicKeyPem") == null ? null : String.valueOf(body.get("publicKeyPem")),
+                    body.get("privateKeyPem") == null ? null : String.valueOf(body.get("privateKeyPem")));
+            return appService.signingKeyInfo();
+        });
+    }
+
+    public PluginHttpResponse resetSigningKey(PluginHttpRequest request) {
+        return runJson(request, () -> appService.resetSigningKeyPair());
+    }
+
     public PluginHttpResponse profiles(PluginHttpRequest request) {
         return runJson(request, () -> appService.profiles(JsonSupport.readStringList(request.body())));
     }

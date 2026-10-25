@@ -22,3 +22,9 @@ export interface AuthlibDisplaySettings {
   /** 管理员自定义值；空串表示未自定义。 */
   serverNameOverride?: string
 }
+
+export interface SigningKeyInfo {
+  publicKeyPem: string
+  fingerprint: string
+  algorithm: string
+}
