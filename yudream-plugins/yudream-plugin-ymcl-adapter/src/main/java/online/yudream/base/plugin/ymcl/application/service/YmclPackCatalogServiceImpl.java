@@ -71,13 +71,18 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
             if (version == null) {
                 continue;
             }
-            catalog.add(entry(packs.get(packId), binding, version));
+            Map<String, Object> server = bindingServerView(serverId);
+            if (server == null) {
+                // 绑定的服务器已关闭/删除：条目整体不进目录（mc-interop 导入与启动器 /v1/data 同源生效）
+                continue;
+            }
+            catalog.add(entry(packs.get(packId), binding, version, server));
         }
         return catalog;
     }
 
     private Map<String, Object> entry(Map<String, Object> pack, Map<String, Object> binding,
-                                      Map<String, Object> version) {
+                                      Map<String, Object> version, Map<String, Object> server) {
         String packId = text(version.get("packId"));
         String versionName = text(version.get("version"));
         Map<String, Object> manifest = cast(version.get("manifest"));
@@ -94,7 +99,9 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
 
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("packId", packId);
-        entry.put("packName", pack == null ? null : text(pack.get("name")));
+        String packName = pack == null ? null : text(pack.get("name"));
+        entry.put("packName", packName != null && !packName.isBlank() ? packName
+                : packId.replaceAll("(?i)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", ""));
         entry.put("version", versionName);
         entry.put("channel", text(version.get("channel")));
         entry.put("releasedAt", text(version.get("releasedAt")));
@@ -105,8 +112,8 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
         entry.put("sizeBytes", sizeBytes);
         entry.put("mrpackPath", "/mip/api/packs/" + packId + "/versions/" + versionName + "/mrpack");
         entry.put("serverId", text(binding.get("serverId")));
-        entry.put("serverName", serverName(text(binding.get("serverId"))));
-        entry.put("serverAddress", serverAddress(text(binding.get("serverId"))));
+        entry.put("serverName", text(server.get("name")));
+        entry.put("serverAddress", text(server.get("mcAddress")));
         return entry;
     }
 
@@ -159,9 +166,16 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
         }
     }
 
-    /** 服务器名/地址来自 minecraft-server 贡献的 serverBindings 视图。 */
-    private Map<String, Object> serverView(String serverId) {
-        for (YmclContributionProvider provider : context.extensions(YmclContributionProvider.class)) {
+    /**
+     * 绑定服务器的贡献视图：null = 存在贡献方但该服务器已关闭/删除（目录应排除该条目）；
+     * 空Map = 无任何贡献方（minecraft-server 缺失），保持旧语义不带服务器字段。
+     */
+    private Map<String, Object> bindingServerView(String serverId) {
+        List<YmclContributionProvider> providers = context.extensions(YmclContributionProvider.class);
+        if (providers.isEmpty()) {
+            return Map.of();
+        }
+        for (YmclContributionProvider provider : providers) {
             Object bindings = provider.serverBindings();
             // 未贡献绑定的 provider（如 mc-interop）default 返回 null；
             // List.of 不接受 null 元素，须先短路。
@@ -183,17 +197,7 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
                 }
             }
         }
-        return Map.of();
-    }
-
-    private String serverName(String serverId) {
-        Object name = serverView(serverId).get("name");
-        return name == null ? null : String.valueOf(name);
-    }
-
-    private String serverAddress(String serverId) {
-        Object address = serverView(serverId).get("mcAddress");
-        return address == null ? null : String.valueOf(address);
+        return null;
     }
 
     private Map<String, Map<String, Object>> scan(String collection) {

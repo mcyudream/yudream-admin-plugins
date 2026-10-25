@@ -261,7 +261,7 @@ public class CatalogService {
             if (revision == null) {
                 revision = existing != null && existing.revision() != null ? existing.revision() + 1 : 1L;
             }
-            String name = (row.packName() == null || row.packName().isBlank() ? row.packId() : row.packName())
+            String name = readablePackName(row.packName(), row.packId())
                     + (row.serverName() != null && !row.serverName().isBlank() ? " · " + row.serverName() : "");
             try {
                 // mrpackPath 为插件内相对路径（/mip/...），完整地址需挂 ymcl-adapter 的 /api 前缀
@@ -282,6 +282,15 @@ public class CatalogService {
         body.put("imported", imported);
         body.put("skipped", skipped);
         return body;
+    }
+
+    /** 导入条目展示名：pack 名缺失时用 packId 剥掉尾部 UUID 的可读前缀，避免目录里全是裸 id。 */
+    private static String readablePackName(String packName, String packId) {
+        if (packName != null && !packName.isBlank()) {
+            return packName.trim();
+        }
+        String id = packId == null ? "" : packId.trim();
+        return id.replaceAll("(?i)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "");
     }
 
     /** mrpack loader 标识归一化：Fabric/Quilt/NeoForge 的 manifest id 带 -loader 后缀，映射到白名单词。 */

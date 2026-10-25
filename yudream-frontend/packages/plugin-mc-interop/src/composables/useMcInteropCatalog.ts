@@ -1,5 +1,5 @@
+import type { McInteropEntry, McInteropEntryForm } from '../types'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { InteropSiteDocument, McInteropEntry, McInteropEntryForm } from '../types'
 import { onMounted, reactive, ref } from 'vue'
 import { useMcInteropShell } from './useMcInteropShell'
 
@@ -11,7 +11,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   const size = ref(20)
   const total = ref(0)
   const keyword = ref('')
-  const merged = ref<InteropSiteDocument | null>(null)
+
 
   const editOpen = ref(false)
   const editing = ref<McInteropEntry | null>(null)
@@ -47,7 +47,7 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
       const body = await api.entries(page.value, size.value, keyword.value.trim() || undefined)
       entries.value = body.records ?? []
       total.value = Number(body.total ?? 0)
-      merged.value = await api.mergedEntries().catch(() => null)
+
     })
   }
 
@@ -112,6 +112,6 @@ export function useMcInteropCatalog(sdk: YuDreamPluginSdk) {
   return reactive({
     loading, error, entries, page, size, total, keyword,
     editOpen, editing, form,
-    load, search, changePage, openCreate, openEdit, save, togglePublish, importFromAdapter, merged, remove,
+    load, search, changePage, openCreate, openEdit, save, togglePublish, importFromAdapter, remove,
   })
 }
