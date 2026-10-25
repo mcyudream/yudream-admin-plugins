@@ -5,13 +5,10 @@ import online.yudream.base.plugin.authlib.infrastructure.repository.AuthlibRepos
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
-import java.security.spec.X509EncodedKeySpec;
-import java.security.PublicKey;
 import java.security.Signature;
 import java.security.GeneralSecurityException;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -34,56 +31,6 @@ public class AuthlibCryptoService {
 
     public AuthlibKeyPair keyPair() {
         return repository.keyPair().orElseGet(this::generateAndSave);
-    }
-
-    /**
-     * 导入外部密钥对（联盟共享材质签名密钥）：校验 PEM 可解析、为 RSA 且公私钥匹配后，
-     * 以 base64 DER 形态落库。导入后材质签名与元数据 signaturePublickey 均使用该密钥，
-     * 联盟内各站点共享同一对即可让跨站客户端互相验证材质签名。
-     */
-    public void importKeyPair(String publicKeyPem, String privateKeyPem) {
-        PublicKey publicPart;
-        PrivateKey privatePart;
-        try {
-            String publicBody = stripPem(publicKeyPem, "PUBLIC KEY");
-            publicPart = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getMimeDecoder().decode(publicBody)));
-            String privateBody = stripPem(privateKeyPem, "PRIVATE KEY");
-            privatePart = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(Base64.getMimeDecoder().decode(privateBody)));
-        } catch (IllegalArgumentException | GeneralSecurityException e) {
-            throw new IllegalArgumentException("密钥解析失败（需 PEM 格式的 RSA 公钥与 PKCS#8 私钥）：" + e.getMessage(), e);
-        }
-        byte[] probe = "yggdrasil-union-keypair-probe".getBytes(StandardCharsets.UTF_8);
-        String signature;
-        try {
-            Signature signer = Signature.getInstance("SHA1withRSA");
-            signer.initSign(privatePart);
-            signer.update(probe);
-            signature = Base64.getEncoder().encodeToString(signer.sign());
-            java.security.Signature verifier = Signature.getInstance("SHA1withRSA");
-            verifier.initVerify(publicPart);
-            verifier.update(probe);
-            if (!verifier.verify(Base64.getDecoder().decode(signature))) {
-                throw new IllegalArgumentException("公钥与私钥不匹配");
-            }
-        } catch (GeneralSecurityException e) {
-            throw new IllegalArgumentException("密钥对自验失败：" + e.getMessage(), e);
-        }
-        repository.saveKeyPair(new AuthlibKeyPair(
-                Base64.getEncoder().encodeToString(publicPart.getEncoded()),
-                Base64.getEncoder().encodeToString(privatePart.getEncoded())));
-    }
-
-    private static String stripPem(String pem, String label) {
-        if (pem == null || pem.isBlank()) {
-            throw new IllegalArgumentException("PEM 为空");
-        }
-        String body = pem.replaceAll("-----BEGIN " + label + "-----", "")
-                .replaceAll("-----END " + label + "-----", "")
-                .replaceAll("\s", "");
-        if (body.isEmpty()) {
-            throw new IllegalArgumentException("PEM 内容为空");
-        }
-        return body;
     }
 
     public String publicKeyPem() {
@@ -173,26 +120,6 @@ public class AuthlibCryptoService {
 
     private String pem(String label, String base64) {
         return "-----BEGIN " + label + "-----\n" + base64 + "\n-----END " + label + "-----\n";
-    }
-
-    /** 公钥指纹（SHA-256 hex，前端展示/跨站核对用）。 */
-    public String publicKeyFingerprint() {
-        try {
-            byte[] der = Base64.getDecoder().decode(keyPair().publicKey());
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(der);
-            StringBuilder builder = new StringBuilder(digest.length * 2);
-            for (byte item : digest) {
-                builder.append(String.format("%02x", item));
-            }
-            return builder.toString();
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    /** 丢弃现有（含导入的）密钥对，重新自生成并落库。 */
-    public AuthlibKeyPair regenerateAndSave() {
-        return generateAndSave();
     }
 
     private AuthlibKeyPair generateAndSave() {

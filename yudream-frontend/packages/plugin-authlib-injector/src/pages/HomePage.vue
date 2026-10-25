@@ -14,8 +14,6 @@ const columns: TableColumn<AuthlibEndpoint>[] = [
 ]
 
 const serverNameDraft = ref('')
-const signingPublicKeyDraft = ref('')
-const signingPrivateKeyDraft = ref('')
 
 // 设置加载完成或保存成功后，把草稿同步回后端权威值
 watch(() => props.model.settings?.serverNameOverride, (value) => {
@@ -54,34 +52,6 @@ function saveServerName() {
           <p class="authlib-muted">
             当前生效：<strong>{{ model.settings?.serverName || '-' }}</strong>。优先级：自定义 &gt; 站点描述 &gt; 站点名称；留空保存即回到站点默认。
           </p>
-        </YdCard>
-
-        <YdCard
-          title="联盟共享签名密钥"
-          description="联盟内所有站点导入同一对 RSA 密钥后，跨站玩家的材质签名即可互相验证（客户端信任根 = 各自认证站的 signaturePublickey）"
-          content-class="authlib-card-content"
-        >
-          <div class="grid gap-3">
-            <div class="authlib-status-line">
-              <span>当前公钥指纹</span>
-              <code class="break-all">{{ model.signingKey?.fingerprint || '加载中…' }}</code>
-            </div>
-            <YdLabel>
-              <span>材质签名公钥（PEM）</span>
-              <YdInput v-model="signingPublicKeyDraft" type="textarea" :rows="4" placeholder="-----BEGIN PUBLIC KEY-----" />
-            </YdLabel>
-            <YdLabel>
-              <span>材质签名私钥（PEM）</span>
-              <YdInput v-model="signingPrivateKeyDraft" type="textarea" :rows="4" placeholder="-----BEGIN PRIVATE KEY-----" />
-            </YdLabel>
-            <div class="flex gap-2">
-              <YdButton :loading="model.importingKey" :disabled="model.importingKey" @click="model.importSigningKey(signingPublicKeyDraft, signingPrivateKeyDraft)">导入共享密钥</YdButton>
-              <YdButton variant="outline" :loading="model.importingKey" :disabled="model.importingKey" @click="model.resetSigningKey">重置为站点自生成</YdButton>
-            </div>
-            <p class="authlib-muted">
-              导入后本站下发的材质签名改用共享密钥，联盟内各站客户端互相可见皮肤；密钥泄露时「重置为站点自生成」即可作废导入。
-            </p>
-          </div>
         </YdCard>
 
         <YdCard title="服务状态" description="仅管理端可见" content-class="authlib-card-content">

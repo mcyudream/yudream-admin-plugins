@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AuthlibDisplaySettings, AuthlibEndpoint, AuthlibStatus, SigningKeyInfo } from '../types'
+import type { AuthlibDisplaySettings, AuthlibEndpoint, AuthlibStatus } from '../types'
 import { useYdToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createAuthlibApi } from '../api/authlib-api'
@@ -54,48 +54,6 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  const signingKey = ref<SigningKeyInfo | null>(null)
-  const importingKey = ref(false)
-
-  async function loadSigningKey() {
-    try {
-      signingKey.value = await api.signingKey()
-    }
-    catch (error) {
-      toast.error(errorMessage(error, '签名密钥加载失败'))
-    }
-  }
-
-  /** 导入联盟共享材质签名密钥（PEM 对）；导入后本站下发的材质签名改用该密钥。 */
-  async function importSigningKey(publicKeyPem: string, privateKeyPem: string) {
-    importingKey.value = true
-    try {
-      signingKey.value = await api.importSigningKey({ publicKeyPem, privateKeyPem })
-      toast.success('联盟共享签名密钥已导入')
-    }
-    catch (error) {
-      toast.error(errorMessage(error, '导入失败'))
-    }
-    finally {
-      importingKey.value = false
-    }
-  }
-
-  async function resetSigningKey() {
-    importingKey.value = true
-    try {
-      signingKey.value = await api.resetSigningKey()
-      signingKey.value = null
-      toast.success('已重置为站点自生成密钥')
-    }
-    catch (error) {
-      toast.error(errorMessage(error, '重置失败'))
-    }
-    finally {
-      importingKey.value = false
-    }
-  }
-
   function errorMessage(error: unknown, fallback: string) {
     return error instanceof Error && error.message ? error.message : fallback
   }
@@ -110,7 +68,7 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
     return `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`
   }
 
-  return reactive({ loading, status, settings, savingSettings, launcherUrl, statusText, endpoints, load, saveServerName, copy, signingKey, importingKey, loadSigningKey, importSigningKey, resetSigningKey })
+  return reactive({ loading, status, settings, savingSettings, launcherUrl, statusText, endpoints, load, saveServerName, copy })
 }
 
 export type AuthlibPluginModel = ReturnType<typeof useAuthlibPlugin>
