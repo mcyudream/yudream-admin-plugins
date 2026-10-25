@@ -35,6 +35,9 @@ export function useMyStudentProfile(sdk: YuDreamPluginSdk) {
       Object.assign(form, profileFields(profile.value))
       toast.success('学生信息已保存')
     }
+    catch (error) {
+      toast.error(errorMessage(error, '保存学生信息失败'))
+    }
     finally {
       saving.value = false
     }
@@ -59,6 +62,11 @@ export function trimmedFields(form: StudentProfileFields): StudentProfileFields 
     className: form.className.trim(),
     college: form.college.trim(),
   }
+}
+
+export function errorMessage(error: unknown, fallback: string): string {
+  const message = (error as { message?: string } | null | undefined)?.message
+  return message && message.trim() ? message : fallback
 }
 
 export function validate(form: StudentProfileFields, warn: (message: string) => void) {

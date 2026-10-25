@@ -3,7 +3,7 @@ import type { AdminStudentProfileForm, StudentProfile, StudentProfileFilters } f
 import { useYdToast } from '@yudream/components'
 import { reactive, ref } from 'vue'
 import { createStudentInfoApi } from '../api/student-info-api'
-import { formatTime, trimmedFields, validate } from './useMyStudentProfile'
+import { errorMessage, formatTime, trimmedFields, validate } from './useMyStudentProfile'
 
 export function useAdminStudentProfiles(sdk: YuDreamPluginSdk) {
   const api = createStudentInfoApi(sdk)
@@ -73,6 +73,9 @@ export function useAdminStudentProfiles(sdk: YuDreamPluginSdk) {
       toast.success('学生档案已保存')
       resetForm()
       await load()
+    }
+    catch (error) {
+      toast.error(errorMessage(error, '保存学生档案失败'))
     }
     finally {
       saving.value = false
