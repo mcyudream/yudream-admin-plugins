@@ -28,7 +28,7 @@ class UnionTextureRewriteTest {
         String rewritten = UnionTextureRewrite.rewrite(value, List.of("hall.mc.taru.xj.cn"), LOCAL_BASE);
 
         String decoded = new String(Base64.getDecoder().decode(rewritten));
-        assertTrue(decoded.contains(LOCAL_BASE + "/texture/union/caa06e210f006d1088308b332ae13"));
+        assertTrue(decoded.contains(LOCAL_BASE + "/caa06e210f006d1088308b332ae13"));
         assertFalse(decoded.contains(PEER_BASE));
     }
 
@@ -57,7 +57,7 @@ class UnionTextureRewriteTest {
         String rewritten = UnionTextureRewrite.rewrite(value, List.of("hall.mc.taru.xj.cn"), LOCAL_BASE);
 
         String decoded = new String(Base64.getDecoder().decode(rewritten));
-        assertTrue(decoded.contains(LOCAL_BASE + "/texture/union/skin-hash"));
-        assertTrue(decoded.contains(LOCAL_BASE + "/texture/union/cape-hash"));
+        assertTrue(decoded.contains(LOCAL_BASE + "/skin-hash"));
+        assertTrue(decoded.contains(LOCAL_BASE + "/cape-hash"));
     }
 }

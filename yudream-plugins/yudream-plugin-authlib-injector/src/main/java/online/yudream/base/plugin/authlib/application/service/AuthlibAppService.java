@@ -299,6 +299,7 @@ public class AuthlibAppService implements PluginAuthService {
                         String value = UnionTextureRewrite.rewrite(
                                 profile.textureValue(), federationTextureHosts(), localProxyBase);
                         String textureValue = value != null ? value : profile.textureValue();
+                        // 本站密钥重签（信任根 = 本站 signaturePublickey）；URL 已改写为本站代理，客户端域名白名单同样收敛
                         Map<String, Object> textureProperty = new LinkedHashMap<>();
                         textureProperty.put("name", "textures");
                         textureProperty.put("value", textureValue);
