@@ -2,15 +2,27 @@
 import type { TableColumn } from '@yudream/components'
 import type { AuthlibEndpoint } from '../types'
 import type { AuthlibPluginModel } from '../composables/useAuthlibPlugin'
-import { YdCard, YdCopyButton, YdLoadingOverlay, YdPageHeader, YdPageMain, YdResponsiveEnhancedTable, YdTag } from '@yudream/components'
+import { YdButton, YdCard, YdCopyButton, YdInput, YdLabel, YdLoadingOverlay, YdPageHeader, YdPageMain, YdResponsiveEnhancedTable, YdTag } from '@yudream/components'
+import { ref, watch } from 'vue'
 
-defineProps<{ model: AuthlibPluginModel }>()
+const props = defineProps<{ model: AuthlibPluginModel }>()
 
 const columns: TableColumn<AuthlibEndpoint>[] = [
   { accessorKey: 'method', header: '方法', width: 100 },
   { accessorKey: 'path', header: '协议路径', width: 420 },
   { accessorKey: 'note', header: '用途', width: 360 },
 ]
+
+const serverNameDraft = ref('')
+
+// 设置加载完成或保存成功后，把草稿同步回后端权威值
+watch(() => props.model.settings?.serverNameOverride, (value) => {
+  serverNameDraft.value = value ?? ''
+}, { immediate: true })
+
+function saveServerName() {
+  void props.model.saveServerName(serverNameDraft.value)
+}
 </script>
 
 <template>
@@ -27,6 +39,19 @@ const columns: TableColumn<AuthlibEndpoint>[] = [
             <YdCopyButton :text="model.launcherUrl" label="复制" size="sm" variant="outline" />
           </div>
           <p class="authlib-muted">将此地址填写到支持 authlib-injector 的启动器或服务端配置中。</p>
+        </YdCard>
+
+        <YdCard title="展示名称" description="启动器中显示的验证服名称" content-class="authlib-card-content">
+          <div class="authlib-name-row">
+            <YdLabel>
+              <span>自定义展示名</span>
+              <YdInput v-model="serverNameDraft" placeholder="留空使用站点默认" />
+            </YdLabel>
+            <YdButton :loading="model.savingSettings" :disabled="model.savingSettings" @click="saveServerName">保存</YdButton>
+          </div>
+          <p class="authlib-muted">
+            当前生效：<strong>{{ model.settings?.serverName || '-' }}</strong>。优先级：自定义 &gt; 站点描述 &gt; 站点名称；留空保存即回到站点默认。
+          </p>
         </YdCard>
 
         <YdCard title="服务状态" description="仅管理端可见" content-class="authlib-card-content">

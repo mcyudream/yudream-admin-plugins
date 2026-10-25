@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { AuthlibEndpoint, AuthlibStatus } from '../types'
+import type { AuthlibDisplaySettings, AuthlibEndpoint, AuthlibStatus } from '../types'
 import { useYdToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
 import { createAuthlibApi } from '../api/authlib-api'
@@ -9,6 +9,8 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
   const toast = useYdToast()
   const loading = ref(false)
   const status = ref<AuthlibStatus | null>(null)
+  const settings = ref<AuthlibDisplaySettings | null>(null)
+  const savingSettings = ref(false)
   const launcherUrl = computed(() => absoluteUrl(api.apiUrl('/')).replace(/\/$/, ''))
   const statusText = computed(() => status.value ? '已连接' : '待刷新')
   const endpoints = computed<AuthlibEndpoint[]>(() => [
@@ -30,10 +32,30 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
     loading.value = true
     try {
       status.value = await api.status()
+      settings.value = await api.settings()
     }
     finally {
       loading.value = false
     }
+  }
+
+  /** 保存自定义展示名；空串表示清除自定义、回到站点默认。 */
+  async function saveServerName(value: string) {
+    savingSettings.value = true
+    try {
+      settings.value = await api.saveSettings({ serverName: value.trim() })
+      toast.success(value.trim() ? '展示名称已保存' : '已清除自定义，回到站点默认')
+    }
+    catch (error) {
+      toast.error(errorMessage(error, '保存失败'))
+    }
+    finally {
+      savingSettings.value = false
+    }
+  }
+
+  function errorMessage(error: unknown, fallback: string) {
+    return error instanceof Error && error.message ? error.message : fallback
   }
 
   async function copy(value: string) {
@@ -46,7 +68,7 @@ export function useAuthlibPlugin(sdk: YuDreamPluginSdk) {
     return `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`
   }
 
-  return reactive({ loading, status, launcherUrl, statusText, endpoints, load, copy })
+  return reactive({ loading, status, settings, savingSettings, launcherUrl, statusText, endpoints, load, saveServerName, copy })
 }
 
 export type AuthlibPluginModel = ReturnType<typeof useAuthlibPlugin>

@@ -15,3 +15,10 @@ export interface AuthlibEndpoint {
   path: string
   note: string
 }
+
+export interface AuthlibDisplaySettings {
+  /** 生效中的展示名（自定义 > 站点描述 > 站点名称 > Minecraft）。 */
+  serverName?: string
+  /** 管理员自定义值；空串表示未自定义。 */
+  serverNameOverride?: string
+}

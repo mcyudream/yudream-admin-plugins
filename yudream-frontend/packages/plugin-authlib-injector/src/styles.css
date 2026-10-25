@@ -18,6 +18,7 @@
 }
 
 .authlib-address-row,
+.authlib-name-row,
 .authlib-status-line,
 .authlib-endpoint-head {
   display: flex;
@@ -25,6 +26,11 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+}
+
+.authlib-name-row > :first-child {
+  flex: 1 1 240px;
   min-width: 0;
 }
 
