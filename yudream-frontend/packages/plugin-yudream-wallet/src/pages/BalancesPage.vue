@@ -57,8 +57,8 @@ function openChange() {
 }
 
 async function changeBalance(kind: 'credit' | 'debit') {
-  await props.model.changeBalance(kind)
-  changeVisible.value = false
+  if (await props.model.changeBalance(kind))
+    changeVisible.value = false
 }
 
 function onPageChange() {

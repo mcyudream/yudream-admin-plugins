@@ -214,6 +214,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
         await loadMyTransactions()
       }
     }
+    catch (cause) {
+      toast.error(errorMessage(cause, '钱包数据加载失败'))
+    }
     finally {
       loading.value = false
     }
@@ -328,6 +331,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       resetAssetForm()
       await Promise.all([loadAdminAssets(), api.assets().then(items => { assets.value = items })])
     }
+    catch (cause) {
+      toast.error(errorMessage(cause, '币种保存失败'))
+    }
     finally {
       saving.value = false
     }
@@ -348,22 +354,30 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       }
       assets.value = await api.assets()
     }
+    catch (cause) {
+      toast.error(errorMessage(cause, '币种删除失败'))
+    }
     finally {
       saving.value = false
     }
   }
 
   async function loadRechargeSettings() {
-    const settings = await api.rechargeSettings()
-    rechargeSettingsForm.enabled = settings.enabled
-    rechargeSettingsForm.defaultProductType = 'PAGE'
-    rechargeSettingsForm.rules = settings.rules.map(rule => ({
-      assetCode: rule.assetCode,
-      enabled: rule.enabled,
-      ratio: String(rule.ratio ?? '1'),
-      minPayAmount: String(rule.minPayAmount ?? '0'),
-      maxPayAmount: rule.maxPayAmount == null ? '' : String(rule.maxPayAmount),
-    }))
+    try {
+      const settings = await api.rechargeSettings()
+      rechargeSettingsForm.enabled = settings.enabled
+      rechargeSettingsForm.defaultProductType = 'PAGE'
+      rechargeSettingsForm.rules = settings.rules.map(rule => ({
+        assetCode: rule.assetCode,
+        enabled: rule.enabled,
+        ratio: String(rule.ratio ?? '1'),
+        minPayAmount: String(rule.minPayAmount ?? '0'),
+        maxPayAmount: rule.maxPayAmount == null ? '' : String(rule.maxPayAmount),
+      }))
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '充值配置加载失败'))
+    }
   }
 
   async function saveRechargeSettings() {
@@ -383,19 +397,22 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       toast.success('充值配置已保存')
       await loadRechargeSettings()
     }
+    catch (cause) {
+      toast.error(errorMessage(cause, '充值配置保存失败'))
+    }
     finally {
       saving.value = false
     }
   }
 
-  async function changeBalance(kind: 'credit' | 'debit') {
+  async function changeBalance(kind: 'credit' | 'debit'): Promise<boolean> {
     if (!changeForm.userId.trim() || !changeForm.amount.trim()) {
       toast.warning('请填写用户和金额')
-      return
+      return false
     }
     if (!changeForm.assetCode) {
       toast.warning('请选择币种')
-      return
+      return false
     }
     saving.value = true
     try {
@@ -416,6 +433,11 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       changeForm.amount = ''
       changeForm.remark = ''
       await Promise.all([loadAdminBalances(), loadTransactions()])
+      return true
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, kind === 'credit' ? '入账失败' : '扣账失败'))
+      return false
     }
     finally {
       saving.value = false
@@ -423,28 +445,43 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadAdminBalances() {
-    const result = await api.adminBalances(selectedBalanceAssetCode.value, balancePager.page, balancePager.size)
-    balancePager.total = result.total
-    balancePager.hasNext = balancePager.page * balancePager.size < result.total
-    adminBalances.value = result.records
+    try {
+      const result = await api.adminBalances(selectedBalanceAssetCode.value, balancePager.page, balancePager.size)
+      balancePager.total = result.total
+      balancePager.hasNext = balancePager.page * balancePager.size < result.total
+      adminBalances.value = result.records
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '余额列表加载失败'))
+    }
   }
 
   async function loadAdminAssets() {
-    const result = await api.adminAssets(assetPager.page, assetPager.size)
-    managedAssets.value = result.records
-    assetPager.total = result.total
+    try {
+      const result = await api.adminAssets(assetPager.page, assetPager.size)
+      managedAssets.value = result.records
+      assetPager.total = result.total
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '币种列表加载失败'))
+    }
   }
 
   async function loadTransactions() {
-    const result = await api.adminTransactions({
-      assetCode: transactionFilters.assetCode,
-      source: transactionFilters.source,
-      type: transactionFilters.type,
-      user: transactionFilters.user.trim(),
-    }, transactionPager.page, transactionPager.size)
-    transactionPager.total = result.total
-    transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
-    transactions.value = result.records
+    try {
+      const result = await api.adminTransactions({
+        assetCode: transactionFilters.assetCode,
+        source: transactionFilters.source,
+        type: transactionFilters.type,
+        user: transactionFilters.user.trim(),
+      }, transactionPager.page, transactionPager.size)
+      transactionPager.total = result.total
+      transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
+      transactions.value = result.records
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '交易记录加载失败'))
+    }
   }
 
   async function applyTransactionFilters() {
@@ -453,10 +490,15 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   }
 
   async function loadMyTransactions() {
-    const result = await api.meTransactions(undefined, transactionPager.page, transactionPager.size)
-    transactionPager.total = result.total
-    transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
-    transactions.value = result.records
+    try {
+      const result = await api.meTransactions(undefined, transactionPager.page, transactionPager.size)
+      transactionPager.total = result.total
+      transactionPager.hasNext = transactionPager.page * transactionPager.size < result.total
+      transactions.value = result.records
+    }
+    catch (cause) {
+      toast.error(errorMessage(cause, '钱包流水加载失败'))
+    }
   }
 
   async function applyBalanceAsset(assetCode: string) {
