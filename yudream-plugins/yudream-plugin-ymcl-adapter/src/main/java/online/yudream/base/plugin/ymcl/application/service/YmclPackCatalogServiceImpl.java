@@ -87,7 +87,7 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
         String sha512 = resolveArchiveSha512(version, packId, versionName);
 
         Long sizeBytes = null;
-        PluginStoredFile archive = files.get("packs/" + packId + "@" + versionName + ".mrpack");
+        PluginStoredFile archive = findArchiveOrNull("packs/" + packId + "@" + versionName + ".mrpack");
         if (archive != null && archive.contentLength() != null) {
             sizeBytes = archive.contentLength();
         }
@@ -126,8 +126,7 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
         if (cached != null && !cached.isBlank()) {
             return cached;
         }
-        String key = "packs/" + packId + "@" + versionName + ".mrpack";
-        PluginStoredFile stored = files.get(key);
+        PluginStoredFile stored = findArchiveOrNull("packs/" + packId + "@" + versionName + ".mrpack");
         if (stored == null) {
             return null;
         }
@@ -144,6 +143,18 @@ public class YmclPackCatalogServiceImpl implements YmclPackCatalogService {
             documents.save(VERSIONS, packId + "@" + versionName, update);
             return sha512;
         } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 归档查找：文件缺失时宿主对象存储抛「文件不存在」而非返回 null，
+     * 统一降级为 null，避免单个缺失归档炸掉整个目录聚合。
+     */
+    private PluginStoredFile findArchiveOrNull(String key) {
+        try {
+            return files.get(key);
+        } catch (RuntimeException e) {
             return null;
         }
     }
