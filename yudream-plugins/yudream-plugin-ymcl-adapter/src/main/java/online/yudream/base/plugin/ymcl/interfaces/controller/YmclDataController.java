@@ -2,7 +2,6 @@ package online.yudream.base.plugin.ymcl.interfaces.controller;
 
 import online.yudream.base.plugin.ymcl.application.service.YmclContributionAggregator;
 import online.yudream.base.plugin.ymcl.api.YmclDataContext;
-import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.ymcl.interfaces.support.PathSegments;
 import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
@@ -24,8 +23,9 @@ public class YmclDataController {
         this.aggregator = aggregator;
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/v1/data/{providerCode}/{sourceCode}",
-            permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    // 启动器协议面：登录/匿名均可达，数据由 provider 构建期按 principal.userId/permissions 过滤
+    //（匿名 = 空集），插件 view 权限会拦掉普通玩家账号（v1 权限脱节教训）。
+    @PluginHttpEndpoint(method = "GET", path = "/v1/data/{providerCode}/{sourceCode}")
     public PluginHttpResponse data(PluginHttpRequest request) {
         String providerCode = PathSegments.segment(request.path(), 2);
         String sourceCode = PathSegments.segment(request.path(), 3);

@@ -1,7 +1,6 @@
 package online.yudream.base.plugin.ymcl.interfaces.controller;
 
 import online.yudream.base.plugin.ymcl.application.service.YmclEventBus;
-import online.yudream.base.plugin.ymcl.bootstrap.YmclAdapterPlugin;
 import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.http.PluginHttpResponse;
@@ -26,7 +25,8 @@ public class YmclEventsController {
         this.eventBus = eventBus;
     }
 
-    @PluginHttpEndpoint(method = "GET", path = "/v1/events", permission = YmclAdapterPlugin.VIEW_PERMISSION)
+    // 启动器协议面：登录/匿名均可达，数据由事件总线按会话内聚；插件 view 权限会拦掉普通玩家账号（v1 权限脱节教训）。
+    @PluginHttpEndpoint(method = "GET", path = "/v1/events")
     public PluginHttpResponse events(PluginHttpRequest request) {
         Long afterEventId = resolveLastEventId(request);
         PluginSseStream stream = eventBus.open(afterEventId);
