@@ -8,6 +8,7 @@ package online.yudream.base.plugin.union.domain.aggregate;
  * @param nameLower  规范化键（trim + 小写 + 去颜色码）
  * @param reason     封禁原因（面向审计，不含个人信息）
  * @param sourceSite 封禁来源站 siteCode（本站封禁 = 本站 code）
+ * @param subjectSite 被封者归属站 siteCode（空 = v1 旧语义全域生效；本站封本站玩家 = 本站 code）
  * @param evidence   证据摘要（可空）
  * @param createdBy  操作人
  * @param createdAt  创建时间（epoch 毫秒）
@@ -22,6 +23,7 @@ public record UnionBan(
         String nameLower,
         String reason,
         String sourceSite,
+        String subjectSite,
         String evidence,
         String createdBy,
         long createdAt,

@@ -136,6 +136,7 @@ public class UnionHttpFacade {
             Map<String, Object> body = JsonSupport.readMap(request.body());
             directory.saveSite(stringOf(body.get("siteCode")),
                     body.get("siteName") == null ? null : String.valueOf(body.get("siteName")),
+                    body.get("namePrefix") == null ? "" : String.valueOf(body.get("namePrefix")),
                     principalName(request.principal(), "admin"));
             repository.saveSetting("retention", Map.of(
                     "auditDays", retentionValue(body.get("auditRetentionDays"), 30),
@@ -282,6 +283,7 @@ public class UnionHttpFacade {
         view.put("name", ban.name());
         view.put("reason", ban.reason());
         view.put("sourceSite", ban.sourceSite());
+        view.put("subjectSite", ban.subjectSite() == null ? null : ban.subjectSite());
         view.put("createdAt", ban.createdAt());
         view.put("expiresAt", ban.expiresAt());
         view.put("status", ban.status());
@@ -295,6 +297,7 @@ public class UnionHttpFacade {
         view.put("nameLower", ban.nameLower());
         view.put("reason", ban.reason());
         view.put("sourceSite", ban.sourceSite());
+        view.put("subjectSite", ban.subjectSite());
         view.put("evidence", ban.evidence());
         view.put("createdBy", ban.createdBy());
         view.put("createdAt", ban.createdAt());

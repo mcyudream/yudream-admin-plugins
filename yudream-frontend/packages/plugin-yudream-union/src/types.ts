@@ -1,6 +1,7 @@
 export interface UnionSiteSettings {
   siteCode?: string
   siteName?: string
+  namePrefix?: string
   origin?: string
   keyFingerprint?: string
   features?: string[]
@@ -33,6 +34,7 @@ export interface UnionPeer {
   addedBy?: string
   addedAt?: number
   note?: string
+  namePrefix?: string
   banCursor?: string
 }
 
@@ -42,6 +44,7 @@ export interface UnionBan {
   nameLower?: string
   reason?: string
   sourceSite?: string
+  subjectSite?: string
   evidence?: string | null
   createdBy?: string
   createdAt?: number

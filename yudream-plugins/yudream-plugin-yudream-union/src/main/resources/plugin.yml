@@ -3,7 +3,7 @@ displayName: YD 联合认证
 description: 去中心化联合认证：受信站点互信注册、跨站 join 断言验签与角色名联合封禁。
 icon: i-ri:links-line
 main: online.yudream.base.plugin.union.bootstrap.UnionPlugin
-version: 0.1.1
+version: 0.2.0
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: client

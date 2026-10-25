@@ -48,7 +48,7 @@ class UnionBanServiceTest {
         UnionRepository repository = repo();
         UnionBanService bans = service(repository);
         long seq = repository.banCursor() + 1;
-        repository.saveBan(new UnionBan(seq, "Temp", "temp", "短期", "yda", null, "admin",
+        repository.saveBan(new UnionBan(seq, "Temp", "temp", "短期", "yda", "", null, "admin",
                 1_000L, 5_000L, UnionBan.STATUS_ACTIVE, null, null));
         repository.saveBanCursor(seq);
 
@@ -109,7 +109,7 @@ class UnionBanServiceTest {
                 "https://sitmc.peer.test/api/plugins/yudream-union", "https://sitmc.peer.test/t",
                 keyPem(), null, "f".repeat(64),
                 UnionCryptoService.sha256Hex("shared-secret"), UnionPeer.STATUS_TRUSTED,
-                "admin", 1L, "", 0L);
+                "admin", 1L, "", "", 0L);
         repository.savePeer(peer);
         long now = 10_000L;
 
@@ -127,6 +127,38 @@ class UnionBanServiceTest {
         return new UnionRepository(new InMemoryDocumentStore());
     }
 
+    @Test
+    void subjectScopedBansDoNotCrossSites() {
+        UnionRepository repository = repo();
+        UnionBanService bans = service(repository);
+        repository.saveBan(new UnionBan(repository.banCursor() + 1, "Notch", "notch", "作弊", "sitmc", "sitmc", null,
+                "peer:sitmc", 1_000L, null, UnionBan.STATUS_ACTIVE, null, null));
+        repository.saveBanCursor(repository.banCursor() + 1);
+
+        assertTrue(bans.isBannedForSubject("sitmc", "Notch", 2_000L));
+        assertFalse(bans.isBannedForSubject("yda", "Notch", 2_000L));
+
+        // v1 旧事件无归属：全域生效（向后兼容）
+        repository.saveBan(new UnionBan(repository.banCursor() + 1, "Notch", "notch", "作弊", "other", "", null,
+                "peer:other", 2_000L, null, UnionBan.STATUS_ACTIVE, null, null));
+        repository.saveBanCursor(repository.banCursor() + 1);
+        assertTrue(bans.isBannedForSubject("yda", "Notch", 3_000L));
+    }
+
+    @Test
+    void mangledBanInputResolvesToOriginNameAndSubject() {
+        UnionRepository repository = repo();
+        UnionBanService bans = service(repository);
+        repository.saveNameMapping("sitmc", "123456", "123456", "bs_123456");
+
+        bans.addBan("bs_123456", "破坏", null, "yda", "admin", 1_000L);
+
+        UnionBan event = repository.bansByName("123456").getFirst();
+        assertEquals("sitmc", event.subjectSite());
+        assertTrue(bans.isBannedForSubject("sitmc", "123456", 2_000L));
+        assertFalse(bans.isBannedForSubject("yda", "123456", 2_000L));
+    }
+
     private UnionBanService service(UnionRepository repository) {
         UnionCryptoService crypto = new UnionCryptoService(
                 UnionTestSupport.context(new UnionTestSupport.TestConfig() {
@@ -137,7 +169,7 @@ class UnionBanServiceTest {
     private UnionPeer saveTrustedPeer(UnionRepository repository) {
         UnionPeer peer = new UnionPeer("sitmc", "SIT", "https://sitmc.peer.test",
                 "https://sitmc.peer.test/api/plugins/yudream-union", "https://sitmc.peer.test/t",
-                keyPem(), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", 0L);
+                keyPem(), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "", 0L);
         repository.savePeer(peer);
         return peer;
     }

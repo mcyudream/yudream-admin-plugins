@@ -16,6 +16,7 @@ package online.yudream.base.plugin.union.domain.aggregate;
  * @param addedBy           操作人
  * @param addedAt           注册时间（epoch 毫秒）
  * @param note              备注
+ * @param namePrefix        对端联合名前缀（协议 §3.1 可选；空 = 对端未启用名字空间）
  * @param banCursor         已从该站拉取的封禁账本游标
  */
 public record UnionPeer(
@@ -32,6 +33,7 @@ public record UnionPeer(
         String addedBy,
         long addedAt,
         String note,
+        String namePrefix,
         long banCursor
 ) {
 

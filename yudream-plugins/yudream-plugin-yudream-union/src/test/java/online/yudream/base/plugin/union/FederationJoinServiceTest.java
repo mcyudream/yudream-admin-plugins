@@ -70,21 +70,26 @@ class FederationJoinServiceTest {
         }
 
         void givenLocalSite() {
-            discovery.saveSite(LOCAL_SITE, "YD 测试站");
+            discovery.saveSite(LOCAL_SITE, "YD 测试站", "");
         }
 
         UnionPeer givenPeer(String siteCode, KeyPair peerKey, String aud, long expiresAt, String jti) {
+            return givenPeer(siteCode, peerKey, aud, expiresAt, jti, "Notch", "");
+        }
+
+        UnionPeer givenPeer(String siteCode, KeyPair peerKey, String aud, long expiresAt, String jti,
+                            String profileName, String namePrefix) {
             String peerOrigin = "https://" + siteCode + ".peer.test";
             Map<String, Object> assertion = new LinkedHashMap<>();
             assertion.put("profileId", PROFILE_ID);
-            assertion.put("profileName", "Notch");
+            assertion.put("profileName", profileName);
             assertion.put("serverId", SERVER_ID);
             assertion.put("aud", aud);
             assertion.put("issuerKeyId", UnionCryptoService.issuerKeyId(pem(peerKey)));
             assertion.put("jti", normalizedJti(jti));
             assertion.put("issuedAt", expiresAt - 59_000L);
             assertion.put("expiresAt", expiresAt);
-            assertion.put("textures", textureValue(peerOrigin + UnionDiscoveryService.SKIN_TEXTURE_LOCATION));
+            assertion.put("textures", textureValue(peerOrigin + UnionDiscoveryService.SKIN_TEXTURE_LOCATION, profileName));
             String canonical = FederationJoinService.canonicalAssertion(assertion);
             String signature;
             try {
@@ -98,12 +103,12 @@ class FederationJoinServiceTest {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("assertion", assertion);
             body.put("signature", signature);
-            http.responses.put(queryUrl(peerOrigin), JsonSupport.write(body));
+            http.responses.put(queryUrl(peerOrigin, profileName), JsonSupport.write(body));
             UnionPeer peer = new UnionPeer(siteCode, siteCode, peerOrigin,
                     peerOrigin + UnionDiscoveryService.UNION_API_PREFIX,
                     peerOrigin + UnionDiscoveryService.SKIN_TEXTURE_LOCATION,
                     pem(peerKey), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED,
-                    "admin", 1L, "", 0L);
+                    "admin", 1L, "", namePrefix, 0L);
             repository.savePeer(peer);
             return peer;
         }
@@ -217,13 +222,43 @@ class FederationJoinServiceTest {
         assertEquals(List.of("sitmc.peer.test"), fixture.federation.trustedTextureHosts());
     }
 
+    @Test
+    void verifyRemoteJoinRewritesNameWithPeerPrefix() {
+        Fixture fixture = new Fixture();
+        fixture.givenLocalSite();
+        fixture.givenPeer("sitmc", newKeyPair(), LOCAL_SITE, System.currentTimeMillis() + 60_000L, "jti-1",
+                "Notch", "bs");
+
+        Optional<UnionFederationService.FederatedProfile> hit =
+                fixture.federation.verifyRemoteJoin("Notch", SERVER_ID);
+        assertTrue(hit.isPresent());
+        assertEquals("bs_notch", hit.get().name());
+        assertEquals("bs_notch", fixture.repository.findMangledName("sitmc", "notch").orElse(""));
+    }
+
+    @Test
+    void verifyRemoteJoinRejectsOverlongMangledName() {
+        Fixture fixture = new Fixture();
+        fixture.givenLocalSite();
+        fixture.givenPeer("sitmc", newKeyPair(), LOCAL_SITE, System.currentTimeMillis() + 60_000L, "jti-1",
+                "N123456789012345", "bsit");
+
+        // 前缀 4 + 分隔符 1 + 16 位原名 = 21 > 16：fail-closed 拒绝联合登录
+        assertTrue(fixture.federation.verifyRemoteJoin("N123456789012345", SERVER_ID).isEmpty());
+        assertFalse(fixture.repository.pageAudit(1, 50, null, "at", true).isEmpty());
+    }
+
     private static String textureValue(String textureBaseUrl) {
+        return textureValue(textureBaseUrl, "Notch");
+    }
+
+    private static String textureValue(String textureBaseUrl, String profileName) {
         Map<String, Object> textures = new LinkedHashMap<>();
         textures.put("SKIN", Map.of("url", textureBaseUrl + "/abc123"));
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("timestamp", 1L);
         payload.put("profileId", PROFILE_ID);
-        payload.put("profileName", "Notch");
+        payload.put("profileName", profileName);
         payload.put("textures", textures);
         return Base64.getEncoder().encodeToString(JsonSupport.write(payload).getBytes(StandardCharsets.UTF_8));
     }
@@ -233,9 +268,9 @@ class FederationJoinServiceTest {
         return (hex + "0".repeat(32)).substring(0, 32);
     }
 
-    private static String queryUrl(String peerOrigin) {
+    private static String queryUrl(String peerOrigin, String username) {
         return peerOrigin + UnionDiscoveryService.UNION_API_PREFIX + "/peer/joins/query"
-                + "?username=Notch&serverId=" + SERVER_ID + "&aud=" + LOCAL_SITE;
+                + "?username=" + username + "&serverId=" + SERVER_ID + "&aud=" + LOCAL_SITE;
     }
 
     private static String pem(KeyPair keyPair) {

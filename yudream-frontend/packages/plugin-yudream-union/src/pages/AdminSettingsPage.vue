@@ -39,6 +39,11 @@ const sectionList = [
               <YdInput v-model="model.siteName" placeholder="如 余梦" maxlength="64" />
             </YdLabel>
             <YdLabel class="grid gap-2">
+              <span>联合名前缀（可选）</span>
+              <YdInput v-model="model.namePrefix" placeholder="留空 = 不启用；启用后友站玩家显示为 前缀_角色名" maxlength="4" />
+              <span class="text-xs text-muted-foreground">1-4 位小写英文、数字或下划线；对友站不可与已注册站点重复。改写名超 16 字符的联合登录会被拒绝。</span>
+            </YdLabel>
+            <YdLabel class="grid gap-2">
               <span>对外 origin（由 app.web-url / app.base-url 推导，只读）</span>
               <YdInput :model-value="model.settings.origin || '未配置'" disabled />
             </YdLabel>

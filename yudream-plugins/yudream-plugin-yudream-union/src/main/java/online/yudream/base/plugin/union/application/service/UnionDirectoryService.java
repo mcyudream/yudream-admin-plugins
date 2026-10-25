@@ -97,6 +97,14 @@ public class UnionDirectoryService {
         if (declaredOrigin == null || !normalizedOrigin.equals(stripTrailingSlash(declaredOrigin))) {
             throw UnionBusinessException.peerUnreachable("对端发现文档 site.origin 与注册 origin 不一致");
         }
+        String peerNamePrefix = stringOrNull(site.get("namePrefix"));
+        if (peerNamePrefix != null && !UnionDiscoveryService.NAME_PREFIX_PATTERN.matcher(peerNamePrefix).matches()) {
+            throw UnionBusinessException.peerUnreachable("对端 namePrefix 非法（须为 1-4 位小写英数下划线）");
+        }
+        if (peerNamePrefix != null && repository.allPeers().stream()
+                .anyMatch(peer -> peerNamePrefix.equals(peer.namePrefix()))) {
+            throw UnionBusinessException.invalid("联合名前缀与已注册站点冲突：" + peerNamePrefix + "，请对端调整后重试");
+        }
         if (repository.findPeer(siteCode).isPresent()) {
             throw new UnionBusinessException("peer-exists", 409, "该站点已注册");
         }
@@ -126,6 +134,7 @@ public class UnionDirectoryService {
                 actor,
                 now,
                 trim(note),
+                peerNamePrefix == null ? "" : peerNamePrefix,
                 0L);
         repository.savePeer(peer);
         audit(actor, "enroll", siteCode, "信任注册站点（TOFU 固定 TLS 指纹与公钥）");
@@ -151,10 +160,11 @@ public class UnionDirectoryService {
         String backup = newPrimary.equals(peer.publicKeyPem())
                 ? optionalPem(meta.get("backupSignaturePublickey"))
                 : peer.publicKeyPem();
+        String refreshedPrefix = refreshedNamePrefix(meta, peer.namePrefix());
         UnionPeer updated = new UnionPeer(peer.id(), String.valueOf(((Map<?, ?>) meta.get("site")).get("name")),
                 peer.origin(), endpointApiRoot(meta, peer.origin()), requiredPeerUrl(meta, "textureBaseUrl", peer.origin()), newPrimary, backup,
                 peer.tlsCertSha256(), peer.peerSecretSha256(), peer.status(), peer.addedBy(), peer.addedAt(),
-                peer.note(), peer.banCursor());
+                peer.note(), refreshedPrefix, peer.banCursor());
         repository.savePeer(updated);
         audit(actor, "peer.refresh", siteCode, "刷新受信站公钥/元数据");
         return updated;
@@ -167,7 +177,8 @@ public class UnionDirectoryService {
         }
         UnionPeer updated = new UnionPeer(peer.id(), peer.siteName(), peer.origin(), peer.apiRoot(),
                 peer.textureBaseUrl(), peer.publicKeyPem(), peer.backupPublicKeyPem(), peer.tlsCertSha256(),
-                peer.peerSecretSha256(), status, peer.addedBy(), peer.addedAt(), peer.note(), peer.banCursor());
+                peer.peerSecretSha256(), status, peer.addedBy(), peer.addedAt(), peer.note(),
+                peer.namePrefix(), peer.banCursor());
         repository.savePeer(updated);
         audit(actor, UnionPeer.STATUS_BLOCKED.equals(status) ? "peer.block" : "peer.unblock", siteCode,
                 UnionPeer.STATUS_BLOCKED.equals(status) ? "停用受信站点" : "恢复受信站点");
@@ -204,6 +215,7 @@ public class UnionDirectoryService {
         view.put("addedBy", peer.addedBy());
         view.put("addedAt", peer.addedAt());
         view.put("note", peer.note());
+        view.put("namePrefix", peer.namePrefix());
         view.put("banCursor", String.valueOf(peer.banCursor()));
         return view;
     }
@@ -238,23 +250,44 @@ public class UnionDirectoryService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("siteCode", discovery.siteCode().orElse(""));
         body.put("siteName", discovery.siteName().orElse(""));
+        body.put("namePrefix", discovery.namePrefix().orElse(""));
         body.put("origin", discovery.configuredOrigin().orElse(""));
         body.put("keyFingerprint", cryptoService.issuerKeyId());
         body.put("features", discovery.buildMeta().getOrDefault("features", List.of()));
         return body;
     }
 
-    public void saveSite(String siteCode, String siteName, String actor) {
+    public void saveSite(String siteCode, String siteName, String namePrefix, String actor) {
         if (siteCode == null || siteCode.isBlank() || siteCode.length() > 64) {
             throw UnionBusinessException.invalid("siteCode 为必填且 ≤64 字符");
+        }
+        String prefix = trim(namePrefix);
+        if (!prefix.isEmpty() && !UnionDiscoveryService.NAME_PREFIX_PATTERN.matcher(prefix).matches()) {
+            throw UnionBusinessException.invalid("联合名前缀必须为 1-4 位小写英文、数字或下划线；留空表示不启用名字空间");
         }
         String normalized = trim(siteCode);
         String existing = discovery.siteCode().orElse("");
         if (!existing.isBlank() && !existing.equals(normalized)) {
             throw UnionBusinessException.invalid("本站 siteCode 一旦启用即不可变更；变更会使既有受信站断言的 aud 校验失效");
         }
-        discovery.saveSite(normalized, siteName);
+        discovery.saveSite(normalized, siteName, prefix);
         audit(actor, "settings.site", normalized, "配置本站联合身份");
+    }
+
+    @SuppressWarnings("unchecked")
+    private String refreshedNamePrefix(Map<String, Object> meta, String currentPrefix) {
+        if (!(meta.get("site") instanceof Map<?, ?> rawSite)) {
+            return currentPrefix;
+        }
+        String declared = stringOrNull(((Map<?, ?>) rawSite).get("namePrefix"));
+        if (declared == null) {
+            return currentPrefix;
+        }
+        // 前缀变更会让本站已分配的改写名与对端预期脱节，仅接受合法值并留审计线索。
+        if (!UnionDiscoveryService.NAME_PREFIX_PATTERN.matcher(declared).matches()) {
+            return currentPrefix;
+        }
+        return declared;
     }
 
     @SuppressWarnings("unchecked")

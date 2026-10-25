@@ -23,6 +23,9 @@ public class UnionDiscoveryService {
     public static final String UNION_API_PREFIX = "/api/plugins/yudream-union";
     public static final String AUTHLIB_API_LOCATION = "/api/plugins/authlib-injector";
     public static final String SKIN_TEXTURE_LOCATION = "/api/plugins/yudream-skin/textures";
+    /** 联合名前缀规则：小写英数下划线 ≤4，预留「前缀_16位名_冗余」尽量贴近 MC 16 字符上限。 */
+    public static final String FEATURE_NAME_NAMESPACES = "name-namespaces";
+    public static final java.util.regex.Pattern NAME_PREFIX_PATTERN = java.util.regex.Pattern.compile("[a-z0-9_]{1,4}");
 
     private final PluginContext context;
     private final UnionRepository repository;
@@ -40,6 +43,10 @@ public class UnionDiscoveryService {
         site.put("code", siteCode().orElse(""));
         site.put("name", siteName().orElse(""));
         site.put("origin", origin);
+        String namePrefix = namePrefix().orElse("");
+        if (!namePrefix.isEmpty()) {
+            site.put("namePrefix", namePrefix);
+        }
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("unionVersion", UNION_VERSION);
         meta.put("site", site);
@@ -70,10 +77,16 @@ public class UnionDiscoveryService {
         return stringSetting("site", "siteName");
     }
 
-    public void saveSite(String siteCode, String siteName) {
+    /** 联合名前缀（可空 = 未启用名字空间，对端按 v1 旧语义展示原名）。 */
+    public Optional<String> namePrefix() {
+        return stringSetting("site", "namePrefix").filter(prefix -> NAME_PREFIX_PATTERN.matcher(prefix).matches());
+    }
+
+    public void saveSite(String siteCode, String siteName, String namePrefix) {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("siteCode", trim(siteCode));
         document.put("siteName", trim(siteName));
+        document.put("namePrefix", trim(namePrefix));
         repository.saveSetting("site", document);
     }
 
@@ -99,6 +112,9 @@ public class UnionDiscoveryService {
         features.add("ban-ledger");
         if (!context.extensions(UnionJoinEvidenceProvider.class).isEmpty()) {
             features.add("join-assertions");
+        }
+        if (namePrefix().isPresent()) {
+            features.add(FEATURE_NAME_NAMESPACES);
         }
         return features;
     }

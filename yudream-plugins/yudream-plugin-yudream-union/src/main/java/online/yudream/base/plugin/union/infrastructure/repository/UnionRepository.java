@@ -23,6 +23,7 @@ public class UnionRepository {
     public static final String ENROLL_TOKENS = "union_enroll_tokens";
     public static final String AUDIT_LOGS = "union_audit_logs";
     public static final String JOIN_EVENTS = "union_join_events";
+    public static final String NAME_MAPPINGS = "union_name_mappings";
     public static final String SETTINGS = "settings";
 
     private static final int SCAN_PAGE_SIZE = 200;
@@ -92,6 +93,7 @@ public class UnionRepository {
         document.put("addedBy", peer.addedBy());
         document.put("addedAt", peer.addedAt());
         document.put("note", peer.note());
+        document.put("namePrefix", peer.namePrefix());
         document.put("banCursor", peer.banCursor());
         return toPeer(peer.id(), documents.save(PEERS, peer.id(), document));
     }
@@ -128,6 +130,7 @@ public class UnionRepository {
         document.put("nameLower", ban.nameLower());
         document.put("reason", ban.reason());
         document.put("sourceSite", ban.sourceSite());
+        document.put("subjectSite", ban.subjectSite());
         document.put("evidence", ban.evidence());
         document.put("createdBy", ban.createdBy());
         document.put("createdAt", ban.createdAt());
@@ -159,7 +162,7 @@ public class UnionRepository {
     public List<UnionBan> pageActiveBans(int page, int size, long now) {
         Map<String, UnionBan> latest = latestBanEvents();
         return latest.values().stream()
-                .filter(event -> findBanOverride(event.nameLower()).isEmpty())
+                .filter(event -> findBanOverride(event.nameLower(), event.subjectSite()).isEmpty())
                 .filter(event -> event.activeAt(now))
                 .sorted(java.util.Comparator.comparingLong(UnionBan::seq).reversed())
                 .skip((long) Math.max(0, page - 1) * Math.max(1, size))
@@ -169,7 +172,7 @@ public class UnionRepository {
 
     public long activeBanCount(long now) {
         return latestBanEvents().values().stream()
-                .filter(event -> findBanOverride(event.nameLower()).isEmpty())
+                .filter(event -> findBanOverride(event.nameLower(), event.subjectSite()).isEmpty())
                 .filter(event -> event.activeAt(now))
                 .count();
     }
@@ -235,21 +238,69 @@ public class UnionRepository {
         return documents.count(BANS);
     }
 
-    /** 本站管理员对本站/外来封禁的本地解除覆盖（防拉取合并复活）。键 = nameLower。 */
-    public void saveBanOverride(String nameLower, String liftedBy, long liftedAt) {
+    /**
+     * 本站管理员对封禁的本地解除覆盖（防拉取合并复活）。键 = nameLower，
+     * 覆盖范围记录在 subjectSite：blank = v1 旧全域覆盖（对任意归属生效）。
+     */
+    public void saveBanOverride(String nameLower, String subjectSite, String liftedBy, long liftedAt) {
         Map<String, Object> document = new LinkedHashMap<>();
+        document.put("subjectSite", subjectSite == null ? "" : subjectSite);
         document.put("liftedBy", liftedBy);
         document.put("liftedAt", liftedAt);
         documents.save(BAN_OVERRIDES, nameLower, document);
     }
 
-    public Optional<Map<String, Object>> findBanOverride(String nameLower) {
-        return documents.findById(BAN_OVERRIDES, nameLower);
+    /** 覆盖命中规则：覆盖为全域，或事件无归属（v1），或归属一致。 */
+    public Optional<Map<String, Object>> findBanOverride(String nameLower, String subjectSite) {
+        return documents.findById(BAN_OVERRIDES, nameLower)
+                .filter(document -> {
+                    String overridden = string(document, "subjectSite");
+                    return overridden.isBlank() || subjectSite == null || subjectSite.isBlank()
+                            || overridden.equals(subjectSite);
+                });
     }
 
     /** 显式重新封禁时清除此前管理员的解除覆盖，使新裁决立即生效。 */
     public void deleteBanOverride(String nameLower) {
         documents.delete(BAN_OVERRIDES, nameLower);
+    }
+
+    // ---- name mappings ----
+
+    /**
+     * 联合玩家展示名映射：键 = siteCode|nameLower，改写名（前缀_原名，冲突时 _n）
+     * 首次登录确定性分配后终身稳定。对端删除后保留映射，避免服务端玩家身份漂移。
+     */
+    public void saveNameMapping(String siteCode, String nameLower, String name, String mangled) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("siteCode", siteCode);
+        document.put("nameLower", nameLower);
+        document.put("name", name);
+        document.put("mangled", mangled);
+        document.put("allocatedAt", System.currentTimeMillis());
+        documents.save(NAME_MAPPINGS, siteCode + "|" + nameLower, document);
+    }
+
+    public Optional<String> findMangledName(String siteCode, String nameLower) {
+        return documents.findById(NAME_MAPPINGS, siteCode + "|" + nameLower)
+                .map(document -> string(document, "mangled"));
+    }
+
+    /** 按改写名反查（封禁输入解析用）：数据量小，直接全扫。 */
+    public Optional<Map<String, Object>> findNameMappingByMangled(String mangled) {
+        List<Map<String, Object>> all = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<Map<String, Object>> batch = documents.findAll(NAME_MAPPINGS, page, SCAN_PAGE_SIZE);
+            all.addAll(batch);
+            if (batch.size() < SCAN_PAGE_SIZE) {
+                break;
+            }
+            page++;
+        }
+        return all.stream()
+                .filter(document -> mangled.equals(string(document, "mangled")))
+                .findFirst();
     }
 
     // ---- enroll tokens ----
@@ -508,6 +559,7 @@ public class UnionRepository {
                 string(document, "addedBy"),
                 number(document, "addedAt"),
                 string(document, "note"),
+                string(document, "namePrefix"),
                 number(document, "banCursor"));
     }
 
@@ -518,6 +570,7 @@ public class UnionRepository {
                 string(document, "nameLower"),
                 string(document, "reason"),
                 string(document, "sourceSite"),
+                string(document, "subjectSite"),
                 string(document, "evidence"),
                 string(document, "createdBy"),
                 number(document, "createdAt"),

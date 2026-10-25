@@ -9,6 +9,7 @@ export function useUnionSettings(sdk: YuDreamPluginSdk) {
   const settings = ref<UnionSiteSettings>({})
   const siteCode = ref('')
   const siteName = ref('')
+  const namePrefix = ref('')
   const keyFingerprint = ref('')
   const features = ref<string[]>([])
   const auditRetentionDays = ref(30)
@@ -21,6 +22,7 @@ export function useUnionSettings(sdk: YuDreamPluginSdk) {
       settings.value = body
       siteCode.value = body.siteCode ?? ''
       siteName.value = body.siteName ?? ''
+      namePrefix.value = body.namePrefix ?? ''
       keyFingerprint.value = body.keyFingerprint ?? ''
       features.value = body.features ?? []
       auditRetentionDays.value = Number(body.auditRetentionDays ?? 30)
@@ -40,6 +42,7 @@ export function useUnionSettings(sdk: YuDreamPluginSdk) {
       settings.value = await api.saveSettings({
         siteCode: siteCode.value.trim(),
         siteName: siteName.value.trim(),
+        namePrefix: namePrefix.value.trim(),
         auditRetentionDays: Math.max(0, Math.floor(auditRetentionDays.value)),
         joinRetentionDays: Math.max(0, Math.floor(joinRetentionDays.value)),
       })
@@ -57,7 +60,7 @@ export function useUnionSettings(sdk: YuDreamPluginSdk) {
   onMounted(load)
 
   return reactive({
-    loading, error, saving, settings, siteCode, siteName, keyFingerprint, features,
+    loading, error, saving, settings, siteCode, siteName, namePrefix, keyFingerprint, features,
     auditRetentionDays, joinRetentionDays,
     load, save,
   })

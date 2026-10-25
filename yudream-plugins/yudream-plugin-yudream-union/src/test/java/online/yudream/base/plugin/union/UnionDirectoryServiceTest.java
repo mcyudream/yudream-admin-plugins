@@ -3,6 +3,7 @@ package online.yudream.base.plugin.union;
 import online.yudream.base.plugin.union.application.service.UnionDirectoryService;
 import online.yudream.base.plugin.union.application.service.UnionDiscoveryService;
 import online.yudream.base.plugin.union.domain.UnionBusinessException;
+import online.yudream.base.plugin.union.domain.aggregate.UnionPeer;
 import online.yudream.base.plugin.union.infrastructure.UnionCryptoService;
 import online.yudream.base.plugin.union.infrastructure.repository.UnionRepository;
 import online.yudream.base.plugin.union.support.UnionTestSupport;
@@ -131,10 +132,17 @@ class UnionDirectoryServiceTest {
     }
 
     private static String peerMeta(String siteCode, String origin, String apiRoot, KeyPair peerKey) {
+        return peerMeta(siteCode, origin, apiRoot, peerKey, null);
+    }
+
+    private static String peerMeta(String siteCode, String origin, String apiRoot, KeyPair peerKey, String namePrefix) {
         Map<String, Object> site = new java.util.LinkedHashMap<>();
         site.put("code", siteCode);
         site.put("name", "SIT MC");
         site.put("origin", origin);
+        if (namePrefix != null) {
+            site.put("namePrefix", namePrefix);
+        }
         Map<String, Object> meta = new java.util.LinkedHashMap<>();
         meta.put("unionVersion", "1");
         meta.put("site", site);
@@ -147,6 +155,46 @@ class UnionDirectoryServiceTest {
         meta.put("bans", Map.of("cursor", 0));
         meta.put("enrollEnabled", true);
         return online.yudream.base.plugin.union.infrastructure.support.JsonSupport.write(meta);
+    }
+
+    @Test
+    void enrollStoresPeerNamePrefix() {
+        Deps deps = Deps.create();
+        Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
+        deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair(), "bs"));
+
+        deps.directory.enroll(PEER_ORIGIN, String.valueOf(token.get("enrollToken")), null, "admin", 2_000L);
+
+        assertEquals("bs", deps.repository.findPeer("sitmc").orElseThrow().namePrefix());
+    }
+
+    @Test
+    void enrollRejectsDuplicatePeerNamePrefix() {
+        Deps deps = Deps.create();
+        deps.repository.savePeer(new UnionPeer("other", "OTHER", "https://other.peer.test",
+                "https://other.peer.test/api/plugins/yudream-union", "https://other.peer.test/t",
+                UnionCryptoService.pem("PUBLIC KEY",
+                        Base64.getEncoder().encodeToString(newKeyPair().getPublic().getEncoded())),
+                null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "bs", 0L));
+        Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
+        deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair(), "bs"));
+
+        UnionBusinessException thrown = assertThrows(UnionBusinessException.class,
+                () -> deps.directory.enroll(PEER_ORIGIN, String.valueOf(token.get("enrollToken")), null, "admin", 2_000L));
+
+        assertTrue(thrown.getMessage().contains("前缀"));
+    }
+
+    @Test
+    void enrollRejectsIllegalPeerNamePrefix() {
+        Deps deps = Deps.create();
+        Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
+        deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair(), "BAD!"));
+
+        UnionBusinessException thrown = assertThrows(UnionBusinessException.class,
+                () -> deps.directory.enroll(PEER_ORIGIN, String.valueOf(token.get("enrollToken")), null, "admin", 2_000L));
+
+        assertTrue(thrown.getMessage().contains("namePrefix"));
     }
 
     private static KeyPair newKeyPair() {

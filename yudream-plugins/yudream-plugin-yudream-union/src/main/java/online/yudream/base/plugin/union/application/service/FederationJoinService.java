@@ -36,6 +36,8 @@ public class FederationJoinService implements UnionFederationService {
     private static final long ASSERTION_TTL_MILLIS = 60_000L;
     private static final long CLOCK_SKEW_MILLIS = 5_000L;
     private static final int MAX_PEERS = 8;
+    /** MC 服务端角色名上限，联合改写名同受约束。 */
+    private static final int MANGLED_NAME_MAX = 16;
 
     private final PluginContext context;
     private final UnionRepository repository;
@@ -132,10 +134,47 @@ public class FederationJoinService implements UnionFederationService {
             return Optional.empty();
         }
         VerifiedAssertion hit = hits.get(0);
-        if (banService.isBanned(hit.profileName(), now)) {
+        // 封禁按 (归属站, 规范化名) 判定：只封对端声明的那个身份，不误伤其他站同名玩家
+        if (banService.isBannedForSubject(hit.siteCode(), hit.profileName(), now)) {
             return Optional.empty();
         }
-        return Optional.of(new FederatedProfile(hit.profileId(), hit.profileName(), hit.textureValue()));
+        UnionPeer peer = repository.findPeer(hit.siteCode()).orElse(null);
+        String displayName = peer == null
+                ? hit.profileName()
+                : mangleDisplayName(peer, hit.profileName(), now);
+        if (displayName == null) {
+            // 改写名超 16 字符（MC 上限）无法安全展示：fail-closed 拒绝本次联合登录
+            return Optional.empty();
+        }
+        return Optional.of(new FederatedProfile(hit.profileId(), displayName, hit.textureValue()));
+    }
+
+    /**
+     * 名字空间改写（协议 §3.1 namePrefix）：`前缀_原名`，被占用时追加 _n；
+     * 首次分配持久化，终身稳定。对端未声明前缀（未升级）保持 v1 原名直出。
+     */
+    private String mangleDisplayName(UnionPeer peer, String profileName, long now) {
+        if (peer.namePrefix() == null || peer.namePrefix().isBlank()) {
+            return profileName;
+        }
+        String normalized = UnionBanService.normalizeName(profileName);
+        Optional<String> allocated = repository.findMangledName(peer.id(), normalized);
+        if (allocated.isPresent()) {
+            return allocated.get();
+        }
+        String candidate = peer.namePrefix() + "_" + normalized;
+        int suffix = 0;
+        while (repository.findNameMappingByMangled(candidate).isPresent()) {
+            suffix++;
+            candidate = peer.namePrefix() + "_" + normalized + "_" + suffix;
+        }
+        if (candidate.length() > MANGLED_NAME_MAX) {
+            audit("SYSTEM", "", "join.mangleRejected", normalized,
+                    "联合名空间改写超 " + MANGLED_NAME_MAX + " 字符（前缀 " + peer.namePrefix() + "），已拒绝");
+            return null;
+        }
+        repository.saveNameMapping(peer.id(), normalized, profileName, candidate);
+        return candidate;
     }
 
     @Override
