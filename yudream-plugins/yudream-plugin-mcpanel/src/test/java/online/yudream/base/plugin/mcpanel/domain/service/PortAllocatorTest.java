@@ -131,16 +131,31 @@ class PortAllocatorTest {
                 () -> allocator.allocateExtra(reserved, "tcp", 25580, "inst-a")).code());
         assertEquals("port.out-of-range", assertThrows(McpanelBusinessException.class,
                 () -> allocator.allocateExtra(node(25565, 25699, List.of()), "tcp", 8123, "inst-a")).code());
+        // udp 同样以节点配置段校验：41000 超出 25565-25699。
         assertEquals("port.out-of-range", assertThrows(McpanelBusinessException.class,
-                () -> allocator.allocateExtra(node(25565, 25699, List.of()), "udp", 25570, "inst-a")).code());
+                () -> allocator.allocateExtra(node(25565, 25699, List.of()), "udp", 41000, "inst-a")).code());
         assertThrows(McpanelBusinessException.class,
                 () -> allocator.allocateExtra(node(25565, 25699, List.of()), "sctp", 25570, "inst-a"));
     }
 
     @Test
-    void allocateExtraUdpUsesFixedUdpPool() {
+    void allocateExtraUdpFollowsNodeConfiguredPool() {
         FakePortRepo repo = new FakePortRepo();
         PortAllocator allocator = new PortAllocator(repo);
+        McpanelNode node = node(41000, 42000, List.of());
+        // 自动分配落在节点配置段内（曾固定取 19132 段导致池外）。
+        McpanelInstance.PortMapping auto = allocator.allocateExtra(node, "udp", null, "inst-a");
+        assertEquals(41000, auto.hostPort());
+        // 手动指定段内 udp 端口（曾因 udp 固定段被拒）。
+        McpanelInstance.PortMapping manual = allocator.allocateExtra(node, "udp", 41005, "inst-b");
+        assertEquals(41005, manual.hostPort());
+    }
+
+    @Test
+    void allocateExtraUdpFallsBackToDefaultSegmentWhenUnconfigured() {
+        FakePortRepo repo = new FakePortRepo();
+        PortAllocator allocator = new PortAllocator(repo);
+        // 节点未配置端口池：udp 回落基岩惯例段 19132-19261。
         McpanelInstance.PortMapping mapping = allocator.allocateExtra(
                 node(null, null, List.of()), "udp", 19140, "inst-a");
         assertEquals(19140, mapping.hostPort());
@@ -151,12 +166,28 @@ class PortAllocatorTest {
     @Test
     void planChangeComputesAdditionsAndRemovals() {
         PortAllocator allocator = new PortAllocator(new FakePortRepo());
-        McpanelNode node = node(25565, 25699, List.of());
+        // 未配置端口池的节点：udp 回落默认段，19140/udp 合法。
+        McpanelNode node = node(null, null, List.of());
         List<McpanelInstance.PortMapping> current = List.of(port(25565, "tcp"), port(25570, "tcp"));
         List<McpanelInstance.PortMapping> desired = List.of(port(25565, "tcp"), port(19140, "udp"));
         PortAllocator.ChangePlan plan = allocator.planChange(node, current, desired);
         assertEquals(List.of(port(19140, "udp")), plan.additions());
         assertEquals(List.of(port(25570, "tcp")), plan.removals());
+    }
+
+    @Test
+    void planChangeUdpInConfiguredPoolAndGrandfathersLegacyPorts() {
+        PortAllocator allocator = new PortAllocator(new FakePortRepo());
+        McpanelNode node = node(41000, 42000, List.of());
+        // 存量 19133/udp 分配于旧 udp 固定段：池配置调整后不回溯，不阻塞新增。
+        List<McpanelInstance.PortMapping> current = List.of(port(41008, "tcp"), port(19133, "udp"));
+        PortAllocator.ChangePlan plan = allocator.planChange(node, current,
+                List.of(port(41008, "tcp"), port(19133, "udp"), port(41000, "udp")));
+        assertEquals(List.of(port(41000, "udp")), plan.additions());
+        assertTrue(plan.removals().isEmpty());
+        // 新增端口仍校验池内范围。
+        assertThrows(McpanelBusinessException.class, () -> allocator.planChange(node, current,
+                List.of(port(41008, "tcp"), port(19133, "udp"), port(8123, "tcp"))));
     }
 
     @Test
