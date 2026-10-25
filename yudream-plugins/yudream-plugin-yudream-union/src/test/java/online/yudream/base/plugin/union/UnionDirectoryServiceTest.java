@@ -246,7 +246,7 @@ class UnionDirectoryServiceTest {
                 "https://other.peer.test/api/plugins/yudream-union", "https://other.peer.test/t",
                 UnionCryptoService.pem("PUBLIC KEY",
                         Base64.getEncoder().encodeToString(newKeyPair().getPublic().getEncoded())),
-                null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "bs", 0L));
+                null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "bs", 0L, null));
         Map<String, Object> token = deps.directory.issueEnrollToken("admin", 1_000L);
         deps.http.responses.put(META_URL, peerMeta("sitmc", PEER_ORIGIN, API_ROOT, newKeyPair(), "bs"));
 

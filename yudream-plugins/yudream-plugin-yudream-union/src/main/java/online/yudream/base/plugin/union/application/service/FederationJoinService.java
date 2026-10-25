@@ -64,9 +64,13 @@ public class FederationJoinService implements UnionFederationService {
         this.executor = executor;
     }
 
-    // ---- 联邦信任集：受信站钉扎签名钥 ----
+    // ---- 联邦信任集：受信站 authlib 签名钥 ----
 
-    /** 主+备钉扎钥去重输出；联合公钥信任集的「经批准的合作站公钥」来源。 */
+    /**
+     * 对端 authlib 材质签名钥（注册/刷新时经 TOFU 通道钉扎）：联合公钥信任集的
+     * 「经批准的合作站公钥」。只发 authlib 钥——union 协议钥仅用于服务端断言验签，
+     * 客户端没有任何以它签发的内容，下发反而扩大信任面。旧条目未抓取到时跳过该站。
+     */
     @Override
     public List<String> trustedPeerSigningKeysPem() {
         LinkedHashSet<String> keys = new LinkedHashSet<>();
@@ -74,11 +78,8 @@ public class FederationJoinService implements UnionFederationService {
             if (!peer.trusted()) {
                 continue;
             }
-            if (!isBlank(peer.publicKeyPem())) {
-                keys.add(peer.publicKeyPem());
-            }
-            if (!isBlank(peer.backupPublicKeyPem())) {
-                keys.add(peer.backupPublicKeyPem());
+            if (!isBlank(peer.authlibPublicKeyPem())) {
+                keys.add(peer.authlibPublicKeyPem());
             }
         }
         return List.copyOf(keys);

@@ -109,7 +109,7 @@ class UnionBanServiceTest {
                 "https://sitmc.peer.test/api/plugins/yudream-union", "https://sitmc.peer.test/t",
                 keyPem(), null, "f".repeat(64),
                 UnionCryptoService.sha256Hex("shared-secret"), UnionPeer.STATUS_TRUSTED,
-                "admin", 1L, "", "", 0L);
+                "admin", 1L, "", "", 0L, null);
         repository.savePeer(peer);
         long now = 10_000L;
 
@@ -169,7 +169,7 @@ class UnionBanServiceTest {
     private UnionPeer saveTrustedPeer(UnionRepository repository) {
         UnionPeer peer = new UnionPeer("sitmc", "SIT", "https://sitmc.peer.test",
                 "https://sitmc.peer.test/api/plugins/yudream-union", "https://sitmc.peer.test/t",
-                keyPem(), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "", 0L);
+                keyPem(), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED, "admin", 1L, "", "", 0L, null);
         repository.savePeer(peer);
         return peer;
     }

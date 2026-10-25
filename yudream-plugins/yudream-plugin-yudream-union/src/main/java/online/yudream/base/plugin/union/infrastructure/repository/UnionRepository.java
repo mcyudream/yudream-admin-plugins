@@ -95,6 +95,7 @@ public class UnionRepository {
         document.put("note", peer.note());
         document.put("namePrefix", peer.namePrefix());
         document.put("banCursor", peer.banCursor());
+        document.put("authlibPublicKeyPem", peer.authlibPublicKeyPem());
         return toPeer(peer.id(), documents.save(PEERS, peer.id(), document));
     }
 
@@ -560,7 +561,8 @@ public class UnionRepository {
                 number(document, "addedAt"),
                 string(document, "note"),
                 string(document, "namePrefix"),
-                number(document, "banCursor"));
+                number(document, "banCursor"),
+                string(document, "authlibPublicKeyPem"));
     }
 
     private UnionBan toBan(long seq, Map<String, Object> document) {

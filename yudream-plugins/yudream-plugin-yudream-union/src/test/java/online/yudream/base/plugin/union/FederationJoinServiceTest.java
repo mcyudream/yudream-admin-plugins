@@ -108,7 +108,7 @@ class FederationJoinServiceTest {
                     peerOrigin + UnionDiscoveryService.UNION_API_PREFIX,
                     peerOrigin + UnionDiscoveryService.SKIN_TEXTURE_LOCATION,
                     pem(peerKey), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED,
-                    "admin", 1L, "", namePrefix, 0L);
+                    "admin", 1L, "", namePrefix, 0L, null);
             repository.savePeer(peer);
             return peer;
         }
@@ -220,6 +220,31 @@ class FederationJoinServiceTest {
         fixture.givenPeer("sitmc", newKeyPair(), LOCAL_SITE, System.currentTimeMillis() + 60_000L, "jti-1");
 
         assertEquals(List.of("sitmc.peer.test"), fixture.federation.trustedTextureHosts());
+    }
+
+    @Test
+    void trustedPeerSigningKeysPublishPeerAuthlibKeysOnly() {
+        Fixture fixture = new Fixture();
+        fixture.givenLocalSite();
+        String peerAuthlibPem = pem(newKeyPair());
+        fixture.repository.savePeer(new UnionPeer("sitmc", "sitmc", "https://sitmc.peer.test",
+                "https://sitmc.peer.test" + UnionDiscoveryService.UNION_API_PREFIX,
+                "https://sitmc.peer.test" + UnionDiscoveryService.SKIN_TEXTURE_LOCATION,
+                pem(newKeyPair()), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED,
+                "admin", 1L, "", "", 0L, peerAuthlibPem));
+        // 未抓取到 authlib 钥的旧条目跳过；blocked 站即使有钥也不发
+        fixture.repository.savePeer(new UnionPeer("old", "old", "https://old.peer.test",
+                "https://old.peer.test" + UnionDiscoveryService.UNION_API_PREFIX,
+                "https://old.peer.test" + UnionDiscoveryService.SKIN_TEXTURE_LOCATION,
+                pem(newKeyPair()), null, "f".repeat(64), null, UnionPeer.STATUS_TRUSTED,
+                "admin", 1L, "", "", 0L, null));
+        fixture.repository.savePeer(new UnionPeer("blocked", "blocked", "https://blocked.peer.test",
+                "https://blocked.peer.test" + UnionDiscoveryService.UNION_API_PREFIX,
+                "https://blocked.peer.test" + UnionDiscoveryService.SKIN_TEXTURE_LOCATION,
+                pem(newKeyPair()), null, "f".repeat(64), null, UnionPeer.STATUS_BLOCKED,
+                "admin", 1L, "", "", 0L, pem(newKeyPair())));
+
+        assertEquals(List.of(peerAuthlibPem), fixture.federation.trustedPeerSigningKeysPem());
     }
 
     @Test

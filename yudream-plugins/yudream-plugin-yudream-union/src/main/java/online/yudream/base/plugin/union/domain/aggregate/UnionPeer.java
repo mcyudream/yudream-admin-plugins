@@ -18,6 +18,8 @@ package online.yudream.base.plugin.union.domain.aggregate;
  * @param note              备注
  * @param namePrefix        对端联合名前缀（协议 §3.1 可选；空 = 对端未启用名字空间）
  * @param banCursor         已从该站拉取的封禁账本游标
+ * @param authlibPublicKeyPem 对端 authlib 元数据的材质签名公钥（PEM，联合公钥信任集发布用；
+ *                            0.5.0 起注册/刷新时经同一 TOFU 通道抓取，旧条目为空直到刷新）
  */
 public record UnionPeer(
         String id,
@@ -34,7 +36,8 @@ public record UnionPeer(
         long addedAt,
         String note,
         String namePrefix,
-        long banCursor
+        long banCursor,
+        String authlibPublicKeyPem
 ) {
 
     public static final String STATUS_TRUSTED = "trusted";

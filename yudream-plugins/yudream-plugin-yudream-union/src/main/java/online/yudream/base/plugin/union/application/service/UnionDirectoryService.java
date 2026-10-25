@@ -112,6 +112,8 @@ public class UnionDirectoryService {
         String textureBaseUrl = requiredPeerUrl(meta, "textureBaseUrl", normalizedOrigin);
         String primaryKey = requiredPem(meta.get("signaturePublickey"), "signaturePublickey");
         String backupKey = optionalPem(meta.get("backupSignaturePublickey"));
+        // 对端 authlib 材质签名公钥：注册即经同一 TLS 通道抓取（增益能力，失败留空待刷新补齐）
+        String authlibKey = fetchPeerAuthlibKey(normalizedOrigin, Optional.of(response.tlsCertSha256()));
         // join-assertions 为可选能力（对端可基于任意 authlib 分支或不跑 authlib，仅做目录/封禁互通），
         // 注册不再硬性要求；断言查询对未声明站点自然得到 204。
         // 全部远端事实验证完成后才 CAS 消费一次性令牌；网络/格式错误允许同 token 修正后重试。
@@ -136,7 +138,8 @@ public class UnionDirectoryService {
                 now,
                 trim(note),
                 peerNamePrefix == null ? "" : peerNamePrefix,
-                0L);
+                0L,
+                authlibKey);
         repository.savePeer(peer);
         audit(actor, "enroll", siteCode, "信任注册站点（TOFU 固定 TLS 指纹与公钥）");
         Map<String, Object> body = new LinkedHashMap<>();
@@ -219,11 +222,16 @@ public class UnionDirectoryService {
         String backup = newPrimary.equals(peer.publicKeyPem())
                 ? optionalPem(meta.get("backupSignaturePublickey"))
                 : peer.publicKeyPem();
+        // 顺带补抓对端 authlib 钥：抓取失败保留旧值，绝不因此刷新失败
+        String authlibKey = fetchPeerAuthlibKey(peer.origin(), Optional.of(peer.tlsCertSha256()));
+        if (authlibKey == null) {
+            authlibKey = peer.authlibPublicKeyPem();
+        }
         String refreshedPrefix = refreshedNamePrefix(meta, peer.namePrefix());
         UnionPeer updated = new UnionPeer(peer.id(), String.valueOf(((Map<?, ?>) meta.get("site")).get("name")),
                 peer.origin(), endpointApiRoot(meta, peer.origin()), requiredPeerUrl(meta, "textureBaseUrl", peer.origin()), newPrimary, backup,
                 peer.tlsCertSha256(), peer.peerSecretSha256(), peer.status(), peer.addedBy(), peer.addedAt(),
-                peer.note(), refreshedPrefix, peer.banCursor());
+                peer.note(), refreshedPrefix, peer.banCursor(), authlibKey);
         repository.savePeer(updated);
         audit(actor, "peer.refresh", siteCode, "刷新受信站公钥/元数据");
         return updated;
@@ -237,7 +245,7 @@ public class UnionDirectoryService {
         UnionPeer updated = new UnionPeer(peer.id(), peer.siteName(), peer.origin(), peer.apiRoot(),
                 peer.textureBaseUrl(), peer.publicKeyPem(), peer.backupPublicKeyPem(), peer.tlsCertSha256(),
                 peer.peerSecretSha256(), status, peer.addedBy(), peer.addedAt(), peer.note(),
-                peer.namePrefix(), peer.banCursor());
+                peer.namePrefix(), peer.banCursor(), peer.authlibPublicKeyPem());
         repository.savePeer(updated);
         audit(actor, UnionPeer.STATUS_BLOCKED.equals(status) ? "peer.block" : "peer.unblock", siteCode,
                 UnionPeer.STATUS_BLOCKED.equals(status) ? "停用受信站点" : "恢复受信站点");
@@ -269,6 +277,7 @@ public class UnionDirectoryService {
         view.put("textureBaseUrl", peer.textureBaseUrl());
         view.put("keyFingerprint", fingerprintOf(peer.publicKeyPem()));
         view.put("backupKeyFingerprint", peer.backupPublicKeyPem() == null ? null : fingerprintOf(peer.backupPublicKeyPem()));
+        view.put("authlibKeyFingerprint", peer.authlibPublicKeyPem() == null ? null : fingerprintOf(peer.authlibPublicKeyPem()));
         view.put("tlsCertSha256", peer.tlsCertSha256());
         view.put("status", peer.status());
         view.put("addedBy", peer.addedBy());
@@ -331,6 +340,21 @@ public class UnionDirectoryService {
         }
         discovery.saveSite(normalized, siteName, prefix);
         audit(actor, "settings.site", normalized, "配置本站联合身份");
+    }
+
+    /**
+     * 抓取对端 authlib 元数据的材质签名公钥（联合公钥信任集的对端钥来源）。
+     * 走与发现文档相同的 TOFU TLS 通道；对端未部署 authlib、路径变化或网络失败
+     * 时返回 null，由调用方保留旧值——公钥供给是增益能力，不阻断注册/刷新。
+     */
+    private String fetchPeerAuthlibKey(String origin, Optional<String> tlsPin) {
+        try {
+            PeerHttpClient.PeerResponse response = peerHttpClient.get(
+                    stripTrailingSlash(origin) + "/api/plugins/authlib-injector/", tlsPin);
+            return optionalPem(JsonSupport.readMap(response.body()).get("signaturePublickey"));
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")

@@ -201,7 +201,7 @@ public class UnionBanService {
             repository.savePeer(new UnionPeer(peer.id(), peer.siteName(), peer.origin(), peer.apiRoot(),
                     peer.textureBaseUrl(), peer.publicKeyPem(), peer.backupPublicKeyPem(), peer.tlsCertSha256(),
                     peer.peerSecretSha256(), peer.status(), peer.addedBy(), peer.addedAt(), peer.note(),
-                    peer.namePrefix(), maxRemoteSeq));
+                    peer.namePrefix(), maxRemoteSeq, peer.authlibPublicKeyPem()));
         }
         return applied;
     }
