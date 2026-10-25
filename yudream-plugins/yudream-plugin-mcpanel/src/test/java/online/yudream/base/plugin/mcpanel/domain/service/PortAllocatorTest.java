@@ -54,7 +54,19 @@ class PortAllocatorTest {
             ledger.forEach((key, owner) -> {
                 if (owner.equals(instanceId)) {
                     String[] parts = key.split(":");
-                    found.add(new Record(parts[0], Integer.parseInt(parts[1]), parts[2], owner));
+                    found.add(new Record(parts[0], Integer.parseInt(parts[1]), parts[2], owner, 0L));
+                }
+            });
+            return found;
+        }
+
+        @Override
+        public List<Record> findByNode(String nodeId) {
+            List<Record> found = new ArrayList<>();
+            ledger.forEach((key, owner) -> {
+                if (key.startsWith(nodeId + ":")) {
+                    String[] parts = key.split(":");
+                    found.add(new Record(parts[0], Integer.parseInt(parts[1]), parts[2], owner, 0L));
                 }
             });
             return found;

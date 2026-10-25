@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.mcpanel.infrastructure.repository;
 
 import online.yudream.base.plugin.mcpanel.acceptance.InMemoryDocumentStore;
+import online.yudream.base.plugin.mcpanel.domain.repo.PortAllocationRepository;
 import online.yudream.base.plugin.mcpanel.infrastructure.support.McpanelJson;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,5 +84,17 @@ class DocumentPortAllocationRepositoryTest {
         }
         assertEquals(5, ports.findByInstance("inst-pages").size());
         assertEquals(5L, ports.countByNode("node-1"));
+    }
+
+    @Test
+    void findByNodeFiltersByNodeAndParsesCreatedAt() {
+        ports.allocate("node-1", 20000, "tcp", "inst-a");
+        ports.allocate("node-1", 20001, "udp", "inst-a");
+        ports.allocate("node-2", 20002, "tcp", "inst-b");
+        List<PortAllocationRepository.Record> records = ports.findByNode("node-1");
+        assertEquals(2, records.size());
+        assertTrue(records.stream().allMatch(record -> "node-1".equals(record.nodeId())));
+        assertTrue(records.stream().allMatch(record -> record.createdAtMs() > 0));
+        assertEquals(1, ports.findByNode("node-2").size());
     }
 }
