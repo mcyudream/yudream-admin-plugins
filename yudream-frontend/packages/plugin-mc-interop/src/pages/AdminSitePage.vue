@@ -2,7 +2,7 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McInteropPeer } from '../types'
-import { YdAlert, YdButton, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdPageHeader, YdResponsiveEnhancedTable, YdSettingsLayout, YdSettingsSection, useYdModal, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdCopyButton, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdPageHeader, YdResponsiveEnhancedTable, YdSettingsLayout, YdSettingsSection, useYdModal, useYdToast } from '@yudream/components'
 import { ref } from 'vue'
 import { useMcInteropSite } from '../composables/useMcInteropSite'
 
@@ -14,11 +14,6 @@ const activeSection = ref('site')
 
 // 协议入口挂在插件分发路径下：零反代零网关，dev/生产任何部署形态直接可达。
 const wellKnownUrl = `${window.location.origin}/api/plugins/mc-interop/.well-known/mc-interop-v1.json`
-
-async function copyWellKnownUrl() {
-  await navigator.clipboard.writeText(wellKnownUrl)
-  toast.success('已复制协议入口地址')
-}
 
 const sectionList = [
   { icon: 'i-ri:global-line', label: '站点身份', value: 'site' },
@@ -129,11 +124,7 @@ function removePeer(peer: McInteropPeer) {
         >
           <div class="flex flex-wrap items-center gap-2">
             <code class="break-all text-sm">{{ wellKnownUrl }}</code>
-            <button
-              type="button"
-              class="rounded-md border border-solid border-surface-5 px-2 py-0.5 text-xs text-secondary transition-colors hover:text-contrast"
-              @click="copyWellKnownUrl"
-            >复制</button>
+            <YdCopyButton :text="wellKnownUrl" label="复制" size="sm" variant="outline" />
           </div>
           <p v-if="model.settings.domain" class="mt-2 text-xs text-muted-foreground">
             站点对外域名（{{ model.settings.domain }}）上线后，友站同样以
