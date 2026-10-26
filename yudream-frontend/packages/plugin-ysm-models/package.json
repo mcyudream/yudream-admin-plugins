@@ -1,0 +1,27 @@
+{
+  "name": "@yudream/plugin-ysm-models",
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false",
+    "lint": "vue-tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@yudream/components": "catalog:",
+    "@yudream/plugin-sdk": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/three": "0.180.0",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

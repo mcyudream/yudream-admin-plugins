@@ -1,0 +1,14 @@
+# YDA 仅提供通用模型；游戏版本由本运行端适配。
+website-url: 'https://your-site.example'
+bridge-token: ''
+poll-seconds: 5
+refresh-cooldown-seconds: 60
+resource-pack-timeout-seconds: 120
+model-scale: 0.75
+view-distance: 64
+max-snapshot-models: 128
+pack-host:
+  bind: '0.0.0.0'
+  port: 8767
+  # 需为玩家可访问的公网地址，可由 HTTPS 反向代理转发到上面的端口。
+  public-url: 'https://packs.your-site.example'

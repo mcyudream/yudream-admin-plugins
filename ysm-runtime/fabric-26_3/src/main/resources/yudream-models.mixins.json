@@ -1,0 +1,1 @@
+{"required":true,"package":"online.yudream.ysm.fabric26_3.mixin","compatibilityLevel":"JAVA_25","client":["LivingRendererMixin","AvatarNames"],"injectors":{"defaultRequire":1}}

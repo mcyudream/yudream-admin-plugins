@@ -1,0 +1,2 @@
+rootProject.name = 'yudream-ysm'
+include 'core', 'server-folia', 'fabric-26_3'

@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-26",
+  "minecraft": "26.3",
+  "schema": 1,
+  "websiteBridge": "mock HTTP; actual ModelCompiler bundles",
+  "clients": {
+    "client": [
+      "YudreamModels Fabric",
+      "Fabric API",
+      "MinecraftMcp"
+    ],
+    "observer": [
+      "Fabric API",
+      "MinecraftMcp"
+    ]
+  },
+  "testedFullyUnmodifiedClient": false,
+  "acceptance": {
+    "initial_once_and_viewer_modes": {
+      "status": {
+        "client": "模型模式：Fabric 动态更新；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。",
+        "observer": "模型模式：原版资源快照；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。"
+      },
+      "virtualDisplays": {
+        "client": 0,
+        "observer": 37
+      },
+      "reloadBaseline": {
+        "client": 0,
+        "observer": 0
+      },
+      "passed": true
+    },
+    "failed_asset_retains_previous_without_reload": {
+      "reloads": {
+        "client": 0,
+        "observer": 0
+      },
+      "passed": true
+    },
+    "fabric_hot_update_and_vanilla_old_snapshot": {
+      "reloads": {
+        "client": 0,
+        "observer": 0
+      },
+      "status": {
+        "client": "模型模式：Fabric 动态更新；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。",
+        "observer": "模型模式：原版资源快照；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。"
+      },
+      "passed": true
+    },
+    "manual_refresh_only_affects_requester": {
+      "status": {
+        "client": "模型模式：Fabric 动态更新；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。",
+        "observer": "模型模式：原版资源快照；资源已加载；已加载模型 1；资源包发送 2 次；可使用 /model refresh 手动刷新。"
+      },
+      "reloads": {
+        "client": 0,
+        "observer": 2
+      },
+      "passed": true
+    },
+    "unchanged_snapshot_does_not_resend": {
+      "status": "模型模式：原版资源快照；资源已加载；已加载模型 1；资源包发送 2 次；可使用 /model refresh 手动刷新。",
+      "passed": true
+    },
+    "outfit_clear_restores_skin": {
+      "passed": true
+    },
+    "separate_region_and_retracking": {
+      "displays": 37,
+      "passed": true
+    },
+    "dimension_change": {
+      "displays": 37,
+      "passed": true
+    },
+    "completed": {
+      "serverErrors": 0,
+      "passed": true
+    }
+  },
+  "finalLifecycle": {
+    "final_jars_initial_and_no_world_displays": {
+      "status": {
+        "client": "模型模式：Fabric 动态更新；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。",
+        "observer": "模型模式：原版资源快照；资源已加载；已加载模型 1；资源包发送 1 次；可使用 /model refresh 手动刷新。"
+      },
+      "virtualDisplays": {
+        "client": 0,
+        "observer": 37
+      },
+      "serverWorldCount": "YSM_CHECK world_displays=0",
+      "chestplateEquipped": true,
+      "passed": true
+    },
+    "plugin_disable_resets_both_paths": {
+      "virtualDisplays": {
+        "client": 0,
+        "observer": 0
+      },
+      "fabricResetReceived": true,
+      "pluginErrors": 0,
+      "passed": true
+    }
+  },
+  "checks": {
+    "frontendTests": 3,
+    "mavenTests": 15,
+    "gradleCoreTests": 9,
+    "gradleDuplicatesMavenCoreTests": true,
+    "frontendTypecheckBuild": "passed",
+    "runtimeBuild": "passed",
+    "pluginJarAssets": "passed",
+    "publishedMavenSpi": "passed",
+    "fullReadiness": "incomplete: published npm contract reinstall timed out",
+    "browserPreview": "blocked: WebGL Mesa ANGLE BindToCurrentSequence failed",
+    "actualYdaHostIntegration": "not verified"
+  },
+  "artifacts": {
+    "ysm-runtime/server-folia/build/libs/YudreamModels-folia-26.3-0.1.0.jar": {
+      "sha256": "161ec8e1254669ac5b04f9eaa7e55e62ebdcabfa6d22b490c441cb6e12c8018e",
+      "bytes": 113978
+    },
+    "ysm-runtime/fabric-26_3/build/libs/YudreamModels-fabric-26.3-0.1.0.jar": {
+      "sha256": "797f89c07d2d98046d7f070cd5ec5511545b21b6a5e68b6522953df76265a336",
+      "bytes": 75427
+    },
+    "yudream-plugins/yudream-plugin-ysm-models/target/yudream-plugin-ysm-models-0.1.0.jar": {
+      "sha256": "409f4289e683cf5cfbf7f2388af4916f231958b1a2dcb39f232f36b0dba68d0e",
+      "bytes": 1350044
+    }
+  },
+  "screenshots": [
+    "vanilla-model.png",
+    "fabric-hot-update.png",
+    "vanilla-disabled.png",
+    "fabric-disabled.png"
+  ]
+}

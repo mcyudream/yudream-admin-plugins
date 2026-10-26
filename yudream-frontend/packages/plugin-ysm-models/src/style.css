@@ -1,0 +1,7 @@
+.ysm-form { display: grid; gap: var(--yd-content-gap, 1rem); padding-block: 1rem; }
+.ysm-form p { color: var(--color-text-2); font-size: .875rem; }
+.ysm-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.ysm-actions > * { min-width: 6rem; }
+.ysm-preview { display: grid; gap: .75rem; }
+.ysm-viewport { width: 100%; height: clamp(260px, 44vh, 480px); background: var(--color-fill-1); }
+.ysm-viewport canvas { display: block; width: 100%; height: 100%; }

@@ -39,6 +39,8 @@
     </properties>
 
     <modules>
+        <module>ysm-runtime/core</module>
+        <module>yudream-plugins/yudream-plugin-ysm-models</module>
         <module>yudream-plugins/yudream-plugin-alipay</module>
         <module>yudream-plugins/yudream-plugin-authlib-injector</module>
         <module>yudream-plugins/yudream-plugin-yudream-union</module>

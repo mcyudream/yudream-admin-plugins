@@ -1,0 +1,54 @@
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+
+def client = layout.buildDirectory.file('minecraft/client-26.3.jar')
+def versionManifest = layout.buildDirectory.file('minecraft/26.3.json')
+def libraries = layout.buildDirectory.dir('minecraft/libraries')
+def localClient = providers.gradleProperty('minecraftClientJar')
+def localLibraries = providers.gradleProperty('minecraftLibraries')
+def localApi = providers.gradleProperty('fabricApiJar')
+def apiModules = layout.buildDirectory.dir('fabric-api')
+def verifyDownload = { String url, File target, String sha1 ->
+    if(target.exists() && MessageDigest.getInstance('SHA-1').digest(target.bytes).encodeHex().toString()==sha1)return
+    target.parentFile.mkdirs()
+    def conn=URI.create(url).toURL().openConnection();conn.connectTimeout=15000;conn.readTimeout=120000
+    def tmp=new File(target.path+'.part')
+    try {
+        conn.inputStream.withCloseable { input -> tmp.withOutputStream { output -> output << input } }
+        if(MessageDigest.getInstance('SHA-1').digest(tmp.bytes).encodeHex().toString()!=sha1)throw new GradleException('Minecraft download checksum mismatch: '+target.name)
+        java.nio.file.Files.move(tmp.toPath(),target.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    } finally {tmp.delete()}
+}
+tasks.register('prepareMinecraft') {
+    outputs.file(client);outputs.file(versionManifest);outputs.dir(libraries)
+    doLast {
+        verifyDownload('https://piston-meta.mojang.com/v1/packages/61fff1316bd50312624a858bbb5eb18fa45208ed/26.3.json',versionManifest.get().asFile,'61fff1316bd50312624a858bbb5eb18fa45208ed')
+        verifyDownload(localClient.isPresent()?file(localClient.get()).toURI().toString():'https://piston-data.mojang.com/v1/objects/e877b6a07acd633fb3bb475002175cec036e7b87/client.jar',client.get().asFile,'e877b6a07acd633fb3bb475002175cec036e7b87')
+        if(!localLibraries.isPresent()){
+            def manifest=new JsonSlurper().parse(versionManifest.get().asFile)
+            manifest.libraries.findAll { !it.name.contains('natives') }.each { lib ->
+                def a=lib.downloads.artifact;if(a)verifyDownload(a.url,new File(libraries.get().asFile,a.path),a.sha1)
+            }
+        }
+    }
+}
+tasks.register('prepareLocalFabricApi',Copy) {
+    onlyIf { localApi.isPresent() }
+    if(localApi.isPresent())from(zipTree(file(localApi.get()))) { include 'META-INF/jars/*.jar'; eachFile { path = name }; includeEmptyDirs=false }
+    into apiModules
+}
+dependencies {
+    implementation project(':core')
+    compileOnly files(client)
+    compileOnly fileTree(localLibraries.isPresent()?file(localLibraries.get()):libraries) { include '**/*.jar' }
+    if(localApi.isPresent())compileOnly fileTree(apiModules) { include '*.jar' }
+    else compileOnly 'net.fabricmc.fabric-api:fabric-api:0.165.0+26.3'
+    if(providers.gradleProperty('fabricLoaderJar').isPresent())compileOnly files(file(providers.gradleProperty('fabricLoaderJar').get()))
+    else compileOnly 'net.fabricmc:fabric-loader:0.20.0'
+    if(providers.gradleProperty('mixinJar').isPresent())compileOnly files(file(providers.gradleProperty('mixinJar').get()))
+    else compileOnly 'net.fabricmc:sponge-mixin:0.17.5+mixin.0.8.7'
+}
+tasks.withType(JavaCompile).configureEach { options.release=25;options.compilerArgs.add('-proc:none') }
+tasks.named('compileJava') { dependsOn 'prepareMinecraft','prepareLocalFabricApi' }
+processResources { filesMatching('fabric.mod.json') { expand(version: project.version) } }
+jar { dependsOn ':core:classes';from project(':core').sourceSets.main.output;archiveBaseName='YudreamModels-fabric-26.3' }

@@ -1,0 +1,1 @@
+dependencies { api 'com.google.code.gson:gson:2.12.1'; api 'org.joml:joml:1.10.8' }

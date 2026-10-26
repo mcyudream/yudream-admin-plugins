@@ -1,0 +1,12 @@
+dependencies {
+    implementation project(':core')
+    compileOnly 'dev.folia:folia-api:26.3.build.5-alpha'
+    compileOnly 'io.netty:netty-transport:4.1.138.Final'
+}
+tasks.withType(JavaCompile).configureEach { options.release = 25 }
+jar {
+    dependsOn ':core:classes'
+    from project(':core').sourceSets.main.output
+    archiveBaseName = 'YudreamModels-folia-26.3'
+}
+processResources { filesMatching('plugin.yml') { expand(version: project.version) } }

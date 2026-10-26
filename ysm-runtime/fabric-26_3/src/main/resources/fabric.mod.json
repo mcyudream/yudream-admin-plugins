@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "yudream_models",
+  "version": "${version}",
+  "name": "YuDream Models",
+  "description": "通用玩家模型的按需下载与局部纹理更新",
+  "environment": "client",
+  "entrypoints": {"client": ["online.yudream.ysm.fabric26_3.ModelsClient"]},
+  "mixins": ["yudream-models.mixins.json"],
+  "depends": {"fabricloader": ">=0.20.0", "fabric-api": "*", "minecraft": "~26.3", "java": ">=25"}
+}

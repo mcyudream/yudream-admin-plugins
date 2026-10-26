@@ -1,0 +1,19 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+ <modelVersion>4.0.0</modelVersion>
+ <parent><groupId>online.yudream.plugins</groupId><artifactId>yudream-admin-plugins</artifactId><version>1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
+ <artifactId>yudream-plugin-ysm-models</artifactId><version>0.1.0</version>
+ <dependencies>
+  <dependency><groupId>online.yudream.base</groupId><artifactId>yudream-plugin-spi</artifactId><scope>provided</scope></dependency>
+  <dependency><groupId>online.yudream.plugins</groupId><artifactId>yudream-plugin-yudream-skin</artifactId><scope>provided</scope></dependency>
+  <dependency><groupId>online.yudream.ysm</groupId><artifactId>ysm-model-core</artifactId><version>0.1.0</version></dependency>
+  <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.12.2</version><scope>test</scope></dependency>
+  <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><version>5.17.0</version><scope>test</scope></dependency>
+ </dependencies>
+ <build>
+  <resources><resource><directory>src/main/resources</directory></resource><resource><directory>../../yudream-frontend/packages/plugin-ysm-models/dist</directory><targetPath>META-INF/yudream-plugin/frontend/ysm-models</targetPath></resource></resources>
+  <plugins>
+   <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
+   <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version><executions><execution><phase>package</phase><goals><goal>shade</goal></goals><configuration><createDependencyReducedPom>false</createDependencyReducedPom><relocations><relocation><pattern>com.google.gson</pattern><shadedPattern>online.yudream.ysm.internal.gson</shadedPattern></relocation><relocation><pattern>org.joml</pattern><shadedPattern>online.yudream.ysm.internal.joml</shadedPattern></relocation></relocations></configuration></execution></executions></plugin>
+  </plugins>
+ </build>
+</project>
