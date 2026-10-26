@@ -105,7 +105,7 @@
     }
   },
   "checks": {
-    "frontendTests": 3,
+    "frontendTests": 5,
     "mavenTests": 15,
     "gradleCoreTests": 9,
     "gradleDuplicatesMavenCoreTests": true,
@@ -113,9 +113,9 @@
     "runtimeBuild": "passed",
     "pluginJarAssets": "passed",
     "publishedMavenSpi": "passed",
-    "fullReadiness": "incomplete: published npm contract reinstall timed out",
-    "browserPreview": "blocked: WebGL Mesa ANGLE BindToCurrentSequence failed",
-    "actualYdaHostIntegration": "not verified"
+    "fullReadiness": "failed: published npm contract reinstall dependency downloads timed out on npm official registry after mirror ECONNRESET",
+    "browserPreview": "2D covers and fallback verified in browser; 3D blocked by WebGL Mesa ANGLE BindToCurrentSequence failure",
+    "actualYdaHostIntegration": "local upload/compile, character outfit, shared catalog and per-menu icons verified; final game roundtrip to real host not verified"
   },
   "artifacts": {
     "ysm-runtime/server-folia/build/libs/YudreamModels-folia-26.3-0.1.0.jar": {
@@ -126,15 +126,47 @@
       "sha256": "797f89c07d2d98046d7f070cd5ec5511545b21b6a5e68b6522953df76265a336",
       "bytes": 75427
     },
-    "yudream-plugins/yudream-plugin-ysm-models/target/yudream-plugin-ysm-models-0.1.0.jar": {
-      "sha256": "409f4289e683cf5cfbf7f2388af4916f231958b1a2dcb39f232f36b0dba68d0e",
-      "bytes": 1350044
+    "yudream-plugins/yudream-plugin-ysm-models/target/yudream-plugin-ysm-models-0.2.0.jar": {
+      "sha256": "f91bcdeb60235ac8a9eab1b9d8585c33d52d1e2c0709a4dbab576018957edf5a",
+      "bytes": 1381346
     }
   },
   "screenshots": [
     "vanilla-model.png",
     "fabric-hot-update.png",
     "vanilla-disabled.png",
-    "fabric-disabled.png"
-  ]
+    "fabric-disabled.png",
+    "yda-model-menu.jpg",
+    "yda-model-catalog.jpg",
+    "yda-model-preview.jpg",
+    "yda-model-admin.jpg",
+    "yda-model-admin-mobile.jpg"
+  ],
+  "localYda": {
+    "pluginVersion": "0.2.0",
+    "menus": {
+      "玩家模型": "i-ri:box-3-fill",
+      "我的模型": "i-ri:archive-drawer-line",
+      "服务器模型": "i-ri:archive-stack-line",
+      "模型管理": "i-ri:settings-3-line"
+    },
+    "bridge": {
+      "manifestCount": 1,
+      "equipped": true,
+      "texture": "blue",
+      "hashMatches": true,
+      "downloadBytes": 103716,
+      "schema": 1,
+      "unauthorizedBridge": 403
+    },
+    "twoDPreview": "passed",
+    "threeDPreview": "WebGL unavailable",
+    "gameRoundtrip": "not re-tested against actual host",
+    "multiTextureSwitch": "not verified; sample has one texture",
+    "responsiveAdmin": {
+      "desktopWidth": 1440,
+      "mobileWidth": 390,
+      "passed": true
+    }
+  }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@yudream/plugin-ysm-models",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "vue-tsc -p tsconfig.json --noEmit --pretty false",

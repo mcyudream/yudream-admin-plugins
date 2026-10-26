@@ -1,1 +1,1 @@
-{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.1.0：新增皮肤站模型附属，支持明文模型 ZIP 自动转换、动作预览、角色装备、服务器模型库、原版进服快照及手动刷新、Fabric 按内容哈希局部更新。"}
+{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.2.0：模型库新增正、背面二维封面与卡片浏览，模型管理展示缩略图；不支持 WebGL 时自动显示可切换贴图的二维预览。封面按需生成并在后台处理，减少页面卡顿。玩家模型入口改为立体方块，个人、服务器与管理菜单使用独立图标。"}

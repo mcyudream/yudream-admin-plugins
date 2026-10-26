@@ -5,11 +5,14 @@ import { YdTablePageLayout, YdResponsiveEnhancedTable, YdPagination, YdButton, Y
 import type { Bundle, ModelRow } from '../types'
 import { adminApi } from '../api/admin'
 import { usePaged } from '../composables/usePaged'
+import { useModelCovers } from '../composables/useModelCovers'
+import ModelCover from '../components/ModelCover.vue'
 import ModelPreview from '../components/ModelPreview.vue'
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = adminApi(props.sdk), model = usePaged(api.list), toast = useYdToast(), confirm = useYdModal()
+const cover = useModelCovers(api.preview)
 const preview = ref(false), bundle = ref<Bundle>(), viewing = ref('')
-const columns = [{ accessorKey: 'name', header: '名称', fixed: 'left' as const }, { accessorKey: 'ownerId', header: '所有者' }, { id: 'status', header: '状态' }]
+const columns = [{ accessorKey: 'name', header: '名称', width: 360, fixed: 'left' as const }, { accessorKey: 'ownerId', header: '所有者', width: 220 }, { id: 'status', header: '状态', width: 140 }]
 async function manage(row: ModelRow, enabled: boolean, shared: boolean) {
   try { await api.manage(row.id, enabled, shared); await model.load(); toast.success('模型设置已保存') }
   catch (e) { toast.error(e instanceof Error ? e.message : '设置保存失败') }
@@ -24,15 +27,18 @@ onMounted(model.load)
 watch(model.page, model.load)
 </script>
 <template>
+  <section class="ysm-admin">
   <YdTablePageLayout title="模型管理" :show-search="false">
     <template #actions><YdButton variant="outline" @click="model.load">刷新</YdButton></template>
     <template #table>
       <YdAlert v-if="model.error.value" type="error">{{ model.error.value }}</YdAlert>
       <YdResponsiveEnhancedTable :data="model.rows.value" :columns="columns" :actions="actions" :loading="model.loading.value" row-key="id" empty-text="暂无模型">
+        <template #cell-name="{ row }"><div class="ysm-model-identity"><ModelCover :name="row.original.name" :revision="row.original.hash" :load="() => cover(row.original)" compact /><strong :title="row.original.name">{{ row.original.name }}</strong></div></template>
         <template #cell-status="{ row }"><YdTag variant="outline">{{ !row.original.enabled ? '已停用' : row.original.serverEnabled ? '服务器共享' : '仅所有者' }}</YdTag></template>
       </YdResponsiveEnhancedTable>
     </template>
     <template #footer><YdPagination v-model:page="model.page.value" :size="model.size" :sizes="[model.size]" :total="model.total.value" /></template>
   </YdTablePageLayout>
   <YdModal v-model="preview" :title="viewing" :show-confirm-button="false" class="sm:max-w-3xl"><ModelPreview v-if="preview && bundle" :bundle="bundle" /></YdModal>
+  </section>
 </template>

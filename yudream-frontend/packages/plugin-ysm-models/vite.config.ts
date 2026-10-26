@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 import { readFileSync } from 'node:fs'
 
 export default defineConfig({
+  base: './',
   plugins: [vue(), yuDreamPluginUnoCss(), {
     name: 'ysm-third-party-notices',
     generateBundle() {

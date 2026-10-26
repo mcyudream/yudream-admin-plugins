@@ -2,8 +2,8 @@ name: ysm-models
 displayName: 玩家模型
 description: 皮肤站模型附属，支持上传预览、原版资源快照与 Fabric 动态更新。
 main: online.yudream.base.plugin.ysm.bootstrap.YsmModelsPlugin
-version: 0.1.0
-icon: i-ri:user-star-line
+version: 0.2.0
+icon: i-ri:box-3-fill
 depend: [yudream-skin]
 menu:
   category: mc

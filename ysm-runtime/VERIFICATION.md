@@ -6,14 +6,14 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 前端 `test` | 3 项通过；覆盖 pre/post、linear / step / Catmull-Rom、循环、镜像小数 UV 与方块旋转 |
+| 前端 `test` | 5 项通过；覆盖 pre/post、linear / step / Catmull-Rom、循环、镜像小数 UV、方块旋转，以及二维封面的父骨骼旋转、正背面取景、透明贴图叠层 |
 | 前端 `vue-tsc` 与生产构建 | 通过 |
 | Maven `test package` | 15 项通过：转换与客户端状态机 9 项、网站业务 6 项 |
 | Gradle `:core:test :server-folia:jar :fabric-26_3:jar` | 通过；其中 core 为同一组 9 项测试，不重复累计 |
 | 最终网站 JAR | remoteEntry、manifest、CSS、第三方 LICENSE / NOTICE 齐全，并与最终 dist 逐字节一致；未打入宿主 SPI |
 | 仓库独立性、Maven 依赖边界、插件依赖无环、开发规范、发布流水线、文档独立性 | 检查通过；UI 审计没有新增问题 |
 | 已发布 Maven SPI 解析 | 通过，版本 `2.38.0` |
-| 完整 readiness | **未完成**：停在已发布 npm 契约重装步骤并超时；不能据此声明整套 readiness 通过 |
+| 完整 readiness | **未完成**：已发布 npm 契约重装时，默认镜像连接重置；改用 npm 官方源后仍有依赖包下载超时，脚本返回失败；不能据此声明整套 readiness 通过 |
 
 ## Minecraft 本地 MCP 实测
 
@@ -22,7 +22,7 @@
 - `YsmTester`：安装本工程 Fabric 客户端、Fabric API 和 MinecraftMcp。
 - `YsmObserver`：安装 Fabric API 和 MinecraftMcp，**没有安装本工程客户端**，用于验证原版资源包与虚拟展示实体路径。
 - 新工程这轮未再启动完全不含 Fabric / Mod 的官方客户端；不能把观察者等同于完全无 Mod 客户端验收。旧原型的无 Mod 测试属于其他工程，不计入这里。
-- 网站 HTTP 使用 mock bridge，模型 bundle 来自实际 `ModelCompiler`。本轮没有完成真实 YDA 宿主的上传、角色选择与装备页面联调。
+- 游戏实测的网站 HTTP 使用 mock bridge，模型 bundle 来自实际 `ModelCompiler`。后续真实 YDA 宿主补测见下节；尚未把游戏端改接真实宿主重新完成端到端实测。
 
 | 场景 | 实测结果 |
 | --- | --- |
@@ -67,9 +67,25 @@ Fabric 收到 reset 后的第三人称恢复：
 
 内置浏览器已加载本地预览页、模型与源码，但 Mesa / ANGLE 在创建 WebGL 上下文时返回 `BindToCurrentSequence failed`。代码已增加中文失败提示；数学测试、类型检查和构建通过。**网页三维画面尚未成功验收**，也没有把游戏截图作为网页预览通过的证据。
 
+## 真实 YDA 本地补测（网站插件 0.2.0）
+
+- 独立演示数据库只启用皮肤插件和玩家模型附属，已完成示例模型上传、转换、角色装备和服务器共享；bridge 返回的资源哈希匹配，未授权访问返回 403。
+- 我的模型、服务器模型使用正背面二维封面卡片；管理列表显示缩略图，名称列为封面保留空间，已检查 1440px 桌面表格与 390px 窄屏卡片。二维渲染不依赖 WebGL，详情页在三维初始化失败后显示二维预览与装备控件。
+- 封面在 Worker 内按需生成，列表最多同时加载两个模型，并在页面退出时清理 Worker 与缓存。
+- 已检查立方体入口和衣柜、模型库、设置子菜单。宿主会保留已持久化菜单的图标；本次演示通过菜单管理接口更新四个图标。新安装使用插件声明的默认图标。
+- 二维静态画面已通过浏览器截图核验；三维 WebGL、跨贴图切换（当前示例仅一个贴图）与最终游戏端接真实宿主仍未完成验收。
+
+菜单图标与封面：
+
+![玩家模型菜单与二维封面](verification/yda-model-menu.jpg)
+
+二维详情：
+
+![无 WebGL 环境的二维详情](verification/yda-model-preview.jpg)
+
 ## 后续验收范围
 
-- 在可用 WebGL 的浏览器和真实 YDA 宿主中完成上传、预览、角色装备、管理员共享 / 停用 / 删除联调。
+- 在可用 WebGL 的浏览器完成三维预览，在真实宿主完成跨贴图切换、管理员停用 / 删除，并将游戏端接入真实宿主复测。
 - 完成已发布 npm 契约重装和整套 readiness。
 - 使用最终运行端测试完全无 Mod 的官方客户端、其他资源包叠加，以及生产规模 TPS / FPS。
 
