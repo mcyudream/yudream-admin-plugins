@@ -2,7 +2,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { AssetForm, BalanceChangeForm, RechargeForm, RechargeSettingsForm, TimeValue, TransactionFilters, TransferForm, WalletAsset, WalletBalance, WalletPaymentChannel, WalletRechargeOptions, WalletRechargeResult, WalletRechargeRule, WalletSummary, WalletTransaction, WalletUser } from '../types'
 import { useYdToast } from '@yudream/components'
 import { computed, reactive, ref } from 'vue'
-import { createWalletApi } from '../api/wallet-api'
+import { createWalletApi, errorMessage } from '../api/wallet-api'
 
 export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const api = createWalletApi(sdk)
@@ -18,7 +18,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
   const rechargeOptions = ref<WalletRechargeOptions | null>(null)
   const rechargeResult = ref<WalletRechargeResult | null>(null)
   const selectedAssetCode = ref('CNY')
-  const selectedBalanceAssetCode = ref('CNY')
+  const selectedBalanceAssetCode = ref('')
   const balancePager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
   const assetPager = reactive({ page: 1, size: 10, total: 0 })
   const transactionPager = reactive({ page: 1, size: 10, total: 0, hasNext: false })
@@ -187,8 +187,9 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       if (!assets.value.some(asset => asset.code === selectedAssetCode.value)) {
         selectedAssetCode.value = assets.value[0]?.code || ''
       }
-      if (!assets.value.some(asset => asset.code === selectedBalanceAssetCode.value)) {
-        selectedBalanceAssetCode.value = assets.value[0]?.code || ''
+      // 空串表示「全部币种」，只在已选币种被删除时回退为全部
+      if (selectedBalanceAssetCode.value && !assets.value.some(asset => asset.code === selectedBalanceAssetCode.value)) {
+        selectedBalanceAssetCode.value = ''
       }
       if (!transferableAssets.value.some(asset => asset.code === transferForm.assetCode)) {
         transferForm.assetCode = transferableAssets.value[0]?.code || ''
@@ -275,7 +276,7 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
         productType: 'PAGE',
         remark: rechargeForm.remark.trim() || undefined,
       })
-      toast.success('订单已创建，正在跳转支付宝')
+      toast.success('充值订单已创建')
       return rechargeResult.value
     }
     catch (error) {
@@ -404,14 +405,14 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
     }
   }
 
-  async function changeBalance(kind: 'credit' | 'debit') {
+  async function changeBalance(kind: 'credit' | 'debit'): Promise<boolean> {
     if (!changeForm.userId.trim() || !changeForm.amount.trim()) {
       toast.warning('请填写用户和金额')
-      return
+      return false
     }
     if (!changeForm.assetCode) {
       toast.warning('请选择币种')
-      return
+      return false
     }
     saving.value = true
     try {
@@ -432,9 +433,11 @@ export function useWalletPlugin(sdk: YuDreamPluginSdk) {
       changeForm.amount = ''
       changeForm.remark = ''
       await Promise.all([loadAdminBalances(), loadTransactions()])
+      return true
     }
     catch (error) {
       toast.error(errorMessage(error, kind === 'credit' ? '入账失败' : '扣账失败'))
+      return false
     }
     finally {
       saving.value = false
@@ -661,12 +664,7 @@ function validTimestamp(value: number) {
   if (!Number.isFinite(value) || value <= 0) {
     return 0
   }
-  return value < 10000000000 ? value * 1000 : value
-}
-
-export function errorMessage(error: unknown, fallback: string): string {
-  const message = (error as { message?: string } | null | undefined)?.message
-  return message && message.trim() ? message : fallback
+    return value < 10000000000 ? value * 1000 : value
 }
 
 export type WalletPluginModel = ReturnType<typeof useWalletPlugin>

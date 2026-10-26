@@ -79,16 +79,12 @@ public class DocumentPortAllocationRepository implements PortAllocationRepositor
 
     @Override
     public List<Record> findByInstance(String instanceId) {
-        List<Record> records = new ArrayList<>();
-        int page = 1;
-        List<Record> batch;
-        do {
-            batch = documents.findByField(COLLECTION, "instanceId", instanceId, page, PAGE_SIZE)
-                    .stream().map(this::toRecord).toList();
-            records.addAll(batch);
-            page++;
-        } while (batch.size() == PAGE_SIZE);
-        return records;
+        return paged("instanceId", instanceId).stream().map(this::toRecord).toList();
+    }
+
+    @Override
+    public List<Record> findByNode(String nodeId) {
+        return paged("nodeId", nodeId).stream().map(this::toRecord).toList();
     }
 
     @Override
@@ -105,10 +101,23 @@ public class DocumentPortAllocationRepository implements PortAllocationRepositor
         return count;
     }
 
+    private List<Map<String, Object>> paged(String field, String value) {
+        List<Map<String, Object>> records = new ArrayList<>();
+        int page = 1;
+        List<Map<String, Object>> batch;
+        do {
+            batch = documents.findByField(COLLECTION, field, value, page, PAGE_SIZE);
+            records.addAll(batch);
+            page++;
+        } while (batch.size() == PAGE_SIZE);
+        return records;
+    }
+
     private Record toRecord(Map<String, Object> document) {
         return new Record(String.valueOf(document.get("nodeId")),
                 ((Number) document.get("port")).intValue(),
                 String.valueOf(document.get("proto")),
-                String.valueOf(document.get("instanceId")));
+                String.valueOf(document.get("instanceId")),
+                document.get("createdAt") instanceof Number since ? since.longValue() : 0L);
     }
 }

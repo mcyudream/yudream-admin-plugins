@@ -1,6 +1,19 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { PagedResult, WalletAsset, WalletBalance, WalletRechargeOptions, WalletRechargeResult, WalletRechargeSettings, WalletSummary, WalletTransaction } from '../types'
 
+/** 从宿主注入的 http 客户端异常中提取可展示信息，插件不可假设有全局错误提示 */
+export function errorMessage(cause: unknown, fallback: string): string {
+  const data = cause as { response?: { data?: { message?: unknown } }, message?: unknown } | null
+  const bodyMessage = data?.response?.data?.message
+  if (typeof bodyMessage === 'string' && bodyMessage.trim()) {
+    return bodyMessage
+  }
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message
+  }
+  return fallback
+}
+
 export function createWalletApi(sdk: YuDreamPluginSdk) {
   function query(params: Record<string, string | number | undefined>) {
     const search = new URLSearchParams()

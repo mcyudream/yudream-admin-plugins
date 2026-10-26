@@ -26,7 +26,7 @@ function goRecharge() {
     <BalanceGrid :model="model" />
     <div class="wallet-layout mt-4">
       <WalletPanel v-if="model.transferableAssets.length" title="余额转账" eyebrow="Transfer">
-        <YdForm :model="model.transferForm" layout="vertical" @submit.prevent="model.submitTransfer">
+        <YdForm :model="model.transferForm" layout="vertical" @submit="model.submitTransfer">
           <div class="flex flex-col gap-4">
             <YdFormItem label="转入用户" required extra="对方用户 ID / 用户名 / 邮箱。">
               <YdInput v-model="model.transferForm.toAccount" placeholder="用户 ID / 用户名 / 邮箱" />

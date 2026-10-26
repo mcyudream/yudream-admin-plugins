@@ -152,7 +152,7 @@ onMounted(model.load)
     :show-cancel-button="false"
     @closed="model.resetForm"
   >
-    <YdForm :model="model.form" layout="vertical" @submit.prevent="save">
+    <YdForm :model="model.form" layout="vertical">
       <div class="flex flex-col gap-4">
         <YdFormItem label="用户 ID" required>
           <YdInput v-model="model.form.userId" :disabled="!!model.editingUserId" />

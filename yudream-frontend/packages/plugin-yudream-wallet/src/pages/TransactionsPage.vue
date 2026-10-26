@@ -8,6 +8,8 @@ import TransactionList from '../components/TransactionList.vue'
 const props = defineProps<{ model: WalletPluginModel }>()
 
 const assetOptions = computed(() => [{ label: '全部币种', value: '' }, ...props.model.assets.map(asset => ({ label: `${asset.name} (${asset.code})`, value: asset.code }))])
+/** 币种列表异步到达后会变化，作为 reloadKey 让搜索表单重载选项缓存 */
+const assetSignature = computed(() => props.model.assets.map(asset => asset.code).join(','))
 const sourceOptions = [
   { label: '全部来源', value: '' }, { label: '管理员', value: 'ADMIN' }, { label: '用户转账', value: 'TRANSFER' },
   { label: '支付宝', value: 'ALIPAY' }, { label: '周目继承', value: 'MINECRAFT_SEASON' },
@@ -32,9 +34,9 @@ const searchQuery = ref<Record<string, any>>({
 const searchConfig: SearchConfig = {
   fields: [
     searchField({ fieldName: 'user', label: '用户', placeholder: 'ID / 用户名 / 邮箱', order: 1, showWhenFolded: true, width: '240px' }),
-    searchField({ fieldName: 'assetCode', label: '币种', controlType: 'SELECT', order: 2, width: '180px' }),
-    searchField({ fieldName: 'source', label: '来源', controlType: 'SELECT', order: 3, width: '180px' }),
-    searchField({ fieldName: 'type', label: '类型', controlType: 'SELECT', order: 4, width: '180px' }),
+    searchField({ fieldName: 'assetCode', label: '币种', controlType: 'SELECT', optionsSource: 'assetOptions', order: 2, width: '180px' }),
+    searchField({ fieldName: 'source', label: '来源', controlType: 'SELECT', optionsSource: 'sourceOptions', order: 3, width: '180px' }),
+    searchField({ fieldName: 'type', label: '类型', controlType: 'SELECT', optionsSource: 'typeOptions', order: 4, width: '180px' }),
   ],
 }
 
@@ -75,6 +77,7 @@ function onSizeChange() {
         :config="searchConfig"
         :fold="fold"
         :options-sources="optionsSources"
+        :reload-key="assetSignature"
         @search="applySearch"
         @reset="resetSearch"
       />

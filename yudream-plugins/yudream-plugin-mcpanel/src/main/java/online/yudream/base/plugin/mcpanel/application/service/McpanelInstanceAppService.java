@@ -37,6 +37,8 @@ public class McpanelInstanceAppService {
     private static final long BACKUP_TIMEOUT_MS = 10L * 60 * 1000;
     /** 备份受理状态的兜底有效期：面板重启后残留的受理记录最多保留 15 分钟。 */
     private static final long BACKUP_PENDING_TTL_MS = 15L * 60 * 1000;
+    /** 台账对账宽限：窗口内的预占视为在途请求占坑，不清理（HTTP 超时上限远小于此）。 */
+    private static final long STALE_ALLOCATION_GRACE_MS = 5L * 60 * 1000;
 
     private final McpanelInstanceRepository instanceRepository;
     private final McpanelNodeRepository nodeRepository;
@@ -376,7 +378,7 @@ public class McpanelInstanceAppService {
             }
         }
         try {
-            probePortsOrThrow(node, id, ports.additions());
+            probePortsOrThrow(node, current, ports.additions());
             // 规格变更经 CAS 以最新文档为基：并发状态事件不会被旧读覆盖，
             // CAS 持续冲突（极端争用）显式报 409，而不是静默落一个过期快照。
             long stamp = System.currentTimeMillis();
@@ -419,17 +421,53 @@ public class McpanelInstanceAppService {
         return portsViewOf(instance, requireNode(instance.nodeId()));
     }
 
-    /** 开放一个附加端口（port 空 = 池内自动分配）：实例须停止，成功即容器已按新端口重建。 */
+    /**
+     * 开放一个附加端口（port 空 = 池内自动分配）：实例须停止，成功即容器已按新端口重建。
+     * 先对账清理节点上历史失败尝试遗留的台账预占（旧版本校验失败路径不回滚预占），
+     * 再占台账（自动分配的原子占坑在分配器内），最后走共享应用路径。
+     */
     public Map<String, Object> addPort(String actor, String scopeKey, String id,
                                        String proto, Integer port) {
         McpanelInstance current = findAccessible(scopeKey, id);
         McpanelNode node = requireNode(current.nodeId());
         requireStoppedForPorts(current);
-        // 先占台账（自动分配的原子占坑在分配器内），再走共享应用路径。
+        if (port != null && current.ports().stream()
+                .anyMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
+            throw McpanelBusinessException.invalid("该端口已开放：" + port + "/" + proto);
+        }
+        reconcileStaleAllocations(node, proto);
         McpanelInstance.PortMapping added = portAllocator.allocateExtra(node, proto, port, id);
         List<McpanelInstance.PortMapping> desired = new ArrayList<>(current.ports());
         desired.add(added);
-        return applyPorts(actor, current, node, desired, added);
+        try {
+            return applyPorts(actor, current, node, desired, added);
+        } catch (RuntimeException error) {
+            // planChange 校验失败发生在 applyPorts 的台账回滚范围之外：这里兜底释放
+            // 预占，避免失败尝试遗留幽灵占用（与 applyPorts 内部回滚的 release 幂等重叠无害）。
+            portRepository.release(node.id(), added.hostPort(), added.proto());
+            throw error;
+        }
+    }
+
+    /**
+     * 台账对账：释放「占用者已不持有该端口」的陈旧预占——占用者实例已删除，或其端口
+     * 列表不含该 (port, proto)（旧版本失败路径泄漏的预占会让自动分配长期跳号）。
+     * 宽限窗口内的预占可能是在途请求的占坑，保留不动。
+     */
+    private void reconcileStaleAllocations(McpanelNode node, String proto) {
+        long graceDeadline = System.currentTimeMillis() - STALE_ALLOCATION_GRACE_MS;
+        for (PortAllocationRepository.Record record : portRepository.findByNode(node.id())) {
+            if (!record.proto().equals(proto) || record.createdAtMs() > graceDeadline) {
+                continue;
+            }
+            boolean held = instanceRepository.findById(record.instanceId())
+                    .map(instance -> instance.ports().stream().anyMatch(item ->
+                            item.hostPort() == record.port() && item.proto().equals(record.proto())))
+                    .orElse(false);
+            if (!held) {
+                portRepository.release(node.id(), record.port(), record.proto());
+            }
+        }
     }
 
     /** 回收一个附加端口：主端口（ports[0]）不可移除；实例须停止。 */
@@ -517,7 +555,7 @@ public class McpanelInstanceAppService {
             }
         }
         try {
-            probePortsOrThrow(node, current.id(), plan.additions());
+            probePortsOrThrow(node, current, plan.additions());
             long stamp = System.currentTimeMillis();
             if (!instanceRepository.mutateState(current.id(), base -> base.withPorts(plan.desired(), stamp))) {
                 throw new McpanelBusinessException("instance.conflict", 409,
@@ -552,8 +590,10 @@ public class McpanelInstanceAppService {
     }
 
     /** 节点宿主机占用探测（port.check）：停止态容器不持宿主端口，可拦住非面板服务占用；
-     * 仅探测新增端口；旧节点未上报该能力时静默跳过（回退为 Docker 建容器时自然报错）。 */
-    private void probePortsOrThrow(McpanelNode node, String instanceId,
+     * 仅探测新增端口；旧节点未上报该能力时静默跳过（回退为 Docker 建容器时自然报错）。
+     * 实例自身保有端口（同号异协议）随容器重建继续发布，节点探测可能把自身绑定误报为
+     * 占用——同号异协议互不冲突，跳过之；真实冲突由容器创建的 Docker 绑定结果兜底。 */
+    private void probePortsOrThrow(McpanelNode node, McpanelInstance current,
                                    List<McpanelInstance.PortMapping> additions) {
         if (additions.isEmpty() || !nodeSupports(node.id(), "port.check")) {
             return;
@@ -569,6 +609,10 @@ public class McpanelInstanceAppService {
         }
         for (Object row : rows) {
             if (row instanceof Map<?, ?> item && !Boolean.TRUE.equals(item.get("free"))) {
+                int port = item.get("port") instanceof Number number ? number.intValue() : -1;
+                if (current.ports().stream().anyMatch(mapping -> mapping.hostPort() == port)) {
+                    continue;
+                }
                 String reason = text(item.get("reason"), "");
                 throw new McpanelBusinessException("port.conflict", 409,
                         "节点宿主机端口已被其他程序占用：" + item.get("port") + "/" + item.get("proto")
