@@ -143,8 +143,9 @@ function validate(): string {
   if (form.memoryMb < 64 || form.memoryMb > 1048576) {
     return '内存需在 64MB 至 1TB 之间'
   }
-  if (form.cpuMillis < 100 || form.cpuMillis > 256000) {
-    return 'CPU 需在 0.1 至 256 核之间'
+  const cpu = Number(form.cpuMillis)
+  if (Number.isNaN(cpu) || (cpu !== 0 && (cpu < 100 || cpu > 256000))) {
+    return 'CPU 填 0 表示不限，否则需在 0.1 至 256 核之间'
   }
   return ''
 }
@@ -163,7 +164,7 @@ function buildPayload() {
     command: form.command.trim().split(/\s+/).filter(Boolean),
     mcServerId: form.mcServerId || null,
     memoryMb: form.memoryMb,
-    cpuMillis: form.cpuMillis,
+    cpuMillis: Number(form.cpuMillis),
     diskMb: form.diskMb,
     remark: form.remark.trim() || null,
     startDetect: form.startDetect.trim(),
@@ -245,7 +246,7 @@ async function submit(done: () => void) {
           <YdInput v-model="form.memoryMb" type="number" class="w-full" />
         </label>
         <label class="mcp-form-item">
-          <span class="mcp-form-label">CPU（毫核）</span>
+          <span class="mcp-form-label">CPU（毫核，0 = 不限）</span>
           <YdInput v-model="form.cpuMillis" type="number" class="w-full" />
         </label>
         <label class="mcp-form-item">

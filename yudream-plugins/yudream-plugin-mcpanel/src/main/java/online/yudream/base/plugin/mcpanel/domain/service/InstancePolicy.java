@@ -47,8 +47,10 @@ public final class InstancePolicy {
         if (spec.command() == null || spec.command().isEmpty() || spec.command().size() > 64) {
             throw McpanelBusinessException.invalid("启动命令必填且参数最多 64 项");
         }
+        // CPU：0 = 不限制（节点侧不写 NanoCpus），>0 时须在常规区间内。
         if (spec.memoryMb() < 64 || spec.memoryMb() > 1_048_576
-                || spec.cpuMillis() < 100 || spec.cpuMillis() > 256_000
+                || spec.cpuMillis() < 0 || (spec.cpuMillis() > 0 && spec.cpuMillis() < 100)
+                || spec.cpuMillis() > 256_000
                 || spec.diskMb() < 64 || spec.diskMb() > 104_857_600) {
             throw McpanelBusinessException.invalid("资源规格越界");
         }

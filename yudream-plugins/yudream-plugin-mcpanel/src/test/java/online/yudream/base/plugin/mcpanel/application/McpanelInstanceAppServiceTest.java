@@ -131,6 +131,18 @@ class McpanelInstanceAppServiceTest {
     }
 
     @Test
+    void cpuZeroMeansUnlimitedAndSmallValuesRejected() {
+        McpanelInstance unlimited = McpanelInstance.create("inst-e", "node-1", "不限CPU", "paper", "1.21", "",
+                "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 0, 2048, List.of(), Map.of(), null, "", 1L);
+        InstancePolicy.validate(unlimited);
+        McpanelInstance tooSmall = McpanelInstance.create("inst-f", "node-1", "坏CPU", "paper", "1.21", "",
+                "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 50, 2048, List.of(), Map.of(), null, "", 1L);
+        assertThrows(McpanelBusinessException.class, () -> InstancePolicy.validate(tooSmall));
+    }
+
+    @Test
     void deleteReleasesPortsAndProxiesNode() {
         onlineNode();
         McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
