@@ -95,6 +95,10 @@ public class InteropRepository {
         documents.save(PEERS, siteId, document);
     }
 
+    public Optional<Map<String, Object>> findPeer(String siteId) {
+        return documents.findById(PEERS, siteId).map(LinkedHashMap::new);
+    }
+
     public List<Map<String, Object>> allPeers() {
         List<Map<String, Object>> peers = new ArrayList<>();
         int page = 1;

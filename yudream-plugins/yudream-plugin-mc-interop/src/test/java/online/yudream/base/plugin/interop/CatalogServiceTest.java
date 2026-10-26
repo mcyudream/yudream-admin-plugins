@@ -71,7 +71,7 @@ class CatalogServiceTest {
         CatalogService catalog = catalog();
         catalog.saveSettings("yda", "余梦", "测试站", "mc.yudream.app");
         catalog.savePeer("sitmc", "SIT-Minecraft", null, "skin.sitmc.club",
-                "https://skin.sitmc.club/.well-known/mc-interop-v1.json");
+                "https://skin.sitmc.club/.well-known/mc-interop-v1.json", null);
         catalog.saveEntry(entry("survival", builder -> builder));
 
         Map<String, Object> document = catalog.siteDocument();
@@ -203,6 +203,68 @@ class CatalogServiceTest {
         // 纯整合包不绑服务器：serverAddress 可空
         CatalogEntry noServer = repository.findEntry("no-server-pack.null").orElseThrow();
         assertEquals(null, noServer.serverAddress());
+    }
+
+    @Test
+    void peerViewsExposeSiteIdAndBlockKeepsDeclaration() {
+        CatalogService catalog = catalog();
+        catalog.savePeer("sitmc", "SIT-Minecraft", null, "skin.sitmc.club",
+                "https://skin.sitmc.club/.well-known/mc-interop-v1.json", null);
+
+        // 管理面视图归一化：siteId 来自文档 id，缺省 enabled=启用（删除无反应的根因即缺 siteId）
+        List<Map<String, Object>> peers = catalog.peers();
+        assertEquals(1, peers.size());
+        assertEquals("sitmc", peers.get(0).get("siteId"));
+        assertEquals(Boolean.TRUE, peers.get(0).get("enabled"));
+
+        // 编辑（不带 enabled）不得覆盖屏蔽状态
+        catalog.setPeerEnabled("sitmc", false);
+        catalog.savePeer("sitmc", "SIT-Minecraft", null, "skin.sitmc.club",
+                "https://skin.sitmc.club/.well-known/mc-interop-v1.json", null);
+        assertEquals(Boolean.FALSE, catalog.peers().get(0).get("enabled"));
+
+        // 屏蔽保留声明：出口 peers 列表仍在，但互采跳过（无外呼）
+        Map<String, Object> document = catalog.siteDocument();
+        assertEquals(1, ((List<?>) document.get("peers")).size());
+        assertTrue(((List<?>) document.get("packs")).isEmpty());
+
+        // 手动拉取返回逐站结果：屏蔽站标注未采合
+        Map<String, Object> summary = catalog.refreshPeers();
+        assertEquals(0L, summary.get("packs"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> results = (List<Map<String, Object>>) summary.get("results");
+        assertEquals(1, results.size());
+        assertEquals("sitmc", results.get(0).get("siteId"));
+        assertEquals(Boolean.FALSE, results.get(0).get("enabled"));
+        assertEquals(Boolean.TRUE, results.get(0).get("ok"));
+
+        // 删除真正移除（此前因 siteId 缺失在前端被静默跳过）
+        catalog.deletePeer("sitmc");
+        assertTrue(catalog.peers().isEmpty());
+    }
+
+    @Test
+    void refreshReportsPerPeerFailureWithoutBlockingOthers() {
+        CatalogService catalog = catalog();
+        catalog.saveEntry(entry("own", builder -> builder));
+        // .invalid 是保留 TLD，DNS 必然失败：验证单站失败只进结果不中断
+        catalog.savePeer("ghost", null, null, null,
+                "https://ghost.invalid/.well-known/mc-interop-v1.json", Boolean.TRUE);
+
+        Map<String, Object> summary = catalog.refreshPeers();
+
+        assertEquals(0L, summary.get("packs"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> results = (List<Map<String, Object>>) summary.get("results");
+        assertEquals(1, results.size());
+        assertEquals(Boolean.FALSE, results.get(0).get("ok"));
+        assertTrue(results.get(0).get("error") != null && !String.valueOf(results.get(0).get("error")).isBlank());
+        // 失败站的缓存为空快照：出口不抛错，本站条目照常出
+        Map<String, Object> document = catalog.siteDocument();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> packs = (List<Map<String, Object>>) document.get("packs");
+        assertEquals(1, packs.size());
+        assertEquals("own", packs.get(0).get("id"));
     }
 
     // ---- helpers ----

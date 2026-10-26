@@ -1,5 +1,5 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropSettings, InteropSiteDocument } from '../types'
+import type { McInteropEntry, McInteropPage, McInteropPeer, McInteropPeerPull, McInteropSettings, InteropSiteDocument } from '../types'
 
 export function createMcInteropApi(sdk: YuDreamPluginSdk) {
   return {
@@ -54,6 +54,14 @@ export function createMcInteropApi(sdk: YuDreamPluginSdk) {
     savePeer: (body: McInteropPeer) => sdk.http.post<McInteropPage<McInteropPeer>>('/admin/peers', body),
     deletePeer: (siteId: string) =>
       sdk.http.request(`/admin/peers/${encodeURIComponent(siteId)}`, { method: 'DELETE' }),
+    /** 手动拉取：立即重拉全部未屏蔽友站，返回逐站结果。 */
+    refreshPeers: () => sdk.http.post<McInteropPeerPull>('/admin/peers/refresh', {}),
+    /** 屏蔽/恢复友站：声明保留，互采不再拉取与采合其内容。 */
+    setPeerEnabled: (siteId: string, enabled: boolean) =>
+      sdk.http.request(`/admin/peers/${encodeURIComponent(siteId)}/enabled`, {
+        method: 'POST',
+        data: { enabled },
+      }),
   }
 }
 

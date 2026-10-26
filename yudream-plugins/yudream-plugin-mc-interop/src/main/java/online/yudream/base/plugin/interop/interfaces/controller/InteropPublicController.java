@@ -49,14 +49,16 @@ public class InteropPublicController {
         if (siteId == null || siteId.isBlank()) {
             return raw(503, Map.of("message", "站点尚未配置 mc-interop 站点身份"), null);
         }
-        String etag = catalog.etag();
+        // 文档只构建一次：ETag 与响应体出自同一份快照（互采后台刷新不会撕裂两者）
+        Map<String, Object> document = catalog.siteDocument();
+        String etag = catalog.etagOf(document);
         String ifNoneMatch = header(request, "If-None-Match");
         if (etag.equals(ifNoneMatch)) {
             return new PluginHttpResponse(304, headers(), "application/json", null, false);
         }
         // body 以插件自序列化的 JSON 文本透传：宿主对 Map 的 Long→String 定制
         // 会破坏协议要求的 size/revision 整数类型。
-        return raw(200, CatalogService.Json.write(catalog.siteDocument()), etag);
+        return raw(200, CatalogService.Json.write(document), etag);
     }
 
     private PluginHttpResponse raw(int status, Object body, String etag) {

@@ -3,12 +3,14 @@ import type { TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { InteropPackEntry } from '../types'
 import { YdAlert, YdButton, YdLoadingOverlay, YdResponsiveEnhancedTable, YdTablePageLayout, YdTag, useYdToast } from '@yudream/components'
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { createMcInteropApi } from '../api/mc-interop-api'
+import { peerPullMessage } from '../composables/useMcInteropSite'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const api = createMcInteropApi(props.sdk)
 const toast = useYdToast()
+const pulling = ref(false)
 
 const state = reactive({
   loading: false,
@@ -29,6 +31,24 @@ async function load() {
     state.error = cause instanceof Error ? cause.message : String(cause)
   } finally {
     state.loading = false
+  }
+}
+
+/** 手动拉取：强制重拉全部未屏蔽友站后重载目录（「刷新」受 5 分钟缓存影响，本动作绕过）。 */
+async function pullPeers() {
+  if (pulling.value) return
+  pulling.value = true
+  try {
+    const summary = await api.refreshPeers()
+    const message = peerPullMessage(summary)
+    const failed = (summary?.results ?? []).some(result => result.ok === false)
+    if (failed) toast.warning(message)
+    else toast.success(message)
+    await load()
+  } catch (cause) {
+    toast.error(cause instanceof Error ? cause.message : '手动拉取失败')
+  } finally {
+    pulling.value = false
   }
 }
 
@@ -78,6 +98,9 @@ const columns: TableColumn<InteropPackEntry>[] = [
       </p>
     </template>
     <template #actions>
+      <YdButton variant="outline" :loading="pulling" class="mr-2" @click="pullPeers">
+        手动拉取友站
+      </YdButton>
       <YdButton :loading="state.loading" @click="load">
         刷新
       </YdButton>

@@ -23,7 +23,8 @@ public class InteropYmclContributionProvider implements YmclContributionProvider
     public static final String PROVIDER_CODE = "mc-interop";
     public static final String SOURCE_CATALOG = "interop-catalog";
     private static final int SCHEMA_VERSION = 1;
-    private static final int CACHE_TTL_SECONDS = 300;
+    /** 适配器侧数据缓存 TTL：60s——启动器「刷新」要能较快见到互采更新（300s 时手动拉取形同虚设）。 */
+    private static final int CACHE_TTL_SECONDS = 60;
 
     /** 友站页 module 资源（YAP §6.8）：jar 内 ESM，经适配器 bundle 通道下发。 */
     private static final String MODULE_RESOURCE = "/ymcl-pages/friends-page.js";

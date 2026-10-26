@@ -2,15 +2,16 @@
 import type { ActionMenuItem, TableColumn } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McInteropPeer } from '../types'
-import { YdAlert, YdButton, YdCopyButton, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdPageHeader, YdResponsiveEnhancedTable, YdSettingsLayout, YdSettingsSection, useYdModal, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdCopyButton, YdForm, YdFormItem, YdInput, YdLoadingOverlay, YdModal, YdPageHeader, YdResponsiveEnhancedTable, YdSettingsLayout, YdSettingsSection, YdTag, useYdModal, useYdToast } from '@yudream/components'
 import { ref } from 'vue'
-import { useMcInteropSite } from '../composables/useMcInteropSite'
+import { peerPullMessage, useMcInteropSite } from '../composables/useMcInteropSite'
 
 const props = defineProps<{ sdk: YuDreamPluginSdk }>()
 const model = useMcInteropSite(props.sdk)
 const toast = useYdToast()
 const confirm = useYdModal()
 const activeSection = ref('site')
+const pulling = ref(false)
 
 // 协议入口挂在插件分发路径下：零反代零网关，dev/生产任何部署形态直接可达。
 const wellKnownUrl = `${window.location.origin}/api/plugins/mc-interop/.well-known/mc-interop-v1.json`
@@ -25,9 +26,15 @@ const peerColumns: TableColumn<McInteropPeer>[] = [
   { accessorKey: 'name', header: '名称', minWidth: 160 },
   { accessorKey: 'domain', header: '域名', minWidth: 180 },
   { accessorKey: 'manifestUrl', header: '清单地址', minWidth: 280 },
+  { id: 'enabled', header: '状态', width: 90 },
 ]
 
 const peerRowActions: ActionMenuItem<McInteropPeer>[] = [
+  {
+    label: peer => (peer.enabled === false ? '恢复采合' : '屏蔽'),
+    icon: 'i-ri:eye-off-line',
+    onClick: peer => togglePeer(peer),
+  },
   { label: '删除', icon: 'morph:trash-2', danger: true, onClick: peer => removePeer(peer) },
 ]
 
@@ -48,10 +55,42 @@ function savePeer() {
 }
 
 function removePeer(peer: McInteropPeer) {
+  const siteId = peer.siteId ?? peer.id
+  if (!siteId) {
+    toast.error('友站 siteId 缺失，无法删除')
+    return
+  }
   confirm.confirm({
     title: '删除友站声明',
-    content: `确认删除友站「${peer.name || peer.siteId}」吗？出口的 peers 列表将不再包含它。`,
-    onConfirm: () => model.removePeer(peer.siteId),
+    content: `确认删除友站「${peer.name || siteId}」吗？出口的 peers 列表将不再包含它。`,
+    onConfirm: () => model.removePeer(siteId).then(() => {
+      toast.success('友站已删除')
+    }).catch((cause: unknown) => {
+      toast.error(cause instanceof Error ? cause.message : '删除失败')
+    }),
+  })
+}
+
+function togglePeer(peer: McInteropPeer) {
+  return model.togglePeerEnabled(peer).then(() => {
+    toast.success(peer.enabled === false ? `已恢复友站「${peer.siteId ?? peer.id}」` : `已屏蔽友站「${peer.siteId ?? peer.id}」，互采不再采合其内容`)
+  }).catch((cause: unknown) => {
+    toast.error(cause instanceof Error ? cause.message : '操作失败')
+  })
+}
+
+function pullPeers() {
+  if (pulling.value) return
+  pulling.value = true
+  return model.pullPeers().then((summary) => {
+    const message = peerPullMessage(summary)
+    const failed = (summary?.results ?? []).some(result => result.ok === false)
+    if (failed) toast.warning(message)
+    else toast.success(message)
+  }).catch((cause: unknown) => {
+    toast.error(cause instanceof Error ? cause.message : '手动拉取失败')
+  }).finally(() => {
+    pulling.value = false
   })
 }
 </script>
@@ -62,9 +101,14 @@ function removePeer(peer: McInteropPeer) {
       <YdButton v-if="activeSection === 'site'" :loading="model.loading" @click="save">
         保存
       </YdButton>
-      <YdButton v-else @click="model.peerOpen = true">
-        声明友站
-      </YdButton>
+      <template v-else>
+        <YdButton variant="outline" :loading="pulling" class="mr-2" @click="pullPeers">
+          手动拉取
+        </YdButton>
+        <YdButton @click="model.peerOpen = true">
+          声明友站
+        </YdButton>
+      </template>
     </YdPageHeader>
     <YdAlert v-if="model.error" class="mb-3" variant="destructive" title="操作失败" :description="model.error" />
     <YdSettingsLayout
@@ -149,10 +193,17 @@ function removePeer(peer: McInteropPeer) {
             stripe
             :actions="peerRowActions"
             empty-text="尚未声明友站"
-          />
+          >
+            <template #cell-enabled="{ row }">
+              <YdTag :variant="row.original.enabled === false ? 'secondary' : 'default'">
+                {{ row.original.enabled === false ? '已屏蔽' : '采合中' }}
+              </YdTag>
+            </template>
+          </YdResponsiveEnhancedTable>
         </YdLoadingOverlay>
         <p class="mt-2 text-sm text-muted-foreground">
-          peers 供其他站点互相发现（启动器可忽略）；友站内容是否采入由聚合方决定。
+          peers 供其他站点互相发现（启动器可忽略）；「屏蔽」保留声明但不拉取/采合该站内容，
+          「手动拉取」立即重拉全部未屏蔽友站（绕过 5 分钟缓存）。
         </p>
       </template>
     </YdSettingsLayout>

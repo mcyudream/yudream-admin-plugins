@@ -122,7 +122,23 @@ public class InteropAdminController {
     public Object savePeer(PluginHttpRequest request) {
         Map<String, Object> body = JsonSupport.readMap(request.body());
         catalog.savePeer(text(body.get("siteId")), text(body.get("name")),
-                text(body.get("description")), text(body.get("domain")), text(body.get("manifestUrl")));
+                text(body.get("description")), text(body.get("domain")), text(body.get("manifestUrl")),
+                body.get("enabled") instanceof Boolean flag ? flag : null);
+        return Map.of("records", catalog.peers(), "total", catalog.peers().size());
+    }
+
+    /** 手动拉取：立即重拉全部未屏蔽友站，返回逐站结果（前端 toast 展示成败与条数）。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/peers/refresh", permission = "plugin:mc-interop:manage")
+    public Object refreshPeers(PluginHttpRequest request) {
+        return catalog.refreshPeers();
+    }
+
+    /** 屏蔽/恢复友站：声明保留，互采不再拉取与采合其内容。 */
+    @PluginHttpEndpoint(method = "POST", path = "/admin/peers/{siteId}/enabled", permission = "plugin:mc-interop:manage")
+    public Object setPeerEnabled(PluginHttpRequest request) {
+        Map<String, Object> body = JsonSupport.readMap(request.body());
+        catalog.setPeerEnabled(PathSupport.segment(request.path(), 2),
+                Boolean.TRUE.equals(body.get("enabled")));
         return Map.of("records", catalog.peers(), "total", catalog.peers().size());
     }
 

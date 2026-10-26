@@ -37,6 +37,25 @@ export interface McInteropPeer {
   domain?: string | null
   manifestUrl?: string
   addedAt?: number | string
+  /** false = 已屏蔽：声明保留（出口 peers 列表仍在），但互采不拉取不采合 */
+  enabled?: boolean
+}
+
+/** 手动拉取的逐站结果（宿主 Long→String 定制下数字可能为字符串）。 */
+export interface McInteropPeerPullResult {
+  siteId?: string
+  enabled?: boolean
+  ok?: boolean
+  packs?: number | string
+  error?: string
+  note?: string
+}
+
+export interface McInteropPeerPull {
+  elapsedMs?: number | string
+  packs?: number | string
+  updatedAt?: string
+  results?: McInteropPeerPullResult[]
 }
 
 export interface McInteropPage<T> {

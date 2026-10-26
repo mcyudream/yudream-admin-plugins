@@ -41,9 +41,20 @@ public class CatalogService {
     /** ymcl-adapter 聚合目录（软依赖桥；未装适配器时为 null → 手填兜底）。 */
     private final java.util.function.Supplier<List<online.yudream.base.plugin.interop.domain.aggregate.AdapterCatalogEntry>> adapterCatalog;
 
-    /** peers 互采合并缓存（5 分钟），避免出口每次请求都外拉友站清单。 */
-    private volatile List<Map<String, Object>> mergedPeerPacksCache;
-    private volatile long mergedPeerPacksAt;
+    /** peers 互采合并缓存（5 分钟内新鲜；过期先回旧数据再后台刷新，出口不被慢友站阻塞）。 */
+    private static final long PEER_CACHE_TTL_MS = 5 * 60_000L;
+
+    private record PeerSnapshot(List<Map<String, Object>> packs, long fetchedAt) {
+    }
+
+    private record PeerFetch(String siteId, String domain, List<Map<String, Object>> packs, String error) {
+    }
+
+    private volatile PeerSnapshot peerSnapshot;
+    private final java.util.concurrent.atomic.AtomicBoolean peerRefreshing =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    private final Object peerRefreshLock = new Object();
+    private volatile java.util.concurrent.ExecutorService peerExecutor;
     private final java.net.http.HttpClient interopHttp = java.net.http.HttpClient.newBuilder()
             .connectTimeout(java.time.Duration.ofSeconds(5))
             .build();
@@ -349,25 +360,80 @@ public class CatalogService {
 
     // ---- peers ----
 
+    /** 管理面视图：siteId/enabled 归一化（原始文档的 siteId 只在文档 id 上）。 */
     public List<Map<String, Object>> peers() {
-        return repository.allPeers();
+        List<Map<String, Object>> views = new ArrayList<>();
+        for (Map<String, Object> peer : repository.allPeers()) {
+            views.add(peerView(peer));
+        }
+        return views;
     }
 
-    public void savePeer(String siteId, String name, String description, String domain, String manifestUrl) {
+    public void savePeer(String siteId, String name, String description, String domain, String manifestUrl,
+                         Boolean enabled) {
         requirePattern(siteId, "^[A-Za-z0-9._-]{1,128}$", "siteId 必填且只能包含字母数字 ._ -");
         if (manifestUrl == null || !manifestUrl.startsWith("https://")) {
             throw new McInteropBusinessException("manifestUrl 必须是 https 地址");
         }
+        String trimmedId = siteId.trim();
+        // enabled 未随表单提交时保留原值（编辑不得覆盖屏蔽状态）；首次声明默认启用
+        boolean effective = enabled != null ? enabled
+                : repository.findPeer(trimmedId).map(CatalogService::peerEnabled).orElse(true);
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("name", blankToNull(name));
         document.put("description", blankToNull(description));
         document.put("domain", blankToNull(domain));
         document.put("manifestUrl", manifestUrl.trim());
-        repository.savePeer(siteId.trim(), document);
+        document.put("enabled", effective ? 1L : 0L);
+        repository.savePeer(trimmedId, document);
+        peerSnapshot = null;
+    }
+
+    /** 屏蔽/恢复友站：声明保留（出口 peers 列表仍在），但互采不再拉取与采合其内容。 */
+    public void setPeerEnabled(String siteId, boolean enabled) {
+        Map<String, Object> peer = repository.findPeer(siteId)
+                .orElseThrow(() -> new McInteropBusinessException("友站不存在"));
+        peer.put("enabled", enabled ? 1L : 0L);
+        repository.savePeer(siteId, peer);
+        peerSnapshot = null;
     }
 
     public void deletePeer(String siteId) {
         repository.deletePeer(siteId);
+        peerSnapshot = null;
+    }
+
+    /**
+     * 手动拉取：立即重拉全部未屏蔽友站并返回逐站结果（管理台「手动拉取」按钮）。
+     * 结果里的数字经宿主 Long→String 定制可能为字符串，前端按 number|string 容错。
+     */
+    public Map<String, Object> refreshPeers() {
+        synchronized (peerRefreshLock) {
+            return doRefreshPeers();
+        }
+    }
+
+    private static Map<String, Object> peerView(Map<String, Object> peer) {
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("siteId", text(peer.get("id")));
+        view.put("name", text(peer.get("name")));
+        view.put("description", text(peer.get("description")));
+        view.put("domain", text(peer.get("domain")));
+        view.put("manifestUrl", text(peer.get("manifestUrl")));
+        view.put("enabled", peerEnabled(peer));
+        return view;
+    }
+
+    /** 文档缺失 enabled 视为启用（0.2.x 时代声明天然兼容）。 */
+    private static boolean peerEnabled(Map<String, Object> peer) {
+        Object value = peer.get("enabled");
+        if (value instanceof Number number) {
+            return number.longValue() != 0L;
+        }
+        if (value instanceof Boolean flag) {
+            return flag;
+        }
+        return true;
     }
 
     // ---- 统一出口 ----
@@ -422,10 +488,10 @@ public class CatalogService {
     }
 
     /**
-     * peers 互采合并（协议 §7.2）：拉取各友站清单，条目带 source 溯源；
-     * 与本站/已合并条目 id 冲突即丢弃；单站失败只跳过。缓存 5 分钟。
+     * peers 互采合并（协议 §7.2）：条目带 source 溯源；与本站/已合并条目 id 冲突用
+     * 命名空间规避（siteId.id），极端重名叠加才丢弃。缓存 5 分钟内直接回缓存；
+     * 过期先回旧数据并后台单飞刷新（出口不被慢友站阻塞）；冷启动才同步并行拉取。
      */
-    @SuppressWarnings("unchecked")
     private void mergePeerPacks(List<Map<String, Object>> packs, long latestOwn) {
         // 内容身份去重：同一整合包经「本站发布 / 友站直采 / 友站从第三方导入」多路径出现时只保留一份。
         java.util.Set<String> contentSeen = new java.util.HashSet<>();
@@ -435,82 +501,234 @@ public class CatalogService {
                 contentSeen.add(key);
             }
         }
-        long now = System.currentTimeMillis();
-        List<Map<String, Object>> cached = mergedPeerPacksCache;
-        if (cached != null && now - mergedPeerPacksAt < 5 * 60_000L) {
-            for (Map<String, Object> pack : cached) {
-                String key = packContentKey(pack);
-                if (key != null && !contentSeen.add(key)) {
-                    continue;
-                }
-                packs.add(pack);
-            }
+        PeerSnapshot snapshot = peerSnapshot;
+        if (snapshot != null && System.currentTimeMillis() - snapshot.fetchedAt() < PEER_CACHE_TTL_MS) {
+            appendPeerPacks(packs, snapshot.packs(), contentSeen);
             return;
         }
-        List<Map<String, Object>> merged = new ArrayList<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        for (Map<String, Object> pack : packs) {
-            seen.add(text(pack.get("id")));
+        if (snapshot != null) {
+            // 过期：先回旧数据保证出口低延迟，后台刷新就绪后由后续请求/ETag 变化带出
+            appendPeerPacks(packs, snapshot.packs(), contentSeen);
+            kickPeerRefresh();
+            return;
         }
-        for (Map<String, Object> peer : repository.allPeers()) {
-            String siteId = text(peer.get("id"));
-            String manifestUrl = text(peer.get("manifestUrl"));
-            String domain = text(peer.get("domain"));
-            if (siteId == null || manifestUrl == null || !manifestUrl.startsWith("https://")) {
+        // 冷启动（或刚增删/屏蔽友站）：同步并行拉取，墙钟≈最慢友站而非逐站累加
+        doRefreshPeers();
+        snapshot = peerSnapshot;
+        if (snapshot != null) {
+            appendPeerPacks(packs, snapshot.packs(), contentSeen);
+        }
+    }
+
+    /** 后台单飞刷新：进行中直接返回，避免并发请求叠加外拉。 */
+    private void kickPeerRefresh() {
+        if (!peerRefreshing.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            peerExecutor().execute(() -> {
+                try {
+                    synchronized (peerRefreshLock) {
+                        doRefreshPeers();
+                    }
+                } catch (Exception ignored) {
+                    // 后台刷新失败保持旧快照，下个请求再触发
+                } finally {
+                    peerRefreshing.set(false);
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            peerRefreshing.set(false);
+        }
+    }
+
+    private java.util.concurrent.ExecutorService peerExecutor() {
+        java.util.concurrent.ExecutorService current = peerExecutor;
+        if (current == null) {
+            synchronized (this) {
+                if (peerExecutor == null) {
+                    java.util.concurrent.atomic.AtomicInteger seq = new java.util.concurrent.atomic.AtomicInteger();
+                    peerExecutor = new java.util.concurrent.ThreadPoolExecutor(0, 8,
+                            60L, java.util.concurrent.TimeUnit.SECONDS,
+                            new java.util.concurrent.LinkedBlockingQueue<>(),
+                            task -> {
+                                Thread thread = new Thread(task, "mc-interop-peer-" + seq.incrementAndGet());
+                                thread.setDaemon(true);
+                                return thread;
+                            });
+                }
+                current = peerExecutor;
+            }
+        }
+        return current;
+    }
+
+    /**
+     * 重拉全部友站并换入新快照：去重基线=本站已发布条目；屏蔽站跳过（无外呼）；
+     * 单站失败只记录结果不中断（§7.2）。返回逐站结果摘要。
+     */
+    private Map<String, Object> doRefreshPeers() {
+        long start = System.currentTimeMillis();
+        java.util.Set<String> contentSeen = new java.util.HashSet<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (CatalogEntry entry : repository.allEntries()) {
+            if (!entry.published()) {
                 continue;
             }
-            try {
-                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                        .uri(java.net.URI.create(manifestUrl))
-                        .timeout(java.time.Duration.ofSeconds(15))
-                        .header("Accept", "application/json")
-                        .GET()
-                        .build();
-                java.net.http.HttpResponse<byte[]> response =
-                        interopHttp.send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
-                if (response.statusCode() != 200 || response.body().length > 1024 * 1024) {
-                    continue;
-                }
-                Map<String, Object> remote = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().readValue(
-                        new String(response.body(), StandardCharsets.UTF_8), Map.class);
-                if (!(remote.get("packs") instanceof List<?> remotePacks)) {
-                    continue;
-                }
-                for (Object packValue : remotePacks) {
-                    if (!(packValue instanceof Map)) {
-                        continue;
-                    }
-                    Map<String, Object> pack = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().convertValue(packValue, Map.class);
-                    String id = text(pack.get("id"));
-                    if (id == null) {
-                        continue;
-                    }
-                    String contentKey = packContentKey(pack);
-                    if (contentKey != null && !contentSeen.add(contentKey)) {
-                        continue;
-                    }
-                    // id 冲突用命名空间规避（siteId.id）保留友站条目展示；仍冲突（重名叠加）才丢弃
-                    String localId = id;
-                    if (!seen.add(localId)) {
-                        localId = siteId + "." + id;
-                        if (!seen.add(localId)) {
-                            continue;
-                        }
-                    }
-                    Map<String, Object> source = new LinkedHashMap<>();
-                    source.put("siteId", siteId);
-                    source.put("domain", domain == null ? "" : domain);
-                    pack.put("source", source);
-                    pack.put("id", localId);
-                    merged.add(pack);
-                }
-            } catch (Exception e) {
-                // 单站失败只跳过（§7.2）
+            Map<String, Object> view = entryView(entry);
+            String key = packContentKey(view);
+            if (key != null) {
+                contentSeen.add(key);
             }
+            seen.add(text(view.get("id")));
         }
-        mergedPeerPacksCache = merged;
-        mergedPeerPacksAt = now;
-        packs.addAll(merged);
+
+        List<java.util.concurrent.Callable<PeerFetch>> tasks = new ArrayList<>();
+        List<Map<String, Object>> results = new ArrayList<>();
+        List<String> taskSiteIds = new ArrayList<>();
+        for (Map<String, Object> peer : peers()) {
+            String siteId = text(peer.get("siteId"));
+            String manifestUrl = text(peer.get("manifestUrl"));
+            boolean enabled = Boolean.TRUE.equals(peer.get("enabled"));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("siteId", siteId);
+            result.put("enabled", enabled);
+            if (!enabled) {
+                result.put("ok", true);
+                result.put("packs", 0L);
+                result.put("note", "已屏蔽，未采合");
+                results.add(result);
+                continue;
+            }
+            if (siteId == null || manifestUrl == null || !manifestUrl.startsWith("https://")) {
+                result.put("ok", false);
+                result.put("error", "manifestUrl 缺失或非 https");
+                results.add(result);
+                continue;
+            }
+            tasks.add(() -> fetchPeer(siteId, text(peer.get("domain")), manifestUrl));
+            taskSiteIds.add(siteId);
+        }
+
+        List<Map<String, Object>> merged = new ArrayList<>();
+        try {
+            List<java.util.concurrent.Future<PeerFetch>> futures = peerExecutor().invokeAll(tasks);
+            for (int index = 0; index < futures.size(); index++) {
+                PeerFetch fetch;
+                try {
+                    fetch = futures.get(index).get();
+                } catch (java.util.concurrent.ExecutionException e) {
+                    fetch = new PeerFetch(taskSiteIds.get(index), null, List.of(),
+                            e.getCause() == null ? e.getMessage() : String.valueOf(e.getCause()));
+                }
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("siteId", fetch.siteId());
+                result.put("enabled", true);
+                if (fetch.error() != null) {
+                    result.put("ok", false);
+                    result.put("packs", 0L);
+                    result.put("error", fetch.error());
+                } else {
+                    int adopted = mergeFetchedPacks(merged, fetch, seen, contentSeen);
+                    result.put("ok", true);
+                    result.put("packs", (long) adopted);
+                }
+                results.add(result);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new McInteropBusinessException("友站拉取被中断");
+        }
+
+        long fetchedAt = System.currentTimeMillis();
+        peerSnapshot = new PeerSnapshot(List.copyOf(merged), fetchedAt);
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("elapsedMs", fetchedAt - start);
+        summary.put("packs", (long) merged.size());
+        summary.put("results", results);
+        summary.put("updatedAt", ISO_UTC.format(Instant.ofEpochMilli(fetchedAt)));
+        return summary;
+    }
+
+    /** 单友站抓取+解析（失败只进 error，不抛出）；id 改写/去重在合并阶段统一做。 */
+    private PeerFetch fetchPeer(String siteId, String domain, String manifestUrl) {
+        try {
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(manifestUrl))
+                    .timeout(java.time.Duration.ofSeconds(15))
+                    .header("Accept", "application/json")
+                    .GET()
+                    .build();
+            java.net.http.HttpResponse<byte[]> response =
+                    interopHttp.send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() != 200) {
+                return new PeerFetch(siteId, domain, List.of(),"HTTP " + response.statusCode());
+            }
+            if (response.body().length > 1024 * 1024) {
+                return new PeerFetch(siteId, domain, List.of(),"响应超过 1MiB 上限");
+            }
+            Map<String, Object> remote = online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().readValue(
+                    new String(response.body(), StandardCharsets.UTF_8), Map.class);
+            if (!(remote.get("packs") instanceof List<?> remotePacks)) {
+                return new PeerFetch(siteId, domain, List.of(),"文档缺少 packs 数组");
+            }
+            List<Map<String, Object>> packs = new ArrayList<>();
+            for (Object packValue : remotePacks) {
+                if (packValue instanceof Map) {
+                    packs.add(online.yudream.base.plugin.interop.infrastructure.support.JsonSupport.getMapper().convertValue(packValue, Map.class));
+                }
+            }
+            return new PeerFetch(siteId, domain, packs, null);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new PeerFetch(siteId, domain, List.of(),"拉取被中断");
+        } catch (Exception e) {
+            return new PeerFetch(siteId, domain, List.of(),
+                    e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    /** 抓取结果并入合并列表：内容身份去重 + id 命名空间规避 + source 溯源。返回采纳条数。 */
+    private static int mergeFetchedPacks(List<Map<String, Object>> merged, PeerFetch fetch,
+                                         java.util.Set<String> seen, java.util.Set<String> contentSeen) {
+        int adopted = 0;
+        for (Map<String, Object> pack : fetch.packs()) {
+            String id = text(pack.get("id"));
+            if (id == null) {
+                continue;
+            }
+            String contentKey = packContentKey(pack);
+            if (contentKey != null && !contentSeen.add(contentKey)) {
+                continue;
+            }
+            String localId = id;
+            if (!seen.add(localId)) {
+                localId = fetch.siteId() + "." + id;
+                if (!seen.add(localId)) {
+                    continue;
+                }
+            }
+            Map<String, Object> source = new LinkedHashMap<>();
+            source.put("siteId", fetch.siteId());
+            source.put("domain", fetch.domain() == null ? "" : fetch.domain());
+            pack.put("source", source);
+            pack.put("id", localId);
+            merged.add(pack);
+            adopted++;
+        }
+        return adopted;
+    }
+
+    /** 缓存追加前重新对内容身份去重：本站条目在缓存生成后可能已变化。 */
+    private static void appendPeerPacks(List<Map<String, Object>> packs, List<Map<String, Object>> cached,
+                                        java.util.Set<String> contentSeen) {
+        for (Map<String, Object> pack : cached) {
+            String key = packContentKey(pack);
+            if (key != null && !contentSeen.add(key)) {
+                continue;
+            }
+            packs.add(pack);
+        }
     }
 
     /**
@@ -541,8 +759,12 @@ public class CatalogService {
 
     /** 出口内容摘要派生的强 ETag（协议 §2.2 建议由 updatedAt/revision 派生）。 */
     public String etag() {
+        return etagOf(siteDocument());
+    }
+
+    /** 对已构建文档计算 ETag：出口用它保证 ETag 与响应体出自同一份快照（后台刷新不撕裂）。 */
+    public String etagOf(Map<String, Object> document) {
         try {
-            Map<String, Object> document = siteDocument();
             byte[] bytes = Json.write(document);
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
             return "\"" + HexFormat.of().formatHex(digest).substring(0, 32) + "\"";
