@@ -37,6 +37,9 @@ public class InteropYmclContributionProvider implements YmclContributionProvider
     }
 
     private final CatalogDocumentSupplier catalogDocument;
+    /** 友站服务器状态探测（图标/人数条，与 mc-server 服务器页同款体验）。 */
+    private final online.yudream.base.plugin.interop.infrastructure.support.ServerStatusProbe statusProbe =
+            new online.yudream.base.plugin.interop.infrastructure.support.ServerStatusProbe();
 
     public InteropYmclContributionProvider(CatalogDocumentSupplier catalogDocument) {
         this.catalogDocument = catalogDocument;
@@ -102,6 +105,16 @@ public class InteropYmclContributionProvider implements YmclContributionProvider
         Map<String, Object> site = cast(document.get("site"));
         String catalogOrigin = site == null ? null : text(site.get("origin"));
         List<Map<String, Object>> packs = castPacks(document.get("packs"));
+        // 先收集全部服务器地址做一次快照（新鲜缓存直回/过期后台刷新/冷地址并行探测）
+        List<String> addresses = new ArrayList<>();
+        for (Map<String, Object> pack : packs) {
+            String address = address(pack);
+            if (address != null && !addresses.contains(address)) {
+                addresses.add(address);
+            }
+        }
+        Map<String, online.yudream.base.plugin.interop.infrastructure.support.ServerStatusProbe.Status> statuses =
+                statusProbe.snapshot(addresses);
         // server-list 渲染器契约：id/title/summary/address/icon，与 minecraft-server
         // 贡献的服务器列表同风格；声明式动作（一键安装并进服/复制地址）由启动器通用执行。
         List<Map<String, Object>> records = new ArrayList<>();
@@ -117,6 +130,21 @@ public class InteropYmclContributionProvider implements YmclContributionProvider
             Object source = pack.get("source");
             if (source instanceof Map<?, ?> sourceMap) {
                 record.put("friendSite", text(sourceMap.get("siteId")));
+            }
+            // 服务器状态（servers-page 同款字段）：图标/在线/人数条/版本/延迟
+            String packAddress = address(pack);
+            if (packAddress != null && statuses.containsKey(packAddress)) {
+                online.yudream.base.plugin.interop.infrastructure.support.ServerStatusProbe.Status status =
+                        statuses.get(packAddress);
+                record.put("online", status.online());
+                record.put("onlinePlayers", status.onlinePlayers());
+                record.put("maxPlayers", status.maxPlayers());
+                record.put("favicon", status.favicon());
+                record.put("versionName", status.versionName());
+                record.put("ping", status.pingMs());
+                if (status.motd() != null) {
+                    record.put("motd", status.motd());
+                }
             }
             records.add(record);
         }

@@ -18,12 +18,22 @@ export default function (ctx) {
 .ymc-ifr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .ymc-ifr-card { display: flex; flex-direction: column; gap: 10px; background: var(--color-raised-bg); border-radius: 14px; padding: 16px; }
 .ymc-ifr-head { display: flex; align-items: center; gap: 12px; }
+.ymc-ifr-favicon { width: 44px; height: 44px; border-radius: 10px; image-rendering: pixelated; background: var(--color-button-bg); flex-shrink: 0; }
 .ymc-ifr-letter { width: 44px; height: 44px; border-radius: 10px; background: var(--color-button-bg); color: var(--color-brand); font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ymc-ifr-titles { min-width: 0; flex: 1; }
 .ymc-ifr-name { font-size: 15px; font-weight: 700; color: var(--color-contrast); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ymc-ifr-source { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; border: 1px solid var(--color-button-bg); color: var(--color-secondary); }
 .ymc-ifr-source.is-friend { color: var(--color-brand); border-color: color-mix(in srgb, var(--color-brand) 40%, transparent); }
+.ymc-ifr-status { font-size: 12px; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.ymc-ifr-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--color-gray, #9aa); }
+.ymc-ifr-status.is-online { color: var(--color-green); }
+.ymc-ifr-status.is-online::before { background: var(--color-green); }
+.ymc-ifr-status.is-offline { color: var(--color-red); }
+.ymc-ifr-status.is-offline::before { background: var(--color-red); }
 .ymc-ifr-desc { margin: 0; font-size: 13px; color: var(--color-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.ymc-ifr-bar { position: relative; height: 18px; border-radius: 9px; background: var(--color-button-bg); overflow: hidden; }
+.ymc-ifr-bar-fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--color-brand) 70%, transparent); border-radius: 9px; transition: width 0.3s; }
+.ymc-ifr-bar-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--color-contrast); }
 .ymc-ifr-meta { font-size: 12px; color: var(--color-secondary); display: flex; gap: 8px; flex-wrap: wrap; }
 .ymc-ifr-address { display: flex; align-items: center; gap: 8px; background: var(--color-button-bg); border-radius: 8px; padding: 6px 10px; }
 .ymc-ifr-address code { flex: 1; font-size: 12px; color: var(--color-contrast); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; padding: 0; }
@@ -44,6 +54,28 @@ export default function (ctx) {
 
 	function addressText(record) {
 		return record && record.address ? String(record.address) : ''
+	}
+
+	function faviconSrc(record) {
+		const favicon = record && record.favicon
+		if (typeof favicon !== 'string' || !favicon) return null
+		return favicon.startsWith('data:') ? favicon : 'data:image/png;base64,' + favicon
+	}
+
+	function playersPercent(record) {
+		const max = Number(record.maxPlayers) || 0
+		if (max <= 0) return 0
+		return Math.max(0, Math.min(100, Math.round(((Number(record.onlinePlayers) || 0) / max) * 100)))
+	}
+
+	function renderStatus(record) {
+		if (record.online === true) {
+			return h('span', { class: 'ymc-ifr-status is-online' }, '在线')
+		}
+		if (record.online === false) {
+			return h('span', { class: 'ymc-ifr-status is-offline' }, '离线')
+		}
+		return null
 	}
 
 	const component = {
@@ -145,24 +177,44 @@ export default function (ctx) {
 			}
 
 			function renderCard(record) {
+				const favicon = faviconSrc(record)
 				const head = h('div', { class: 'ymc-ifr-head' }, [
-					h(
-						'div',
-						{ class: 'ymc-ifr-letter' },
-						String(record.title || record.id || '?').slice(0, 1).toUpperCase(),
-					),
+					favicon
+						? h('img', { class: 'ymc-ifr-favicon', src: favicon, alt: '' })
+						: h(
+								'div',
+								{ class: 'ymc-ifr-letter' },
+								String(record.title || record.id || '?').slice(0, 1).toUpperCase(),
+							),
 					h('div', { class: 'ymc-ifr-titles' }, [
 						h('div', { class: 'ymc-ifr-name' }, [
 							String(record.title || record.id || '未命名条目'),
 							renderSource(record),
 						]),
 					]),
+					renderStatus(record),
 				])
 
 				const children = [head]
 
 				if (record.summary) {
 					children.push(h('p', { class: 'ymc-ifr-desc' }, String(record.summary)))
+				}
+
+				if (record.online === true && Number(record.maxPlayers) > 0) {
+					children.push(
+						h('div', { class: 'ymc-ifr-bar' }, [
+							h('div', {
+								class: 'ymc-ifr-bar-fill',
+								style: { width: playersPercent(record) + '%' },
+							}),
+							h(
+								'span',
+								{ class: 'ymc-ifr-bar-text' },
+								`${Number(record.onlinePlayers) || 0} / ${Number(record.maxPlayers) || 0} 人在线`,
+							),
+						]),
+					)
 				}
 
 				if (addressText(record)) {
@@ -176,6 +228,15 @@ export default function (ctx) {
 							),
 						]),
 					)
+				}
+
+				const meta = []
+				if (record.versionName) meta.push(String(record.versionName))
+				if (record.ping != null && record.online === true) {
+					meta.push(`${Number(record.ping)} ms`)
+				}
+				if (meta.length) {
+					children.push(h('div', { class: 'ymc-ifr-meta' }, meta.join(' · ')))
 				}
 
 				children.push(
