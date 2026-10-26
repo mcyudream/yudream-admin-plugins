@@ -7,8 +7,11 @@ version: 1.6.10
 menu:
   # 一级共享分类，见宿主 docs/plugin-system/specification.md 第 10 节
   category: todo
+# minecraft-server 先启：MC 时长打卡联动依赖其 PluginMinecraftService（provided 不入本插件 jar，
+# 靠宿主对已声明依赖插件的类加载器委托加载；未声明时 Class.forName 失败、minecraftReady 静默 false）
 # ymcl-adapter 先启：贡献页注册依赖其 API 类先于本插件加载
 softdepend:
+  - minecraft-server
   - ymcl-adapter
 # 移动端（YuDream Mobile 宿主）接入声明：项目任务
 mobile:
