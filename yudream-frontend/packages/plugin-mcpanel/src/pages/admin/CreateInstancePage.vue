@@ -290,7 +290,7 @@ const reviewItems = computed(() => [
     : []),
   { key: 'image', label: '镜像', value: selectedImage.value ? `${selectedImage.value.name} → ${resolvedImage.value}` : '-' },
   { key: 'command', label: '启动命令', value: form.command || '-' },
-  { key: 'resource', label: '资源', value: `${form.memoryMb} MB · ${form.cpuMillis} mCPU · ${form.diskMb} MB` },
+  { key: 'resource', label: '资源', value: `${form.memoryMb} MB · ${Number(form.cpuMillis) === 0 ? 'CPU 不限' : `${form.cpuMillis} mCPU`} · ${form.diskMb} MB` },
   ...(showEula.value
     ? [{ key: 'eula', label: 'EULA', value: form.agreeEula ? '创建后自动写入 eula=true' : '暂不同意（启动前需手动同意）' }]
     : []),
@@ -1162,7 +1162,7 @@ onMounted(() => {
               <YdInput v-model="form.memoryMb" type="number" class="w-full" />
             </label>
             <label class="grid gap-2">
-              <span class="text-sm font-medium">CPU（毫核）</span>
+              <span class="text-sm font-medium">CPU（毫核，0 = 不限）</span>
               <YdInput v-model="form.cpuMillis" type="number" class="w-full" />
             </label>
             <label class="grid gap-2">

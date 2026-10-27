@@ -155,7 +155,9 @@ async function addPort() {
   if (!canManage.value || portBusy.value) {
     return
   }
-  const raw = portInput.value.trim()
+  // YdInput type=number 的 v-model 回传 number（Vue 原生行为）：统一转字符串再解析，
+  // 否则 number.trim() 抛 TypeError，点击处理器静默崩溃、表现为「点了没反应」。
+  const raw = String(portInput.value ?? '').trim()
   let port: number | undefined
   if (raw) {
     port = Number(raw)
@@ -396,7 +398,7 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
           <label class="mcp-form-item"><span class="mcp-form-label">启动命令</span><YdTextarea v-model="form.command" :rows="2" class="mcp-w-full mcp-mono" /></label>
           <div class="mcp-grid-3">
             <label class="mcp-form-item"><span class="mcp-form-label">内存 MB</span><YdInput v-model="form.memoryMb" type="number" class="mcp-w-full" /></label>
-            <label class="mcp-form-item"><span class="mcp-form-label">CPU mCPU</span><YdInput v-model="form.cpuMillis" type="number" class="mcp-w-full" /></label>
+            <label class="mcp-form-item"><span class="mcp-form-label">CPU mCPU（0 = 不限）</span><YdInput v-model="form.cpuMillis" type="number" class="mcp-w-full" /></label>
             <label class="mcp-form-item"><span class="mcp-form-label">磁盘 MB</span><YdInput v-model="form.diskMb" type="number" class="mcp-w-full" /></label>
           </div>
           <label class="mcp-form-item"><span class="mcp-form-label">环境变量（每行 KEY=VALUE）</span><YdTextarea v-model="form.envText" :rows="4" class="mcp-w-full mcp-mono" /></label>

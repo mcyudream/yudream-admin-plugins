@@ -32,9 +32,12 @@ async function loadCurrentPage() {
   if (id) model.selectedId = id
   await model.load(isAdminPage.value, !isAdminPage.value && isClosedPage.value)
   if (page.value === ServerEditorPage) {
-    const selected = model.servers.find(item => item.id === id)
-    if (id && selected) model.editServer(selected)
-    else if (!id) model.newServer()
+    // 目标服务器不一定在当前分页列表里，必须按 id 直取详情回填，查不到才回到新增
+    if (id) await model.editServerById(id)
+    else model.newServer()
+  }
+  else if (id) {
+    await model.focusServer(id)
   }
 }
 

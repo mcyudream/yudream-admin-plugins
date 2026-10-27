@@ -18,8 +18,12 @@ public interface PortAllocationRepository {
 
     List<Record> findByInstance(String instanceId);
 
+    /** 节点维度全量台账（对账用）：按 nodeId 过滤分页遍历。 */
+    List<Record> findByNode(String nodeId);
+
     long countByNode(String nodeId);
 
-    record Record(String nodeId, int port, String proto, String instanceId) {
+    /** createdAtMs = 预占写入时间（对账宽限窗口用）；历史文档缺失时为 0。 */
+    record Record(String nodeId, int port, String proto, String instanceId, long createdAtMs) {
     }
 }

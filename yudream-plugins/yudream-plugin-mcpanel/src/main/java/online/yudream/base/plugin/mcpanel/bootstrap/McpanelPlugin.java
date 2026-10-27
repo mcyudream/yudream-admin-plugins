@@ -730,6 +730,12 @@ public class McpanelPlugin implements YuDreamPlugin {
                             return instanceService.files(scopeKey, instanceId, "write", args);
                         }
                     });
+            // 平台 MCP 服务器（宿主能力 mcp-server）的 mcpanel 工具模块：把实例管理/
+            // 文件/配置/备份能力注册为 AI 工具，宿主 MCP 端点按调用者权限暴露与鉴权。
+            for (online.yudream.base.plugin.spi.system.ai.PluginAiTool mcpTool
+                    : online.yudream.base.plugin.mcpanel.application.mcp.McpanelMcpTools.create(instanceService, serverConfigService)) {
+                context.registerAiTool(mcpTool);
+            }
             // 联动状态心跳：minecraft-server 用「面板确认实例在运行」兜底线路探测不可达
             // （面板与节点同机的 NAT 回环），回推必须周期性刷新才持续有效；顺带回推
             // server.properties 的 max-players，ping 不可达时人数仍能按「在线/上限」展示。

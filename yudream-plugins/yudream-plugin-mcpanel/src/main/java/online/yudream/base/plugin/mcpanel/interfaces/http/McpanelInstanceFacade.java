@@ -317,7 +317,7 @@ public class McpanelInstanceFacade {
     /** 回收附加端口：DELETE /ports/{port}?proto=tcp；主端口由用例层拒绝。 */
     public PluginHttpResponse portRemove(PluginHttpRequest request) {
         return HttpGuards.guarded(request, security, McpanelPlugin.MANAGE_PERMISSION, () -> {
-            String portText = segment(request.path(), 5);
+            String portText = portSegment(request.path());
             int port;
             try {
                 port = Integer.parseInt(portText);
@@ -691,9 +691,16 @@ public class McpanelInstanceFacade {
      * 从插件相对路径提取资源段。
      * 兼容：/admin/instances/{id}、mcpanel/admin/instances/{id}、/admin/instances/{id}/files。
      * 对 /admin/{collection}/{id}[/rest]：在 collection 之后取 id。
+     * 注意：index 参数仅保留调用点形状，实际恒返回 collection 后的资源段；
+     * 更深层资源（如 /ports/{port}）请用 {@link #portSegment}。
      */
     private static String segment(String path, int index) {
         return resourceAfter(path, "instances", "nodes");
+    }
+
+    /** 端口回收路由的端口段：/admin/instances/{id}/ports/{port}（兼容插件路径前缀）取 ports 之后的端口。 */
+    static String portSegment(String path) {
+        return resourceAfter(path, "ports");
     }
 
     private static String resourceAfter(String path, String... collections) {

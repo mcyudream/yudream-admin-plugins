@@ -64,6 +64,11 @@ export function trimmedFields(form: StudentProfileFields): StudentProfileFields 
   }
 }
 
+export function errorMessage(error: unknown, fallback: string): string {
+  const message = (error as { message?: string } | null | undefined)?.message
+  return message && message.trim() ? message : fallback
+}
+
 export function validate(form: StudentProfileFields, warn: (message: string) => void) {
   if (!form.studentName.trim() || !form.studentNo.trim() || !form.className.trim() || !form.college.trim()) {
     warn('请填写姓名、学号、班级和学院')

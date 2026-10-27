@@ -21,7 +21,7 @@ onMounted(model.load)
     <YdPageMain>
       <div class="student-info-profile-grid">
         <YdCard title="学籍资料" :description="model.accountName" content-class="student-info-card-content">
-          <YdForm :model="model.form" layout="vertical" @submit.prevent="model.save">
+          <YdForm :model="model.form" layout="vertical">
             <div class="flex flex-col gap-4">
               <YdFormItem label="姓名">
                 <YdInput v-model="model.form.studentName" maxlength="40" />
@@ -36,7 +36,7 @@ onMounted(model.load)
                 <YdInput v-model="model.form.college" maxlength="80" />
               </YdFormItem>
               <YdFormItem>
-                <YdButton html-type="submit" :loading="model.saving" :disabled="model.loading">
+                <YdButton :loading="model.saving" :disabled="model.loading" @click="model.save">
                   <YdIcon name="morph:save" />
                   保存
                 </YdButton>

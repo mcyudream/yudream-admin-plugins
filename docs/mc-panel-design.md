@@ -179,7 +179,7 @@ M1 范围：仅 `node.hello`、`evt node.stats` 为必选；`port.check`、`inst
 - **L1 节点（UPnP/PCP 映射）**：端口池 = 期望的外部端口区间；节点向路由器申请映射成功才算分配完成，外部 IP 变化触发 DNS 更新。
 - **L3 节点（frp 中继）**：端口池 = frps 入口机端口；分配后注册 frp TCP 代理 → 入口机端口转发至节点容器端口；`port.check` 探测入口机端口空闲 + 代理注册成功。MC Java 实例升级 L3' 后不耗端口池。
 - 创建/改配实例：面板事务内分配 → 端口实测 → 冲突则换端口重试（最多 5 次）→ 下发实例。
-- **TCP/UDP 双协议**：`port_allocations.proto` 区分；MC Java/代理走 TCP，基岩版走 UDP（19132 段），通用应用按模板声明。同端口号 TCP/UDP 互不冲突，分配按 `(port, proto)` 联合唯一。
+- **TCP/UDP 双协议**：`port_allocations.proto` 区分；MC Java/代理走 TCP，基岩版走 UDP（节点配置端口池后 tcp/udp 共用该池，未配置时 udp 回落 19132 段），通用应用按模板声明。同端口号 TCP/UDP 互不冲突，分配按 `(port, proto)` 联合唯一。
 - 节点在**每次启动实例前**按模板规则重写配置文件（不是只在创建时）：
   - `server.properties`: `server-port`、`query.port`、`rcon.port`
   - `velocity.toml`、`config.yml`(Bungee) 等按模板声明的 `configRewrites: [{file, key/jsonPath, value: "${ALLOC_PORT}"}]`

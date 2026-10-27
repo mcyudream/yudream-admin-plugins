@@ -12,8 +12,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 端口分配（设计 §4）：池 = 节点 portRange（默认 25565-25599，tcp）
- * 加基岩 udp 19132-19161；保留端口跳过；分配冲突顺序取下一候选（最多 5 轮）。
+ * 端口分配（设计 §4）：池 = 节点 portRange（tcp/udp 共用；未配置回落
+ * tcp 25565-25699、udp 19132-19261 基岩惯例段）；保留端口跳过；
+ * 分配冲突顺序取下一候选（最多 5 轮）。
  * 唯一键作用域 = (nodeId, port, proto)；面板是每节点唯一分配方。
  * 附加端口开放/回收走 {@link #planChange}（主端口不可变）+ {@link #allocateExtra}。
  */
@@ -21,6 +22,7 @@ public final class PortAllocator {
 
     private static final int DEFAULT_TCP_START = 25565;
     private static final int DEFAULT_TCP_END = 25699;
+    /** UDP 默认段：仅节点未配置端口池时回落（基岩版惯例 19132 起）。 */
     private static final int UDP_START = 19132;
     private static final int UDP_END = 19261;
     private static final int MAX_ATTEMPTS = 5;
@@ -93,9 +95,10 @@ public final class PortAllocator {
     }
 
     /**
-     * 端口列表变更计划：校验期望列表（proto/池内范围/保留端口/组内重复/1:1/上限），
-     * 与当前列表求差；当前列表非空时主端口（ports[0]）不可变——节点 rewrite()
-     * 依赖它写 server-port，玩家侧连接地址也锚定它。
+     * 端口列表变更计划：校验期望列表（proto/池内范围/保留端口/组内重复/1:1/上限；
+     * 已在当前列表的存量端口不重检池内范围——节点端口池配置调整不回溯既有分配，
+     * 存量端口仍可正常回收），与当前列表求差；当前列表非空时主端口（ports[0]）
+     * 不可变——节点 rewrite() 依赖它写 server-port，玩家侧连接地址也锚定它。
      */
     public ChangePlan planChange(McpanelNode node,
                                  List<McpanelInstance.PortMapping> current,
@@ -121,7 +124,9 @@ public final class PortAllocator {
             if (mapping.hostPort() != mapping.containerPort()) {
                 throw McpanelBusinessException.invalid("端口映射仅支持宿主与容器 1:1：" + mapping.hostPort());
             }
-            validatePoolMembership(node, mapping.hostPort(), mapping.proto());
+            if (!containsMapping(currentSafe, mapping)) {
+                validatePoolMembership(node, mapping.hostPort(), mapping.proto());
+            }
             if (!seen.add(mapping.hostPort() + "/" + mapping.proto())) {
                 throw McpanelBusinessException.invalid("端口列表存在重复：" + mapping.hostPort() + "/" + mapping.proto());
             }
@@ -150,7 +155,7 @@ public final class PortAllocator {
         portRepository.release(nodeId, hostPort, proto);
     }
 
-    /** 端口池边界（视图提示用）：tcp=节点配置段（带默认回落），udp=固定段。 */
+    /** 端口池边界（视图提示用）：tcp/udp=节点配置段（未配置回落默认段，udp 回落基岩段）。 */
     public int[] poolBounds(McpanelNode node, String proto) {
         return rangeOf(node, proto);
     }
@@ -174,8 +179,17 @@ public final class PortAllocator {
 
     private int[] rangeOf(McpanelNode node, String proto) {
         return "udp".equals(proto)
-                ? new int[]{UDP_START, UDP_END}
+                ? new int[]{udpStart(node), udpEnd(node)}
                 : new int[]{tcpStart(node), tcpEnd(node)};
+    }
+
+    /** UDP 池跟随节点端口池配置（tcp/udp 同池，台账键含 proto 互不冲突）；未配置回落基岩段。 */
+    private int udpStart(McpanelNode node) {
+        return node.portRangeStart() != null ? node.portRangeStart() : UDP_START;
+    }
+
+    private int udpEnd(McpanelNode node) {
+        return node.portRangeEnd() != null ? node.portRangeEnd() : UDP_END;
     }
 
     private static boolean containsMapping(List<McpanelInstance.PortMapping> mappings,

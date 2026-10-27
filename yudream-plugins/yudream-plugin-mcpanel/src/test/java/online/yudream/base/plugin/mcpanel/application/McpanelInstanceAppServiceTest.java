@@ -131,6 +131,18 @@ class McpanelInstanceAppServiceTest {
     }
 
     @Test
+    void cpuZeroMeansUnlimitedAndSmallValuesRejected() {
+        McpanelInstance unlimited = McpanelInstance.create("inst-e", "node-1", "不限CPU", "paper", "1.21", "",
+                "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 0, 2048, List.of(), Map.of(), null, "", 1L);
+        InstancePolicy.validate(unlimited);
+        McpanelInstance tooSmall = McpanelInstance.create("inst-f", "node-1", "坏CPU", "paper", "1.21", "",
+                "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 50, 2048, List.of(), Map.of(), null, "", 1L);
+        assertThrows(McpanelBusinessException.class, () -> InstancePolicy.validate(tooSmall));
+    }
+
+    @Test
     void deleteReleasesPortsAndProxiesNode() {
         onlineNode();
         McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
@@ -1027,5 +1039,70 @@ class McpanelInstanceAppServiceTest {
         assertEquals(1, instancePorts("inst-close4").size());
         assertEquals(1L, ports.countByNode("node-1"));
         assertTrue(Boolean.TRUE.equals(((Map<?, ?>) ((List<?>) view.get("ports")).get(0)).get("primary")));
+    }
+
+    @Test
+    void addPortReclaimsStaleLedgerAllocation() {
+        onlineNode();
+        // 陈旧预占：占用者实例不存在，写入于 10 分钟前（对账宽限窗口之外）。
+        documents.save("mcpanel_port_allocations", "alloc:node-1:19132:udp", Map.of(
+                "nodeId", "node-1", "port", 19132, "proto", "udp", "instanceId", "inst-ghost",
+                "createdAt", System.currentTimeMillis() - 10 * 60 * 1000L));
+        // 宽限窗口内的新鲜预占：视为在途请求占坑，保留不动。
+        ports.allocate("node-1", 19133, "udp", "inst-ghost2");
+        McpanelInstanceAppService service = service((method, payload) -> Map.of("state", "created"));
+        service.create("user:1", "user:1", spec("inst-stale", "paper"));
+
+        Map<String, Object> view = service.addPort("user:1", "user:1", "inst-stale", "udp", null);
+
+        // 陈旧预占被对账释放，自动分配命中 19132；新鲜预占保留。
+        assertEquals("inst-stale", ports.ownerOf("node-1", 19132, "udp").orElseThrow());
+        assertEquals("inst-ghost2", ports.ownerOf("node-1", 19133, "udp").orElseThrow());
+        assertTrue(((List<?>) view.get("ports")).stream().anyMatch(item -> {
+            Map<?, ?> row = (Map<?, ?>) item;
+            return Integer.valueOf(19132).equals(row.get("hostPort")) && "udp".equals(row.get("proto"));
+        }));
+    }
+
+    @Test
+    void addPortToleratesProbeConflictOnOwnPortNumber() {
+        // 节点带 41000-42000 池 + port.check 能力；实例主端口 41008/tcp。
+        nodes.save(McpanelNode.create("node-1", "节点一", "wss://127.0.0.1:9701", "pinned",
+                "a".repeat(64), true, "test", true, 41000, 42000, null, 1L)
+                .withRuntime(online.yudream.base.plugin.mcpanel.domain.enumerate.NodeStatus.ONLINE,
+                        "0.7.0", "h", "sess", List.of("port.check"), "27", null, 1L, 1L));
+        instances.save(McpanelInstance.create("inst-probe", "node-1", "探测实例", "paper", "1.21.4", "",
+                "eclipse-temurin:21-jre", List.of("java", "-jar", "server.jar"), Map.of(),
+                1024, 1000, 2048, List.of(), Map.of(), null, "", 1L)
+                .withBinding(null, 1L)
+                .withPorts(List.of(new McpanelInstance.PortMapping(41008, 41008, "tcp")), 1L));
+        // 节点探测恒报「占用」（模拟把实例自身同号 tcp 绑定误报为 udp 占用）。
+        McpanelInstanceAppService service = service((method, payload) -> {
+            if ("port.check".equals(method)) {
+                Map<?, ?> check = (Map<?, ?>) ((List<?>) payload.get("checks")).get(0);
+                return Map.of("results", List.of(Map.of(
+                        "port", check.get("port"), "proto", check.get("proto"),
+                        "free", false, "reason", "地址已在使用中")));
+            }
+            return Map.of("state", "created");
+        });
+
+        // 同号异协议（41008/udp vs 主端口 41008/tcp）：探测误报不阻断，开放成功。
+        Map<String, Object> view = service.addPort("user:1", "user:1", "inst-probe", "udp", 41008);
+        assertEquals(2, instancePorts("inst-probe").size());
+        assertEquals(2, ((List<?>) view.get("ports")).size());
+
+        // 重复开放同一端口：显式拒绝。
+        McpanelBusinessException duplicate = assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-probe", "udp", 41008));
+        assertEquals("invalid-request", duplicate.code());
+
+        // 非自身保有的端口探测占用：仍拒绝，且台账预占被兜底释放。
+        McpanelBusinessException conflict = assertThrows(McpanelBusinessException.class,
+                () -> service.addPort("user:1", "user:1", "inst-probe", "udp", 41009));
+        assertEquals("port.conflict", conflict.code());
+        assertTrue(conflict.getMessage().contains("41009"));
+        assertTrue(ports.ownerOf("node-1", 41009, "udp").isEmpty());
+        assertEquals(2, instancePorts("inst-probe").size());
     }
 }
