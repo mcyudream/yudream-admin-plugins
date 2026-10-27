@@ -1,18 +1,20 @@
 # 玩家模型安装与配置
 
-本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.5.0`、Folia 插件 `0.4.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
+本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.5.0`、Folia 插件 `0.4.1`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
 
 ## 1. 文件放在哪里
 
 | 文件 | 安装位置 |
 | --- | --- |
 | `yudream-plugin-ysm-models-0.5.0.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
-| `YudreamModels-folia-26.3-0.4.0.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
+| `YudreamModels-folia-26.3-0.4.1.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
 | `YudreamModels-fabric-26.3-0.2.0.jar` | 玩家的对应游戏实例 `mods/` |
 | `craft-engine-paper-plugin-26.9.2-folia26.3.2.jar`（CE 模式必需） | Folia 服务器的 `plugins/`，替换旧版 CE，只装 Paper / Bukkit 其中一个 |
 | `HandbookCore-mc26_3-plugin-Beta_0_1_1.jar`（可选） | Folia 服务器的 `plugins/`，提供玩家指南 |
 
-网站插件可从 YDA 插件市场安装，也可上传本次发布的 JAR。本次托管更新仅替换 YSM 服务端与配套 CE；网站和客户端沿用现有版本。
+网站插件可从 YDA 插件市场安装，也可上传本次发布的 JAR。已安装 0.4.0 配套 CE 时，本次仅替换 YSM 服务端，保留现有配置并重启游戏服；网站、CE 和客户端沿用现有版本。
+
+0.4.1 修复玩家远离世界原点时虚拟模型部件触发 Folia 区域线程检查的问题，并修复较大方块导出超出原版模型坐标限制导致部件缺失的问题。适配失败时暂时恢复原版外观，按 1–30 秒退避重试；每个玩家的同一模型与贴图组合最多每 30 秒记录一次完整异常。网站连接警告会附带 HTTP 状态、连接失败或响应格式等安全诊断；若为 HTTP 401 / 403，请核对网站与游戏服保存的桥接密钥。
 
 ## 2. 配置 YDA 网站
 

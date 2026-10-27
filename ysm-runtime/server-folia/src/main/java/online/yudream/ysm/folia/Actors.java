@@ -9,6 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.joml.Matrix4f;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.Level;
 
 /** Target-owned animation tasks publish immutable packets; each viewer sends its selected version. */
 final class Actors {
@@ -41,14 +42,23 @@ final class Actors {
             if(ticks%2!=0)return;
             for(var entry:variants.entrySet()){
                 Variant v=entry.getValue();if(System.nanoTime()-v.lastUsed>30_000_000_000L){variants.remove(entry.getKey(),v);continue;}
-                try{v.update(at,reset);}catch(RuntimeException e){variants.remove(entry.getKey(),v);plugin.getLogger().warning("模型动画适配失败："+e.getClass().getSimpleName());}
+                if(ticks<v.retryAt)continue;
+                try{v.update(at,reset);}catch(RuntimeException e){v.failed(e);}
             }
         }
     }
     final class Variant {
         final Target target;final ModelAsset asset;final String texture;final Rig rig;final List<PacketPort.Part> parts=new ArrayList<>();volatile Frame frame;volatile long lastUsed=System.nanoTime();
-        String clip="";double elapsed;Rig.LocalPose[] previousPose,blendFrom;long blendAt;World world;
+        String clip="";double elapsed;Rig.LocalPose[] previousPose,blendFrom;long blendAt,retryAt,warnAt;int failures;World world;
         Variant(Target target,ModelAsset asset,String texture){this.target=target;this.asset=asset;this.texture=texture;this.rig=new Rig(asset.data());}
+        void failed(RuntimeException e){
+            frame=null;parts.clear();world=null;
+            long delay=Math.min(600,20L<<Math.min(failures,5));failures=Math.min(6,failures+1);retryAt=target.ticks+delay;
+            if(target.ticks>=warnAt){
+                warnAt=target.ticks+600;
+                plugin.getLogger().log(Level.WARNING,"模型动画适配失败（玩家 "+target.player.getUniqueId()+"，模型 "+asset.hash()+"）；恢复原版外观，"+(delay/20)+" 秒后重试",e);
+            }
+        }
         void update(Location at,boolean reset){
             String next=rig.select(target.motion);if(!next.equals(clip)){clip=next;elapsed=0;blendFrom=previousPose;blendAt=target.ticks;}
             elapsed+=.1;Rig.Clip animation=rig.clips.get(clip);double time=animation==null?0:animation.at(elapsed,false);
@@ -67,6 +77,7 @@ final class Actors {
             }
             List<Object> spawn=new ArrayList<>(),update=new ArrayList<>();for(var part:parts){spawn.addAll(part.spawn());update.addAll(part.update());}
             frame=new Frame(target.ticks,parts.stream().mapToInt(PacketPort.Part::id).toArray(),List.copyOf(spawn),List.copyOf(update));
+            if(failures>0){plugin.getLogger().info("模型动画已恢复（玩家 "+target.player.getUniqueId()+"，模型 "+asset.hash()+"）");failures=0;retryAt=0;}
         }
     }
 }

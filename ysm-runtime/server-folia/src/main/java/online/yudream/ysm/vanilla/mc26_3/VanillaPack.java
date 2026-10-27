@@ -7,6 +7,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.*;
+import java.lang.Math;
 
 /** 26.3-only export adapter. The dynamic client never applies this ZIP for live updates. */
 public final class VanillaPack {
@@ -28,12 +29,16 @@ public final class VanillaPack {
             JsonObject p=pe.getAsJsonObject();List<List<Object>> layers=new ArrayList<>();for(int t=0;t<a.textures().size();t++)layers.add(new ArrayList<>());
             for(JsonElement ce:p.getAsJsonArray("cubes")) {
                 JsonObject c=ce.getAsJsonObject();float inflate=c.has("inflate")?c.get("inflate").getAsFloat():0;Vector3f s=Rig.vector(c.get("size"),0).add(2*inflate,2*inflate,2*inflate);
-                Matrix4f m=new Matrix4f().translation(.5f,.5f,.5f).mul(Geometry.local(bones.get(p.get("bone").getAsString()),c)).translate(-.5f,-.5f,-.5f);
+                // Cuboid JSON is limited to [-16,32]. Compensate around the cube center in the item transform.
+                float exportScale=1,maxExtent=Math.max(Math.abs(s.x),Math.max(Math.abs(s.y),Math.abs(s.z)));
+                while(maxExtent/exportScale>48)exportScale*=2;
+                Vector3f exported=new Vector3f(s).div(exportScale);
+                Matrix4f m=new Matrix4f().translation(.5f,.5f,.5f).mul(Geometry.local(bones.get(p.get("bone").getAsString()),c)).scale(exportScale).translate(-.5f,-.5f,-.5f);
                 List<Float> matrix=new ArrayList<>();for(int row=0;row<4;row++)for(int col=0;col<4;col++)matrix.add(m.get(col,row));
                 for(int ti=0;ti<a.textures().size();ti++) {
                     JsonObject t=a.textures().get(ti).getAsJsonObject();String id=prefix+"cube_"+cubeIndex+"_"+ti;Map<String,Object> faces=new LinkedHashMap<>();
                     Geometry.uv(c,t.get("width").getAsInt(),t.get("height").getAsInt()).forEach((name,uv)->faces.put(name,Map.of("texture","#skin","uv",List.of(uv[0]*16,uv[1]*16,uv[2]*16,uv[3]*16),"rotation",(int)uv[4])));
-                    put(files,root+"models/"+id+".json",Map.of("ambientocclusion",false,"textures",Map.of("skin","ysm:item/"+prefix+textureId(t),"particle","#skin"),"elements",List.of(Map.of("from",List.of(8-s.x/2,8-s.y/2,8-s.z/2),"to",List.of(8+s.x/2,8+s.y/2,8+s.z/2),"faces",faces))));
+                    put(files,root+"models/"+id+".json",Map.of("ambientocclusion",false,"textures",Map.of("skin","ysm:item/"+prefix+textureId(t),"particle","#skin"),"elements",List.of(Map.of("from",List.of(8-exported.x/2,8-exported.y/2,8-exported.z/2),"to",List.of(8+exported.x/2,8+exported.y/2,8+exported.z/2),"faces",faces))));
                     layers.get(ti).add(Map.of("type","minecraft:model","model","ysm:"+id,"transformation",matrix));
                 }cubeIndex++;
             }

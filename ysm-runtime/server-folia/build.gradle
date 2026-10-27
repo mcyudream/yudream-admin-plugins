@@ -1,4 +1,4 @@
-version = '0.4.0'
+version = '0.4.1'
 
 def handbookApi = rootProject.file(providers.gradleProperty('handbookApiJar').getOrElse(
         '../../plugins/mcPlugin/release/HandbookCore/HandbookCore-mc26_3-plugin-Beta_0_1_1-api.jar'))
@@ -24,4 +24,7 @@ jar {
     from project(':core').sourceSets.main.output
     archiveBaseName = 'YudreamModels-folia-26.3'
 }
-processResources { filesMatching('plugin.yml') { expand(version: project.version) } }
+processResources {
+    inputs.property('pluginVersion', project.version)
+    filesMatching('plugin.yml') { expand(version: project.version) }
+}

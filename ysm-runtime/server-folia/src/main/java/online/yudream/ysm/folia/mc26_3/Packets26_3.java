@@ -22,7 +22,7 @@ public final class Packets26_3 implements PacketPort {
     private final Constructor<?> displayCtor=constructor(type("net.minecraft.world.entity.Display$ItemDisplay"),entityType,type("net.minecraft.world.level.Level"));
     private final Constructor<?> spawnCtor=constructor(type("net.minecraft.network.protocol.game.ClientboundAddEntityPacket"),int.class,UUID.class,double.class,double.class,double.class,float.class,float.class,entityType,int.class,vec,double.class);
     private final Class<?> positionSync=type("net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket");
-    private final Method positionOf=method(positionSync,"of",entity),entityData=method(entity,"getEntityData"),packAll=method(data,"packAll"),packDirty=method(data,"packDirty");
+    private final Method positionOf=method(positionSync,"of",entity),setPos=method(entity,"setPos",double.class,double.class,double.class),entityData=method(entity,"getEntityData"),packAll=method(data,"packAll"),packDirty=method(data,"packDirty");
     private final Method packetId=method(metadata,"id"),packed=method(metadata,"packedItems"),valueId=method(value,"id"),valueSerializer=method(value,"serializer"),valueValue=method(value,"value");
     private final Method equipmentId=method(equipment,"getEntity"),slots=method(equipment,"getSlots");
     private final Class<?> pair=type("com.mojang.datafixers.util.Pair");
@@ -35,6 +35,8 @@ public final class Packets26_3 implements PacketPort {
     }
     @Override public Part part(Player target,ItemStack item,Location at,Matrix4f matrix){
         Object world=call(method(at.getWorld().getClass(),"getHandle"),at.getWorld()),ghost=create(displayCtor,displayType,world);
+        // Folia checks the position even for unregistered entities. Establish ownership before any Bukkit setter.
+        call(setPos,ghost,at.getX(),at.getY(),at.getZ());
         ItemDisplay bukkit=(ItemDisplay)call(method(entity,"getBukkitEntity"),ghost);
         bukkit.setItemStack(item);bukkit.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
         bukkit.setInterpolationDuration(2);bukkit.setTeleportDuration(2);bukkit.setDisplayWidth(4);bukkit.setDisplayHeight(4);bukkit.setViewRange(2);
@@ -44,7 +46,7 @@ public final class Packets26_3 implements PacketPort {
             public int id(){return id;}
             {transform(at,matrix);}
             public void transform(Location next,Matrix4f transform){
-                location=next.clone();call(method(entity,"setPos",double.class,double.class,double.class),ghost,next.getX(),next.getY(),next.getZ());
+                location=next.clone();call(setPos,ghost,next.getX(),next.getY(),next.getZ());
                 bukkit.setTransformationMatrix(transform);bukkit.setInterpolationDelay(0);
             }
             public List<Object> spawn(){return List.of(create(spawnCtor,id,uuid,location.getX(),location.getY(),location.getZ(),0f,0f,displayType,0,zero,0d),create(metaCtor,id,call(packAll,synced)));}

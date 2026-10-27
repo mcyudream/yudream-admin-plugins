@@ -17,7 +17,7 @@ YDA 管理通用 `schema=2`（兼容读取 schema 1）模型、贴图、角色�
 本次发布的文件对应关系、环境变量、完整配置示例和客户端依赖见 [中文安装配置](INSTALL.zh-CN.md)。
 
 1. YDA 安装 `yudream-skin` 和 `ysm-models`。在「模型设置 → 服务器连接」填写网站公网地址、生成密钥并保存，复制游戏服配置。
-2. Folia 安装 `YudreamModels-folia-26.3-0.4.0.jar` 与配套 `CraftEngine 26.9.2-folia26.3.2`，填写 `website-url`、相同 `bridge-token` 和 `pack-host.mode: craftengine`。模型包复用 CE 自托管地址；`self-host.port: auto` 可复用游戏端口，无需 YSM 独立端口。旧配置无 `mode` 时保留独立托管，完整配置见安装文档。
+2. Folia 安装 `YudreamModels-folia-26.3-0.4.1.jar` 与配套 `CraftEngine 26.9.2-folia26.3.2`，填写 `website-url`、相同 `bridge-token` 和 `pack-host.mode: craftengine`。模型包复用 CE 自托管地址；`self-host.port: auto` 可复用游戏端口，无需 YSM 独立端口。旧配置无 `mode` 时保留独立托管，完整配置见安装文档。
 3. 玩家在网站「我的模型」上传原始 `.ysm` 或明文 ZIP，预览后选择本人皮肤站角色和贴图并装备。管理员可把模型加入服务器共享库、停用或删除模型。
 4. 可选安装匹配版本的 `YudreamModels-fabric-26.3-0.2.0.jar`、Fabric Loader 与 Fabric API。
 
@@ -70,7 +70,7 @@ cd ysm-runtime
   -PcraftEngineApiJar=/path/to/craft-engine-bukkit-plugin-26.9.2-folia26.3.2.jar
 ```
 
-HandbookCore API 仅用于编译，不打入模型插件；从其正式发布物取得 API JAR。默认查找同级 `plugins/mcPlugin/release/HandbookCore/` 发布目录，其他目录通过上述属性指定。CE API 同样仅用于编译；可指定配套 Paper 或 Bukkit JAR，最终 YSM JAR 不包含 CE 类。托管更新只升级 Folia 至 `0.4.0`；网站 `0.5.0`、core 与 Fabric `0.2.0` 保持兼容。
+HandbookCore API 仅用于编译，不打入模型插件；从其正式发布物取得 API JAR。默认查找同级 `plugins/mcPlugin/release/HandbookCore/` 发布目录，其他目录通过上述属性指定。CE API 同样仅用于编译；可指定配套 Paper 或 Bukkit JAR，最终 YSM JAR 不包含 CE 类。本次动画修复只升级 Folia 至 `0.4.1`；网站 `0.5.0`、CE `26.9.2-folia26.3.2`、core 与 Fabric `0.2.0` 保持兼容。
 
 Fabric 的 `prepareMinecraft` 下载官方 client / libraries 并验证 SHA-1，只用于编译，不打入分发 JAR。可通过 `minecraftClientJar`、`minecraftLibraries`、`fabricApiJar`、`fabricLoaderJar`、`mixinJar` Gradle 属性使用现有本地缓存；不会把本机路径写入源码。
 

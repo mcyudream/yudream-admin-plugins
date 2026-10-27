@@ -25,7 +25,7 @@ final class PackHost implements AutoCloseable {
 
     synchronized Protocol.Snapshot build(Protocol.Manifest manifest, Collection<ModelAsset> assets) throws Exception {
         if (this.closed) throw new IllegalStateException("资源快照已关闭");
-        String revision = "mc26.3-export1-" + manifest.revision();
+        String revision = "mc26.3-export2-" + manifest.revision();
         var existing = this.snapshots.get(revision);
         if (existing != null) return existing.snapshot();
         if (this.snapshots.size() >= 256) throw new IllegalStateException("资源快照缓存已满，请重启清理后重试");

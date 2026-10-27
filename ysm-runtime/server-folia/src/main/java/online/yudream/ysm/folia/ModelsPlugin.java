@@ -109,19 +109,19 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
                     }finally{v.refreshing.set(false);}
                 },()->v.refreshing.set(false));
                 else v.refreshing.set(false);
-            }catch(Exception e){v.refreshing.set(false);if(!stopping)v.player.getScheduler().run(this,t->{v.lastResult="资源获取失败，保留当前外观";if(!initial)v.player.sendMessage(v.lastResult);},null);warn("模型资源获取失败");}
+            }catch(Exception e){v.refreshing.set(false);if(!stopping)v.player.getScheduler().run(this,t->{v.lastResult="资源获取失败，保留当前外观";if(!initial)v.player.sendMessage(v.lastResult);},null);warn("模型资源获取失败："+BridgeClient.failure(e));}
         },worker);
     }
     private void poll(){
         if(stopping||bridge==null||viewers.isEmpty()||!polling.compareAndSet(false,true))return;
         try{
             List<UUID> players=List.copyOf(viewers.keySet());Map<UUID,Protocol.Outfit> fresh=new HashMap<>();
-            for(int i=0;i<players.size();i+=128){var state=bridge.state(players.subList(i,Math.min(i+128,players.size())));if(state.protocol()!=Protocol.MAJOR)throw new IllegalStateException("桥接协议不兼容");for(var outfit:state.outfits())fresh.put(UUID.fromString(outfit.playerUuid()),outfit);}
+            for(int i=0;i<players.size();i+=128){var state=bridge.state(players.subList(i,Math.min(i+128,players.size())));if(state.protocol()!=Protocol.MAJOR)throw new BridgeClient.Failure("桥接协议不兼容");for(var outfit:state.outfits())fresh.put(UUID.fromString(outfit.playerUuid()),outfit);}
             List<Protocol.Outfit> changed=new ArrayList<>();fresh.forEach((id,o)->{var old=outfits.put(id,o);if(old==null||!old.hash().equals(o.hash())||!old.modelId().equals(o.modelId())||!old.texture().equals(o.texture()))changed.add(o);});
             for(UUID old:new HashSet<>(outfits.keySet()))if(!fresh.containsKey(old)){outfits.remove(old);changed.add(new Protocol.Outfit(old.toString(),"","","",""));}
             boolean renew=System.currentTimeMillis()-lastStateRefresh>60000;if(renew)lastStateRefresh=System.currentTimeMillis();
             if(renew||!changed.isEmpty())for(Viewer v:viewers.values())if(v.enhanced)sendState(v,renew?List.copyOf(outfits.values()):changed);
-        }catch(Exception e){warn("网站模型状态暂不可用，继续使用最近一次外观");}finally{polling.set(false);}
+        }catch(Exception e){warn("网站模型状态暂不可用，继续使用最近一次外观："+BridgeClient.failure(e));}finally{polling.set(false);}
     }
     private void sendState(Viewer viewer,List<Protocol.Outfit> values){
         for(int i=0;i<values.size();i+=16){var state=new Protocol.State(Protocol.MAJOR,List.copyOf(values.subList(i,Math.min(i+16,values.size()))));viewer.player.getScheduler().run(this,t->viewer.player.sendPluginMessage(this,Protocol.CHANNEL,Wire.encode("state",state)),null);}
