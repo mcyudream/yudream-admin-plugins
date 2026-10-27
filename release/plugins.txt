@@ -1,2 +1,2 @@
-# v0.4.113: 模型设置新增服务器连接与桥接密钥管理
-yudream-plugin-ysm-models
+# 聊天证书签名格式修复：仅发布外置认证插件 1.6.1
+yudream-plugin-authlib-injector

@@ -84,10 +84,10 @@ public class AuthlibCryptoService {
      * （即元数据 signaturePublickey 对应密钥）签发公钥，玩家私钥不落库。
      * PEM 标签沿用 authlib-injector ProfileKeyFilter 的写法（PKCS8 内容配
      * "RSA PRIVATE KEY" 标签），与原版客户端 PemCodec 的解析约定一致。
-     * 签名格式对齐 Mojang：v1（publicKeySignature，客户端原样放进聊天会话、
-     * 服务端用 SHA1withRSA 校验）= SHA1withRSA(玩家 UUID 高 8B ‖ UUID 低 8B ‖
-     * 到期 epoch 毫秒 8B 大端 ‖ 公钥 DER)；v2 = SHA256withRSA（到期 epoch 秒
-     * 8B 大端 ‖ 0x00000000 ‖ 公钥 DER，供 1.19.1–1.20.4 客户端本地校验）。
+     * 两版证书都用 SHA1withRSA（不是聊天消息自身的 SHA256withRSA）：
+     * v1（publicKeySignature，1.19）签名到期 epoch 毫秒十进制文本 ‖ 公钥 PEM；
+     * v2（publicKeySignatureV2，1.19.1+，含 26.3）签名玩家 UUID 高 8B ‖
+     * UUID 低 8B ‖ 到期 epoch 毫秒 8B 大端 ‖ 公钥 DER。
      */
     public Map<String, Object> playerCertificateBody(String profileId) {
         try {
@@ -99,23 +99,21 @@ public class AuthlibCryptoService {
             Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
             Instant expiresAt = now.plus(Duration.ofHours(24));
             Instant refreshedAfter = now.plus(Duration.ofHours(18));
-            ByteBuffer v1Payload = ByteBuffer.allocate(16 + 8 + publicDer.length)
+            ByteBuffer v2Payload = ByteBuffer.allocate(16 + 8 + publicDer.length)
                     .putLong(uuid.getMostSignificantBits())
                     .putLong(uuid.getLeastSignificantBits())
                     .putLong(expiresAt.toEpochMilli())
                     .put(publicDer);
-            ByteBuffer v2Payload = ByteBuffer.allocate(8 + 4 + publicDer.length)
-                    .putLong(expiresAt.getEpochSecond())
-                    .putInt(0)
-                    .put(publicDer);
             Base64.Encoder mime = Base64.getMimeEncoder(76, "\n".getBytes(StandardCharsets.UTF_8));
+            String publicPem = pem("RSA PUBLIC KEY", mime.encodeToString(publicDer));
+            byte[] v1Payload = (Long.toString(expiresAt.toEpochMilli()) + publicPem).getBytes(StandardCharsets.UTF_8);
             Map<String, Object> keyPair = new LinkedHashMap<>();
             keyPair.put("privateKey", pem("RSA PRIVATE KEY", mime.encodeToString(playerKey.getPrivate().getEncoded())));
-            keyPair.put("publicKey", pem("RSA PUBLIC KEY", mime.encodeToString(publicDer)));
+            keyPair.put("publicKey", publicPem);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("keyPair", keyPair);
-            body.put("publicKeySignature", Base64.getEncoder().encodeToString(signWith("SHA1withRSA", v1Payload.array())));
-            body.put("publicKeySignatureV2", Base64.getEncoder().encodeToString(signWith("SHA256withRSA", v2Payload.array())));
+            body.put("publicKeySignature", Base64.getEncoder().encodeToString(signWith("SHA1withRSA", v1Payload)));
+            body.put("publicKeySignatureV2", Base64.getEncoder().encodeToString(signWith("SHA1withRSA", v2Payload.array())));
             body.put("expiresAt", DateTimeFormatter.ISO_INSTANT.format(expiresAt));
             body.put("refreshedAfter", DateTimeFormatter.ISO_INSTANT.format(refreshedAfter));
             return body;
