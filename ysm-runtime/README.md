@@ -14,6 +14,8 @@ YDA 管理通用 `schema=1` 模型、贴图、角色装备关系和下载授权�
 
 ## 安装
 
+本次发布的文件对应关系、环境变量、完整配置示例和客户端依赖见 [中文安装配置](INSTALL.zh-CN.md)。
+
 1. YDA 安装 `yudream-skin` 和 `ysm-models`。设置环境变量 `YSM_PUBLIC_BASE_URL`（网站公网根 URL）与 `YSM_BRIDGE_TOKEN`（至少 32 字符随机密钥）。
 2. Folia 安装 `YudreamModels-folia-26.3-0.1.0.jar`，填写生成的 `plugins/YudreamModels/config.yml`：`website-url`、相同 `bridge-token`，以及玩家可访问的 `pack-host.public-url`。可用反向代理把 HTTPS 下载转发至 `pack-host.bind/port`。
 3. 玩家在网站「我的模型」上传明文 ZIP，预览后选择本人皮肤站角色和贴图并装备。管理员可把模型加入服务器共享库、停用或删除模型。

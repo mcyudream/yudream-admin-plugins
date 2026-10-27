@@ -127,7 +127,7 @@
       "bytes": 75427
     },
     "yudream-plugins/yudream-plugin-ysm-models/target/yudream-plugin-ysm-models-0.2.0.jar": {
-      "sha256": "f91bcdeb60235ac8a9eab1b9d8585c33d52d1e2c0709a4dbab576018957edf5a",
+      "sha256": "dc8b6c44e539154d6b7638a8331ec8a6a2311e9baa6820cdccbb9beb8a66dbe3",
       "bytes": 1381346
     }
   },
@@ -168,5 +168,20 @@
       "mobileWidth": 390,
       "passed": true
     }
+  },
+  "releaseValidation": {
+    "date": "2026-10-26",
+    "hostVersion": "1.11.0",
+    "websiteVersion": "0.2.0",
+    "runtimeVersion": "0.1.0",
+    "mergeRemote": "f6e3177de65a77787f36ead14fde04cb35d2663f",
+    "frontendTests": 5,
+    "frontendTypecheckBuild": "passed",
+    "mavenCleanTestPackage": "passed",
+    "gradleCoreTestAndBothRuntimeJars": "passed",
+    "frontendJarResourcesByteEqual": 7,
+    "releaseSelection": "ysm-models only; passed",
+    "storeCatalog": "passed",
+    "fullReadiness": "pending published npm dependency reinstall"
   }
 }
