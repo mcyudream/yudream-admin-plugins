@@ -1,1 +1,2 @@
+# v0.4.112: 修正模型关闭上传时的权限豁免
 yudream-plugin-ysm-models

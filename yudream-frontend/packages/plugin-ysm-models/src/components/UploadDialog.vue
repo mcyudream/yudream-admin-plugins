@@ -2,9 +2,9 @@
 import { ref, watch } from 'vue'
 import { YdModal, YdFilePicker, YdButton, YdInput, YdLabel, YdAlert, useYdToast } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { ModelRow, ModelSettings } from '../types'
+import type { ModelRow, ModelUploadPolicy } from '../types'
 import { userApi } from '../api/user'
-const props = defineProps<{ sdk: YuDreamPluginSdk; existing?: ModelRow; policy?: ModelSettings }>()
+const props = defineProps<{ sdk: YuDreamPluginSdk; existing?: ModelRow; policy?: ModelUploadPolicy }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ uploaded: [row: ModelRow] }>()
 const name = ref(''), file = ref<File>(), busy = ref(false), error = ref('')
@@ -20,7 +20,7 @@ async function beforeClose(action: 'confirm' | 'cancel' | 'close', done: () => v
 async function upload() {
   if (busy.value) return
   error.value = ''
-  if (!props.policy?.uploadEnabled) { error.value = '管理员已关闭模型上传，暂不能上传模型或新版本'; return }
+  if (!props.policy?.canUpload) { error.value = '当前账号暂不能上传，请刷新页面确认上传权限'; return }
   if (!file.value || !name.value.trim()) { error.value = '请选择 .ysm 或 ZIP 模型 并填写名称'; return }
   if (file.value.size > 16 * 1024 * 1024) { error.value = '模型文件不能超过 16 MiB'; return }
   busy.value = true

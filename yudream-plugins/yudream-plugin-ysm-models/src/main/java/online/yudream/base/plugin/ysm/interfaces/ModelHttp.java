@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.ysm.interfaces;
 
 import online.yudream.base.plugin.ysm.application.ModelService;
+import online.yudream.base.plugin.ysm.bootstrap.YsmModelsPlugin;
 import online.yudream.base.plugin.ysm.infrastructure.AssetLinks;
 import online.yudream.base.plugin.ysm.domain.ModelSettings;
 import online.yudream.base.plugin.spi.http.*;
@@ -14,10 +15,11 @@ public final class ModelHttp {
     public ModelHttp(ModelService models,AssetLinks links){this.models=models;this.links=links;}
     public PluginHttpResponse list(PluginHttpRequest r,int mode){return PluginHttpResponse.ok(mode==0?models.own(owner(r),number(r,"page",1),number(r,"size",12)):mode==1?models.catalog(number(r,"page",1),number(r,"size",12)):models.admin(number(r,"page",1),number(r,"size",12),query(r,"reviewStatus","ALL")));}
     public PluginHttpResponse settings(PluginHttpRequest r){return PluginHttpResponse.ok(models.settings());}
+    public PluginHttpResponse uploadPolicy(PluginHttpRequest r){owner(r);return PluginHttpResponse.ok(models.uploadPolicy(uploadPermission(r)));}
     public PluginHttpResponse saveSettings(PluginHttpRequest r){JsonObject b=body(r);return PluginHttpResponse.ok(models.settings(new ModelSettings(bool(b,"uploadEnabled"),bool(b,"reviewRequired"))));}
     public PluginHttpResponse review(PluginHttpRequest r){JsonObject b=body(r);return PluginHttpResponse.ok(models.review(segment(r.path(),2),text(b,"hash"),bool(b,"approved"),text(b,"note")));}
     public PluginHttpResponse players(PluginHttpRequest r){return PluginHttpResponse.ok(models.players(owner(r)));}
-    public PluginHttpResponse upload(PluginHttpRequest r,boolean version){JsonObject b=body(r);String encoded=text(b,"base64");if(encoded.length()>ModelCompiler.MAX_UPLOAD*4L/3+8)throw new IllegalArgumentException("文件超过 16 MiB");return PluginHttpResponse.ok(models.upload(owner(r),version?segment(r.path(),2):null,text(b,"name"),Base64.getDecoder().decode(encoded)));}
+    public PluginHttpResponse upload(PluginHttpRequest r,boolean version){JsonObject b=body(r);String encoded=text(b,"base64");if(encoded.length()>ModelCompiler.MAX_UPLOAD*4L/3+8)throw new IllegalArgumentException("文件超过 16 MiB");return PluginHttpResponse.ok(models.upload(owner(r),version?segment(r.path(),2):null,text(b,"name"),Base64.getDecoder().decode(encoded),uploadPermission(r)));}
     public PluginHttpResponse preview(PluginHttpRequest r,boolean catalog){var a=models.preview(catalog?"":owner(r),segment(r.path(),catalog?1:2),catalog);return PluginHttpResponse.ok(ModelAsset.JSON.fromJson(a.data(),Object.class));}
     public PluginHttpResponse adminPreview(PluginHttpRequest r){return PluginHttpResponse.ok(ModelAsset.JSON.fromJson(models.adminPreview(segment(r.path(),2)).data(),Object.class));}
     public PluginHttpResponse rename(PluginHttpRequest r){return PluginHttpResponse.ok(models.rename(owner(r),segment(r.path(),2),text(body(r),"name")));}
@@ -32,6 +34,7 @@ public final class ModelHttp {
     }
     private boolean bridge(PluginHttpRequest r){String token=r.headers()==null?"":r.headers().entrySet().stream().filter(e->e.getKey().equalsIgnoreCase("X-Ysm-Bridge-Token")).flatMap(e->e.getValue().stream()).findFirst().orElse("");return links.bridge(token);}
     public static String owner(PluginHttpRequest r){if(r.principal()==null||r.principal().userId()==null)throw new IllegalArgumentException("请先登录");return String.valueOf(r.principal().userId());}
+    private static boolean uploadPermission(PluginHttpRequest r){return r.principal()!=null&&r.principal().hasPermission(YsmModelsPlugin.UPLOAD);}
     private static JsonObject body(PluginHttpRequest r){if(r.body()==null||r.body().length()>23*1024*1024)throw new IllegalArgumentException("请求内容过大或为空");try{return JsonParser.parseString(r.body()).getAsJsonObject();}catch(RuntimeException e){throw new IllegalArgumentException("请求格式无效");}}
     private static String text(JsonObject b,String k){return b.has(k)&&!b.get(k).isJsonNull()?b.get(k).getAsString():"";}
     private static boolean bool(JsonObject b,String k){JsonElement v=b.get(k);if(v==null||!v.isJsonPrimitive()||!v.getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("设置字段 "+k+" 必须为布尔值");return v.getAsBoolean();}

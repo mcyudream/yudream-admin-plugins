@@ -20,18 +20,22 @@ public final class ModelService {
         return page(repository.all().stream().filter(m->m.reviewStatus()==filter).toList(),page,size);
     }
     public ModelSettings settings(){return repository.settings();}
+    public ModelUploadPolicy uploadPolicy(boolean uploadPermission){ModelSettings value=settings();return new ModelUploadPolicy(value.uploadEnabled(),value.reviewRequired(),value.canUpload(uploadPermission));}
     public ModelSettings settings(ModelSettings value){synchronized(changes){return repository.settings(value);}}
     public Map<String,Object> players(String owner){return Map.of("records",skins.players(owner).stream().map(p->Map.of("uuid",p.uuid(),"name",p.name(),"outfit",repository.outfit(uuid(p.uuid())))).toList(),"bridgeConfigured",links.configured());}
     public ModelRecord upload(String owner,String existingId,String name,byte[] source){
-        requireUpload();if(existingId!=null)owned(owner,existingId);
+        return upload(owner,existingId,name,source,false);
+    }
+    public ModelRecord upload(String owner,String existingId,String name,byte[] source,boolean uploadPermission){
+        requireUpload(uploadPermission);if(existingId!=null)owned(owner,existingId);
         ModelAsset asset=ModelCompiler.isZip(source)||decoder==null?new ModelCompiler().compile(source,name):new ModelCompiler().compile(decoder.decode(source),name);
         synchronized(changes){
-            ModelSettings policy=requireUpload();ModelRecord old=existingId==null?null:owned(owner,existingId);
+            ModelSettings policy=requireUpload(uploadPermission);ModelRecord old=existingId==null?null:owned(owner,existingId);
             repository.asset(asset);long now=System.currentTimeMillis();
             return repository.save(new ModelRecord(old==null?UUID.randomUUID().toString():old.id(),owner,asset.name(),asset.hash(),old!=null&&old.serverEnabled(),old==null||old.enabled(),old==null?now:old.createdAt(),now,policy.reviewRequired()?ReviewStatus.PENDING:ReviewStatus.APPROVED,""));
         }
     }
-    private ModelSettings requireUpload(){ModelSettings value=settings();if(!value.uploadEnabled())throw new IllegalArgumentException("管理员已关闭模型上传，暂不能上传模型或新版本");return value;}
+    private ModelSettings requireUpload(boolean uploadPermission){ModelSettings value=settings();if(!value.canUpload(uploadPermission))throw new IllegalArgumentException("模型上传已关闭，当前账号没有受限上传权限");return value;}
     public ModelAsset preview(String owner,String id,boolean catalog){ModelRecord m=catalog?shared(id):owned(owner,id);return repository.asset(m.hash());}
     public ModelAsset adminPreview(String id){return repository.asset(require(id).hash());}
     public ModelRecord rename(String owner,String id,String name){synchronized(changes){ModelRecord m=owned(owner,id);String n=name==null?"":name.trim();if(n.isEmpty()||n.length()>100)throw new IllegalArgumentException("名称需要在 1–100 字符之间");return repository.save(new ModelRecord(m.id(),m.ownerId(),n,m.hash(),m.serverEnabled(),m.enabled(),m.createdAt(),System.currentTimeMillis(),m.reviewStatus(),m.reviewNote()));}}

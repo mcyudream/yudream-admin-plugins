@@ -1,6 +1,7 @@
 package online.yudream.base.plugin.ysm;
 
 import online.yudream.base.plugin.spi.annotation.PluginHttpEndpoint;
+import online.yudream.base.plugin.spi.annotation.PluginPermissions;
 import online.yudream.base.plugin.spi.http.PluginHttpRequest;
 import online.yudream.base.plugin.spi.system.storage.*;
 import online.yudream.base.plugin.ysm.bootstrap.YsmModelsPlugin;
@@ -25,6 +26,7 @@ class ModelSettingsRepositoryTest {
         assertEquals(ReviewStatus.PENDING,ReviewStatus.stored("unknown"));
     }
     @Test void configurationAndReviewEndpointsRequireAdministratorPermissions() throws Exception {
+        assertTrue(Arrays.stream(YsmModelsPlugin.class.getAnnotation(PluginPermissions.class).value()).anyMatch(p->p.code().equals("plugin:ysm-models:upload")));
         var settings=ModelAdminController.class.getMethod("saveSettings",PluginHttpRequest.class).getAnnotation(PluginHttpEndpoint.class);
         assertEquals(YsmModelsPlugin.CONFIG,settings.permission());assertEquals("PUT",settings.method());assertEquals("/admin/settings",settings.path());
         var review=ModelAdminController.class.getMethod("review",PluginHttpRequest.class).getAnnotation(PluginHttpEndpoint.class);

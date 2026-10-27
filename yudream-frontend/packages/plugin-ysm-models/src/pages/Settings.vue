@@ -31,14 +31,14 @@ onMounted(load)
           <YdAlert v-if="error" type="error">{{ error }}<YdButton v-if="!settings" variant="outline" size="sm" @click="load">重新加载</YdButton></YdAlert>
           <YdSettingsSection v-if="settings" title="上传与审核" description="策略同时适用于原始 .ysm 和明文 ZIP。">
             <div class="ysm-setting-row">
-              <div><strong>允许上传模型</strong><p>关闭后，所有用户都无法上传新模型或新版本，已有可用模型仍可装备。</p></div>
+              <div><strong>允许上传模型</strong><p>关闭后，仅持有受限上传权限的用户仍可上传新模型或新版本，已有可用模型仍可装备。</p><p>受限上传权限：<code>plugin:ysm-models:upload</code>。请在角色权限中授予需要继续上传的管理员或用户，超管 <code>*</code> 自动包含此权限。</p></div>
               <YdSwitch :model-value="settings.uploadEnabled" :disabled="saving || loading" aria-label="允许上传模型" @update:model-value="update('uploadEnabled', !!$event)" />
             </div>
             <div class="ysm-setting-row">
               <div><strong>上传后需要审核</strong><p>开启后，新模型和新版本须经管理员审核通过，才能装备或加入服务器模型库。</p></div>
               <YdSwitch :model-value="settings.reviewRequired" :disabled="saving || loading" aria-label="上传后需要审核" @update:model-value="update('reviewRequired', !!$event)" />
             </div>
-            <YdAlert v-if="!settings.uploadEnabled" type="warning">模型上传已关闭。重新打开上传开关后，用户即可继续提交。</YdAlert>
+            <YdAlert v-if="!settings.uploadEnabled" type="warning">普通上传已关闭，持有受限上传权限的账号仍可提交，并遵守当前审核策略。</YdAlert>
             <p class="ysm-settings-note">开启审核不会追溯审核已有模型；关闭审核也不会自动通过待审核或已驳回的模型。请在「模型管理」中处理待审核提交。已装备模型上传新版本后，审核期间角色将暂时恢复皮肤外观。</p>
           </YdSettingsSection>
         </div>

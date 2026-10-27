@@ -1,8 +1,8 @@
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { Bundle, ModelRow, ModelSettings, Page, Player } from '../types'
+import type { Bundle, ModelRow, ModelUploadPolicy, Page, Player } from '../types'
 export function userApi(sdk: YuDreamPluginSdk) {
   return {
-    policy: () => sdk.http.get<ModelSettings>('/me/upload-policy'),
+    policy: () => sdk.http.get<ModelUploadPolicy>('/me/upload-policy'),
     list: (page: number, size: number) => sdk.http.get<Page<ModelRow>>(`/me/models?page=${page}&size=${size}`),
     preview: (id: string) => sdk.http.get<Bundle>(`/me/models/${encodeURIComponent(id)}/preview`),
     upload: (data: { name: string; base64: string }, id?: string) => sdk.http.post<ModelRow>(id ? `/me/models/${encodeURIComponent(id)}/versions` : '/me/models', data),

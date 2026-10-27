@@ -1,9 +1,14 @@
 package online.yudream.base.plugin.ysm;
 
 import online.yudream.base.plugin.skin.api.PluginSkinProfile;
+import online.yudream.base.plugin.spi.http.PluginHttpRequest;
+import online.yudream.base.plugin.spi.system.security.PluginPrincipal;
 import online.yudream.base.plugin.ysm.application.ModelService;
+import online.yudream.base.plugin.ysm.application.ModelUploadPolicy;
+import online.yudream.base.plugin.ysm.bootstrap.YsmModelsPlugin;
 import online.yudream.base.plugin.ysm.domain.*;
 import online.yudream.base.plugin.ysm.infrastructure.*;
+import online.yudream.base.plugin.ysm.interfaces.*;
 import online.yudream.ysm.model.*;
 import org.junit.jupiter.api.*;
 import java.io.*;
@@ -47,6 +52,34 @@ class ModelModerationTest {
         assertThrows(IllegalArgumentException.class,()->service.upload("owner",null,"x",new byte[0]));
         assertThrows(IllegalArgumentException.class,()->service.upload("owner","existing","x",new byte[0]));
         verify(repository,never()).asset(any(ModelAsset.class));verify(repository,never()).save(any());
+    }
+    @Test void restrictedUploadGrantUsesTrustedPrincipalForBothRoutesAndPreservesOwnershipAndReview() {
+        var other=service.upload("owner",null,"other",zip);
+        service.settings(new ModelSettings(false,true));
+        var controller=new ModelUserController(new ModelHttp(service,links));
+        String payload=ModelAsset.JSON.toJson(Map.of("name","permitted","base64",Base64.getEncoder().encodeToString(zip),"ownerId","owner","canUpload",true,"admin",true,"permissions",List.of(YsmModelsPlugin.UPLOAD)));
+        for(var permissions:List.of(List.of(YsmModelsPlugin.USER),List.of(YsmModelsPlugin.USER,YsmModelsPlugin.MANAGE,YsmModelsPlugin.CONFIG))){
+            var principal=new PluginPrincipal(42L,permissions);
+            var request=new PluginHttpRequest("POST","/me/models",Map.of("X-Upload-Permission",List.of(YsmModelsPlugin.UPLOAD)),Map.of("canUpload",List.of("true")),payload,principal);
+            assertFalse(((ModelUploadPolicy)controller.policy(request).body()).canUpload());
+            assertThrows(IllegalArgumentException.class,()->controller.upload(request));
+            assertThrows(IllegalArgumentException.class,()->controller.version(new PluginHttpRequest("POST","/me/models/"+other.id()+"/versions",Map.of(),Map.of(),payload,principal)));
+        }
+        for(var permissions:List.of(List.of(YsmModelsPlugin.USER,YsmModelsPlugin.UPLOAD),List.of("*"))){
+            var principal=new PluginPrincipal(42L,permissions);
+            var request=new PluginHttpRequest("POST","/me/models",Map.of(),Map.of(),payload,principal);
+            var effective=(ModelUploadPolicy)controller.policy(request).body();assertFalse(effective.uploadEnabled());assertTrue(effective.canUpload());assertTrue(effective.reviewRequired());
+            var created=(ModelRecord)controller.upload(request).body();assertEquals("42",created.ownerId());assertEquals(ReviewStatus.PENDING,created.reviewStatus());
+            var replacement=(ModelRecord)controller.version(new PluginHttpRequest("POST","/me/models/"+created.id()+"/versions",Map.of(),Map.of(),payload,principal)).body();
+            assertEquals(created.id(),replacement.id());assertEquals("42",replacement.ownerId());assertEquals(ReviewStatus.PENDING,replacement.reviewStatus());
+            assertThrows(IllegalArgumentException.class,()->controller.version(new PluginHttpRequest("POST","/me/models/"+other.id()+"/versions",Map.of(),Map.of(),payload,principal)));
+        }
+        assertThrows(IllegalArgumentException.class,()->controller.policy(new PluginHttpRequest("GET","/me/upload-policy",Map.of(),Map.of(),"",null)));
+        assertEquals("owner",rows.get(other.id()).ownerId());
+    }
+    @Test void closingUploadsDoesNotPreventEquippingExistingApprovedModels() {
+        var row=service.upload("owner",null,"existing",zip);service.settings(new ModelSettings(false,true));
+        assertDoesNotThrow(()->service.equip("owner",player,row.id(),"blue"));
     }
     @Test void approvalIsRequiredAcrossEquipmentCatalogManifestStateAndDownload() {
         service.settings(new ModelSettings(true,true));var row=service.upload("owner",null,"pending",zip);

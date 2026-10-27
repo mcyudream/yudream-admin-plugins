@@ -1,1 +1,1 @@
-{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.4.0：新增模型设置页，可一键关闭上传或开启审核；新模型与新版本支持待审核、通过、驳回及原因提示。审核前禁止装备、共享和游戏端下载；支持审核筛选。已有模型保持可用。包含原始 .ysm 解析修复，配套运行端 0.2.0。"}
+{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.4.1：修正关闭上传时的授权规则，新增 plugin:ysm-models:upload 权限，持有此权限的账号仍可上传自己的新模型和新版本，审核策略继续生效。页面依据实际权限显示上传入口。包含模型设置、审核流程及原始 .ysm 解析修复；配套运行端 0.2.0。"}
