@@ -5,6 +5,7 @@ import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { Bundle, ModelRow, Player } from '../types'
 import { userApi } from '../api/user'
 import ModelPreview from './ModelPreview.vue'
+import { canEquip } from '../moderation'
 const props = defineProps<{ sdk: YuDreamPluginSdk; row?: ModelRow; load: (id: string) => Promise<Bundle> }>()
 const open = defineModel<boolean>({ default: false })
 const bundle = ref<Bundle>(), players = ref<Player[]>([]), player = ref(''), texture = ref('')
@@ -39,12 +40,15 @@ async function equip(clear: boolean) {
       <ModelPreview v-if="bundle" :bundle="bundle" v-model:texture="texture" />
     </YdLoadingOverlay>
     <div v-if="bundle" class="ysm-form">
+      <YdAlert v-if="row?.reviewStatus === 'PENDING'">模型正在审核，可以预览；审核通过后才能装备。</YdAlert>
+      <YdAlert v-else-if="row?.reviewStatus === 'REJECTED'" type="warning">审核未通过：{{ row.reviewNote || '请修改模型后上传新版本。' }}</YdAlert>
+      <YdAlert v-else-if="row && !row.enabled" type="warning">此模型已被管理员停用，暂时无法装备。</YdAlert>
       <YdAlert v-if="!configured" type="warning">网站尚未配置游戏服务器连接，已保存的外观将在配置完成后同步。</YdAlert>
       <p v-if="!players.length">请先到皮肤插件创建自己的游戏角色。</p>
       <template v-else>
         <YdSelect v-model="player" aria-label="装备角色" :options="players.map(p => ({ label: p.name, value: p.uuid }))" />
         <div class="ysm-actions">
-          <YdButton :disabled="saving || !row?.enabled" @click="equip(false)">装备到角色</YdButton>
+          <YdButton :disabled="saving || !canEquip(row)" @click="equip(false)">装备到角色</YdButton>
           <YdButton variant="outline" :disabled="saving" @click="equip(true)">恢复皮肤外观</YdButton>
         </div>
         <p>原版玩家可以使用已加载的模型；资源有更新时，运行 /model refresh 手动刷新。安装配套 Mod 的玩家会自动更新。</p>

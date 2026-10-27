@@ -1,12 +1,12 @@
 # 玩家模型安装与配置
 
-本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.3.0`、Folia 插件与 Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
+本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.4.0`、Folia 插件与 Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
 
 ## 1. 文件放在哪里
 
 | 文件 | 安装位置 |
 | --- | --- |
-| `yudream-plugin-ysm-models-0.3.0.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
+| `yudream-plugin-ysm-models-0.4.0.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
 | `YudreamModels-folia-26.3-0.2.0.jar` | Folia 服务器的 `plugins/` |
 | `YudreamModels-fabric-26.3-0.2.0.jar` | 玩家的对应游戏实例 `mods/` |
 
@@ -23,7 +23,16 @@ YSM_BRIDGE_TOKEN=REPLACE_WITH_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
 
 将域名替换为玩家与游戏服务器都能访问的网站根地址。用 `openssl rand -hex 32` 生成一份随机密钥，保存后用于下面的服务端配置。重新创建容器或重启后端，使环境变量生效；Docker Compose 的 `.env` 文件仍需通过 `environment` 或 `env_file` 注入容器。
 
-先安装并启用 `yudream-skin 1.7.0`，再安装并启用 `ysm-models 0.3.0`。玩家需要已有的皮肤站角色，模型装备关系绑定在本人角色上。
+先安装并启用 `yudream-skin 1.7.0`，再安装并启用 `ysm-models 0.4.0`。玩家需要已有的皮肤站角色，模型装备关系绑定在本人角色上。
+
+### 上传与审核设置
+
+管理员进入「玩家模型 → 模型设置」（权限 `plugin:ysm-models:config`）：
+
+- **允许上传模型**：默认开启；关闭后同时禁止新模型与新版本上传，已有可用模型仍可使用。
+- **上传后需要审核**：默认关闭；开启后，新模型和新版本进入待审核。开关自动保存，保存成功后立即生效。
+- 在「模型管理」（权限 `plugin:ysm-models:manage`）筛选待审核模型，预览后通过或填写驳回原因。所有者可以预览待审核模型，通过后才能装备和同步到游戏。
+- 开启审核不会追溯改变已有模型；关闭审核也不会自动通过待审核 / 已驳回模型。上传新版本后，已装备角色会在审核期间暂时恢复皮肤外观。
 
 ## 3. 配置 Folia 服务器
 

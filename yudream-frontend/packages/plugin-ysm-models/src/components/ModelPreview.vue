@@ -41,7 +41,7 @@ onBeforeUnmount(() => { generation++; handle?.dispose() })
 
 <template>
   <div class="ysm-preview">
-    <div v-if="error" class="ysm-preview-note"><YdTag variant="secondary">二维预览</YdTag><span>当前环境无法使用三维预览，已显示正、背面静态预览，仍可选择贴图和装备。</span></div>
+    <div v-if="error" class="ysm-preview-note"><YdTag variant="secondary">二维预览</YdTag><span>当前环境无法使用三维预览，已显示正、背面静态预览，仍可选择贴图。</span></div>
     <ModelPoster v-if="error" :bundle="bundle" :texture="texture" />
     <YdLoadingOverlay v-show="!error" :loading="loading"><div ref="container" class="ysm-viewport" /></YdLoadingOverlay>
     <YdAlert v-if="bundle.compatibility?.length" type="warning"><ul><li v-for="note in bundle.compatibility" :key="note">{{ note }}</li></ul></YdAlert>

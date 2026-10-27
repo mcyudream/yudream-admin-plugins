@@ -27,4 +27,10 @@
 .ysm-cover--compact { width: 80px; min-width: 80px; border-radius: var(--yd-surface-radius, .5rem); }
 .ysm-preview-note { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; font-size: .8125rem; color: var(--color-text-3); }
 .ysm-preview > .ysm-cover { max-height: 44vh; }
+.ysm-settings-content { max-width: 880px; margin-inline: auto; }
+.ysm-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.ysm-setting-row > div { min-width: 0; }
+.ysm-setting-row strong { font-size: .9375rem; }
+.ysm-setting-row p, .ysm-settings-note { color: var(--color-text-2); font-size: .875rem; line-height: 1.7; margin-top: .35rem; }
+.ysm-review-status { display: flex; flex-wrap: wrap; gap: .4rem; }
 @media (max-width: 540px) { .ysm-gallery { grid-template-columns: 1fr; } .ysm-model-card { max-width: none; } .ysm-cover--compact { width: 64px; min-width: 64px; } }

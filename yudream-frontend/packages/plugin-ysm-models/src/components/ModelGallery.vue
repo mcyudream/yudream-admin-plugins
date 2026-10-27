@@ -2,6 +2,7 @@
 import { YdAction, YdButton, YdCard, YdDropdown, YdEmpty, YdIcon, YdSkeleton, YdTag, type ActionMenuItem } from '@yudream/components'
 import ModelCover from './ModelCover.vue'
 import type { ModelRow } from '../types'
+import { reviewLabel } from '../moderation'
 defineProps<{ rows: ModelRow[]; loading: boolean; failed: boolean; cover: (row: ModelRow) => Promise<string>; actions?: ActionMenuItem<ModelRow>[]; emptyTitle: string; emptyDescription: string }>()
 defineEmits<{ preview: [row: ModelRow] }>()
 function menu(actions: ActionMenuItem<ModelRow>[], row: ModelRow) {
@@ -22,7 +23,7 @@ function menu(actions: ActionMenuItem<ModelRow>[], row: ModelRow) {
         <span class="ysm-card-title"><strong>{{ row.name }}</strong><span>查看模型与贴图</span></span>
       </YdAction>
       <div class="ysm-card-footer">
-        <YdTag :variant="!row.enabled ? 'outline' : row.serverEnabled ? 'secondary' : 'outline'">{{ !row.enabled ? '已停用' : row.serverEnabled ? '服务器共享' : '仅本人' }}</YdTag>
+        <YdTag :variant="!row.enabled ? 'outline' : row.serverEnabled ? 'secondary' : 'outline'">{{ row.reviewStatus && row.reviewStatus !== 'APPROVED' ? reviewLabel(row) : !row.enabled ? '已停用' : row.serverEnabled ? '服务器共享' : '仅本人' }}</YdTag>
         <YdDropdown v-if="actions?.length" :items="menu(actions, row)" align="end"><YdButton size="icon-sm" variant="ghost" :aria-label="`${row.name} 的更多操作`"><YdIcon name="i-ri:more-2-fill" /></YdButton></YdDropdown>
         <YdButton v-else size="sm" variant="outline" @click="$emit('preview', row)">预览 / 装备</YdButton>
       </div>

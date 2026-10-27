@@ -2,9 +2,9 @@
 import { ref, watch } from 'vue'
 import { YdModal, YdFilePicker, YdButton, YdInput, YdLabel, YdAlert, useYdToast } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import type { ModelRow } from '../types'
+import type { ModelRow, ModelSettings } from '../types'
 import { userApi } from '../api/user'
-const props = defineProps<{ sdk: YuDreamPluginSdk; existing?: ModelRow }>()
+const props = defineProps<{ sdk: YuDreamPluginSdk; existing?: ModelRow; policy?: ModelSettings }>()
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{ uploaded: [row: ModelRow] }>()
 const name = ref(''), file = ref<File>(), busy = ref(false), error = ref('')
@@ -20,13 +20,14 @@ async function beforeClose(action: 'confirm' | 'cancel' | 'close', done: () => v
 async function upload() {
   if (busy.value) return
   error.value = ''
+  if (!props.policy?.uploadEnabled) { error.value = '管理员已关闭模型上传，暂不能上传模型或新版本'; return }
   if (!file.value || !name.value.trim()) { error.value = '请选择 .ysm 或 ZIP 模型 并填写名称'; return }
   if (file.value.size > 16 * 1024 * 1024) { error.value = '模型文件不能超过 16 MiB'; return }
   busy.value = true
   try {
     const row = await userApi(props.sdk).upload({ name: name.value.trim(), base64: await base64(file.value) }, props.existing?.id)
     open.value = false
-    toast.success('模型已转换，可以预览和装备')
+    toast.success(row.reviewStatus === 'PENDING' ? '模型已提交，等待管理员审核' : '模型已转换，可以预览和装备')
     emit('uploaded', row)
   }
   catch (e) { error.value = e instanceof Error ? e.message : '上传失败' }
@@ -37,6 +38,7 @@ async function upload() {
   <YdModal v-model="open" :title="existing ? '上传新版本' : '上传模型'" :confirm-button-loading="busy" :close-on-click-overlay="!busy" :show-cancel-button="!busy" :before-close="beforeClose">
     <div class="ysm-form">
       <YdAlert v-if="error" type="error">{{ error }}</YdAlert>
+      <YdAlert v-if="policy?.reviewRequired">{{ existing ? '新版本需要重新审核。提交后，正在使用此模型的角色将暂时恢复皮肤外观；审核通过后恢复模型。' : '上传完成后可以预览，审核通过后才能装备。' }}</YdAlert>
       <YdLabel>模型名称<YdInput v-model="name" :maxlength="100" :disabled="busy" /></YdLabel>
       <YdFilePicker accept=".ysm,.zip,application/zip,application/octet-stream" label="选择 .ysm 或 ZIP 模型" @select="selected">
         <template #default="{ open: pick }"><YdButton variant="outline" :disabled="busy" @click="pick">{{ file?.name ?? '选择 .ysm 或 ZIP 模型' }}</YdButton></template>

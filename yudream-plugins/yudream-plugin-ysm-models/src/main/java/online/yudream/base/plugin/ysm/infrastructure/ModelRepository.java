@@ -1,6 +1,6 @@
 package online.yudream.base.plugin.ysm.infrastructure;
 
-import online.yudream.base.plugin.ysm.domain.ModelRecord;
+import online.yudream.base.plugin.ysm.domain.*;
 import online.yudream.base.plugin.spi.system.storage.*;
 import online.yudream.ysm.model.*;
 import com.google.gson.*;
@@ -10,7 +10,9 @@ import java.util.*;
 public final class ModelRepository {
     private final PluginDocumentStore documents;private final PluginFileStore files;
     public ModelRepository(PluginDocumentStore documents,PluginFileStore files){this.documents=documents;this.files=files;}
-    public ModelRecord save(ModelRecord m){documents.save("models",m.id(),Map.of("ownerId",m.ownerId(),"name",m.name(),"hash",m.hash(),"serverEnabled",m.serverEnabled(),"enabled",m.enabled(),"createdAt",m.createdAt(),"updatedAt",m.updatedAt()));return m;}
+    public ModelRecord save(ModelRecord m){documents.save("models",m.id(),Map.of("ownerId",m.ownerId(),"name",m.name(),"hash",m.hash(),"serverEnabled",m.serverEnabled(),"enabled",m.enabled(),"createdAt",m.createdAt(),"updatedAt",m.updatedAt(),"reviewStatus",m.reviewStatus().name(),"reviewNote",m.reviewNote()));return m;}
+    public ModelSettings settings(){return documents.findById("settings","upload-policy").map(d->new ModelSettings(!Boolean.FALSE.equals(d.get("uploadEnabled")),Boolean.TRUE.equals(d.get("reviewRequired")))).orElseGet(ModelSettings::defaults);}
+    public ModelSettings settings(ModelSettings settings){documents.save("settings","upload-policy",Map.of("uploadEnabled",settings.uploadEnabled(),"reviewRequired",settings.reviewRequired()));return settings;}
     public Optional<ModelRecord> find(String id){return documents.findById("models",id).map(this::record);}
     public void delete(String id){documents.delete("models",id);}
     public List<ModelRecord> list(String owner,int page,int size){return (owner==null?documents.findAll("models",page,size):documents.findByField("models","ownerId",owner,page,size)).stream().map(this::record).toList();}
@@ -21,5 +23,5 @@ public final class ModelRepository {
     public void outfit(String uuid,String owner,String model,String texture){documents.save("outfits",uuid,Map.of("playerUuid",uuid,"ownerId",owner,"modelId",model,"texture",texture));}
     private void put(String key,byte[] bytes,String type){files.put(key,new ByteArrayInputStream(bytes),bytes.length,type);}
     private byte[] read(String key){PluginStoredFile f=files.get(key);if(f==null)throw new IllegalArgumentException("资源不存在");try(var in=f.inputStream()){return in.readNBytes(64*1024*1024);}catch(IOException e){throw new UncheckedIOException(e);}}
-    private ModelRecord record(Map<String,Object> d){return new ModelRecord(String.valueOf(d.get("id")),String.valueOf(d.get("ownerId")),String.valueOf(d.get("name")),String.valueOf(d.get("hash")),Boolean.TRUE.equals(d.get("serverEnabled")),Boolean.TRUE.equals(d.get("enabled")),((Number)d.get("createdAt")).longValue(),((Number)d.get("updatedAt")).longValue());}
+    private ModelRecord record(Map<String,Object> d){return new ModelRecord(String.valueOf(d.get("id")),String.valueOf(d.get("ownerId")),String.valueOf(d.get("name")),String.valueOf(d.get("hash")),Boolean.TRUE.equals(d.get("serverEnabled")),Boolean.TRUE.equals(d.get("enabled")),((Number)d.get("createdAt")).longValue(),((Number)d.get("updatedAt")).longValue(),ReviewStatus.stored(d.get("reviewStatus")),String.valueOf(d.getOrDefault("reviewNote","")));}
 }

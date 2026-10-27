@@ -1,1 +1,1 @@
-{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.3.0：支持原始 .ysm 服务端解码与明文 ZIP，修复缺少 models/main.json 的误报；新增逐面 UV、512 骨骼、受限 Molang 及默认并行动画。按主模型配置选取贴图，支持嵌套 ZIP 和自动识别几何。预览展示转换兼容说明。新模型需运行端 0.2.0。"}
+{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.4.0：新增模型设置页，可一键关闭上传或开启审核；新模型与新版本支持待审核、通过、驳回及原因提示。审核前禁止装备、共享和游戏端下载；支持审核筛选。已有模型保持可用。包含原始 .ysm 解析修复，配套运行端 0.2.0。"}

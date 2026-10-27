@@ -1,4 +1,6 @@
-export interface ModelRow { id: string; name: string; hash: string; ownerId?: string; enabled: boolean; serverEnabled: boolean; updatedAt: number }
+export type ReviewStatus = 'APPROVED' | 'PENDING' | 'REJECTED'
+export interface ModelSettings { uploadEnabled: boolean; reviewRequired: boolean }
+export interface ModelRow { id: string; name: string; hash: string; ownerId?: string; enabled: boolean; serverEnabled: boolean; updatedAt: number; reviewStatus?: ReviewStatus; reviewNote?: string }
 export interface Page<T> { records: T[]; total: number }
 export interface Outfit { modelId: string; texture: string }
 export interface Player { uuid: string; name: string; outfit: Outfit }
