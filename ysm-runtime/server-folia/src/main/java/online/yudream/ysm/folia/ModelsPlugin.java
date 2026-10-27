@@ -27,7 +27,9 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
         try{
             packets=new Packets26_3();bridge=new BridgeClient(getConfig().getString("website-url",""),getConfig().getString("bridge-token",""));
             cache=new AssetCache(getDataFolder().toPath().resolve("assets"));
-            packs=new PackHost(getDataFolder().toPath().resolve("packs"),getConfig().getString("pack-host.bind","0.0.0.0"),getConfig().getInt("pack-host.port",8767),getConfig().getString("pack-host.public-url",""));
+            PackPublisher publisher=createPackPublisher();
+            try{packs=new PackHost(getDataFolder().toPath().resolve("packs"),publisher,Math.max(1,getConfig().getLong("pack-host.max-cache-mib",1024))*1024*1024);}
+            catch(Exception e){publisher.close();throw e;}
             actors=new Actors(this,packets,(float)getConfig().getDouble("model-scale",.75));
             getServer().getPluginManager().registerEvents(this,this);
             getServer().getMessenger().registerIncomingPluginChannel(this,Protocol.CHANNEL,this);getServer().getMessenger().registerOutgoingPluginChannel(this,Protocol.CHANNEL);
@@ -41,6 +43,19 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
             for(Player player:getServer().getOnlinePlayers())player.getScheduler().run(this,t->join(player),null);
             getLogger().info("模型桥接已启动；YDA 提供 schema=2 通用模型（兼容 schema 1），Minecraft 26.3 适配在本插件完成。");
         }catch(Exception e){getLogger().severe("模型插件启动失败："+e.getMessage());getServer().getPluginManager().disablePlugin(this);}
+    }
+    private PackPublisher createPackPublisher() throws Exception {
+        String mode=getConfig().contains("pack-host.mode",true)?getConfig().getString("pack-host.mode",""):"standalone";
+        if(mode.equalsIgnoreCase("craftengine")){
+            if(!getServer().getPluginManager().isPluginEnabled("CraftEngine"))throw new IllegalStateException("pack-host.mode=craftengine 需要启用配套 CraftEngine 26.9.2-folia26.3.2 或更新版本");
+            try{
+                PackPublisher publisher=new CraftEnginePackPublisher(this);
+                getLogger().info("模型资源包由 CraftEngine 托管，复用 CE 下载地址与端口。");return publisher;
+            }catch(LinkageError e){throw new IllegalStateException("CraftEngine 缺少动态托管 API，请更新至配套 26.9.2-folia26.3.2 或更新版本",e);}
+        }
+        if(!mode.equalsIgnoreCase("standalone"))throw new IllegalArgumentException("pack-host.mode 只支持 craftengine / standalone");
+        getLogger().info("模型资源包使用独立 HTTP 托管；切换 CE 可设置 pack-host.mode: craftengine。");
+        return new StandalonePackPublisher(getConfig().getString("pack-host.bind","0.0.0.0"),getConfig().getInt("pack-host.port",8767),getConfig().getString("pack-host.public-url",""));
     }
     @EventHandler public void onJoin(PlayerJoinEvent e){join(e.getPlayer());}
     private void join(Player player){
@@ -67,6 +82,13 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
         p.sendMessage("玩家模型指南：/model guide。");
     }
     private void refresh(Viewer v,boolean initial){
+        if(stopping)return;
+        if(!packs.ready()){
+            v.lastResult="资源包托管尚未就绪，保留当前外观";
+            if(initial&&++v.hostWaits<=120)v.player.getScheduler().runDelayed(this,t->refresh(v,true),null,20);
+            else{if(!initial)v.player.sendMessage(v.lastResult);warn("模型资源包托管未就绪，请检查 CraftEngine 的 self 类型资源包与 self-host 配置");}
+            return;
+        }
         if(!v.refreshing.compareAndSet(false,true))return;
         if(!initial)v.player.sendMessage("正在检查模型资源更新……");
         CompletableFuture.runAsync(()->{
@@ -79,11 +101,14 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
                     try{
                         if(!viewers.containsKey(v.player.getUniqueId()))return;
                         if(!v.session.begin(snapshot,System.currentTimeMillis(),getConfig().getLong("refresh-cooldown-seconds",60)*1000,initial)){if(!initial)v.player.sendMessage("资源没有变化、正在加载或仍在刷新冷却中。");return;}
+                        String downloadUrl=packs.downloadUrl(snapshot,v.player);
                         v.packId=UUID.randomUUID();v.sentAt=System.currentTimeMillis();v.packRequests++;v.lastResult="等待资源包加载";
-                        v.player.addResourcePack(v.packId,snapshot.url(),HexFormat.of().parseHex(snapshot.sha1()),"加载服务器玩家模型",false);
+                        v.player.addResourcePack(v.packId,downloadUrl,HexFormat.of().parseHex(snapshot.sha1()),"加载服务器玩家模型",false);
                         getLogger().info("MODEL_PACK_SENT "+v.player.getUniqueId()+" "+snapshot.sha1()+" initial="+initial);
+                    }catch(Exception e){v.session.complete(snapshot.revision(),false);v.lastResult="资源包发送失败，保留当前外观";if(!initial)v.player.sendMessage(v.lastResult);warn("模型资源包发送失败，请检查资源包托管服务");
                     }finally{v.refreshing.set(false);}
                 },()->v.refreshing.set(false));
+                else v.refreshing.set(false);
             }catch(Exception e){v.refreshing.set(false);if(!stopping)v.player.getScheduler().run(this,t->{v.lastResult="资源获取失败，保留当前外观";if(!initial)v.player.sendMessage(v.lastResult);},null);warn("模型资源获取失败");}
         },worker);
     }
@@ -125,7 +150,7 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
     private final class Viewer {
         final Player player;final PacketPort.Connection connection;final ViewerSession session=new ViewerSession();final AtomicBoolean refreshing=new AtomicBoolean();
         final Map<UUID,String> ready=new ConcurrentHashMap<>();final Map<UUID,Actors.Shown> shown=new ConcurrentHashMap<>();
-        volatile boolean enhanced;boolean selfPreview;UUID packId,loadedPackId;long sentAt;int packRequests;String lastResult="等待初次资源加载";
+        volatile boolean enhanced;boolean selfPreview;UUID packId,loadedPackId;long sentAt;int packRequests,hostWaits;String lastResult="等待初次资源加载";
         Viewer(Player player,PacketPort.Connection connection){this.player=player;this.connection=connection;}
         void tick(){
             var pending=session.pending();if(pending!=null&&System.currentTimeMillis()-sentAt>getConfig().getLong("resource-pack-timeout-seconds",120)*1000){session.complete(pending.revision(),false);player.removeResourcePack(packId);lastResult="资源加载超时，可手动重试";}

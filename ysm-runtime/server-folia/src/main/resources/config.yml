@@ -11,6 +11,11 @@ max-snapshot-models: 128
 handbook:
   enabled: true
 pack-host:
+  # craftengine 复用配套 CE 的 self-host，不监听独立端口；旧配置无 mode 时保留 standalone。
+  mode: craftengine
+  # 本次运行所有快照的大小上限（MiB），另有 256 份 / 单份 128 MiB 限制。
+  max-cache-mib: 1024
+  # 以下三项仅 standalone 使用，craftengine 模式忽略。
   bind: '0.0.0.0'
   port: 8767
   # 需为玩家可访问的公网地址，可由 HTTPS 反向代理转发到上面的端口。

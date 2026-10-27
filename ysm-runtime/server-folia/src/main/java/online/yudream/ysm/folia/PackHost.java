@@ -1,41 +1,63 @@
 package online.yudream.ysm.folia;
 
-import com.sun.net.httpserver.HttpServer;
 import online.yudream.ysm.model.*;
 import online.yudream.ysm.protocol.Protocol;
 import online.yudream.ysm.vanilla.mc26_3.VanillaPack;
-import java.net.*;
+import org.bukkit.entity.Player;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
+/** Builds viewer-scoped snapshots independently of the selected HTTP transport. */
 final class PackHost implements AutoCloseable {
-    private final HttpServer server;private final Path directory;private final String publicUrl;
-    private final ExecutorService worker=Executors.newFixedThreadPool(2,r->{Thread t=new Thread(r,"ysm-pack-http");t.setDaemon(true);return t;});
-    private final Map<String,Path> downloads=new ConcurrentHashMap<>();
-    private final Map<String,Protocol.Snapshot> snapshots=new ConcurrentHashMap<>();
-    PackHost(Path directory,String bind,int port,String publicUrl) throws Exception {
-        this.directory=directory;this.publicUrl=publicUrl.replaceAll("/+$","");Files.createDirectories(directory);
-        URI publicUri=URI.create(this.publicUrl);if(!Set.of("https","http").contains(publicUri.getScheme()))throw new IllegalArgumentException("pack-host.public-url 需要为 HTTP(S) 地址");
-        server=HttpServer.create(new InetSocketAddress(bind,port),16);server.setExecutor(worker);
-        server.createContext("/",exchange->{
-            try{
-                Path file=downloads.get(exchange.getRequestURI().getPath());
-                if(file==null||!Set.of("GET","HEAD").contains(exchange.getRequestMethod())){exchange.sendResponseHeaders(404,-1);return;}
-                exchange.getResponseHeaders().set("Content-Type","application/zip");exchange.getResponseHeaders().set("Cache-Control","private, max-age=3600");
-                long length=Files.size(file);
-                if(exchange.getRequestMethod().equals("HEAD")){exchange.getResponseHeaders().set("Content-Length",""+length);exchange.sendResponseHeaders(200,-1);return;}
-                exchange.sendResponseHeaders(200,length);try(var out=exchange.getResponseBody()){Files.copy(file,out);}
-            }finally{exchange.close();}
-        });server.start();
+    private final Path directory;
+    private final PackPublisher publisher;
+    private final long maxBytes;
+    private long storedBytes;
+    private volatile boolean closed;
+    private final Map<String,Cached> snapshots = new ConcurrentHashMap<>();
+    private record Cached(Protocol.Snapshot snapshot, PackPublisher.Download download) {}
+
+    PackHost(Path directory, PackPublisher publisher, long maxBytes) throws Exception {
+        this.directory = directory; this.publisher = publisher; this.maxBytes = maxBytes;
+        Files.createDirectories(directory);
     }
-    synchronized Protocol.Snapshot build(Protocol.Manifest manifest,Collection<ModelAsset> assets) throws Exception {
-        String revision="mc26.3-export1-"+manifest.revision();var existing=snapshots.get(revision);if(existing!=null)return existing;
-        if(snapshots.size()>=256)throw new IllegalStateException("资源快照缓存已满，请重启清理后重试");
-        byte[] zip=new VanillaPack().build(assets);if(zip.length>128*1024*1024)throw new IllegalArgumentException("资源包超过 128 MiB");
-        String sha1=ModelAsset.digest("SHA-1",zip);Path file=directory.resolve(sha1+".zip");Files.write(file,zip);
-        String path="/"+UUID.randomUUID().toString().replace("-","")+"/"+sha1+".zip";downloads.put(path,file);
-        var snapshot=new Protocol.Snapshot(revision,sha1,publicUrl+path,manifest.models());snapshots.put(revision,snapshot);return snapshot;
+
+    synchronized Protocol.Snapshot build(Protocol.Manifest manifest, Collection<ModelAsset> assets) throws Exception {
+        if (this.closed) throw new IllegalStateException("资源快照已关闭");
+        String revision = "mc26.3-export1-" + manifest.revision();
+        var existing = this.snapshots.get(revision);
+        if (existing != null) return existing.snapshot();
+        if (this.snapshots.size() >= 256) throw new IllegalStateException("资源快照缓存已满，请重启清理后重试");
+        byte[] zip = new VanillaPack().build(assets);
+        if (zip.length > 128 * 1024 * 1024) throw new IllegalArgumentException("资源包超过 128 MiB");
+        if (this.storedBytes + zip.length > this.maxBytes) throw new IllegalStateException("资源快照总大小超过 pack-host.max-cache-mib 限制");
+        String sha1 = ModelAsset.digest("SHA-1", zip);
+        Path file = this.directory.resolve(sha1 + ".zip");
+        // Registered files stay immutable, including when revisions export identical bytes.
+        if (!Files.exists(file)) {
+            Path temporary = Files.createTempFile(this.directory, ".pack-", ".zip");
+            try {
+                Files.write(temporary, zip);
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+            } finally { Files.deleteIfExists(temporary); }
+        }
+        var download = this.publisher.publish(file, sha1);
+        // Single-use links are issued on the player's region immediately before sending.
+        var snapshot = new Protocol.Snapshot(revision, sha1, "", Map.copyOf(manifest.models()));
+        this.snapshots.put(revision, new Cached(snapshot, download)); this.storedBytes += zip.length;
+        return snapshot;
     }
-    public void close(){server.stop(0);worker.shutdownNow();downloads.clear();snapshots.clear();}
+
+    String downloadUrl(Protocol.Snapshot snapshot, Player player) throws Exception {
+        var cached = this.snapshots.get(snapshot.revision());
+        if (this.closed || cached == null) throw new IllegalStateException("资源快照已关闭");
+        return cached.download().url(player);
+    }
+
+    boolean ready() { return !this.closed && this.publisher.ready(); }
+
+    @Override public synchronized void close() {
+        this.closed = true; this.publisher.close(); this.snapshots.clear(); this.storedBytes = 0;
+    }
 }

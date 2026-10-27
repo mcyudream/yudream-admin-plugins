@@ -1,17 +1,21 @@
-version = '0.3.0'
+version = '0.4.0'
 
 def handbookApi = rootProject.file(providers.gradleProperty('handbookApiJar').getOrElse(
         '../../plugins/mcPlugin/release/HandbookCore/HandbookCore-mc26_3-plugin-Beta_0_1_1-api.jar'))
+def craftEngineApi = rootProject.file(providers.gradleProperty('craftEngineApiJar').getOrElse(
+        '../../plugins/craft-engine/target/craft-engine-bukkit-plugin-26.9.2-folia26.3.2.jar'))
 
 dependencies {
     implementation project(':core')
     compileOnly 'dev.folia:folia-api:26.3.build.5-alpha'
     compileOnly 'io.netty:netty-transport:4.1.138.Final'
     compileOnly files(handbookApi)
+    compileOnly files(craftEngineApi)
 }
 tasks.named('compileJava') {
     doFirst {
         if (!handbookApi.isFile()) throw new GradleException('请用 -PhandbookApiJar=/path/to/HandbookCore-api.jar 指定已发布的 HandbookCore Beta_0_1_1 API。')
+        if (!craftEngineApi.isFile()) throw new GradleException('请用 -PcraftEngineApiJar=/path/to/craft-engine-bukkit-plugin.jar 指定配套 CraftEngine 26.9.2-folia26.3.2 或更新版本。')
     }
 }
 tasks.withType(JavaCompile).configureEach { options.release = 25 }

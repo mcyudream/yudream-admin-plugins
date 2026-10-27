@@ -16,8 +16,8 @@ YDA 管理通用 `schema=2`（兼容读取 schema 1）模型、贴图、角色�
 
 本次发布的文件对应关系、环境变量、完整配置示例和客户端依赖见 [中文安装配置](INSTALL.zh-CN.md)。
 
-1. YDA 安装 `yudream-skin` 和 `ysm-models`。设置环境变量 `YSM_PUBLIC_BASE_URL`（网站公网根 URL）与 `YSM_BRIDGE_TOKEN`（至少 32 字符随机密钥）。
-2. Folia 安装 `YudreamModels-folia-26.3-0.3.0.jar`，填写生成的 `plugins/YudreamModels/config.yml`：`website-url`、相同 `bridge-token`，以及玩家可访问的 `pack-host.public-url`。可用反向代理把 HTTPS 下载转发至 `pack-host.bind/port`。
+1. YDA 安装 `yudream-skin` 和 `ysm-models`。在「模型设置 → 服务器连接」填写网站公网地址、生成密钥并保存，复制游戏服配置。
+2. Folia 安装 `YudreamModels-folia-26.3-0.4.0.jar` 与配套 `CraftEngine 26.9.2-folia26.3.2`，填写 `website-url`、相同 `bridge-token` 和 `pack-host.mode: craftengine`。模型包复用 CE 自托管地址；`self-host.port: auto` 可复用游戏端口，无需 YSM 独立端口。旧配置无 `mode` 时保留独立托管，完整配置见安装文档。
 3. 玩家在网站「我的模型」上传原始 `.ysm` 或明文 ZIP，预览后选择本人皮肤站角色和贴图并装备。管理员可把模型加入服务器共享库、停用或删除模型。
 4. 可选安装匹配版本的 `YudreamModels-fabric-26.3-0.2.0.jar`、Fabric Loader 与 Fabric API。
 
@@ -51,7 +51,7 @@ Fabric 客户端按实际装备下载 bundle，在后台解码，在渲染线程
 - 源模型负尺寸方块规范化为等价正尺寸包围盒，这些方块的 UV 朝向可能变化；预览显示说明。
 - 新上传资产使用 schema 2；请同时升级网站 0.4.1、Folia / Fabric 0.2.0。运行端 0.2.0 可继续读取旧 schema 1；旧运行端拒绝 schema 2 并保留旧外观。
 - 身体替换隐藏原版装备外观，恢复皮肤或插件停用时恢复装备。真实玩家实体保留，攻击与交互仍走原版。
-- 没有生产规模 TPS / FPS 保证；资源快照缓存最多 256 份，达到上限后保留当前外观并提示失败，可在维护时重启清理内存缓存。磁盘历史包 / bundle 需按运维保留策略清理。
+- 没有生产规模 TPS / FPS 保证；资源快照缓存最多 256 份、单份 128 MiB、默认合计 1024 MiB（`pack-host.max-cache-mib`），达到上限后保留当前外观并提示失败。CE 从文件流式下载，重载保留动态快照，YSM 停用清理自己的注册和链接。磁盘历史包 / bundle 需按运维保留策略清理。
 
 ## 构建与验证
 
@@ -66,10 +66,11 @@ mvn -pl yudream-plugins/yudream-plugin-ysm-models -am test package
 ```bash
 cd ysm-runtime
 ./gradlew :core:test :server-folia:jar :fabric-26_3:jar \
-  -PhandbookApiJar=/path/to/HandbookCore-mc26_3-plugin-Beta_0_1_1-api.jar
+  -PhandbookApiJar=/path/to/HandbookCore-mc26_3-plugin-Beta_0_1_1-api.jar \
+  -PcraftEngineApiJar=/path/to/craft-engine-bukkit-plugin-26.9.2-folia26.3.2.jar
 ```
 
-HandbookCore API 仅用于编译，不打入模型插件；从其正式发布物取得 API JAR。默认查找同级 `plugins/mcPlugin/release/HandbookCore/` 发布目录，其他目录通过上述属性指定。新增指南只升级 Folia 至 `0.3.0`；网站 `0.4.1`、core 与 Fabric `0.2.0` 保持兼容。
+HandbookCore API 仅用于编译，不打入模型插件；从其正式发布物取得 API JAR。默认查找同级 `plugins/mcPlugin/release/HandbookCore/` 发布目录，其他目录通过上述属性指定。CE API 同样仅用于编译；可指定配套 Paper 或 Bukkit JAR，最终 YSM JAR 不包含 CE 类。托管更新只升级 Folia 至 `0.4.0`；网站 `0.5.0`、core 与 Fabric `0.2.0` 保持兼容。
 
 Fabric 的 `prepareMinecraft` 下载官方 client / libraries 并验证 SHA-1，只用于编译，不打入分发 JAR。可通过 `minecraftClientJar`、`minecraftLibraries`、`fabricApiJar`、`fabricLoaderJar`、`mixinJar` Gradle 属性使用现有本地缓存；不会把本机路径写入源码。
 

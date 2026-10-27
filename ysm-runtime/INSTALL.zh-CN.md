@@ -1,17 +1,18 @@
 # 玩家模型安装与配置
 
-本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.5.0`、Folia 插件 `0.3.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
+本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.5.0`、Folia 插件 `0.4.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
 
 ## 1. 文件放在哪里
 
 | 文件 | 安装位置 |
 | --- | --- |
 | `yudream-plugin-ysm-models-0.5.0.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
-| `YudreamModels-folia-26.3-0.3.0.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
+| `YudreamModels-folia-26.3-0.4.0.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
 | `YudreamModels-fabric-26.3-0.2.0.jar` | 玩家的对应游戏实例 `mods/` |
+| `craft-engine-paper-plugin-26.9.2-folia26.3.2.jar`（CE 模式必需） | Folia 服务器的 `plugins/`，替换旧版 CE，只装 Paper / Bukkit 其中一个 |
 | `HandbookCore-mc26_3-plugin-Beta_0_1_1.jar`（可选） | Folia 服务器的 `plugins/`，提供玩家指南 |
 
-网站插件可从 YDA 插件市场安装，也可上传本次发布的 JAR。三个 JAR 分别用于网站、游戏服务器和游戏客户端。
+网站插件可从 YDA 插件市场安装，也可上传本次发布的 JAR。本次托管更新仅替换 YSM 服务端与配套 CE；网站和客户端沿用现有版本。
 
 ## 2. 配置 YDA 网站
 
@@ -54,17 +55,55 @@ max-snapshot-models: 128
 handbook:
   enabled: true
 pack-host:
+  mode: craftengine
+  max-cache-mib: 1024
+```
+
+- `website-url` 与网站「模型设置 → 服务器连接」中的网站公网地址一致。
+- `bridge-token` 与网站设置里保存的桥接密钥必须完全一致；使用“复制游戏服配置”可避免输入错误。
+- `pack-host.mode: craftengine` 使用配套 CE 的自托管地址、端口与限流，不启动 YSM 的独立 HTTP 服务，原来的 `bind` / `port` / `public-url` 可删除。
+- CE 启动时异步准备资源，YSM 会等待；首次进服最多等待 120 秒，之后可用 `/model refresh` 重试。缺少或旧版 CE 会明确拒绝启动，CE 停用也会关闭 YSM，不会回落并开放独立端口。
+- 每位玩家仍只获得本人及服务器共享的模型快照，不把私有模型并入 CE 公共主包。下载链接使用一分钟单次令牌并校验玩家 UUID；每次发送重新签发，代理须原样转发查询参数及 `X-Minecraft-UUID` 等请求头，不缓存模型下载。
+- 玩家电脑必须能够访问网站下载地址和资源包地址；仅本机能访问的 `localhost` 地址不能用于公网玩家。
+- 可选安装 HandbookCore 后自动注册“模型指南”（`ysm:guide`），无需编辑核心的内容文件。`handbook.enabled: false` 可关闭指南；旧配置缺少此项时默认启用。变更后重启服务器。客户端不需要更新。
+
+### 配套 CraftEngine 配置
+
+CE 原有自托管可用时，沿用已有 `resource-pack.packs`、工作流和 `self-host` 配置即可。下面是 `plugins/CraftEngine/config.yml` 的最小相关片段，请合并到现有 `resource-pack` 节点，避免重复 YAML 键：
+
+```yaml
+resource-pack:
+  packs:
+    default:
+      type: self
+      storage_path: './cache/hosted/default/resource_pack.zip'
+  self-host:
+    ip: '你的公网IP或域名'
+    port: auto
+    protocol: http
+    deny_non_minecraft_request: true
+    one_time_token: true
+    strict_validation: false
+```
+
+`port: auto` 复用 Minecraft 服务器端口，玩家下载模型无需再开放 `41008`。例如游戏服使用 `25565`，模型下载就使用同一地址的 `25565`。CE 主包仍按原有工作流生成 / 上传；YSM 的私有快照由运行端自动注册，CE 重载后仍可用。使用代理服时，CE 的公网下载地址须能到达运行 CE 的后端服务器；代理的 Minecraft 转发不等于 HTTP 转发。
+
+如果现有 CE 下载使用反向代理，可保留 `self-host.url: 'https://packs.example.com/'`。这次扩展需同时升级到配套 CE `26.9.2-folia26.3.2`；上游旧版没有动态托管接口。请完整重启游戏服。
+
+### 保留独立托管的旧部署
+
+旧配置没有 `pack-host.mode` 时继续按 `standalone` 运行；切换到 CE 必须显式添加 `mode: craftengine`。需要独立 HTTP 服务时使用：
+
+```yaml
+pack-host:
+  mode: standalone
+  max-cache-mib: 1024
   bind: '0.0.0.0'
   port: 8767
   public-url: 'https://packs.example.com'
 ```
 
-- `website-url` 与网站「模型设置 → 服务器连接」中的网站公网地址一致。
-- `bridge-token` 与网站设置里保存的桥接密钥必须完全一致；使用“复制游戏服配置”可避免输入错误。
-- `pack-host.public-url` 是玩家下载原版资源包的公网根地址，转发到游戏服务器的 `8767` 端口。它与网站地址用途不同。
-- 如果使用 HTTPS 反向代理，保留请求路径转发到 `pack-host.bind/port`。例如代理与游戏服在同一台主机时，可将 `packs.example.com` 的请求转发到 `http://127.0.0.1:8767`。
-- 玩家电脑必须能够访问网站下载地址和资源包地址；仅本机能访问的 `localhost` 地址不能用于公网玩家。
-- 可选安装 HandbookCore 后自动注册“模型指南”（`ysm:guide`），无需编辑核心的内容文件。`handbook.enabled: false` 可关闭指南；旧配置缺少此项时默认启用。变更后重启服务器。客户端不需要更新。
+此时公网下载地址须反向代理到上面的监听端口。快照有单份 128 MiB、最多 256 份和默认合计 1024 MiB 上限；超过上限保留旧外观。停止服务器后可按保留策略清理 `plugins/YudreamModels/packs/` 历史文件。
 
 ## 4. 安装客户端 Mod
 
@@ -90,6 +129,6 @@ pack-host:
 
 支持原始 `.ysm`、明文 ZIP、box / 逐面 UV 和受限 Molang。默认服装显隐层可运行；专用物理按目标值近似，自定义控制器、外观菜单、声音、粒子、附属实体与第一人称手臂未复现。文件含不支持或畸形的表达式时，预览会显示兼容说明。负尺寸方块规范化后可能改变其 UV 朝向。
 
-网站插件从 `0.3.0` 起，新上传模型使用 **schema 2**。仍在使用早期 `0.1.x` 游戏运行端时，应连同网站升级；旧模型可继续使用。本次指南更新只需替换 Folia 服务端，配套 Fabric `0.2.0` 可继续使用。网站内置解析器，不需要额外安装 Node。原版刷新资源快照可能触发两次资源重载；Fabric 更新失败会保留旧外观。
+网站插件从 `0.3.0` 起，新上传模型使用 **schema 2**。仍在使用早期 `0.1.x` 游戏运行端时，应连同网站升级；旧模型可继续使用。本次 CE 托管更新需替换 Folia 服务端和配套 CE，Fabric `0.2.0` 可继续使用。网站内置解析器，不需要额外安装 Node。原版刷新资源快照可能触发两次资源重载；Fabric 更新失败会保留旧外观。
 
 已有验证包括模型转换、前后端测试、运行端构建、本地 YDA 上传 / 装备 / 共享 / 桥接鉴权，以及使用模拟网站桥接的游戏端显示与热更新。最终游戏端连接真实 YDA 的完整往返、网页 WebGL 三维显示、跨贴图切换和完全无 Mod 的官方客户端仍未验证；详细记录见 [VERIFICATION.md](VERIFICATION.md)。
