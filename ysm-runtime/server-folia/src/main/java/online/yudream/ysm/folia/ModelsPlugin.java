@@ -20,7 +20,7 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
     private final Map<UUID,Protocol.Outfit> outfits=new ConcurrentHashMap<>();
     private final ExecutorService worker=Executors.newFixedThreadPool(2,r->{Thread t=new Thread(r,"ysm-bridge");t.setDaemon(true);return t;});
     private final ScheduledExecutorService poller=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"ysm-poll");t.setDaemon(true);return t;});
-    private AssetCache cache;private BridgeClient bridge;private PackHost packs;private PacketPort packets;private Actors actors;
+    private AssetCache cache;private BridgeClient bridge;private PackHost packs;private PacketPort packets;private Actors actors;private ModelsHandbook handbook;
     private final AtomicBoolean polling=new AtomicBoolean();private volatile boolean stopping;private long lastWarning,lastStateRefresh;
     @Override public void onEnable(){
         saveDefaultConfig();
@@ -31,14 +31,15 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
             actors=new Actors(this,packets,(float)getConfig().getDouble("model-scale",.75));
             getServer().getPluginManager().registerEvents(this,this);
             getServer().getMessenger().registerIncomingPluginChannel(this,Protocol.CHANNEL,this);getServer().getMessenger().registerOutgoingPluginChannel(this,Protocol.CHANNEL);
-            getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,event->event.registrar().register("model","玩家模型状态与手动刷新",new BasicCommand(){
+            getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,event->event.registrar().register("model","玩家模型指南、状态与手动刷新",new BasicCommand(){
                 public void execute(CommandSourceStack source,String[] args){if(source.getExecutor() instanceof Player player)player.getScheduler().run(ModelsPlugin.this,t->command(player,args),null);}
                 public String permission(){return "ysm.use";}
-                public Collection<String> suggest(CommandSourceStack source,String[] args){return List.of("status","refresh","self");}
+                public Collection<String> suggest(CommandSourceStack source,String[] args){return List.of("guide","status","refresh","self");}
             }));
+            handbook=new ModelsHandbook(this);handbook.enable();
             poller.scheduleWithFixedDelay(this::poll,1,Math.max(1,getConfig().getInt("poll-seconds",5)),TimeUnit.SECONDS);
             for(Player player:getServer().getOnlinePlayers())player.getScheduler().run(this,t->join(player),null);
-            getLogger().info("模型桥接已启动；YDA 提供 schema=1 通用模型，Minecraft 26.3 适配在本插件完成。");
+            getLogger().info("模型桥接已启动；YDA 提供 schema=2 通用模型（兼容 schema 1），Minecraft 26.3 适配在本插件完成。");
         }catch(Exception e){getLogger().severe("模型插件启动失败："+e.getMessage());getServer().getPluginManager().disablePlugin(this);}
     }
     @EventHandler public void onJoin(PlayerJoinEvent e){join(e.getPlayer());}
@@ -58,10 +59,12 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
         else if(Set.of("DECLINED","FAILED_DOWNLOAD","INVALID_URL","FAILED_RELOAD","DISCARDED").contains(status)){v.session.complete(pending.revision(),false);v.player.removeResourcePack(v.packId);v.lastResult="刷新失败："+status;}
     }
     private void command(Player p,String[] args){
+        if(args.length>0&&args[0].equalsIgnoreCase("guide")){handbook.open(p);return;}
         Viewer v=viewers.get(p.getUniqueId());if(v==null)return;
         if(args.length>0&&args[0].equalsIgnoreCase("refresh")){if(!p.hasPermission("ysm.refresh")){p.sendMessage("你没有刷新模型资源的权限。");return;}refresh(v,false);return;}
         if(args.length>0&&args[0].equalsIgnoreCase("self")){v.selfPreview=args.length>1?args[1].equalsIgnoreCase("on"):!v.selfPreview;p.sendMessage("自身模型预览："+(v.selfPreview?"开启，请切换第三人称查看；/model self off 可关闭":"关闭"));return;}
         p.sendMessage("模型模式："+(v.enhanced?"Fabric 动态更新":"原版资源快照")+"；"+v.lastResult+"；已加载模型 "+(v.session.active()==null?0:v.session.active().models().size())+"；资源包发送 "+v.packRequests+" 次；可使用 /model refresh 手动刷新。");
+        p.sendMessage("玩家模型指南：/model guide。");
     }
     private void refresh(Viewer v,boolean initial){
         if(!v.refreshing.compareAndSet(false,true))return;
@@ -115,6 +118,7 @@ public final class ModelsPlugin extends JavaPlugin implements Listener,PluginMes
     }
     private synchronized void warn(String message){if(System.currentTimeMillis()-lastWarning>30000){lastWarning=System.currentTimeMillis();getLogger().warning(message);}}
     @Override public void onDisable(){
+        if(handbook!=null)handbook.close();
         stopping=true;poller.shutdownNow();worker.shutdownNow();viewers.values().forEach(Viewer::close);viewers.clear();outfits.clear();assets.clear();
         if(actors!=null)actors.clear();if(cache!=null)cache.close();if(bridge!=null)bridge.close();if(packs!=null)packs.close();
     }

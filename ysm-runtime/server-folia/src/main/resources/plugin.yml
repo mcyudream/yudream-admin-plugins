@@ -3,6 +3,7 @@ version: '${version}'
 main: online.yudream.ysm.folia.ModelsPlugin
 api-version: '26.3'
 folia-supported: true
+softdepend: [HandbookCore]
 description: 通用玩家模型桥接与按观看者维护的资源快照
 permissions:
   ysm.use:

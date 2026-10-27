@@ -1,14 +1,15 @@
 # 玩家模型安装与配置
 
-本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.4.1`、Folia 插件与 Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
+本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.4.1`、Folia 插件 `0.3.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
 
 ## 1. 文件放在哪里
 
 | 文件 | 安装位置 |
 | --- | --- |
 | `yudream-plugin-ysm-models-0.4.1.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
-| `YudreamModels-folia-26.3-0.2.0.jar` | Folia 服务器的 `plugins/` |
+| `YudreamModels-folia-26.3-0.3.0.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
 | `YudreamModels-fabric-26.3-0.2.0.jar` | 玩家的对应游戏实例 `mods/` |
+| `HandbookCore-mc26_3-plugin-Beta_0_1_1.jar`（可选） | Folia 服务器的 `plugins/`，提供玩家指南 |
 
 网站插件可从 YDA 插件市场安装，也可上传本次发布的 JAR。三个 JAR 分别用于网站、游戏服务器和游戏客户端。
 
@@ -48,6 +49,8 @@ resource-pack-timeout-seconds: 120
 model-scale: 0.75
 view-distance: 64
 max-snapshot-models: 128
+handbook:
+  enabled: true
 pack-host:
   bind: '0.0.0.0'
   port: 8767
@@ -59,6 +62,7 @@ pack-host:
 - `pack-host.public-url` 是玩家下载原版资源包的公网根地址，转发到游戏服务器的 `8767` 端口。它与网站地址用途不同。
 - 如果使用 HTTPS 反向代理，保留请求路径转发到 `pack-host.bind/port`。例如代理与游戏服在同一台主机时，可将 `packs.example.com` 的请求转发到 `http://127.0.0.1:8767`。
 - 玩家电脑必须能够访问网站下载地址和资源包地址；仅本机能访问的 `localhost` 地址不能用于公网玩家。
+- 可选安装 HandbookCore 后自动注册“模型指南”（`ysm:guide`），无需编辑核心的内容文件。`handbook.enabled: false` 可关闭指南；旧配置缺少此项时默认启用。变更后重启服务器。客户端不需要更新。
 
 ## 4. 安装客户端 Mod
 
@@ -71,6 +75,8 @@ pack-host:
 
 ## 5. 玩家使用与检查
 
+安装 HandbookCore 后，玩家用 `/model guide` 打开完整指南，也可从手册目录找到“模型指南”或用 `/handbook search 模型` 搜索。需要 `ysm.use` 与 `handbookcore.use`，默认所有玩家可读；手册内按钮以玩家自身权限执行命令。
+
 1. 在网站「玩家模型 → 我的模型」上传原始 `.ysm` 或明文模型 ZIP。
 2. 选择贴图和本人皮肤站角色，点击装备；管理员可将模型加入服务器模型库。
 3. 进入游戏，执行 `/model status` 查看模式和资源加载状态。
@@ -82,6 +88,6 @@ pack-host:
 
 支持原始 `.ysm`、明文 ZIP、box / 逐面 UV 和受限 Molang。默认服装显隐层可运行；专用物理按目标值近似，自定义控制器、外观菜单、声音、粒子、附属实体与第一人称手臂未复现。文件含不支持或畸形的表达式时，预览会显示兼容说明。负尺寸方块规范化后可能改变其 UV 朝向。
 
-本版新上传模型使用 **schema 2**。网站插件和游戏服务端 / 客户端应一起升级；旧模型可继续使用。网站内置解析器，不需要额外安装 Node。原版刷新资源快照可能触发两次资源重载；Fabric 更新失败会保留旧外观。
+网站插件从 `0.3.0` 起，新上传模型使用 **schema 2**。仍在使用早期 `0.1.x` 游戏运行端时，应连同网站升级；旧模型可继续使用。本次指南更新只需替换 Folia 服务端，配套 Fabric `0.2.0` 可继续使用。网站内置解析器，不需要额外安装 Node。原版刷新资源快照可能触发两次资源重载；Fabric 更新失败会保留旧外观。
 
 已有验证包括模型转换、前后端测试、运行端构建、本地 YDA 上传 / 装备 / 共享 / 桥接鉴权，以及使用模拟网站桥接的游戏端显示与热更新。最终游戏端连接真实 YDA 的完整往返、网页 WebGL 三维显示、跨贴图切换和完全无 Mod 的官方客户端仍未验证；详细记录见 [VERIFICATION.md](VERIFICATION.md)。

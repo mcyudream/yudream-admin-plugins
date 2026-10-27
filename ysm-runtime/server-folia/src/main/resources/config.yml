@@ -7,6 +7,9 @@ resource-pack-timeout-seconds: 120
 model-scale: 0.75
 view-distance: 64
 max-snapshot-models: 128
+# 可选接入 HandbookCore；/model guide 打开模型指南。
+handbook:
+  enabled: true
 pack-host:
   bind: '0.0.0.0'
   port: 8767

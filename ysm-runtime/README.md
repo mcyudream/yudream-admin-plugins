@@ -17,7 +17,7 @@ YDA 管理通用 `schema=2`（兼容读取 schema 1）模型、贴图、角色�
 本次发布的文件对应关系、环境变量、完整配置示例和客户端依赖见 [中文安装配置](INSTALL.zh-CN.md)。
 
 1. YDA 安装 `yudream-skin` 和 `ysm-models`。设置环境变量 `YSM_PUBLIC_BASE_URL`（网站公网根 URL）与 `YSM_BRIDGE_TOKEN`（至少 32 字符随机密钥）。
-2. Folia 安装 `YudreamModels-folia-26.3-0.2.0.jar`，填写生成的 `plugins/YudreamModels/config.yml`：`website-url`、相同 `bridge-token`，以及玩家可访问的 `pack-host.public-url`。可用反向代理把 HTTPS 下载转发至 `pack-host.bind/port`。
+2. Folia 安装 `YudreamModels-folia-26.3-0.3.0.jar`，填写生成的 `plugins/YudreamModels/config.yml`：`website-url`、相同 `bridge-token`，以及玩家可访问的 `pack-host.public-url`。可用反向代理把 HTTPS 下载转发至 `pack-host.bind/port`。
 3. 玩家在网站「我的模型」上传原始 `.ysm` 或明文 ZIP，预览后选择本人皮肤站角色和贴图并装备。管理员可把模型加入服务器共享库、停用或删除模型。
 4. 可选安装匹配版本的 `YudreamModels-fabric-26.3-0.2.0.jar`、Fabric Loader 与 Fabric API。
 
@@ -25,6 +25,7 @@ YDA 管理通用 `schema=2`（兼容读取 schema 1）模型、贴图、角色�
 
 ## 玩家操作
 
+- `/model guide`：打开 HandbookCore 的“模型指南”，包含上传、审核、换装、客户端和常见问题。
 - `/model status`：模式、资源加载结果、快照模型数量、资源包发送次数。
 - `/model refresh`：原版手动获取新快照；默认冷却 60 秒，相同版本不重复发送。权限 `ysm.refresh`，默认所有玩家可用。
 - `/model self on` / `/model self off`：原版自身模型预览开关。默认关闭以避免第一人称遮挡；开启后切换第三人称查看。服务端无法得知原版玩家的相机模式。
@@ -33,6 +34,12 @@ YDA 管理通用 `schema=2`（兼容读取 schema 1）模型、贴图、角色�
 原版进服加载本人和服务器启用模型的一份快照，网站更新不会自动推送新包；旧快照继续使用旧版本。模型不在已加载快照内时回退皮肤。手动刷新会触发原版资源重载；为保证失败后仍有旧包，新包成功后才清理本插件旧包，这可能发生两次重载。不会移除其他插件的资源包。
 
 Fabric 客户端按实际装备下载 bundle，在后台解码，在渲染线程注册局部纹理；准备完成后先通知服务器，服务器移除该观看者的原版替身并发送激活确认，客户端才切换。更新失败继续旧外观。此路径没有调用全局资源重载。每个客户端最多保留 64 个已准备或正在准备的不同模型；离线角色与恢复皮肤会释放装备引用，闲置资源按需淘汰。
+
+## HandbookCore 玩家指南
+
+服务器可选安装 `HandbookCore Beta_0_1_1`。模型插件通过其公开 API 自动注册 `ysm:guide` 分类和 8 篇指南；玩家可从手册目录、搜索或 `/model guide` 进入，也可执行 `/handbook category ysm:guide`。阅读需要 `ysm.use` 与 `handbookcore.use`，均默认向所有玩家开放。内容中的网站按钮使用本服 `website-url`，不包含桥接密钥。
+
+`handbook.enabled` 默认 `true`；旧配置没有此项也会自动启用。设为 `false` 并重启即可关闭指南。未安装 HandbookCore 时模型功能继续工作，指南命令会提示缺少手册核心。手册服务恢复后自动重新注册，插件停用时移除自己的贡献，保留其他插件内容。
 
 ## 支持范围
 
@@ -58,8 +65,11 @@ mvn -pl yudream-plugins/yudream-plugin-ysm-models -am test package
 
 ```bash
 cd ysm-runtime
-./gradlew :core:test :server-folia:jar :fabric-26_3:jar
+./gradlew :core:test :server-folia:jar :fabric-26_3:jar \
+  -PhandbookApiJar=/path/to/HandbookCore-mc26_3-plugin-Beta_0_1_1-api.jar
 ```
+
+HandbookCore API 仅用于编译，不打入模型插件；从其正式发布物取得 API JAR。默认查找同级 `plugins/mcPlugin/release/HandbookCore/` 发布目录，其他目录通过上述属性指定。新增指南只升级 Folia 至 `0.3.0`；网站 `0.4.1`、core 与 Fabric `0.2.0` 保持兼容。
 
 Fabric 的 `prepareMinecraft` 下载官方 client / libraries 并验证 SHA-1，只用于编译，不打入分发 JAR。可通过 `minecraftClientJar`、`minecraftLibraries`、`fabricApiJar`、`fabricLoaderJar`、`mixinJar` Gradle 属性使用现有本地缓存；不会把本机路径写入源码。
 
