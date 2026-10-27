@@ -1,5 +1,6 @@
 export type ReviewStatus = 'APPROVED' | 'PENDING' | 'REJECTED'
 export interface ModelSettings { uploadEnabled: boolean; reviewRequired: boolean }
+export interface BridgeSettings { publicBaseUrl: string; bridgeToken: string }
 export interface ModelUploadPolicy extends ModelSettings { canUpload: boolean }
 export interface ModelRow { id: string; name: string; hash: string; ownerId?: string; enabled: boolean; serverEnabled: boolean; updatedAt: number; reviewStatus?: ReviewStatus; reviewNote?: string }
 export interface Page<T> { records: T[]; total: number }

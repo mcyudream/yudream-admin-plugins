@@ -6,6 +6,8 @@ public final class ModelAdminController {
  private final ModelHttp http;public ModelAdminController(ModelHttp http){this.http=http;}
  @PluginHttpEndpoint(method="GET",path="/admin/settings",permission=YsmModelsPlugin.CONFIG) public PluginHttpResponse settings(PluginHttpRequest r){return http.settings(r);}
  @PluginHttpEndpoint(method="PUT",path="/admin/settings",permission=YsmModelsPlugin.CONFIG) public PluginHttpResponse saveSettings(PluginHttpRequest r){return http.saveSettings(r);}
+ @PluginHttpEndpoint(method="GET",path="/admin/bridge-settings",permission=YsmModelsPlugin.CONFIG) public PluginHttpResponse bridgeSettings(PluginHttpRequest r){return http.bridgeSettings(r);}
+ @PluginHttpEndpoint(method="PUT",path="/admin/bridge-settings",permission=YsmModelsPlugin.CONFIG) public PluginHttpResponse saveBridgeSettings(PluginHttpRequest r){return http.saveBridgeSettings(r);}
  @PluginHttpEndpoint(method="GET",path="/admin/models",permission=YsmModelsPlugin.MANAGE) public PluginHttpResponse list(PluginHttpRequest r){return http.list(r,2);}
  @PluginHttpEndpoint(method="GET",path="/admin/models/{id}/preview",permission=YsmModelsPlugin.MANAGE) public PluginHttpResponse preview(PluginHttpRequest r){return http.adminPreview(r);}
  @PluginHttpEndpoint(method="PUT",path="/admin/models/{id}",permission=YsmModelsPlugin.MANAGE) public PluginHttpResponse manage(PluginHttpRequest r){return http.manage(r);}

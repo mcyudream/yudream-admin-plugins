@@ -4,6 +4,7 @@ import online.yudream.base.plugin.ysm.application.ModelService;
 import online.yudream.base.plugin.ysm.bootstrap.YsmModelsPlugin;
 import online.yudream.base.plugin.ysm.infrastructure.AssetLinks;
 import online.yudream.base.plugin.ysm.domain.ModelSettings;
+import online.yudream.base.plugin.ysm.domain.BridgeSettings;
 import online.yudream.base.plugin.spi.http.*;
 import online.yudream.ysm.model.*;
 import com.google.gson.*;
@@ -17,6 +18,13 @@ public final class ModelHttp {
     public PluginHttpResponse settings(PluginHttpRequest r){return PluginHttpResponse.ok(models.settings());}
     public PluginHttpResponse uploadPolicy(PluginHttpRequest r){owner(r);return PluginHttpResponse.ok(models.uploadPolicy(uploadPermission(r)));}
     public PluginHttpResponse saveSettings(PluginHttpRequest r){JsonObject b=body(r);return PluginHttpResponse.ok(models.settings(new ModelSettings(bool(b,"uploadEnabled"),bool(b,"reviewRequired"))));}
+    public PluginHttpResponse bridgeSettings(PluginHttpRequest r){return configAllowed(r)?bridgeSettingsResponse(links.settings()):PluginHttpResponse.json(403,Map.of("message","需要模型配置权限"));}
+    public PluginHttpResponse saveBridgeSettings(PluginHttpRequest r){
+        if(!configAllowed(r))return PluginHttpResponse.json(403,Map.of("message","需要模型配置权限"));
+        JsonObject b=body(r);return bridgeSettingsResponse(links.settings(new BridgeSettings(text(b,"publicBaseUrl"),text(b,"bridgeToken"))));
+    }
+    private static PluginHttpResponse bridgeSettingsResponse(BridgeSettings value){return new PluginHttpResponse(200,Map.of("Cache-Control","no-store"),"application/json",value);}
+    private static boolean configAllowed(PluginHttpRequest r){return r.principal()!=null&&r.principal().hasPermission(YsmModelsPlugin.CONFIG);}
     public PluginHttpResponse review(PluginHttpRequest r){JsonObject b=body(r);return PluginHttpResponse.ok(models.review(segment(r.path(),2),text(b,"hash"),bool(b,"approved"),text(b,"note")));}
     public PluginHttpResponse players(PluginHttpRequest r){return PluginHttpResponse.ok(models.players(owner(r)));}
     public PluginHttpResponse upload(PluginHttpRequest r,boolean version){JsonObject b=body(r);String encoded=text(b,"base64");if(encoded.length()>ModelCompiler.MAX_UPLOAD*4L/3+8)throw new IllegalArgumentException("文件超过 16 MiB");return PluginHttpResponse.ok(models.upload(owner(r),version?segment(r.path(),2):null,text(b,"name"),Base64.getDecoder().decode(encoded),uploadPermission(r)));}

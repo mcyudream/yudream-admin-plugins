@@ -1,12 +1,12 @@
 # 玩家模型安装与配置
 
-本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.4.1`、Folia 插件 `0.3.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
+本次发布组合：YDA `1.11.0`、网站插件 `ysm-models 0.5.0`、Folia 插件 `0.3.0`、Fabric 客户端 Mod `0.2.0`。游戏运行端只适配 **Minecraft / Folia 26.3、Java 25**；YDA 宿主使用 Java 21。
 
 ## 1. 文件放在哪里
 
 | 文件 | 安装位置 |
 | --- | --- |
-| `yudream-plugin-ysm-models-0.4.1.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
+| `yudream-plugin-ysm-models-0.5.0.jar` | YDA 插件管理中安装；先启用 `yudream-skin 1.7.0` |
 | `YudreamModels-folia-26.3-0.3.0.jar` | Folia 服务器的 `plugins/`，替换旧版模型服务端 |
 | `YudreamModels-fabric-26.3-0.2.0.jar` | 玩家的对应游戏实例 `mods/` |
 | `HandbookCore-mc26_3-plugin-Beta_0_1_1.jar`（可选） | Folia 服务器的 `plugins/`，提供玩家指南 |
@@ -15,16 +15,18 @@
 
 ## 2. 配置 YDA 网站
 
-在 **YDA 后端进程 / 容器** 的环境变量中加入：
+先安装并启用 `yudream-skin 1.7.0`，再安装并启用 `ysm-models 0.5.0`。玩家需要已有的皮肤站角色，模型装备关系绑定在本人角色上。
 
-```dotenv
-YSM_PUBLIC_BASE_URL=https://skin.example.com
-YSM_BRIDGE_TOKEN=REPLACE_WITH_RANDOM_SECRET_AT_LEAST_32_CHARACTERS
-```
+管理员进入「玩家模型 → 模型设置 → 服务器连接」（权限 `plugin:ysm-models:config`）：
 
-将域名替换为玩家与游戏服务器都能访问的网站根地址。用 `openssl rand -hex 32` 生成一份随机密钥，保存后用于下面的服务端配置。重新创建容器或重启后端，使环境变量生效；Docker Compose 的 `.env` 文件仍需通过 `environment` 或 `env_file` 注入容器。
+1. 填写玩家与游戏服务器均可访问的**网站公网地址**，例如 `https://skin.example.com`。使用部署路径前缀时一并填写，不含账号、查询参数或片段。
+2. 点击**生成随机密钥**，或填入已有密钥（32–256 个无空格的可打印英文字符）。密钥默认隐藏，可显示或一键复制。
+3. 点击页面上方**保存连接配置**。生成与编辑只是草稿，保存成功后网站端立即生效，无需重启 YDA；连接设置加密存储，重启后保留。
+4. 点击**复制游戏服配置**，将 `website-url` 和 `bridge-token` 填入下面的游戏服配置，然后重启游戏服。客户端无需填写密钥。
 
-先安装并启用 `yudream-skin 1.7.0`，再安装并启用 `ysm-models 0.4.1`。玩家需要已有的皮肤站角色，模型装备关系绑定在本人角色上。
+更换已有密钥时页面会要求确认。保存后，旧密钥和已签发的下载链接立即失效，需同步所有连接该网站的游戏服并重启。
+
+旧部署仍兼容后端环境变量 `YSM_PUBLIC_BASE_URL` 和 `YSM_BRIDGE_TOKEN`；尚未保存页面配置时读取它们。页面配置保存后优先使用持久化设置，再修改环境变量不会覆盖它。原环境变量中的密钥可直接沿用，无需重新生成。
 
 ### 上传与审核设置
 
@@ -57,8 +59,8 @@ pack-host:
   public-url: 'https://packs.example.com'
 ```
 
-- `website-url` 与 YDA 的 `YSM_PUBLIC_BASE_URL` 填同一网站根地址。
-- `bridge-token` 与 YDA 的 `YSM_BRIDGE_TOKEN` 必须完全一致，密钥只配置在网站与服务器。
+- `website-url` 与网站「模型设置 → 服务器连接」中的网站公网地址一致。
+- `bridge-token` 与网站设置里保存的桥接密钥必须完全一致；使用“复制游戏服配置”可避免输入错误。
 - `pack-host.public-url` 是玩家下载原版资源包的公网根地址，转发到游戏服务器的 `8767` 端口。它与网站地址用途不同。
 - 如果使用 HTTPS 反向代理，保留请求路径转发到 `pack-host.bind/port`。例如代理与游戏服在同一台主机时，可将 `packs.example.com` 的请求转发到 `http://127.0.0.1:8767`。
 - 玩家电脑必须能够访问网站下载地址和资源包地址；仅本机能访问的 `localhost` 地址不能用于公网玩家。

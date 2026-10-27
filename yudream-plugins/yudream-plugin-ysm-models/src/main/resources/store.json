@@ -1,1 +1,1 @@
-{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.4.1：修正关闭上传时的授权规则，新增 plugin:ysm-models:upload 权限，持有此权限的账号仍可上传自己的新模型和新版本，审核策略继续生效。页面依据实际权限显示上传入口。包含模型设置、审核流程及原始 .ysm 解析修复；配套运行端 0.2.0。"}
+{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.5.0：模型设置新增服务器连接配置，支持随机生成、显示和一键复制桥接密钥，保存后立即生效；可直接复制游戏服配置。连接设置加密保存并在重启后保留，兼容原有环境变量。更换密钥需同步游戏服配置并重启游戏服。"}

@@ -27,7 +27,11 @@
 .ysm-cover--compact { width: 80px; min-width: 80px; border-radius: var(--yd-surface-radius, .5rem); }
 .ysm-preview-note { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; font-size: .8125rem; color: var(--color-text-3); }
 .ysm-preview > .ysm-cover { max-height: 44vh; }
-.ysm-settings-content { max-width: 880px; margin-inline: auto; }
+.ysm-settings-content { display: grid; gap: var(--yd-content-gap, 1.25rem); max-width: 880px; margin-inline: auto; }
+.ysm-secret-field { display: grid; gap: .75rem; width: 100%; min-width: 0; }
+.ysm-bridge-install { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.ysm-bridge-install > div { flex: 1 1 300px; min-width: 0; }
+.ysm-bridge-install p { color: var(--color-text-2); font-size: .875rem; line-height: 1.7; margin-top: .35rem; overflow-wrap: anywhere; }
 .ysm-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .ysm-setting-row > div { min-width: 0; }
 .ysm-setting-row strong { font-size: .9375rem; }
