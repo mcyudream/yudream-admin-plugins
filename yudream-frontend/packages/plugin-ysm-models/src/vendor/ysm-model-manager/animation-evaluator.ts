@@ -29,6 +29,10 @@ function resolveFramePost(kf: Keyframe, t: number, out?: Vec3): Vec3 {
   return o;
 }
 
+function resolveFramePre(kf: Keyframe, t: number): Vec3 {
+  return kf.pre.map((n, i) => kf.preMolang?.[i]?.(t) ?? n) as Vec3;
+}
+
 /**
  * uniform Catmull-Rom 三次样条采样（Hermite 等价形式，C1 连续）。
  * 经过两端控制点 p1/p2，切点由相邻点决定：m0=(p2-p0)/2、m1=(p3-p1)/2。
@@ -83,7 +87,7 @@ export function evaluateKeyframes(keyframes: Keyframe[], t: number): Vec3 | null
   const scat: Vec3 = [0, 0, 0];
 
   // 超出范围（Molang 轴仍按当前 t 求值，对齐 Bedrock q.anim_time 语义）
-  if (t < keyframes[0].time) return [...keyframes[0].pre];
+  if (t < keyframes[0].time) return resolveFramePre(keyframes[0], t);
   if (t === keyframes[0].time) return [...resolveFramePost(keyframes[0], t, sp0)];
   if (t >= keyframes[keyframes.length - 1].time)
     return [...resolveFramePost(keyframes[keyframes.length - 1], t, sp0)];
@@ -105,14 +109,14 @@ export function evaluateKeyframes(keyframes: Keyframe[], t: number): Vec3 | null
   if (a.lerp === "catmullrom") {
     const p0 = resolveFramePost(keyframes[Math.max(0, lo - 1)], t, sp0);
     const p1 = resolveFramePost(a, t, sp1);
-    const p2 = b.pre; // Adaptation: same pre/post boundary as the Java sampler.
+    const p2 = resolveFramePre(b, t); // Adaptation: same pre/post boundary as the Java sampler.
     const p3 = resolveFramePost(keyframes[Math.min(keyframes.length - 1, hi + 1)], t, sp3);
     return [...sampleCatmullRom(p0, p1, p2, p3, frac, scat)];
   }
 
   // 线性插值（端点先 Molang 求值再 lerp，对齐 GeckoLib/ModernYSM 口径）
   const ap = resolveFramePost(a, t, sp0);
-  const bp = b.pre; // Bedrock interpolates previous post to next pre; matches our Java runtime.
+  const bp = resolveFramePre(b, t); // Bedrock interpolates previous post to next pre; matches our Java runtime.
   return [
     ap[0] + (bp[0] - ap[0]) * frac,
     ap[1] + (bp[1] - ap[1]) * frac,

@@ -16,14 +16,24 @@ public final class Geometry {
                 .translate(new Vector3f(center).sub(cp).div(16));
     }
     public static Map<String,float[]> uv(JsonObject c,int w,int h) {
-        JsonArray uv=c.getAsJsonArray("uv");float u=uv.get(0).getAsFloat(),v=uv.get(1).getAsFloat();
         Vector3f s=Rig.vector(c.get("size"),0);float x=s.x,y=s.y,z=s.z;
         Map<String,float[]> m=new LinkedHashMap<>();
-        m.put("north",new float[]{u+z,v+z,u+z+x,v+z+y}); m.put("south",new float[]{u+2*z+x,v+z,u+2*z+2*x,v+z+y});
-        m.put("east",new float[]{u,v+z,u+z,v+z+y});m.put("west",new float[]{u+z+x,v+z,u+2*z+x,v+z+y});
-        m.put("up",new float[]{u+z,v,u+z+x,v+z});m.put("down",new float[]{u+z+x,v+z,u+z+2*x,v});
-        if(c.has("mirror")&&c.get("mirror").getAsBoolean()) {float[] a=m.get("east");m.put("east",m.get("west"));m.put("west",a);m.replaceAll((k,f)->new float[]{f[2],f[1],f[0],f[3]});}
-        m.values().forEach(f->{f[0]/=w;f[2]/=w;f[1]/=h;f[3]/=h;});return m;
+        if(c.get("uv").isJsonObject()){
+            for(var entry:c.getAsJsonObject("uv").entrySet()){
+                var face=entry.getValue().getAsJsonObject();var at=face.getAsJsonArray("uv");float u=at.get(0).getAsFloat(),v=at.get(1).getAsFloat();
+                float fw=entry.getKey().equals("east")||entry.getKey().equals("west")?z:x,fh=entry.getKey().equals("up")||entry.getKey().equals("down")?z:y;
+                if(face.has("uv_size")){fw=face.getAsJsonArray("uv_size").get(0).getAsFloat();fh=face.getAsJsonArray("uv_size").get(1).getAsFloat();}
+                m.put(entry.getKey(),new float[]{u,v,u+fw,v+fh});
+            }
+        }else{
+            JsonArray uv=c.getAsJsonArray("uv");float u=uv.get(0).getAsFloat(),v=uv.get(1).getAsFloat();
+            m.put("north",new float[]{u+z,v+z,u+z+x,v+z+y}); m.put("south",new float[]{u+2*z+x,v+z,u+2*z+2*x,v+z+y});
+            m.put("east",new float[]{u,v+z,u+z,v+z+y});m.put("west",new float[]{u+z+x,v+z,u+2*z+x,v+z+y});
+            m.put("up",new float[]{u+z,v,u+z+x,v+z});m.put("down",new float[]{u+z+x,v+z,u+z+2*x,v});
+        }
+        if(c.get("uv").isJsonArray()&&c.has("mirror")&&c.get("mirror").getAsBoolean()) {float[] a=m.get("east");m.put("east",m.get("west"));m.put("west",a);m.replaceAll((k,f)->new float[]{f[2],f[1],f[0],f[3]});}
+        m.replaceAll((name,f)->new float[]{f[0]/w,f[1]/h,f[2]/w,f[3]/h,
+            c.get("uv").isJsonObject()&&c.getAsJsonObject("uv").getAsJsonObject(name).has("uv_rotation")?c.getAsJsonObject("uv").getAsJsonObject(name).get("uv_rotation").getAsFloat():0});return m;
     }
     public record Vertex(float x,float y,float z,float u,float v,float nx,float ny,float nz) {}
     public record Cube(int part,List<Vertex> vertices) {}
@@ -48,7 +58,8 @@ public final class Geometry {
         }return List.copyOf(result);
     }
     private static void face(List<Vertex> out,Matrix4f m,float[] uv,float[][] xyz,float nx,float ny,float nz) {
+        if(uv==null)return;
         Vector3f n=m.transformDirection(new Vector3f(nx,ny,nz));
-        for(int i=0;i<4;i++){Vector3f p=m.transformPosition(new Vector3f(xyz[i]));out.add(new Vertex(p.x,p.y,p.z,i<2?uv[0]:uv[2],i==0||i==3?uv[1]:uv[3],n.x,n.y,n.z));}
+        for(int i=0;i<4;i++){int j=(i+(int)uv[4]/90)%4;Vector3f p=m.transformPosition(new Vector3f(xyz[i]));out.add(new Vertex(p.x,p.y,p.z,(j<2?uv[0]:uv[2]),(j==0||j==3?uv[1]:uv[3]),n.x,n.y,n.z));}
     }
 }

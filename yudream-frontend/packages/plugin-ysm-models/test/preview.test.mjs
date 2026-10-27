@@ -7,14 +7,14 @@ import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
 const temporary = mkdtempSync(join(tmpdir(), 'ysm-preview-'))
 after(() => rmSync(temporary, { recursive: true, force: true }))
-for (const [name, source] of Object.entries({ cover: 'preview/cover-raster.ts', animation: 'preview/animation.ts', evaluator: 'vendor/ysm-model-manager/animation-evaluator.ts', quaternion: 'vendor/ysm-model-manager/quaternion.ts', cube: 'vendor/ysm-model-manager/cube-mesh.ts' })) {
+for (const [name, source] of Object.entries({ cover: 'preview/cover-raster.ts', animation: 'preview/animation.ts', molang: 'preview/molang.ts', evaluator: 'vendor/ysm-model-manager/animation-evaluator.ts', quaternion: 'vendor/ysm-model-manager/quaternion.ts', cube: 'vendor/ysm-model-manager/cube-mesh.ts' })) {
   const code = ts.transpileModule(readFileSync(new URL(`../src/${source}`, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
     .replaceAll('../../preview/animation', './animation.mjs').replaceAll('./quaternion', './quaternion.mjs')
     .replaceAll('../vendor/ysm-model-manager/cube-mesh', './cube.mjs').replaceAll('../vendor/ysm-model-manager/animation-evaluator', './evaluator.mjs')
-    .replaceAll("'./animation'", "'./animation.mjs'").replaceAll("'three'", JSON.stringify(import.meta.resolve('three')))
+    .replaceAll("'./molang'", "'./molang.mjs'").replaceAll("'./animation'", "'./animation.mjs'").replaceAll("'three'", JSON.stringify(import.meta.resolve('three')))
   writeFileSync(join(temporary, `${name}.mjs`), code)
 }
-const { parseAnimation } = await import(pathToFileURL(join(temporary, 'animation.mjs')))
+const { parseAnimation, parseAnimations, evaluatePose } = await import(pathToFileURL(join(temporary, 'animation.mjs')))
 const { evaluateClip } = await import(pathToFileURL(join(temporary, 'evaluator.mjs')))
 const { buildCubeMeshData, computeBoneLocalPos } = await import(pathToFileURL(join(temporary, 'cube.mjs')))
 const { rasterizeCover } = await import(pathToFileURL(join(temporary, 'cover.mjs')))
@@ -80,4 +80,26 @@ test('transparent overlays preserve the underlying opaque texture and empty texe
   assert.ok(bounds(image, 0).count > 1000)
   assert.ok(bounds(image, 1).count > 1000)
   assert.equal(rasterizeCover(bundle, pixelTexture(0), 320, 240).pixels.some(Boolean), false)
+})
+
+test('schema 2 expressions animate safely with the same degree units and layer defaults as Java', () => {
+  const expr = { expr: ['*', ['n', 16], ['call', 'math.sin', ['*', ['v', 'query.anim_time'], ['n', 90]]]] }
+  const bundle = { ...coverBundle(), schema: 2, layers: ['parallel0'], animations: {
+    idle: { animation_length: 2, bones: { child: { position: [0, expr, 0] } } },
+    parallel0: { animation_length: 2, bones: { child: { scale: { expr: ['?', ['==', ['v', 'v.roaming.cloth'], ['n', 0]], ['n', 1], ['n', 0]] } } } },
+  } }
+  const poses = evaluatePose(bundle, parseAnimations(bundle), 'idle', 1)
+  assert.ok(Math.abs(poses.get('child').position[1] - 16) < 1e-6)
+  assert.deepEqual(poses.get('child').scale, [1, 1, 1])
+  assert.throws(() => parseAnimation('bad', { animation_length: 1, bones: { child: { scale: { expr: ['call', 'java.exec', ['n', 1]] } } } }))
+})
+test('per-face UV omits absent faces and preserves negative intervals and rotation', () => {
+  const cube = { origin:[-1,0,-1], size:[2,3,2], uv:[0,0], rotation:[0,0,0], pivot:[0,0,0], pivotSet:true, inflate:0, mirror:false,
+    faceUV:JSON.stringify({ north: { uv:[4,4], uv_size:[-4,8], uv_rotation:90 } }), texSlot:0, cubeTexW:0, cubeTexH:0 }
+  const mesh = buildCubeMeshData(cube, {x:0,y:0,z:0}, 16, 16, 'child', 0)
+  assert.equal(mesh.positions.length, 12)
+  assert.equal(mesh.indices.length, 6)
+  assert.deepEqual([...new Set(mesh.uvs)].sort(), [0,.25,.75])
+  const plain = buildCubeMeshData({...cube,faceUV:JSON.stringify({north:{uv:[4,4],uv_size:[-4,8]}})}, {x:0,y:0,z:0},16,16,'child',0)
+  assert.notDeepEqual(mesh.uvs, plain.uvs)
 })

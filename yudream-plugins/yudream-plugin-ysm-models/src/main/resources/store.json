@@ -1,1 +1,1 @@
-{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.2.0：模型库新增正、背面二维封面与卡片浏览，模型管理展示缩略图；不支持 WebGL 时自动显示可切换贴图的二维预览。封面按需生成并在后台处理，减少页面卡顿。玩家模型入口改为立体方块，个人、服务器与管理菜单使用独立图标。"}
+{"license":"MIT","category":"Minecraft","tags":["ysm","skin","folia","fabric"],"releaseNotes":"0.3.0：支持原始 .ysm 服务端解码与明文 ZIP，修复缺少 models/main.json 的误报；新增逐面 UV、512 骨骼、受限 Molang 及默认并行动画。按主模型配置选取贴图，支持嵌套 ZIP 和自动识别几何。预览展示转换兼容说明。新模型需运行端 0.2.0。"}

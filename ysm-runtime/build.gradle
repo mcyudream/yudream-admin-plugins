@@ -1,7 +1,7 @@
 subprojects {
     apply plugin: 'java-library'
     group = 'online.yudream.ysm'
-    version = '0.1.0'
+    version = '0.2.0'
     repositories { mavenLocal(); mavenCentral(); maven { url = 'https://maven.fabricmc.net/' }; maven { url = 'https://repo.papermc.io/repository/maven-public/' } }
     tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 21 }
     tasks.withType(Jar).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }

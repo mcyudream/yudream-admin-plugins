@@ -9,7 +9,7 @@ import java.util.*;
 public record ModelAsset(String hash, JsonObject data) {
     public static final Gson JSON = new GsonBuilder().disableHtmlEscaping().create();
     public static ModelAsset of(JsonObject data) {
-        if (!data.has("schema") || data.get("schema").getAsInt() != 1) throw new IllegalArgumentException("不支持的模型格式版本");
+        if (!data.has("schema") || data.get("schema").getAsInt() != 1 && data.get("schema").getAsInt() != 2) throw new IllegalArgumentException("不支持的模型格式版本");
         JsonObject canonical = canonical(data).getAsJsonObject();
         return new ModelAsset(digest("SHA-256", JSON.toJson(canonical).getBytes(StandardCharsets.UTF_8)), canonical);
     }

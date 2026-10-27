@@ -298,7 +298,7 @@ export function buildCubeMeshData(
     [0, 0, 0, 0, 0, 0, 0, 0],
   ];
   const hasUV = parseUV(c, faceUVs, c.size[0], c.size[1], c.size[2], texW, texH);
-  if (c.mirror) {
+  if (c.mirror && !c.faceUV) {
     // Blockbench mirror_uv 完整语义（黄金参照 blockbench cube.js updateUV
     // L1298-1316；女仆 01_taisho_maid 左臂青条事故 2026-09，全仓普查 3439 个
     // mirror cube 均走 box UV）：① 每面矩形自身水平翻转；② east 与 west 矩形
@@ -327,7 +327,10 @@ export function buildCubeMeshData(
   const faceKeys: FaceKey[] = ["east", "west", "up", "down", "south", "north"];
   const pts = { lx, ly, lz, hx, hy, hz };
 
+  // Local adaptation: per-face maps omit invisible faces instead of sampling (0,0).
+  const declared = c.faceUV ? JSON.parse(c.faceUV) as Record<string, unknown> : undefined;
   for (let fi = 0; fi < faceKeys.length; fi++) {
+    if (declared && !declared[faceKeys[fi]]) continue;
     const uvData: FaceUV8 = hasUV ? faceUVs[fi] : [0, 0, 0, 0, 0, 0, 0, 0];
     mdCmBuildFace(faceKeys[fi], pts, uvData, out);
   }
@@ -401,7 +404,7 @@ function parseUV(
   texH: number,
 ): boolean {
   if (c.faceUV !== "") {
-    if (parseFaceUV(c.faceUV, faces, texW, texH)) {
+    if (parseFaceUV(c.faceUV, faces, texW, texH, sx, sy, sz)) {
       return true;
     }
     // parseFaceUV 失败，若 c.UV 存在则回退 expandBoxUV
@@ -492,10 +495,11 @@ function parseFaceUV(
   faces: [number, number, number, number, number, number, number, number][],
   texW: number,
   texH: number,
+  dx: number, dy: number, dz: number,
 ): boolean {
-  let faceData: Record<string, { uv: number[]; uv_size?: number[] }>;
+  let faceData: Record<string, { uv: number[]; uv_size?: number[]; uv_rotation?: number }>;
   try {
-    faceData = JSON.parse(faceUVStr) as Record<string, { uv: number[]; uv_size?: number[] }>;
+    faceData = JSON.parse(faceUVStr) as Record<string, { uv: number[]; uv_size?: number[]; uv_rotation?: number }>;
   } catch {
     console.warn("[spec-builder] parseFaceUV 失败: JSON 解析错误");
     return false;
@@ -511,8 +515,8 @@ function parseFaceUV(
     if (!fd?.uv || fd.uv.length < 2) continue;
     const fu = fd.uv[0];
     const fv = fd.uv[1];
-    let fw = 0,
-      fh = 0;
+    let fw = fi < 2 ? dz : dx,
+      fh = fi === 2 || fi === 3 ? dz : dy;
     if (fd.uv_size && fd.uv_size.length >= 2) {
       fw = fd.uv_size[0];
       fh = fd.uv_size[1];
@@ -526,6 +530,13 @@ function parseFaceUV(
     const v1 = (fv + fh) / texH;
     // canonical 槽位：四侧面直接用；up/down 由 mdCmBuildFace 反转槽位序。
     faces[fi] = [u0, v0, u1, v0, u0, v1, u1, v1];
+    // Rotate rectangle corners before the top/bottom face winding conversion.
+    const turns = (fd.uv_rotation ?? 0) / 90;
+    if (turns) {
+      const corner = [0, 1, 3, 2];
+      const source = [...faces[fi]];
+      for (let n = 0; n < 4; n++) { const target = corner[n], from = corner[(n + turns) % 4]; faces[fi][target * 2] = source[from * 2]; faces[fi][target * 2 + 1] = source[from * 2 + 1]; }
+    }
     parsed = true;
   }
   return parsed;

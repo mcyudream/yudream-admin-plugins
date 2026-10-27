@@ -35,7 +35,7 @@ public final class AvatarModels {
         collector.submitCustomGeometry(stack,RenderTypes.entityTranslucent(model.texture(active.outfit().texture())),(pose,vertices)->{
             Vector3f p=new Vector3f(),n=new Vector3f();Matrix3f normal=new Matrix3f();
             for(var cube:model.cubes){
-                Matrix4f transform=matrices[model.rig.partBones[cube.part()]];transform.normal(normal);
+                Matrix4f transform=matrices[model.rig.partBones[cube.part()]];if(Math.abs(transform.determinant())<1e-10f)continue;transform.normal(normal);
                 for(var v:cube.vertices()){
                     transform.transformPosition(p.set(v.x(),v.y(),v.z()));normal.transform(n.set(v.nx(),v.ny(),v.nz())).normalize();
                     vertices.addVertex(pose,p.x,p.y,p.z).setColor(255,255,255,255).setUv(v.u(),v.v()).setOverlay(overlay).setLight(light).setNormal(pose,n.x,n.y,n.z);

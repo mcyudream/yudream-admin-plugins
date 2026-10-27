@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount, watch, nextTick } from 'vue'
-import { YdSelect, YdButton, YdTag, YdLoadingOverlay } from '@yudream/components'
+import { YdSelect, YdButton, YdTag, YdLoadingOverlay, YdAlert } from '@yudream/components'
 import ModelPoster from './ModelPoster.vue'
+import { previewAnimation } from '../preview/animation'
 import type { Bundle } from '../types'
 import { mountPreview, type PreviewHandle } from '../preview/renderer'
 
@@ -18,7 +19,7 @@ watch(() => props.bundle, async bundle => {
   error.value = ''
   loading.value = true
   texture.value = bundle.textures[0].name
-  animation.value = bundle.animations.idle ? 'idle' : Object.keys(bundle.animations)[0] ?? ''
+  animation.value = previewAnimation(bundle)
   playing.value = true
   await nextTick()
   try {
@@ -43,6 +44,7 @@ onBeforeUnmount(() => { generation++; handle?.dispose() })
     <div v-if="error" class="ysm-preview-note"><YdTag variant="secondary">二维预览</YdTag><span>当前环境无法使用三维预览，已显示正、背面静态预览，仍可选择贴图和装备。</span></div>
     <ModelPoster v-if="error" :bundle="bundle" :texture="texture" />
     <YdLoadingOverlay v-show="!error" :loading="loading"><div ref="container" class="ysm-viewport" /></YdLoadingOverlay>
+    <YdAlert v-if="bundle.compatibility?.length" type="warning"><ul><li v-for="note in bundle.compatibility" :key="note">{{ note }}</li></ul></YdAlert>
     <div class="ysm-actions">
       <YdSelect v-model="texture" aria-label="模型贴图" :options="bundle.textures.map(t => ({ label: t.name, value: t.name }))" />
       <YdSelect v-if="!error && Object.keys(bundle.animations).length" v-model="animation" aria-label="预览动作" :options="Object.keys(bundle.animations).map(a => ({ label: a, value: a }))" />

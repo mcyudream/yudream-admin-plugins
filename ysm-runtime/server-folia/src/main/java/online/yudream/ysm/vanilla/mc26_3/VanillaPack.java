@@ -32,7 +32,7 @@ public final class VanillaPack {
                 List<Float> matrix=new ArrayList<>();for(int row=0;row<4;row++)for(int col=0;col<4;col++)matrix.add(m.get(col,row));
                 for(int ti=0;ti<a.textures().size();ti++) {
                     JsonObject t=a.textures().get(ti).getAsJsonObject();String id=prefix+"cube_"+cubeIndex+"_"+ti;Map<String,Object> faces=new LinkedHashMap<>();
-                    Geometry.uv(c,t.get("width").getAsInt(),t.get("height").getAsInt()).forEach((name,uv)->faces.put(name,Map.of("texture","#skin","uv",List.of(uv[0]*16,uv[1]*16,uv[2]*16,uv[3]*16))));
+                    Geometry.uv(c,t.get("width").getAsInt(),t.get("height").getAsInt()).forEach((name,uv)->faces.put(name,Map.of("texture","#skin","uv",List.of(uv[0]*16,uv[1]*16,uv[2]*16,uv[3]*16),"rotation",(int)uv[4])));
                     put(files,root+"models/"+id+".json",Map.of("ambientocclusion",false,"textures",Map.of("skin","ysm:item/"+prefix+textureId(t),"particle","#skin"),"elements",List.of(Map.of("from",List.of(8-s.x/2,8-s.y/2,8-s.z/2),"to",List.of(8+s.x/2,8+s.y/2,8+s.z/2),"faces",faces))));
                     layers.get(ti).add(Map.of("type","minecraft:model","model","ysm:"+id,"transformation",matrix));
                 }cubeIndex++;

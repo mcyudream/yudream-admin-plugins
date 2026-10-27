@@ -1,7 +1,6 @@
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { buildCubeMeshData, computeBoneLocalPos, eulerToQuaternion } from '../vendor/ysm-model-manager/cube-mesh'
-import { evaluateClip } from '../vendor/ysm-model-manager/animation-evaluator'
-import { parseAnimation } from './animation'
+import { parseAnimations, evaluatePose, previewAnimation } from './animation'
 import type { Bundle, Vector } from '../types'
 
 export interface CoverPixels { width: number; height: number; pixels: Uint8ClampedArray }
@@ -11,12 +10,11 @@ const vec = (v: Vector) => ({ x: v[0], y: v[1], z: v[2] })
 
 /** The same mesh and idle pose as the 3D viewer, projected into a CPU depth buffer. */
 function triangles(bundle: Bundle): Triangle[] {
-  if (bundle.schema !== 1 || !bundle.textures.length) throw new Error('不支持的模型格式')
+  if (![1, 2].includes(bundle.schema) || !bundle.textures.length) throw new Error('不支持的模型格式')
   const definitions = new Map(bundle.bones.map(b => [b.name, b]))
   const matrices = new Map<string, Matrix4>()
   const visiting = new Set<string>()
-  const idle = bundle.animations.idle
-  const poses = idle ? evaluateClip(parseAnimation('idle', idle), 0) : new Map()
+  const poses = evaluatePose(bundle, parseAnimations(bundle), previewAnimation(bundle), 0)
   function boneMatrix(name: string): Matrix4 {
     const cached = matrices.get(name)
     if (cached) return cached
@@ -33,6 +31,7 @@ function triangles(bundle: Bundle): Triangle[] {
       new Quaternion(...eulerToQuaternion(-base[0] - rotation[0], -base[1] - rotation[1], base[2] + rotation[2])),
       new Vector3(...(pose?.scale ?? [1, 1, 1])))
     if (bone.parent) matrix.premultiply(boneMatrix(bone.parent))
+    else if (bundle.modelScale) matrix.premultiply(new Matrix4().makeScale(...bundle.modelScale))
     visiting.delete(name)
     matrices.set(name, matrix)
     return matrix
@@ -44,7 +43,7 @@ function triangles(bundle: Bundle): Triangle[] {
     for (const [index, cube] of part.cubes.entries()) {
       const mesh = buildCubeMeshData({ ...cube, pivot: cube.pivot ?? bone.pivot ?? [0, 0, 0], pivotSet: true,
         rotation: cube.rotation ?? [0, 0, 0], inflate: cube.inflate ?? 0, mirror: cube.mirror ?? false,
-        faceUV: '', texSlot: 0, cubeTexW: 0, cubeTexH: 0 }, vec(bone.pivot ?? [0, 0, 0]),
+        uv: Array.isArray(cube.uv) ? cube.uv : [0, 0], faceUV: Array.isArray(cube.uv) ? '' : JSON.stringify(cube.uv), texSlot: 0, cubeTexW: 0, cubeTexH: 0 }, vec(bone.pivot ?? [0, 0, 0]),
       bundle.textures[0].width, bundle.textures[0].height, bone.name, index)
       if (!mesh) throw new Error('模型方块数据无效')
       const transform = boneMatrix(bone.name).clone().multiply(new Matrix4().compose(

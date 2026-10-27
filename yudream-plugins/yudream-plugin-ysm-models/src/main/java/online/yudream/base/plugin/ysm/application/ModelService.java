@@ -7,14 +7,15 @@ import online.yudream.ysm.protocol.Protocol;
 import java.util.*;
 
 public final class ModelService {
-    private final ModelRepository repository;private final SkinPort skins;private final AssetLinks links;
-    public ModelService(ModelRepository repository,SkinPort skins,AssetLinks links){this.repository=repository;this.skins=skins;this.links=links;}
+    private final YsmDecoder decoder;private final ModelRepository repository;private final SkinPort skins;private final AssetLinks links;
+    public ModelService(ModelRepository repository,SkinPort skins,AssetLinks links){this(repository,skins,links,null);}
+    public ModelService(ModelRepository repository,SkinPort skins,AssetLinks links,YsmDecoder decoder){this.decoder=decoder;this.repository=repository;this.skins=skins;this.links=links;}
     public Map<String,Object> own(String owner,int page,int size){List<ModelRecord> rows=repository.all().stream().filter(m->m.ownerId().equals(owner)).toList();return page(rows,page,size);}
     public Map<String,Object> catalog(int page,int size){return page(repository.all().stream().filter(m->m.enabled()&&m.serverEnabled()).map(m->Map.of("id",m.id(),"name",m.name(),"hash",m.hash(),"enabled",m.enabled(),"serverEnabled",m.serverEnabled(),"updatedAt",m.updatedAt())).toList(),page,size);}
     public Map<String,Object> admin(int page,int size){return page(repository.all(),page,size);}
     public Map<String,Object> players(String owner){return Map.of("records",skins.players(owner).stream().map(p->Map.of("uuid",p.uuid(),"name",p.name(),"outfit",repository.outfit(uuid(p.uuid())))).toList(),"bridgeConfigured",links.configured());}
     public ModelRecord upload(String owner,String existingId,String name,byte[] source){
-        ModelRecord old=existingId==null?null:owned(owner,existingId);ModelAsset asset=new ModelCompiler().compile(source,name);
+        ModelRecord old=existingId==null?null:owned(owner,existingId);ModelAsset asset=ModelCompiler.isZip(source)||decoder==null?new ModelCompiler().compile(source,name):new ModelCompiler().compile(decoder.decode(source),name);
         repository.asset(asset);long now=System.currentTimeMillis();
         return repository.save(new ModelRecord(old==null?UUID.randomUUID().toString():old.id(),owner,asset.name(),asset.hash(),old!=null&&old.serverEnabled(),old==null||old.enabled(),old==null?now:old.createdAt(),now));
     }

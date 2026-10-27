@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildCubeMeshData, computeBoneLocalPos, eulerToQuaternion } from '../vendor/ysm-model-manager/cube-mesh'
-import { evaluateClip } from '../vendor/ysm-model-manager/animation-evaluator'
-import { parseAnimation } from './animation'
+import { parseAnimations, evaluatePose, previewAnimation } from './animation'
 import type { Bundle, Vector } from '../types'
 
 export interface PreviewHandle {
@@ -14,7 +13,7 @@ export interface PreviewHandle {
 }
 
 export async function mountPreview(container: HTMLElement, bundle: Bundle): Promise<PreviewHandle> {
-  if (bundle.schema !== 1) throw new Error('不支持的模型格式版本')
+  if (![1, 2].includes(bundle.schema)) throw new Error('不支持的模型格式版本')
   const textures = new Map<string, THREE.Texture>()
   const geometries: THREE.BufferGeometry[] = []
   let renderer: THREE.WebGLRenderer | undefined
@@ -47,7 +46,7 @@ export async function mountPreview(container: HTMLElement, bundle: Bundle): Prom
     material.map = textures.values().next().value ?? null
     const scene = new THREE.Scene()
     const root = new THREE.Group()
-    root.scale.setScalar(1 / 16)
+    root.scale.fromArray((bundle.modelScale ?? [1, 1, 1]).map(n => n / 16) as Vector)
     scene.add(root, new THREE.AmbientLight(0xffffff, 2))
     const sun = new THREE.DirectionalLight(0xffffff, 2)
     sun.position.set(-3, 5, -4)
@@ -68,7 +67,7 @@ export async function mountPreview(container: HTMLElement, bundle: Bundle): Prom
       for (const [index, cube] of part.cubes.entries()) {
         const data = buildCubeMeshData({ ...cube, pivot: cube.pivot ?? bone.pivot ?? [0, 0, 0], pivotSet: true,
           rotation: cube.rotation ?? [0, 0, 0], inflate: cube.inflate ?? 0, mirror: cube.mirror ?? false,
-          faceUV: '', texSlot: 0, cubeTexW: 0, cubeTexH: 0 }, toVec(bone.pivot ?? [0, 0, 0]), bundle.textures[0].width, bundle.textures[0].height, bone.name, index)
+          uv: Array.isArray(cube.uv) ? cube.uv : [0, 0], faceUV: Array.isArray(cube.uv) ? '' : JSON.stringify(cube.uv), texSlot: 0, cubeTexW: 0, cubeTexH: 0 }, toVec(bone.pivot ?? [0, 0, 0]), bundle.textures[0].width, bundle.textures[0].height, bone.name, index)
         if (!data) throw new Error('模型方块数据无效')
         const geometry = new THREE.BufferGeometry()
         geometries.push(geometry)
@@ -82,8 +81,15 @@ export async function mountPreview(container: HTMLElement, bundle: Bundle): Prom
         nodes.get(part.bone)!.add(mesh)
       }
     }
-    const clips = new Map(Object.entries(bundle.animations).map(([name, a]) => [name, parseAnimation(name, a)]))
+    const clips = parseAnimations(bundle)
     const bases = new Map([...nodes].map(([name, n]) => [name, n.position.clone()]))
+    const initialPose = evaluatePose(bundle, clips, previewAnimation(bundle), 0)
+    for (const [name, node] of nodes) {
+      const pose = initialPose.get(name), base = definitions.get(name)!.rotation ?? [0, 0, 0], r = pose?.rotation ?? [0, 0, 0]
+      if (pose?.position) node.position.add(new THREE.Vector3(-pose.position[0], pose.position[1], pose.position[2]))
+      node.quaternion.fromArray(eulerToQuaternion(-base[0] - r[0], -base[1] - r[1], base[2] + r[2]))
+      node.scale.fromArray(pose?.scale ?? [1, 1, 1])
+    }
     const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 1000)
     const box = new THREE.Box3().setFromObject(root)
     const center = box.getCenter(new THREE.Vector3())
@@ -106,7 +112,7 @@ export async function mountPreview(container: HTMLElement, bundle: Bundle): Prom
       renderer!.setSize(w, h, false)
     })
     resize.observe(container)
-    let selected = clips.has('idle') ? 'idle' : clips.keys().next().value ?? ''
+    let selected = previewAnimation(bundle)
     let elapsed = 0, playing = true, previous = performance.now()
     let transition: Map<string, { position: THREE.Vector3; rotation: THREE.Quaternion; scale: THREE.Vector3 }> | undefined
     let blendTime = 0
@@ -117,8 +123,7 @@ export async function mountPreview(container: HTMLElement, bundle: Bundle): Prom
       if (playing) blendTime += dt
       const alpha = Math.min(blendTime / .3, 1)
       const blend = alpha * alpha * (3 - 2 * alpha)
-      const clip = clips.get(selected)
-      const poses = clip ? evaluateClip(clip, elapsed) : new Map()
+      const poses = evaluatePose(bundle, clips, selected, elapsed)
       for (const [name, node] of nodes) {
         const pose = poses.get(name)
         node.position.copy(bases.get(name)!)
