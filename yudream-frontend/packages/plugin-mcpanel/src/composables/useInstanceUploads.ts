@@ -2,165 +2,172 @@ import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { createMcPanelExtra } from '../api/api-extra.ts'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import { sha256HexOfFile } from '../utils/sha256.ts'
+import { uploadRelativePath } from '../utils/uploadPaths.ts'
 
-/** 与后端 UploadTaskService 的任务视图对齐。 */
 export interface UploadTaskView {
   taskId: string
   path: string
   name: string
   size: number
   uploaded: number
-  state: 'running' | 'done' | 'failed' | 'canceled'
+  state: 'queued' | 'running' | 'done' | 'failed' | 'canceled'
   error?: string
 }
 
-/** 浏览器分片大小（4MiB/片；面板会再拆 96KiB 帧转发节点）。 */
 const UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024
-const POLL_MS = 2_000
 
-/**
- * 实例文件上传任务（异步 + 实时进度 + 跨页面恢复）：
- * - startUpload 立即返回（后台串行分片直传面板），页面操作不被阻塞；
- * - 本地任务对象驱动即时进度；轮询后端任务列表同步状态（并发上传/其他页面的任务）；
- * - 页面刷新后重进文件页/详情页，running 任务从后端恢复进度（发送端已断的任务
- *   会被后端空闲超时置为失败并显示原因）。
- */
+/** Two workers match the server limit; cancellation is checked after each await. */
 export function useInstanceUploads(sdk: YuDreamPluginSdk, instanceId: Ref<string>) {
   const extra = createMcPanelExtra(sdk)
   const tasks = ref<UploadTaskView[]>([])
   const hashingIds = ref<Set<string>>(new Set())
-  let pollTimer: ReturnType<typeof setInterval> | null = null
+  const own = new Map<string, UploadTaskView>()
+  type Job = { id: string, localId: string, view: UploadTaskView, file: File, canceled: boolean, generation: number, settled: (ok: boolean) => void }
+  const jobs = new Map<string, Job>()
+  const queue: Job[] = []
+  let active = 0
+  let generation = 0
+  let polling = false
+  let disposed = false
+  const hasRunning = computed(() => tasks.value.some(task => task.state === 'queued' || task.state === 'running'))
 
-  const hasRunning = computed(() => tasks.value.some(task => task.state === 'running'))
+  function publish() {
+    const remote = tasks.value.filter(task => !own.has(task.taskId) && !task.taskId.startsWith('local-'))
+    tasks.value = [...own.values(), ...remote]
+  }
 
   async function refresh() {
     const id = instanceId.value
-    if (!id) {
-      return
-    }
+    const version = generation
+    if (!id || polling || disposed) return
+    polling = true
     try {
       const result = await extra.listUploadTasks(id) as { tasks?: UploadTaskView[] }
-      if (id === instanceId.value && result?.tasks) {
-        // 保留本地「校验中」占位任务（尚未 begin 成功，后端还没有记录）
-        const localPending = tasks.value.filter(task => task.taskId.startsWith('local-'))
-        tasks.value = [...localPending, ...result.tasks]
+      if (version === generation && !disposed) {
+        tasks.value = [...own.values(), ...(result.tasks ?? []).filter(task => !own.has(task.taskId))]
       }
     }
-    catch {
-      // 列表读取失败保持现状（下轮轮询重试）
+    catch { /* Keep known progress until the next successful poll. */ }
+    finally {
+      polling = false
+      if (version !== generation && !disposed) void refresh()
     }
   }
 
-  function startPolling() {
-    if (pollTimer == null) {
-      pollTimer = setInterval(() => {
-        if (!document.hidden) {
-          void refresh()
+  const timer = setInterval(() => {
+    if (!document.hidden && hasRunning.value) void refresh()
+  }, 2000)
+
+  function update(job: Job, patch: Partial<UploadTaskView>) {
+    Object.assign(job.view, patch)
+    if (job.generation === generation && job.id === instanceId.value && own.has(job.view.taskId) && !disposed) publish()
+  }
+
+  async function abort(job: Job) {
+    if (!job.view.taskId.startsWith('local-')) await extra.cancelUploadTask(job.id, job.view.taskId)
+  }
+
+  async function run(job: Job) {
+    let ok = false
+    try {
+      update(job, { state: 'running' })
+      hashingIds.value = new Set([...hashingIds.value, job.localId])
+      const sha256 = await sha256HexOfFile(job.file)
+      hashingIds.value = new Set([...hashingIds.value].filter(id => id !== job.localId))
+      if (job.canceled) return
+      if (job.file.size === 0) {
+        await extra.writeFile(job.id, job.view.path, '', 'base64')
+      }
+      else {
+        const begin = await extra.beginUploadTask(job.id, job.view.path, job.file.size, sha256, job.file.name) as UploadTaskView
+        const oldId = job.view.taskId
+        own.delete(oldId)
+        job.view.taskId = begin.taskId
+        if (job.generation === generation && job.id === instanceId.value && !disposed) own.set(begin.taskId, job.view)
+        jobs.delete(oldId)
+        jobs.set(begin.taskId, job)
+        if (job.canceled) { await abort(job); return }
+        for (let offset = 0; offset < job.file.size; offset += UPLOAD_CHUNK_BYTES) {
+          if (job.canceled) return
+          const blob = job.file.slice(offset, offset + UPLOAD_CHUNK_BYTES)
+          const result = await extra.uploadTaskChunk(job.id, begin.taskId, offset, blob) as { uploaded?: number }
+          update(job, { uploaded: Number(result.uploaded ?? offset + blob.size) })
         }
-      }, POLL_MS)
+        if (job.canceled) return
+        await extra.commitUploadTask(job.id, begin.taskId)
+      }
+      ok = true
+      update(job, { state: 'done', uploaded: job.file.size })
+    }
+    catch (error) {
+      if (!job.canceled) {
+        update(job, { state: 'failed', error: String((error as Error)?.message ?? '上传失败') })
+        try { await abort(job) } catch { /* Node expiry cleans unfinished chunks. */ }
+      }
+    }
+    finally {
+      hashingIds.value = new Set([...hashingIds.value].filter(id => id !== job.localId))
+      if (job.canceled && !ok) update(job, { state: 'canceled' })
+      jobs.delete(job.view.taskId)
+      job.settled(ok)
+      active--
+      drain()
     }
   }
 
-  function stopPolling() {
-    if (pollTimer != null) {
-      clearInterval(pollTimer)
-      pollTimer = null
+  function drain() {
+    while (active < 2 && queue.length) {
+      const job = queue.shift()!
+      if (job.canceled) { jobs.delete(job.view.taskId); job.settled(false); continue }
+      active++
+      void run(job)
     }
   }
 
-  watch(hasRunning, (running) => {
-    if (running) {
-      startPolling()
-    }
-    else {
-      // 无运行中任务后再同步一轮（拿最终态）并停止轮询
-      void refresh()
-      stopPolling()
-    }
-  }, { immediate: true })
-
-  onBeforeUnmount(stopPolling)
-
-  function patchLocal(taskId: string, patch: Partial<UploadTaskView>) {
-    const index = tasks.value.findIndex(task => task.taskId === taskId)
-    if (index >= 0) {
-      tasks.value[index] = { ...tasks.value[index], ...patch }
-    }
-  }
-
-  /**
-   * 发起上传：立即入列（异步后台执行）。返回值不等待上传完成；
-   * onSettled 在该任务到达终态时回调（成功/失败都调），供页面刷新列表。
-   */
-  function startUpload(file: File, path: string, onSettled?: (ok: boolean) => void): void {
-    const id = instanceId.value
-    if (!id) {
-      return
-    }
-    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    tasks.value.unshift({
-      taskId: localId,
-      path,
-      name: file.name,
-      size: file.size,
-      uploaded: 0,
-      state: 'running',
+  function startUpload(file: File, path: string, onSettled?: (ok: boolean) => void): Promise<boolean> {
+    uploadRelativePath(path)
+    if (!instanceId.value || disposed) return Promise.resolve(false)
+    if (file.size > 2 * 1024 ** 3) throw new Error('单文件不能超过 2GiB，请使用 SFTP')
+    const localId = `local-${crypto.randomUUID()}`
+    const view: UploadTaskView = { taskId: localId, path, name: file.name, size: file.size, uploaded: 0, state: 'queued' }
+    return new Promise(resolve => {
+      const job: Job = { id: instanceId.value, localId, view, file, canceled: false, generation, settled: (ok) => { resolve(ok); if (job.generation === generation && !disposed) { try { onSettled?.(ok) } catch { /* A UI callback cannot stop queue cleanup. */ } } } }
+      jobs.set(localId, job)
+      own.set(localId, view)
+      publish()
+      queue.push(job)
+      drain()
     })
-    hashingIds.value = new Set([...hashingIds.value, localId])
-    void (async () => {
-      let currentId = localId
-      try {
-        // 1) 整文件 sha256（节点 commit 强校验；分块读不进全量内存）
-        const sha256 = await sha256HexOfFile(file)
-        hashingIds.value = new Set([...hashingIds.value].filter(value => value !== localId))
-        // 2) 建任务并申请节点会话
-        const begin = await extra.beginUploadTask(id, path, file.size, sha256, file.name) as UploadTaskView
-        currentId = begin.taskId
-        patchLocal(localId, { taskId: currentId })
-        // 3) 串行分片直传面板（面板流式中转节点；顺序由循环天然保证）
-        for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
-          const blob = file.slice(offset, Math.min(offset + UPLOAD_CHUNK_BYTES, file.size))
-          const result = await extra.uploadTaskChunk(id, currentId, offset, blob) as { uploaded?: number }
-          patchLocal(currentId, { uploaded: Number(result?.uploaded ?? offset + blob.size) })
-        }
-        // 4) 提交：节点校验 size+sha256 后落盘
-        await extra.commitUploadTask(id, currentId)
-        patchLocal(currentId, { state: 'done', uploaded: file.size })
-        onSettled?.(true)
-      }
-      catch (error) {
-        hashingIds.value = new Set([...hashingIds.value].filter(value => value !== localId))
-        // 失败详情以后端任务视图为准（轮询会覆盖）；本地先置失败占位给出即时反馈
-        patchLocal(currentId, { state: 'failed', error: String((error as Error)?.message ?? '上传失败') })
-        onSettled?.(false)
-      }
-    })()
   }
 
-  async function cancelTask(taskId: string): Promise<void> {
-    const id = instanceId.value
-    if (!id) {
-      return
-    }
-    // 本地占位任务（哈希中/服务端任务未建）：直接本地标记取消，不打服务端
-    if (taskId.startsWith('local-')) {
-      patchLocal(taskId, { state: 'canceled', error: '已取消' })
-      return
+  async function cancelTask(taskId: string) {
+    const job = jobs.get(taskId)
+    if (job) {
+      job.canceled = true
+      update(job, { state: 'canceled', error: '' })
     }
     try {
-      await extra.cancelUploadTask(id, taskId)
+      if (job) await abort(job)
+      else await extra.cancelUploadTask(instanceId.value, taskId)
       void refresh()
     }
     catch (error) {
-      // 面板行内反馈取消失败原因（调用方 void 调用不接异常）
-      const reason = String((error as Error)?.message ?? '未知错误')
-      patchLocal(taskId, { state: 'failed', error: '取消失败：' + reason })
+      if (job) update(job, { state: 'failed', error: `取消结果未确认：${(error as Error).message}` })
     }
   }
 
-  function isHashing(taskId: string): boolean {
-    return hashingIds.value.has(taskId)
-  }
+  watch(instanceId, () => {
+    generation++
+    for (const job of jobs.values()) if (job.generation !== generation) void cancelTask(job.view.taskId)
+    own.clear()
+    tasks.value = []
+    void refresh()
+  }, { immediate: true })
+  onBeforeUnmount(() => {
+    disposed = true
+    clearInterval(timer)
+    for (const job of jobs.values()) void cancelTask(job.view.taskId)
+  })
 
-  return { tasks, hasRunning, startUpload, cancelTask, refresh, isHashing }
+  return { tasks, hasRunning, startUpload, cancelTask, refresh, isHashing: (id: string) => hashingIds.value.has(jobs.get(id)?.localId ?? id) }
 }

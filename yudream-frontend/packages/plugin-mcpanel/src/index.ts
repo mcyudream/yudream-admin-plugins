@@ -4,6 +4,9 @@ import './styles.css'
 import AuditPage from './pages/admin/AuditPage.vue'
 import CreateInstancePage from './pages/admin/CreateInstancePage.vue'
 import DockerImagesPage from './pages/admin/DockerImagesPage.vue'
+import InstanceDeploymentsPage from './pages/admin/InstanceDeploymentsPage.vue'
+import InstanceCopyPage from './pages/admin/InstanceCopyPage.vue'
+import InstanceResourcesPage from './pages/admin/InstanceResourcesPage.vue'
 import InstanceDetailPage from './pages/admin/InstanceDetailPage.vue'
 import InstanceDomainPage from './pages/admin/InstanceDomainPage.vue'
 import InstanceFilesPage from './pages/admin/InstanceFilesPage.vue'
@@ -36,6 +39,9 @@ export const NodeFiles = NodeFilesPage
 export const Overview = OverviewPage
 export const Instances = InstancesPage
 export const CreateInstance = CreateInstancePage
+export const InstanceDeployments = InstanceDeploymentsPage
+export const InstanceCopy = InstanceCopyPage
+export const InstanceResources = InstanceResourcesPage
 export const InstanceDetail = InstanceDetailPage
 export const InstanceDomain = InstanceDomainPage
 export const InstanceFiles = InstanceFilesPage
@@ -62,6 +68,9 @@ export const routes = {
   Instances,
   CreateInstance,
   InstanceDetail,
+  InstanceDeployments,
+  InstanceCopy,
+  InstanceResources,
   InstanceDomain,
   InstanceFiles,
   InstanceSchedules,
@@ -85,6 +94,9 @@ export const routes = {
   'mcpanel/Overview': OverviewPage,
   'mcpanel/Instances': InstancesPage,
   'mcpanel/CreateInstance': CreateInstancePage,
+  'mcpanel/InstanceDeployments': InstanceDeploymentsPage,
+  'mcpanel/InstanceCopy': InstanceCopyPage,
+  'mcpanel/InstanceResources': InstanceResourcesPage,
   'mcpanel/InstanceDetail': InstanceDetailPage,
   'mcpanel/InstanceDomain': InstanceDomainPage,
   'mcpanel/InstanceFiles': InstanceFilesPage,
@@ -114,6 +126,9 @@ export {
   InstancesPage as 'mcpanel/Instances',
   CreateInstancePage as 'mcpanel/CreateInstance',
   InstanceDetailPage as 'mcpanel/InstanceDetail',
+  InstanceDeploymentsPage as 'mcpanel/InstanceDeployments',
+  InstanceCopyPage as 'mcpanel/InstanceCopy',
+  InstanceResourcesPage as 'mcpanel/InstanceResources',
   InstanceDomainPage as 'mcpanel/InstanceDomain',
   InstanceFilesPage as 'mcpanel/InstanceFiles',
   InstanceSchedulesPage as 'mcpanel/InstanceSchedules',

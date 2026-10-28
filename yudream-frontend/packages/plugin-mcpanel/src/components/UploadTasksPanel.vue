@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { YdButton, YdIcon, YdTag } from '@yudream/components'
-import { computed } from 'vue'
+import { YdButton, YdIcon, YdPagination, YdProgress, YdTag } from '@yudream/components'
+import { computed, ref, watch } from 'vue'
 import type { UploadTaskView } from '../composables/useInstanceUploads.ts'
 import { formatBytes } from '../composables/utils.ts'
 
@@ -22,7 +22,10 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ cancel: [taskId: string] }>()
 
-const visible = computed(() => props.tasks.slice(0, 6))
+const page = ref(1)
+const rank = (task: UploadTaskView) => ['running', 'queued'].includes(task.state) ? 0 : task.state === 'failed' ? 1 : 2
+const visible = computed(() => [...props.tasks].sort((a, b) => rank(a) - rank(b)).slice((page.value - 1) * 8, page.value * 8))
+watch(() => props.tasks.length, length => { page.value = Math.min(page.value, Math.max(1, Math.ceil(length / 8))) })
 
 function percent(task: UploadTaskView): number {
   if (task.size <= 0) {
@@ -40,6 +43,8 @@ function stateTag(task: UploadTaskView): { text: string, variant: 'default' | 's
     return { text: '校验中', variant: 'secondary' }
   }
   switch (task.state) {
+    case 'queued':
+      return { text: '等待上传', variant: 'outline' }
     case 'running':
       return { text: `${percent(task)}%`, variant: 'default' }
     case 'done':
@@ -57,8 +62,9 @@ function stateTag(task: UploadTaskView): { text: string, variant: 'default' | 's
     <div class="space-y-3">
       <div class="flex flex-wrap items-center gap-2 text-sm">
         <YdIcon name="i-ri:upload-cloud-2-line" class="text-primary" />
-        <span class="font-medium">上传任务</span>
-        <span class="text-xs text-muted-foreground">分片直传面板中转节点，异步执行不阻塞页面</span>
+        <span class="font-medium">上传任务 · {{ tasks.filter(task => task.state === 'done').length }} / {{ tasks.length }} 已完成</span>
+        <span v-if="tasks.some(task => task.state === 'failed')" class="text-xs text-destructive">{{ tasks.filter(task => task.state === 'failed').length }} 个失败</span>
+        <span class="text-xs text-muted-foreground">保留目录结构 · 同时上传 2 个文件</span>
       </div>
       <div v-for="task in visible" :key="task.taskId" class="space-y-1.5">
         <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -68,7 +74,7 @@ function stateTag(task: UploadTaskView): { text: string, variant: 'default' | 's
           <span class="min-w-0 truncate text-xs text-muted-foreground">{{ task.path }}</span>
           <span class="grow" />
           <YdButton
-            v-if="canCancel && task.state === 'running' && !hashing(task.taskId)"
+            v-if="canCancel && (task.state === 'running' || task.state === 'queued')"
             size="sm"
             variant="outline"
             :loading="busy"
@@ -77,17 +83,10 @@ function stateTag(task: UploadTaskView): { text: string, variant: 'default' | 's
             取消
           </YdButton>
         </div>
-        <div
-          v-if="task.state === 'running'"
-          class="h-2 w-full overflow-hidden rounded-full bg-muted"
-        >
-          <div
-            class="h-full rounded-full bg-primary transition-all"
-            :style="{ width: `${percent(task)}%` }"
-          />
-        </div>
+        <YdProgress v-if="task.state === 'running'" :model-value="percent(task)" :aria-label="`${task.name} 上传进度`" />
         <p v-if="task.state === 'failed'" class="text-xs text-destructive">{{ task.error || '上传失败' }}</p>
       </div>
+      <YdPagination v-if="tasks.length > 8" v-model:page="page" :total="tasks.length" :size="8" layout="total, ->, pager" />
     </div>
   </div>
 </template>

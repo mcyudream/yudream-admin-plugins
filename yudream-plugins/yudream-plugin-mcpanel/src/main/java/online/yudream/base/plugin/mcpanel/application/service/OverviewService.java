@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public class OverviewService {
 
-    public static final String PLUGIN_VERSION = "0.13.0";
+    public static final String PLUGIN_VERSION = online.yudream.base.plugin.mcpanel.bootstrap.McpanelPlugin.VERSION;
 
     /** 曲线回看窗口：30s 采样下取最近 30 分钟（≈60 点），前端 sparkline 足够。 */
     private static final long HISTORY_WINDOW_MS = 30 * 60_000L;

@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { resourceSpecError } from '../utils/resourceSpec.ts'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../types'
-import { YdAlert, YdInput, YdModal, YdSelect, YdTextarea } from '@yudream/components'
+import { YdAlert, YdForm, YdFormItem, YdInput, YdModal, YdNumberField, YdSelect, YdTextarea } from '@yudream/components'
 import { computed, reactive, ref, watch } from 'vue'
 import { createMcPanelExtra } from '../api/api-extra'
 import { errorMessage } from '../composables/utils'
@@ -140,14 +141,7 @@ function validate(): string {
   if (parts.length === 0 || parts.length > 64) {
     return '启动命令不能为空且参数最多 64 项'
   }
-  if (form.memoryMb < 64 || form.memoryMb > 1048576) {
-    return '内存需在 64MB 至 1TB 之间'
-  }
-  const cpu = Number(form.cpuMillis)
-  if (Number.isNaN(cpu) || (cpu !== 0 && (cpu < 100 || cpu > 256000))) {
-    return 'CPU 填 0 表示不限，否则需在 0.1 至 256 核之间'
-  }
-  return ''
+  return resourceSpecError(form.memoryMb, form.cpuMillis, form.diskMb)
 }
 
 function buildPayload() {
@@ -163,9 +157,9 @@ function buildPayload() {
     image: form.image.trim(),
     command: form.command.trim().split(/\s+/).filter(Boolean),
     mcServerId: form.mcServerId || null,
-    memoryMb: form.memoryMb,
+    memoryMb: Number(form.memoryMb),
     cpuMillis: Number(form.cpuMillis),
-    diskMb: form.diskMb,
+    diskMb: Number(form.diskMb),
     remark: form.remark.trim() || null,
     startDetect: form.startDetect.trim(),
   }
@@ -212,62 +206,39 @@ async function submit(done: () => void) {
     class="max-w-[min(42rem,calc(100vw-2rem))]"
     :before-close="beforeClose"
   >
-    <div class="mcp-form">
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">实例名称</span>
+    <YdForm :model="form" :disabled="submitting">
+      <YdFormItem field="name" label="实例名称" required>
         <YdInput v-model="form.name" clearable placeholder="例如：生存服-01" class="w-full" />
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">所属节点</span>
+      </YdFormItem>
+      <YdFormItem field="nodeId" label="所属节点" required extra="实例将调度到所选节点并由其 Docker 运行。">
         <YdSelect v-model="form.nodeId" :options="nodeOptions" class="w-full" />
-        <span class="mcp-form-hint">实例将调度到所选节点并由其 Docker 运行。</span>
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">服务端类型</span>
+      </YdFormItem>
+      <YdFormItem field="kind" label="服务端类型" required extra="基岩版使用 UDP 端口；主端口自动分配，附加端口在实例设置中管理。">
         <YdSelect v-model="form.kind" :options="KIND_OPTIONS" class="w-full" />
-        <span class="mcp-form-hint">基岩版使用 UDP 端口；主端口由面板按节点端口池自动分配，附加端口可在「实例设置 → 端口管理」开放。</span>
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">MC 版本（可选）</span>
+      </YdFormItem>
+      <YdFormItem field="mcVersion" label="MC 版本（可选）">
         <YdInput v-model="form.mcVersion" clearable placeholder="例如 1.21.4" class="w-full" />
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">容器镜像</span>
+      </YdFormItem>
+      <YdFormItem field="image" label="容器镜像" required>
         <YdInput v-model="form.image" clearable placeholder="eclipse-temurin:21-jre" class="w-full font-mono" />
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">启动命令</span>
+      </YdFormItem>
+      <YdFormItem field="command" label="启动命令" required extra="空格分隔；工作目录固定为 /data（实例数据卷）。">
         <YdTextarea v-model="form.command" :rows="2" placeholder="java -Xms512M -Xmx2G -jar server.jar nogui" class="w-full font-mono" />
-        <span class="mcp-form-hint">空格分隔；工作目录固定为 /data（实例数据卷）。</span>
-      </label>
+      </YdFormItem>
       <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <label class="mcp-form-item">
-          <span class="mcp-form-label">内存（MB）</span>
-          <YdInput v-model="form.memoryMb" type="number" class="w-full" />
-        </label>
-        <label class="mcp-form-item">
-          <span class="mcp-form-label">CPU（毫核，0 = 不限）</span>
-          <YdInput v-model="form.cpuMillis" type="number" class="w-full" />
-        </label>
-        <label class="mcp-form-item">
-          <span class="mcp-form-label">磁盘（MB）</span>
-          <YdInput v-model="form.diskMb" type="number" class="w-full" />
-        </label>
+        <YdFormItem field="memoryMb" label="内存（MB）" required><YdNumberField v-model="form.memoryMb" :min="64" :max="1048576" class="w-full" /></YdFormItem>
+        <YdFormItem field="cpuMillis" label="CPU（毫核）" required extra="0 表示不限；1000 毫核 = 1 核。"><YdNumberField v-model="form.cpuMillis" :min="0" :max="256000" :step="100" class="w-full" /></YdFormItem>
+        <YdFormItem field="diskMb" label="磁盘（MB）" required><YdNumberField v-model="form.diskMb" :min="64" :max="104857600" class="w-full" /></YdFormItem>
       </div>
-      <label v-if="linkAvailable" class="mcp-form-item">
-        <span class="mcp-form-label">绑定子服（minecraft-server 联动）</span>
+      <YdFormItem v-if="linkAvailable" field="mcServerId" label="绑定子服" extra="绑定后注入 MCSERVER_ID 与 MCSERVER_TERM。留空即解绑，解绑不动实例数据。">
         <YdSelect v-model="form.mcServerId" :options="mcServerOptions" class="w-full" />
-        <span class="mcp-form-hint">绑定后创建/改配将注入 MCSERVER_ID 与 MCSERVER_TERM 环境变量（时长插件按子服记账）；留空即解绑，解绑不动实例数据。</span>
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">启动成功检测（可选）</span>
+      </YdFormItem>
+      <YdFormItem field="startDetect" label="启动成功检测（可选）" :extra="`控制台包含该内容即判定启动成功（节点 0.6.2+），最长等待 5 分钟。留空按类型默认${startDetectPlaceholder ? `（${startDetectPlaceholder}）` : '；通用应用不检测'}。`">
         <YdInput v-model="form.startDetect" clearable :placeholder="startDetectPlaceholder || '不启用检测'" class="w-full font-mono" />
-        <span class="mcp-form-hint">控制台输出包含该内容即判定「启动成功」并从启动中转为运行中（需节点程序 0.6.2+）。留空 = 按类型默认{{ startDetectPlaceholder ? `（${startDetectPlaceholder}）` : '；通用应用无默认即不检测' }}。检测最长等待 5 分钟。</span>
-      </label>
-      <label class="mcp-form-item">
-        <span class="mcp-form-label">备注</span>
+      </YdFormItem>
+      <YdFormItem field="remark" label="备注">
         <YdTextarea v-model="form.remark" :rows="2" placeholder="选填" class="w-full" />
-      </label>
+      </YdFormItem>
       <YdAlert v-if="formError" variant="destructive" title="无法保存">
   <template #description>
         {{ formError }}
@@ -276,6 +247,6 @@ async function submit(done: () => void) {
       <div v-else-if="!editing" class="mcp-form-hint">
         创建后可在实例详情页管理配置文件、控制台与备份。
       </div>
-    </div>
+    </YdForm>
   </YdModal>
 </template>

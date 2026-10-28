@@ -39,9 +39,12 @@ public class InstanceStateResolver {
     public String resolve(McpanelInstance instance) {
         McpanelNode node = nodes.findById(instance.nodeId()).orElse(null);
         NodeStatsSnapshot stats = node == null ? null : node.lastStats();
-        String dbState = String.valueOf(instance.state());
+        return resolveState(instance.id(), String.valueOf(instance.state()), stats);
+    }
+
+    private static String resolveState(String id, String dbState, NodeStatsSnapshot stats) {
         if (snapshotFresh(stats)) {
-            String live = fromSnapshot(instance.id(), stats);
+            String live = fromSnapshot(id, stats);
             if (live != null) {
                 return live;
             }
@@ -87,13 +90,9 @@ public class InstanceStateResolver {
         if (id == null || target == null) {
             return;
         }
-        String live = null;
-        if (nodeId != null) {
-            NodeStatsSnapshot stats = cache.computeIfAbsent(String.valueOf(nodeId), key ->
-                    nodes.findById(key).map(McpanelNode::lastStats).orElse(null));
-            live = stats == null ? null : fromSnapshot(String.valueOf(id), stats);
-        }
-        target.put("liveState", live != null ? live : String.valueOf(source.get("state")));
+        NodeStatsSnapshot stats = nodeId == null ? null : cache.computeIfAbsent(String.valueOf(nodeId), key ->
+                nodes.findById(key).map(McpanelNode::lastStats).orElse(null));
+        target.put("liveState", resolveState(String.valueOf(id), String.valueOf(source.get("state")), stats));
     }
 
     /**

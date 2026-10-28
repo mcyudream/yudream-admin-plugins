@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class OverviewServiceTest {
 
-    private static final long NOW = 1_700_000_000_000L;
+    private static final long NOW = System.currentTimeMillis();
 
     private McpanelInstanceRepository instances;
     private McpanelNodeRepository nodes;
@@ -97,7 +97,7 @@ class OverviewServiceTest {
     }
 
     @Test
-    void fallsBackToDbWhenSnapshotMissing() {
+    void keepsUnverifiedRunningUnknownWhenSnapshotMissing() {
         node("nodeA", statsWith(new NodeStatsSnapshot.ContainerStat("i1", "running", 1.0, 64)));
         node("nodeB", null);
         instances.save(instance("i1", "nodeA", "running"));
@@ -107,9 +107,9 @@ class OverviewServiceTest {
 
         Map<String, Object> overview = service.overview();
 
-        assertEquals(2, instanceCounts(overview).get("running"), "i1 快照 running + i3 无快照回退 DB");
+        assertEquals(1, instanceCounts(overview).get("running"), "只有 i1 有新鲜运行快照；i3 缺少快照应显示 unknown");
         assertEquals(1, instanceCounts(overview).get("exited"), "i2 不在快照中，不推断，回退 DB");
-        assertEquals(1, instanceCounts(overview).get("other"), "i4 installing 回退 DB 计入其他");
+        assertEquals(2, instanceCounts(overview).get("other"), "i3 unknown 与 i4 installing 计入其他");
     }
 
     @Test

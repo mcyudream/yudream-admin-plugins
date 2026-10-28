@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
+import { resourceSpecError } from '../../utils/resourceSpec.ts'
+import { YdForm, YdFormItem, YdLoadingOverlay, YdNumberField, YdSteps } from '@yudream/components'
 import type { FileItem, FileUploadRequestOptions, TableColumn, YdTablePickerQuery, YdTablePickerResult } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type { McpNode } from '../../types'
-import { YdAction, YdAlert, YdButton, YdDescriptions, YdFileUpload, YdIcon, YdInput, YdPageHeader, YdPageMain, YdProgress, YdSelect, YdSwitch, YdTabs, YdTag, YdTextarea, YdTablePicker, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdDescriptions, YdFileUpload, YdIcon, YdInput, YdPageHeader, YdPageMain, YdProgress, YdSelect, YdSwitch, YdTabs, YdTag, YdTextarea, YdTablePicker, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelApi } from '../../api/mcpanel-api'
@@ -635,6 +636,8 @@ function validateStep(index: number): string {
     if (!form.name.trim()) {
       return '请输入实例名称'
     }
+    const resourceProblem = resourceSpecError(form.memoryMb, form.cpuMillis, form.diskMb)
+    if (resourceProblem) return resourceProblem
     if (form.memoryMb < 64) {
       return '内存需 ≥ 64MB'
     }
@@ -873,38 +876,7 @@ onMounted(() => {
     </YdAlert>
 
     <div class="rounded-xl border bg-card p-[1rem] sm:p-6">
-      <nav aria-label="创建步骤">
-        <ol class="flex flex-wrap items-center gap-x-2 gap-y-3">
-          <li v-for="(step, index) in steps" :key="step.key" class="flex items-center gap-2">
-            <YdAction
-              type="button"
-              class="flex items-center gap-2 rounded-lg px-2 py-1 text-sm transition-colors"
-              :class="[
-                index <= stepIndex ? 'text-foreground' : 'text-muted-foreground',
-                submitting ? 'cursor-not-allowed opacity-60' : 'hover:text-primary',
-              ]"
-              :disabled="submitting"
-              @click="goStep(index)"
-            >
-              <span
-                class="flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold"
-                :class="index < stepIndex
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : index === stepIndex
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'"
-              >
-                <YdIcon v-if="index < stepIndex" name="i-ri:check-line" />
-                <template v-else>
-                  {{ index + 1 }}
-                </template>
-              </span>
-              <span :class="index === stepIndex ? 'font-medium' : ''">{{ step.title }}</span>
-            </YdAction>
-            <span v-if="index < steps.length - 1" class="hidden h-px w-8 bg-border sm:block" />
-          </li>
-        </ol>
-      </nav>
+      <YdSteps :model-value="stepIndex" :steps="steps.map(step => ({ id: step.key, title: step.title, disabled: submitting }))" clickable @change="goStep" />
 
       <section class="mt-6 space-y-5">
         <template v-if="stepIndex === 0">
@@ -1152,28 +1124,19 @@ onMounted(() => {
               资源与实例信息
             </h2>
           </div>
-          <label class="grid gap-2">
-            <span class="text-sm font-medium">实例名称</span>
+          <YdForm :model="form" :disabled="submitting">
+          <YdFormItem field="name" label="实例名称" required>
             <YdInput v-model="form.name" clearable placeholder="例如：生存服-01" class="w-full" />
-          </label>
+          </YdFormItem>
           <div class="grid gap-4 sm:grid-cols-3">
-            <label class="grid gap-2">
-              <span class="text-sm font-medium">内存（MB）</span>
-              <YdInput v-model="form.memoryMb" type="number" class="w-full" />
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-medium">CPU（毫核，0 = 不限）</span>
-              <YdInput v-model="form.cpuMillis" type="number" class="w-full" />
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-medium">磁盘（MB）</span>
-              <YdInput v-model="form.diskMb" type="number" class="w-full" />
-            </label>
+            <YdFormItem field="memoryMb" label="内存（MB）" required><YdNumberField v-model="form.memoryMb" :min="64" :max="1048576" class="w-full" /></YdFormItem>
+            <YdFormItem field="cpuMillis" label="CPU（毫核）" required extra="0 表示不限；1000 毫核 = 1 核。"><YdNumberField v-model="form.cpuMillis" :min="0" :max="256000" :step="100" class="w-full" /></YdFormItem>
+            <YdFormItem field="diskMb" label="磁盘（MB）" required><YdNumberField v-model="form.diskMb" :min="64" :max="104857600" class="w-full" /></YdFormItem>
           </div>
-          <label class="grid gap-2">
-            <span class="text-sm font-medium">启动命令（按核心预填，可改）</span>
-            <YdTextarea v-model="form.command" :rows="2" class="w-full font-mono" />
-          </label>
+          <YdFormItem field="command" label="启动命令" required extra="按核心预填，可修改。">
+            <YdTextarea v-model="form.command" :rows="2" placeholder="java -jar server.jar nogui" class="w-full font-mono" />
+          </YdFormItem>
+          </YdForm>
           <div v-if="linkAvailable" class="grid gap-2">
             <span class="text-sm font-medium">绑定子服（可选）</span>
             <YdTablePicker

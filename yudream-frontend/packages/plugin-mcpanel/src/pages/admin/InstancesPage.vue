@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import McpConnectButton from '../../components/McpConnectButton.vue'
 import { YdLoadingOverlay } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
 import type {TableColumn, ActionMenuItem } from '@yudream/components'
@@ -439,6 +440,7 @@ const rowActions: ActionMenuItem<unknown>[] = [
 <template>
   <YdTablePageLayout title="应用实例">
     <template #actions>
+      <McpConnectButton :sdk="sdk" />
   <YdButtonGroup class="mr-1">
   <YdTooltip text="表格视图">
   <YdButton size="sm" :variant="viewMode === 'table' ? 'default' : 'outline'" @click="viewMode = 'table'">

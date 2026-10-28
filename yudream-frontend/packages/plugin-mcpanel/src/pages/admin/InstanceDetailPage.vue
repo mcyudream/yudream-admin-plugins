@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import McpConnectButton from '../../components/McpConnectButton.vue'
 import { YdLoadingOverlay } from '@yudream/components'
 import type { TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
@@ -1198,6 +1199,10 @@ const rowActions: ActionMenuItem<unknown>[] = [
     <YdButton variant="outline" @click="router.push(filesPath)">
       文件管理
     </YdButton>
+    <McpConnectButton :sdk="sdk" />
+    <YdButton v-if="canManage" variant="outline" @click="router.push(`${listPath}/${instanceId}/copy`)">复制测试服</YdButton>
+    <YdButton variant="outline" @click="router.push(`${listPath}/${instanceId}/deployments`)">覆盖与回退</YdButton>
+    <YdButton variant="outline" @click="router.push(`${listPath}/${instanceId}/resources`)">安装 CE 资源</YdButton>
   </YdPageHeader>
 
   <YdAlert v-if="loadError" variant="destructive" title="无法加载实例" class="mt-4">

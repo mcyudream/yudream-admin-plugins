@@ -187,6 +187,15 @@ import java.util.List;
                 @PluginRoute(path = "/platform/plugins/mcpanel/admin/instances/:id", name = "platform-plugin-mcpanel-instance-detail",
                         title = "实例详情", icon = "i-ri:terminal-line", component = "mcpanel/InstanceDetail",
                         permission = McpanelPlugin.VIEW_PERMISSION, hideInMenu = true, sort = 40),
+                @PluginRoute(path = "/platform/plugins/mcpanel/admin/instances/:id/deployments", name = "platform-plugin-mcpanel-instance-deployments",
+                        title = "部署与回退", icon = "i-ri:git-branch-line", component = "mcpanel/InstanceDeployments",
+                        permission = McpanelPlugin.VIEW_PERMISSION, hideInMenu = true, sort = 46),
+                @PluginRoute(path = "/platform/plugins/mcpanel/admin/instances/:id/copy", name = "platform-plugin-mcpanel-instance-copy",
+                        title = "复制测试服", icon = "morph:copy", component = "mcpanel/InstanceCopy",
+                        permission = McpanelPlugin.MANAGE_PERMISSION, hideInMenu = true, sort = 47),
+                @PluginRoute(path = "/platform/plugins/mcpanel/admin/instances/:id/resources", name = "platform-plugin-mcpanel-instance-resources",
+                        title = "安装 CE 资源", icon = "morph:package", component = "mcpanel/InstanceResources",
+                        permission = McpanelPlugin.VIEW_PERMISSION, hideInMenu = true, sort = 48),
                 @PluginRoute(path = "/platform/plugins/mcpanel/admin/instances/:id/files", name = "platform-plugin-mcpanel-instance-files",
                         title = "实例文件", icon = "i-ri:folder-line", component = "mcpanel/InstanceFiles",
                         permission = McpanelPlugin.VIEW_PERMISSION, hideInMenu = true, sort = 41),
@@ -219,7 +228,7 @@ import java.util.List;
 public class McpanelPlugin implements YuDreamPlugin {
 
     public static final String CODE = "mcpanel";
-    public static final String VERSION = "0.19.14";
+    public static final String VERSION = "0.24.0";
 
     public static final String VIEW_PERMISSION = "plugin:mcpanel:view";
     public static final String USE_PERMISSION = "plugin:mcpanel:use";
@@ -392,7 +401,7 @@ public class McpanelPlugin implements YuDreamPlugin {
             final online.yudream.base.plugin.mcpanel.application.service.InstanceEventTaskService eventTaskService =
                     new online.yudream.base.plugin.mcpanel.application.service.InstanceEventTaskService(
                             instanceRepository,
-                            finalManager::call,
+                            instanceService::callAutomatic,
                             auditRecorder);
             instanceService.attachEventTasks(eventTaskService);
             // SFTP 单端口网关：别名注册表 + host key 持久化；实例服务用网关四件套
@@ -558,6 +567,13 @@ public class McpanelPlugin implements YuDreamPlugin {
                     context.documents(), instanceRepository, nodeRepository,
                     (scopeKey, instanceId, method, args) -> instanceService.files(scopeKey, instanceId, method, args),
                     auditRecorder);
+            var deploymentService = new online.yudream.base.plugin.mcpanel.application.service.InstanceDeploymentService(
+                    instanceService, context.documents(),
+                    (nodeId, method, payload) -> finalManager.call(nodeId, method, payload), auditRecorder);
+            var cePackages = new online.yudream.base.plugin.mcpanel.application.service.CeResourcePackageService(deploymentService);
+            context.onDispose(() -> { deploymentService.close(); cePackages.close(); });
+            context.registerHttpController(new online.yudream.base.plugin.mcpanel.interfaces.controller.McpanelDeploymentController(
+                    new online.yudream.base.plugin.mcpanel.interfaces.http.InstanceDeploymentFacade(deploymentService, cePackages, framework.security())));
             // 子服软链接同步（Tier A：zip → 面板中转 → 解压覆盖，全部复用现有节点通道）。
             var syncLinkService = new online.yudream.base.plugin.mcpanel.application.service.SyncLinkService(
                     context.documents(), instanceRepository, nodeRepository,

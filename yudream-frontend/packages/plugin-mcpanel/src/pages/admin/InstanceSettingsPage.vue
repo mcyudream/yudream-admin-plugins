@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { resourceSpecError } from '../../utils/resourceSpec.ts'
 import { YdLoadingOverlay, YdSettingsLayout, YdSettingsSection } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAlert, YdButton, YdInput, YdModal, YdPageHeader, YdSelect, YdSwitch, YdTag, YdTextarea, useYdToast } from '@yudream/components'
+import { YdAlert, YdButton, YdForm, YdFormItem, YdInput, YdModal, YdNumberField, YdPageHeader, YdSelect, YdSwitch, YdTag, YdTextarea, useYdToast } from '@yudream/components'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createMcPanelExtra } from '../../api/api-extra'
@@ -277,6 +278,8 @@ async function save() {
   if (!canManage.value || saving.value || !instance.value) {
     return
   }
+  const problem = resourceSpecError(form.memoryMb, form.cpuMillis, form.diskMb)
+  if (problem) { toast.error(problem); return }
   saving.value = true
   try {
     const env: Record<string, string> = {}
@@ -393,17 +396,17 @@ const sectionList: { icon?: string, label: string, value: string }[] = [
   >
     <template #sec1>
       <YdSettingsSection title="基础与启动">
-<div class="mcp-form">
-          <label class="mcp-form-item"><span class="mcp-form-label">名称</span><YdInput v-model="form.name" class="mcp-w-full" /></label>
-          <label class="mcp-form-item"><span class="mcp-form-label">启动命令</span><YdTextarea v-model="form.command" :rows="2" class="mcp-w-full mcp-mono" /></label>
+        <YdForm :model="form" :disabled="!canManage || saving">
+          <YdFormItem field="name" label="名称" required><YdInput v-model="form.name" placeholder="实例名称" /></YdFormItem>
+          <YdFormItem field="command" label="启动命令" required><YdTextarea v-model="form.command" :rows="2" placeholder="java -jar server.jar nogui" class="mcp-mono" /></YdFormItem>
           <div class="mcp-grid-3">
-            <label class="mcp-form-item"><span class="mcp-form-label">内存 MB</span><YdInput v-model="form.memoryMb" type="number" class="mcp-w-full" /></label>
-            <label class="mcp-form-item"><span class="mcp-form-label">CPU mCPU（0 = 不限）</span><YdInput v-model="form.cpuMillis" type="number" class="mcp-w-full" /></label>
-            <label class="mcp-form-item"><span class="mcp-form-label">磁盘 MB</span><YdInput v-model="form.diskMb" type="number" class="mcp-w-full" /></label>
+            <YdFormItem field="memoryMb" label="内存（MB）" required><YdNumberField v-model="form.memoryMb" :min="64" :max="1048576" class="w-full" /></YdFormItem>
+            <YdFormItem field="cpuMillis" label="CPU（毫核）" required extra="0 表示不限；1000 毫核 = 1 核。"><YdNumberField v-model="form.cpuMillis" :min="0" :max="256000" :step="100" class="w-full" /></YdFormItem>
+            <YdFormItem field="diskMb" label="磁盘（MB）" required><YdNumberField v-model="form.diskMb" :min="64" :max="104857600" class="w-full" /></YdFormItem>
           </div>
-          <label class="mcp-form-item"><span class="mcp-form-label">环境变量（每行 KEY=VALUE）</span><YdTextarea v-model="form.envText" :rows="4" class="mcp-w-full mcp-mono" /></label>
-          <label class="mcp-form-item"><span class="mcp-form-label">备注</span><YdInput v-model="form.remark" class="mcp-w-full" /></label>
-        </div>
+          <YdFormItem field="envText" label="环境变量" extra="每行 KEY=VALUE。"><YdTextarea v-model="form.envText" :rows="4" placeholder="JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8" class="mcp-mono" /></YdFormItem>
+          <YdFormItem field="remark" label="备注"><YdInput v-model="form.remark" placeholder="选填" /></YdFormItem>
+        </YdForm>
       </YdSettingsSection>
     </template>
     <template #sec2>

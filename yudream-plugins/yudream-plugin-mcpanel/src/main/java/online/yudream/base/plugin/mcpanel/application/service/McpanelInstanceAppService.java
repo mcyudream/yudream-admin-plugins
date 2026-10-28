@@ -184,6 +184,60 @@ public class McpanelInstanceAppService {
         return result;
     }
 
+    // Deployment jobs reserve instances before touching data. A failed rollback keeps
+    // the reservation until an explicit recovery succeeds.
+    private final java.util.concurrent.ConcurrentHashMap<String, String> maintenance = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private final Object mutationGate = new Object();
+    private final Map<String, Integer> mutations = new java.util.HashMap<>();
+
+    public void reserveMaintenance(String id, String jobId) {
+        if (id == null || id.isBlank() || jobId == null || jobId.isBlank()) throw McpanelBusinessException.invalid("实例或任务标识缺失");
+        synchronized (mutationGate) {
+            String previous = maintenance.get(id);
+            if (previous != null && !previous.equals(jobId)) {
+                throw new McpanelBusinessException("instance.maintenance", 409, "实例正在部署或等待回退：" + previous);
+            }
+            BackupCreation backup = pendingBackups.get(id);
+            if (mutations.getOrDefault(id, 0) > 0 || (installTracker != null && installTracker.hasRunning(id))
+                    || (backup != null && backup.finishedAt == 0)) {
+                throw new McpanelBusinessException("instance.busy", 409, "实例有正在执行的写入、安装或备份，请完成后重试");
+            }
+            maintenance.put(id, jobId);
+        }
+    }
+
+    public void releaseMaintenance(String id, String jobId) {
+        synchronized (mutationGate) { maintenance.remove(id, jobId); }
+    }
+
+    /** The lease covers the complete RPC, so reservation cannot pass an in-flight write. */
+    private MutationLease beginMutation(String id, boolean required) {
+        if (!required) return () -> { };
+        if (id == null || id.isBlank()) throw McpanelBusinessException.invalid("实例标识缺失");
+        synchronized (mutationGate) {
+            if (maintenance.containsKey(id)) {
+                throw new McpanelBusinessException("instance.maintenance", 409, "实例正在部署或等待回退，请在部署页面处理");
+            }
+            mutations.merge(id, 1, Integer::sum);
+        }
+        return () -> {
+            synchronized (mutationGate) {
+                mutations.computeIfPresent(id, (key, count) -> count <= 1 ? null : count - 1);
+            }
+        };
+    }
+    @FunctionalInterface private interface MutationLease extends AutoCloseable { @Override void close(); }
+
+    /** Background auto-starts share the same reservation gate as administrator actions. */
+    public CompletableFuture<Map<String, Object>> callAutomatic(String nodeId, String method, Map<String, Object> payload, long timeoutMs) {
+        MutationLease lease;
+        try { lease = beginMutation(String.valueOf(payload.get("instanceId")), true); }
+        catch (RuntimeException error) { return CompletableFuture.failedFuture(error); }
+        try { return nodeCalls.call(nodeId, method, payload, timeoutMs).whenComplete((result, error) -> lease.close()); }
+        catch (RuntimeException error) { lease.close(); return CompletableFuture.failedFuture(error); }
+    }
+
     public Map<String, Object> detail(String scopeKey, String id) {
         return toDto(findAccessible(scopeKey, id));
     }
@@ -357,61 +411,64 @@ public class McpanelInstanceAppService {
     }
 
     public Map<String, Object> update(String actor, String scopeKey, String id, McpanelInstance spec) {
-        McpanelInstance current = findAccessible(scopeKey, id);
-        McpanelNode node = nodeRepository.findById(current.nodeId())
-                .orElseThrow(() -> McpanelBusinessException.notFound("节点不存在"));
-        InstancePolicy.validate(spec);
-        if ("running".equalsIgnoreCase(current.state())) {
-            throw new McpanelBusinessException("instance-running", 409, "请先停止实例再修改配置");
-        }
-        String bindingProblem = link.bindingProblem(spec.mcServerId());
-        if (bindingProblem != null) {
-            throw McpanelBusinessException.invalid(bindingProblem);
-        }
-        // 端口对账：body 携带的端口列表与当前不一致时，走与专用端口端点同一套
-        // 校验（主端口不可变/池内/保留）/台账增减/探测；一致则零台账操作。
-        PortAllocator.ChangePlan ports = portAllocator.planChange(node, current.ports(), spec.ports());
-        for (McpanelInstance.PortMapping mapping : ports.additions()) {
-            if (!portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id)) {
-                throw new McpanelBusinessException("port.conflict", 409,
-                        "端口已被占用：" + mapping.hostPort() + "/" + mapping.proto());
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance current = findAccessible(scopeKey, id);
+            McpanelNode node = nodeRepository.findById(current.nodeId())
+                    .orElseThrow(() -> McpanelBusinessException.notFound("节点不存在"));
+            InstancePolicy.validate(spec);
+            if ("running".equalsIgnoreCase(current.state())) {
+                throw new McpanelBusinessException("instance-running", 409, "请先停止实例再修改配置");
             }
-        }
-        try {
-            probePortsOrThrow(node, current, ports.additions());
-            // 规格变更经 CAS 以最新文档为基：并发状态事件不会被旧读覆盖，
-            // CAS 持续冲突（极端争用）显式报 409，而不是静默落一个过期快照。
-            long stamp = System.currentTimeMillis();
-            if (!instanceRepository.mutateState(id, base -> base.withSpec(spec, stamp))) {
-                throw new McpanelBusinessException("instance.conflict", 409,
-                        "实例状态正在变化，配置保存冲突，请稍后重试");
+            String bindingProblem = link.bindingProblem(spec.mcServerId());
+            if (bindingProblem != null) {
+                throw McpanelBusinessException.invalid(bindingProblem);
             }
-            McpanelInstance updated = instanceRepository.findById(id).orElse(current);
-            Map<String, Object> result = call(node.id(), "instance.update",
-                    withIk(withLinkEnv(updated.toNodePayload()),
-                            "panel-update-" + updated.id() + "-" + updated.updatedAt()), CREATE_TIMEOUT_MS);
-            for (McpanelInstance.PortMapping mapping : ports.removals()) {
-                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
-            }
-            audit.record(actor, "instance.update", "instance", id, updated.name(), updated.tenantId());
-            String nodeState = text(result.get("state"), null);
-            if (nodeState != null) {
-                instanceRepository.mutateState(id, fresh -> fresh.withState(nodeState, fresh.lastExitCode(),
-                        System.currentTimeMillis()));
-            }
-            return toDto(instanceRepository.findById(id).orElse(updated));
-        } catch (RuntimeException error) {
-            // 回滚规格但保留最新运行时（state/lastExitCode 以 CAS 基线为准），不回写旧状态；
-            // 端口台账同步回滚：新增释放、删除重占（allocate 幂等，未释放过也安全）。
+            // 端口对账：body 携带的端口列表与当前不一致时，走与专用端口端点同一套
+            // 校验（主端口不可变/池内/保留）/台账增减/探测；一致则零台账操作。
+            PortAllocator.ChangePlan ports = portAllocator.planChange(node, current.ports(), spec.ports());
             for (McpanelInstance.PortMapping mapping : ports.additions()) {
-                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+                if (!portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id)) {
+                    throw new McpanelBusinessException("port.conflict", 409,
+                            "端口已被占用：" + mapping.hostPort() + "/" + mapping.proto());
+                }
             }
-            for (McpanelInstance.PortMapping mapping : ports.removals()) {
-                portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id);
+            try {
+                probePortsOrThrow(node, current, ports.additions());
+                // 规格变更经 CAS 以最新文档为基：并发状态事件不会被旧读覆盖，
+                // CAS 持续冲突（极端争用）显式报 409，而不是静默落一个过期快照。
+                long stamp = System.currentTimeMillis();
+                if (!instanceRepository.mutateState(id, base -> base.withSpec(spec, stamp))) {
+                    throw new McpanelBusinessException("instance.conflict", 409,
+                            "实例状态正在变化，配置保存冲突，请稍后重试");
+                }
+                McpanelInstance updated = instanceRepository.findById(id).orElse(current);
+                Map<String, Object> result = call(node.id(), "instance.update",
+                        withIk(withLinkEnv(updated.toNodePayload()),
+                                "panel-update-" + updated.id() + "-" + updated.updatedAt()), CREATE_TIMEOUT_MS);
+                for (McpanelInstance.PortMapping mapping : ports.removals()) {
+                    portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+                }
+                audit.record(actor, "instance.update", "instance", id, updated.name(), updated.tenantId());
+                String nodeState = text(result.get("state"), null);
+                if (nodeState != null) {
+                    instanceRepository.mutateState(id, fresh -> fresh.withState(nodeState, fresh.lastExitCode(),
+                            System.currentTimeMillis()));
+                }
+                return toDto(instanceRepository.findById(id).orElse(updated));
+            } catch (RuntimeException error) {
+                // 回滚规格但保留最新运行时（state/lastExitCode 以 CAS 基线为准），不回写旧状态；
+                // 端口台账同步回滚：新增释放、删除重占（allocate 幂等，未释放过也安全）。
+                for (McpanelInstance.PortMapping mapping : ports.additions()) {
+                    portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+                }
+                for (McpanelInstance.PortMapping mapping : ports.removals()) {
+                    portRepository.allocate(node.id(), mapping.hostPort(), mapping.proto(), id);
+                }
+                instanceRepository.mutateState(id, fresh ->
+                        current.withState(fresh.state(), fresh.lastExitCode(), fresh.updatedAt()));
+                throw error;
             }
-            instanceRepository.mutateState(id, fresh ->
-                    current.withState(fresh.state(), fresh.lastExitCode(), fresh.updatedAt()));
-            throw error;
+
         }
     }
 
@@ -428,24 +485,27 @@ public class McpanelInstanceAppService {
      */
     public Map<String, Object> addPort(String actor, String scopeKey, String id,
                                        String proto, Integer port) {
-        McpanelInstance current = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(current.nodeId());
-        requireStoppedForPorts(current);
-        if (port != null && current.ports().stream()
-                .anyMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
-            throw McpanelBusinessException.invalid("该端口已开放：" + port + "/" + proto);
-        }
-        reconcileStaleAllocations(node, proto);
-        McpanelInstance.PortMapping added = portAllocator.allocateExtra(node, proto, port, id);
-        List<McpanelInstance.PortMapping> desired = new ArrayList<>(current.ports());
-        desired.add(added);
-        try {
-            return applyPorts(actor, current, node, desired, added);
-        } catch (RuntimeException error) {
-            // planChange 校验失败发生在 applyPorts 的台账回滚范围之外：这里兜底释放
-            // 预占，避免失败尝试遗留幽灵占用（与 applyPorts 内部回滚的 release 幂等重叠无害）。
-            portRepository.release(node.id(), added.hostPort(), added.proto());
-            throw error;
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance current = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(current.nodeId());
+            requireStoppedForPorts(current);
+            if (port != null && current.ports().stream()
+                    .anyMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
+                throw McpanelBusinessException.invalid("该端口已开放：" + port + "/" + proto);
+            }
+            reconcileStaleAllocations(node, proto);
+            McpanelInstance.PortMapping added = portAllocator.allocateExtra(node, proto, port, id);
+            List<McpanelInstance.PortMapping> desired = new ArrayList<>(current.ports());
+            desired.add(added);
+            try {
+                return applyPorts(actor, current, node, desired, added);
+            } catch (RuntimeException error) {
+                // planChange 校验失败发生在 applyPorts 的台账回滚范围之外：这里兜底释放
+                // 预占，避免失败尝试遗留幽灵占用（与 applyPorts 内部回滚的 release 幂等重叠无害）。
+                portRepository.release(node.id(), added.hostPort(), added.proto());
+                throw error;
+            }
+
         }
     }
 
@@ -472,22 +532,25 @@ public class McpanelInstanceAppService {
 
     /** 回收一个附加端口：主端口（ports[0]）不可移除；实例须停止。 */
     public Map<String, Object> removePort(String actor, String scopeKey, String id, int port, String proto) {
-        McpanelInstance current = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(current.nodeId());
-        requireStoppedForPorts(current);
-        if (!current.ports().isEmpty()) {
-            McpanelInstance.PortMapping primary = current.ports().get(0);
-            if (primary.hostPort() == port && primary.proto().equals(proto)) {
-                throw McpanelBusinessException.invalid("主端口不可移除：" + port + "/" + proto);
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance current = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(current.nodeId());
+            requireStoppedForPorts(current);
+            if (!current.ports().isEmpty()) {
+                McpanelInstance.PortMapping primary = current.ports().get(0);
+                if (primary.hostPort() == port && primary.proto().equals(proto)) {
+                    throw McpanelBusinessException.invalid("主端口不可移除：" + port + "/" + proto);
+                }
             }
+            if (current.ports().stream().noneMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
+                throw McpanelBusinessException.notFound("实例未开放该端口：" + port + "/" + proto);
+            }
+            List<McpanelInstance.PortMapping> desired = current.ports().stream()
+                    .filter(item -> !(item.hostPort() == port && item.proto().equals(proto)))
+                    .toList();
+            return applyPorts(actor, current, node, desired, null);
+
         }
-        if (current.ports().stream().noneMatch(item -> item.hostPort() == port && item.proto().equals(proto))) {
-            throw McpanelBusinessException.notFound("实例未开放该端口：" + port + "/" + proto);
-        }
-        List<McpanelInstance.PortMapping> desired = current.ports().stream()
-                .filter(item -> !(item.hostPort() == port && item.proto().equals(proto)))
-                .toList();
-        return applyPorts(actor, current, node, desired, null);
     }
 
     /**
@@ -499,33 +562,36 @@ public class McpanelInstanceAppService {
      * 互通或不需对外提供服务的实例。节点下发失败时全量回滚台账与聚合。
      */
     public Map<String, Object> closeAllPorts(String actor, String scopeKey, String id) {
-        McpanelInstance current = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(current.nodeId());
-        requireStoppedForPorts(current);
-        if (current.ports().isEmpty()) {
-            return portsViewOf(current, node);
-        }
-        int closed = current.ports().size();
-        long stamp = System.currentTimeMillis();
-        if (!instanceRepository.mutateState(current.id(), base -> base.withPorts(List.of(), stamp))) {
-            throw new McpanelBusinessException("instance.conflict", 409,
-                    "实例状态正在变化，端口保存冲突，请稍后重试");
-        }
-        try {
-            McpanelInstance updated = instanceRepository.findById(current.id()).orElse(current);
-            call(node.id(), "instance.update",
-                    withIk(withLinkEnv(updated.toNodePayload()),
-                            "panel-ports-close-" + current.id() + "-" + stamp), CREATE_TIMEOUT_MS);
-            for (McpanelInstance.PortMapping mapping : current.ports()) {
-                portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance current = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(current.nodeId());
+            requireStoppedForPorts(current);
+            if (current.ports().isEmpty()) {
+                return portsViewOf(current, node);
             }
-            audit.record(actor, "instance.ports.close", "instance", current.id(),
-                    current.name() + "：关闭全部端口开放（" + closed + " 个）", current.tenantId());
-            return portsViewOf(instanceRepository.findById(current.id()).orElse(updated), node);
-        } catch (RuntimeException error) {
-            instanceRepository.mutateState(current.id(),
-                    fresh -> current.withPorts(current.ports(), fresh.updatedAt()));
-            throw error;
+            int closed = current.ports().size();
+            long stamp = System.currentTimeMillis();
+            if (!instanceRepository.mutateState(current.id(), base -> base.withPorts(List.of(), stamp))) {
+                throw new McpanelBusinessException("instance.conflict", 409,
+                        "实例状态正在变化，端口保存冲突，请稍后重试");
+            }
+            try {
+                McpanelInstance updated = instanceRepository.findById(current.id()).orElse(current);
+                call(node.id(), "instance.update",
+                        withIk(withLinkEnv(updated.toNodePayload()),
+                                "panel-ports-close-" + current.id() + "-" + stamp), CREATE_TIMEOUT_MS);
+                for (McpanelInstance.PortMapping mapping : current.ports()) {
+                    portRepository.release(node.id(), mapping.hostPort(), mapping.proto());
+                }
+                audit.record(actor, "instance.ports.close", "instance", current.id(),
+                        current.name() + "：关闭全部端口开放（" + closed + " 个）", current.tenantId());
+                return portsViewOf(instanceRepository.findById(current.id()).orElse(updated), node);
+            } catch (RuntimeException error) {
+                instanceRepository.mutateState(current.id(),
+                        fresh -> current.withPorts(current.ports(), fresh.updatedAt()));
+                throw error;
+            }
+
         }
     }
 
@@ -664,83 +730,86 @@ public class McpanelInstanceAppService {
     }
 
     public Map<String, Object> action(String actor, String scopeKey, String id, String action, Integer timeoutSec) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        if (!List.of("start", "stop", "restart", "kill").contains(action)) {
-            throw McpanelBusinessException.invalid("不支持的操作：" + action);
-        }
-        // 事件任务意图先行于 RPC：stop/restart/kill 抑制自动重启（退出事件可能先于 RPC 返回到达）；
-        // start 复位自动重启的快速崩溃熔断（对标 MCSM 手动 open 清零计数）。
-        if (eventTasks != null) {
-            if ("start".equals(action)) {
-                eventTasks.onManualStart(id);
+        try (MutationLease mutation = beginMutation(id, !List.of("stop", "kill").contains(action))) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            if (!List.of("start", "stop", "restart", "kill").contains(action)) {
+                throw McpanelBusinessException.invalid("不支持的操作：" + action);
             }
-            else {
-                eventTasks.markManualStop(id);
-            }
-        }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        if (timeoutSec != null) {
-            payload.put("timeoutSec", timeoutSec);
-        }
-        Map<String, Object> result;
-        try {
-            result = call(node.id(), "instance." + action,
-                    withIk(payload, "panel-" + action + "-" + id + "-" + System.currentTimeMillis()));
-        } catch (RuntimeException error) {
-            // Docker kill/stop 对已退出容器返回 409 not running：视为已停止，避免页面红错。
-            String message = error.getMessage() == null ? "" : error.getMessage();
-            boolean notRunning = message.contains("not running") || message.contains("is not running");
-            if (("kill".equals(action) || "stop".equals(action)) && notRunning) {
-                // CAS 落库：RPC 期间的节点事件不会与本结果互相覆盖。
-                boolean applied = instanceRepository.mutateState(id,
-                        current -> current.withState("exited", current.lastExitCode(), System.currentTimeMillis()));
-                McpanelInstance exited = instanceRepository.findById(id)
-                        .orElse(instance.withState("exited", instance.lastExitCode(), System.currentTimeMillis()));
-                if (applied) {
-                    audit.record(actor, "instance." + action, "instance", id,
-                            instance.name() + "（容器已退出）", instance.tenantId());
-                    link.writebackState(exited);
+            // 事件任务意图先行于 RPC：stop/restart/kill 抑制自动重启（退出事件可能先于 RPC 返回到达）；
+            // start 复位自动重启的快速崩溃熔断（对标 MCSM 手动 open 清零计数）。
+            if (eventTasks != null) {
+                if ("start".equals(action)) {
+                    eventTasks.onManualStart(id);
                 }
-                return toDto(exited);
+                else {
+                    eventTasks.markManualStop(id);
+                }
             }
-            // 节点侧声明缺失（外部删除/数据卷被清空）：启动即重建声明，再原样重试一次启动。
-            if (("start".equals(action) || "restart".equals(action))
-                    && error instanceof McpanelBusinessException business
-                    && isInstanceNotFound(business)) {
-                rebuildNodeDeclaration(actor, node, instance, business);
-                try {
-                    result = call(node.id(), "instance." + action,
-                            withIk(payload, "panel-" + action + "-" + id + "-" + System.currentTimeMillis()));
-                } catch (McpanelBusinessException retryError) {
-                    // 重建后仍缺失：提示带上"已重建"这一事实，便于区分"没重建成功"与"重建了也起不来"
-                    if (isInstanceNotFound(retryError)) {
-                        throw new McpanelBusinessException(retryError.code(), retryError.httpStatus(),
-                                retryError.getMessage() + "（已自动重建仍不可用）");
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            if (timeoutSec != null) {
+                payload.put("timeoutSec", timeoutSec);
+            }
+            Map<String, Object> result;
+            try {
+                result = call(node.id(), "instance." + action,
+                        withIk(payload, "panel-" + action + "-" + id + "-" + System.currentTimeMillis()));
+            } catch (RuntimeException error) {
+                // Docker kill/stop 对已退出容器返回 409 not running：视为已停止，避免页面红错。
+                String message = error.getMessage() == null ? "" : error.getMessage();
+                boolean notRunning = message.contains("not running") || message.contains("is not running");
+                if (("kill".equals(action) || "stop".equals(action)) && notRunning) {
+                    // CAS 落库：RPC 期间的节点事件不会与本结果互相覆盖。
+                    boolean applied = instanceRepository.mutateState(id,
+                            current -> current.withState("exited", current.lastExitCode(), System.currentTimeMillis()));
+                    McpanelInstance exited = instanceRepository.findById(id)
+                            .orElse(instance.withState("exited", instance.lastExitCode(), System.currentTimeMillis()));
+                    if (applied) {
+                        audit.record(actor, "instance." + action, "instance", id,
+                                instance.name() + "（容器已退出）", instance.tenantId());
+                        link.writebackState(exited);
                     }
-                    throw retryError;
+                    return toDto(exited);
                 }
-            } else {
-                throw error;
+                // 节点侧声明缺失（外部删除/数据卷被清空）：启动即重建声明，再原样重试一次启动。
+                if (("start".equals(action) || "restart".equals(action))
+                        && error instanceof McpanelBusinessException business
+                        && isInstanceNotFound(business)) {
+                    rebuildNodeDeclaration(actor, node, instance, business);
+                    try {
+                        result = call(node.id(), "instance." + action,
+                                withIk(payload, "panel-" + action + "-" + id + "-" + System.currentTimeMillis()));
+                    } catch (McpanelBusinessException retryError) {
+                        // 重建后仍缺失：提示带上"已重建"这一事实，便于区分"没重建成功"与"重建了也起不来"
+                        if (isInstanceNotFound(retryError)) {
+                            throw new McpanelBusinessException(retryError.code(), retryError.httpStatus(),
+                                    retryError.getMessage() + "（已自动重建仍不可用）");
+                        }
+                        throw retryError;
+                    }
+                } else {
+                    throw error;
+                }
             }
+            String targetState = text(result.get("state"), action.equals("start") ? "running" : "exited");
+            Integer exitCode = intOrNull(result.get("exitCode"));
+            // 状态写经 CAS（rev）：以存储最新文档为基，只迁移 state/lastExitCode，不整档覆盖。
+            boolean applied = instanceRepository.mutateState(id,
+                    current -> current.withState(targetState, exitCode, System.currentTimeMillis()));
+            McpanelInstance updated = instanceRepository.findById(id).orElse(
+                    instance.withState(targetState, exitCode, System.currentTimeMillis()));
+            if (applied) {
+                audit.record(actor, "instance." + action, "instance", id, instance.name(), instance.tenantId());
+                link.writebackState(updated);
+            }
+            if (applied && ("start".equals(action) || "restart".equals(action))) {
+                // 实例（重）启动：节点在停止时会回收输出泵，通知 attach 池为存活订阅重新挂泵。
+                fireOutputReattach(id);
+            }
+            return toDto(updated);
+
         }
-        String targetState = text(result.get("state"), action.equals("start") ? "running" : "exited");
-        Integer exitCode = intOrNull(result.get("exitCode"));
-        // 状态写经 CAS（rev）：以存储最新文档为基，只迁移 state/lastExitCode，不整档覆盖。
-        boolean applied = instanceRepository.mutateState(id,
-                current -> current.withState(targetState, exitCode, System.currentTimeMillis()));
-        McpanelInstance updated = instanceRepository.findById(id).orElse(
-                instance.withState(targetState, exitCode, System.currentTimeMillis()));
-        if (applied) {
-            audit.record(actor, "instance." + action, "instance", id, instance.name(), instance.tenantId());
-            link.writebackState(updated);
-        }
-        if (applied && ("start".equals(action) || "restart".equals(action))) {
-            // 实例（重）启动：节点在停止时会回收输出泵，通知 attach 池为存活订阅重新挂泵。
-            fireOutputReattach(id);
-        }
-        return toDto(updated);
     }
 
     /**
@@ -749,18 +818,21 @@ public class McpanelInstanceAppService {
      */
     public Map<String, Object> saveEventTask(String actor, String scopeKey, String id,
                                              boolean autoRestart, boolean autoStart) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        long stamp = System.currentTimeMillis();
-        if (!instanceRepository.mutate(id, current -> current.withEventTask(autoRestart, autoStart, stamp))) {
-            throw new McpanelBusinessException("instance.conflict", 409,
-                    "实例状态正在变化，保存冲突，请稍后重试");
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            long stamp = System.currentTimeMillis();
+            if (!instanceRepository.mutate(id, current -> current.withEventTask(autoRestart, autoStart, stamp))) {
+                throw new McpanelBusinessException("instance.conflict", 409,
+                        "实例状态正在变化，保存冲突，请稍后重试");
+            }
+            McpanelInstance updated = instanceRepository.findById(id).orElse(instance);
+            audit.record(actor, "instance.event-task", "instance", id,
+                    instance.name() + "：自动重启=" + (autoRestart ? "开" : "关")
+                            + "，自动启动=" + (autoStart ? "开" : "关"),
+                    instance.tenantId());
+            return toDto(updated);
+
         }
-        McpanelInstance updated = instanceRepository.findById(id).orElse(instance);
-        audit.record(actor, "instance.event-task", "instance", id,
-                instance.name() + "：自动重启=" + (autoRestart ? "开" : "关")
-                        + "，自动启动=" + (autoStart ? "开" : "关"),
-                instance.tenantId());
-        return toDto(updated);
     }
 
     /**
@@ -899,41 +971,44 @@ public class McpanelInstanceAppService {
     }
 
     public Map<String, Object> delete(String actor, String scopeKey, String id, boolean purge) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        // 删除属面板操作：先标记手动停止，避免删除触发的容器退出被事件任务误判为意外退出。
-        if (eventTasks != null) {
-            eventTasks.markManualStop(id);
-        }
-        if (purge && !nodeSupports(node.id(), "instance.purge")) {
-            throw new McpanelBusinessException("node.capability", 409,
-                    "节点程序版本过低，不支持永久删除数据目录（instance.purge）；请升级节点端，或直接删除（数据将进入回收站保留期）。");
-        }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        Map<String, Object> nodeResult = call(node.id(), purge ? "instance.purge" : "instance.delete",
-                withIk(payload, "panel-delete-" + id + "-" + (purge ? "purge" : "keep")));
-        // 节点确认目录已进回收站（trashed=true）才落快照；老节点无该字段=目录原地
-        // 保留（历史行为），不产生回收站记录。
-        if (!purge && Boolean.TRUE.equals(nodeResult.get("trashed")) && trashSink != null) {
-            try {
-                trashSink.record(instance, actor);
-            } catch (RuntimeException error) {
-                // 快照落库失败不阻断删除：目录仍在节点回收站，可经节点文件管理清理。
-                System.err.println("[mcpanel] 回收站快照写入失败: " + error.getMessage());
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            // 删除属面板操作：先标记手动停止，避免删除触发的容器退出被事件任务误判为意外退出。
+            if (eventTasks != null) {
+                eventTasks.markManualStop(id);
             }
+            if (purge && !nodeSupports(node.id(), "instance.purge")) {
+                throw new McpanelBusinessException("node.capability", 409,
+                        "节点程序版本过低，不支持永久删除数据目录（instance.purge）；请升级节点端，或直接删除（数据将进入回收站保留期）。");
+            }
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            Map<String, Object> nodeResult = call(node.id(), purge ? "instance.purge" : "instance.delete",
+                    withIk(payload, "panel-delete-" + id + "-" + (purge ? "purge" : "keep")));
+            // 节点确认目录已进回收站（trashed=true）才落快照；老节点无该字段=目录原地
+            // 保留（历史行为），不产生回收站记录。
+            if (!purge && Boolean.TRUE.equals(nodeResult.get("trashed")) && trashSink != null) {
+                try {
+                    trashSink.record(instance, actor);
+                } catch (RuntimeException error) {
+                    // 快照落库失败不阻断删除：目录仍在节点回收站，可经节点文件管理清理。
+                    System.err.println("[mcpanel] 回收站快照写入失败: " + error.getMessage());
+                }
+            }
+            for (PortAllocationRepository.Record record : portRepository.findByInstance(id)) {
+                portRepository.release(record.nodeId(), record.port(), record.proto());
+            }
+            releaseDomainQuietly(actor, instance);
+            instanceRepository.delete(id);
+            cleanupInstanceSidecars(id);
+            audit.record(actor, purge ? "instance.purge" : "instance.delete", "instance", id,
+                    instance.name() + (purge ? "（含数据）" : "（保留数据）"), instance.tenantId());
+            // 回传终态：绑定子服的列表侧随即显示离线（实例记录已删，用终态快照回写）。
+            link.writebackState(instance.withState("deleted", null, System.currentTimeMillis()));
+            return Map.of("deleted", true, "purged", purge);
+
         }
-        for (PortAllocationRepository.Record record : portRepository.findByInstance(id)) {
-            portRepository.release(record.nodeId(), record.port(), record.proto());
-        }
-        releaseDomainQuietly(actor, instance);
-        instanceRepository.delete(id);
-        cleanupInstanceSidecars(id);
-        audit.record(actor, purge ? "instance.purge" : "instance.delete", "instance", id,
-                instance.name() + (purge ? "（含数据）" : "（保留数据）"), instance.tenantId());
-        // 回传终态：绑定子服的列表侧随即显示离线（实例记录已删，用终态快照回写）。
-        link.writebackState(instance.withState("deleted", null, System.currentTimeMillis()));
-        return Map.of("deleted", true, "purged", purge);
     }
 
     /**
@@ -948,34 +1023,44 @@ public class McpanelInstanceAppService {
         if (nodeId == null || nodeId.isBlank()) {
             return 0;
         }
-        int cleaned = 0;
-        for (McpanelInstance instance : instanceRepository.findAll()) {
-            if (!nodeId.equals(instance.nodeId())) {
-                continue;
-            }
+        List<MutationLease> leases = new ArrayList<>();
+        synchronized (mutationGate) {
             try {
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("instanceId", instance.id());
-                call(nodeId, "instance.delete",
-                        withIk(payload, "panel-delete-" + instance.id() + "-keep"));
-            } catch (RuntimeException error) {
-                audit.record("system", "instance.node-cascade.failed", "instance", instance.id(),
-                        (error.getMessage() == null ? "容器删除失败" : error.getMessage())
-                                + "；面板记录继续清理，节点侧数据保留",
-                        instance.tenantId());
-            }
-            for (PortAllocationRepository.Record record : portRepository.findByInstance(instance.id())) {
-                portRepository.release(record.nodeId(), record.port(), record.proto());
-            }
-            releaseDomainQuietly("system", instance);
-            instanceRepository.delete(instance.id());
-            cleanupInstanceSidecars(instance.id());
-            audit.record("system", "instance.node-cascade", "instance", instance.id(),
-                    instance.name() + "（节点删除级联清理，保留节点侧数据）", instance.tenantId());
-            link.writebackState(instance.withState("deleted", null, System.currentTimeMillis()));
-            cleaned++;
+                for (McpanelInstance item : instanceRepository.findAll()) {
+                    if (nodeId.equals(item.nodeId())) leases.add(beginMutation(item.id(), true));
+                }
+            } catch (RuntimeException error) { leases.forEach(MutationLease::close); throw error; }
         }
-        return cleaned;
+        try {
+            int cleaned = 0;
+            for (McpanelInstance instance : instanceRepository.findAll()) {
+                if (!nodeId.equals(instance.nodeId())) {
+                    continue;
+                }
+                try {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("instanceId", instance.id());
+                    call(nodeId, "instance.delete",
+                            withIk(payload, "panel-delete-" + instance.id() + "-keep"));
+                } catch (RuntimeException error) {
+                    audit.record("system", "instance.node-cascade.failed", "instance", instance.id(),
+                            (error.getMessage() == null ? "容器删除失败" : error.getMessage())
+                                    + "；面板记录继续清理，节点侧数据保留",
+                            instance.tenantId());
+                }
+                for (PortAllocationRepository.Record record : portRepository.findByInstance(instance.id())) {
+                    portRepository.release(record.nodeId(), record.port(), record.proto());
+                }
+                releaseDomainQuietly("system", instance);
+                instanceRepository.delete(instance.id());
+                cleanupInstanceSidecars(instance.id());
+                audit.record("system", "instance.node-cascade", "instance", instance.id(),
+                        instance.name() + "（节点删除级联清理，保留节点侧数据）", instance.tenantId());
+                link.writebackState(instance.withState("deleted", null, System.currentTimeMillis()));
+                cleaned++;
+            }
+            return cleaned;
+        } finally { leases.forEach(MutationLease::close); }
     }
 
     /**
@@ -1202,20 +1287,23 @@ public class McpanelInstanceAppService {
     }
 
     public Map<String, Object> command(String actor, String scopeKey, String id, String command) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        // 控制台（含计划任务命令通道）下发 stop/exit 等同手动停止：抑制事件任务的自动重启。
-        String trimmed = command == null ? "" : command.trim().toLowerCase();
-        if (eventTasks != null && ("stop".equals(trimmed) || "exit".equals(trimmed))) {
-            eventTasks.markManualStop(id);
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            // 控制台（含计划任务命令通道）下发 stop/exit 等同手动停止：抑制事件任务的自动重启。
+            String trimmed = command == null ? "" : command.trim().toLowerCase();
+            if (eventTasks != null && ("stop".equals(trimmed) || "exit".equals(trimmed))) {
+                eventTasks.markManualStop(id);
+            }
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            payload.put("command", command);
+            Map<String, Object> result = call(node.id(), "instance.command",
+                    withIk(payload, "panel-cmd-" + id + "-" + System.currentTimeMillis()));
+            audit.record(actor, "instance.command", "instance", id, "控制台输入", instance.tenantId());
+            return result;
+
         }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        payload.put("command", command);
-        Map<String, Object> result = call(node.id(), "instance.command",
-                withIk(payload, "panel-cmd-" + id + "-" + System.currentTimeMillis()));
-        audit.record(actor, "instance.command", "instance", id, "控制台输入", instance.tenantId());
-        return result;
     }
 
     /**
@@ -1263,49 +1351,52 @@ public class McpanelInstanceAppService {
     // ---------- 文件与备份代理（M3） ----------
 
     public Map<String, Object> files(String scopeKey, String id, String operation, Map<String, Object> args) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        Map<String, Object> payload = new LinkedHashMap<>(args);
-        payload.put("instanceId", id);
-        String method = switch (operation) {
-            case "list" -> "file.list";
-            case "read" -> "file.read";
-            case "write" -> "file.write";
-            case "mkdir" -> "file.mkdir";
-            case "rename" -> "file.rename";
-            case "delete" -> "file.delete";
-            case "download" -> "file.download.chunk";
-            case "zip" -> "file.zip";
-            case "unzip" -> "file.unzip";
-            default -> throw McpanelBusinessException.invalid("不支持的文件操作：" + operation);
-        };
-        if ("write".equals(operation)) {
-            FileCharsetCodec.applyCharset(payload);
-        }
-        if (!method.endsWith("list") && !method.endsWith("read") && !method.endsWith("chunk")) {
-            payload.put("ik", "panel-file-" + id + "-" + operation + "-" + System.currentTimeMillis());
-        }
-        try {
-            return call(node.id(), method, payload);
-        }
-        catch (McpanelBusinessException error) {
-            if (McpanelBusinessException.CODE_INSTANCE_NOT_FOUND.equals(error.code())) {
-                if ("list".equals(operation)) {
-                    // 实例数据尚未就位（创建未完成/从未启动/被外部清空）：列目录按空目录处理，
-                    // 由页面展示空态引导，不作为错误上报。
-                    Map<String, Object> empty = new LinkedHashMap<>();
-                    empty.put("entries", new java.util.ArrayList<>());
-                    empty.put("total", 0);
-                    return empty;
-                }
-                if ("read".equals(operation) || "download".equals(operation)) {
-                    // 目标文件不存在（未生成、已被删除或安装重建中）：按 404 语义上报，
-                    // 不再套用实例级 409 文案误导为「容器/数据被清空」。
-                    throw new McpanelBusinessException("file.notFound", 404,
-                            "目标不存在：文件或目录尚未生成，或已被删除（安装/重建期间会短暂出现）");
-                }
+        try (MutationLease mutation = beginMutation(id, !List.of("list", "read", "download").contains(operation))) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            Map<String, Object> payload = new LinkedHashMap<>(args);
+            payload.put("instanceId", id);
+            String method = switch (operation) {
+                case "list" -> "file.list";
+                case "read" -> "file.read";
+                case "write" -> "file.write";
+                case "mkdir" -> "file.mkdir";
+                case "rename" -> "file.rename";
+                case "delete" -> "file.delete";
+                case "download" -> "file.download.chunk";
+                case "zip" -> "file.zip";
+                case "unzip" -> "file.unzip";
+                default -> throw McpanelBusinessException.invalid("不支持的文件操作：" + operation);
+            };
+            if ("write".equals(operation)) {
+                FileCharsetCodec.applyCharset(payload);
             }
-            throw error;
+            if (!method.endsWith("list") && !method.endsWith("read") && !method.endsWith("chunk")) {
+                payload.put("ik", "panel-file-" + id + "-" + operation + "-" + System.currentTimeMillis());
+            }
+            try {
+                return call(node.id(), method, payload);
+            }
+            catch (McpanelBusinessException error) {
+                if (McpanelBusinessException.CODE_INSTANCE_NOT_FOUND.equals(error.code())) {
+                    if ("list".equals(operation)) {
+                        // 实例数据尚未就位（创建未完成/从未启动/被外部清空）：列目录按空目录处理，
+                        // 由页面展示空态引导，不作为错误上报。
+                        Map<String, Object> empty = new LinkedHashMap<>();
+                        empty.put("entries", new java.util.ArrayList<>());
+                        empty.put("total", 0);
+                        return empty;
+                    }
+                    if ("read".equals(operation) || "download".equals(operation)) {
+                        // 目标文件不存在（未生成、已被删除或安装重建中）：按 404 语义上报，
+                        // 不再套用实例级 409 文案误导为「容器/数据被清空」。
+                        throw new McpanelBusinessException("file.notFound", 404,
+                                "目标不存在：文件或目录尚未生成，或已被删除（安装/重建期间会短暂出现）");
+                    }
+                }
+                throw error;
+            }
+
         }
     }
 
@@ -1322,40 +1413,43 @@ public class McpanelInstanceAppService {
      * 任一步失败 best-effort 有界 abort（10s）回收临时分片，并保留原始异常上抛。
      */
     public Map<String, Object> upload(String scopeKey, String id, String path, byte[] data, String sha256Hex) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        if (data == null || data.length > 96 * 1024 * 1024) {
-            throw McpanelBusinessException.invalid("上传内容缺失或超过 96MiB");
-        }
-        Map<String, Object> begin = call(node.id(), "file.upload.begin", Map.of(
-                "instanceId", id, "path", path, "size", data.length, "sha256", sha256Hex));
-        String uploadId = String.valueOf(begin.get("uploadId"));
-        if (uploadId == null || uploadId.isBlank() || "null".equals(uploadId)) {
-            throw new McpanelBusinessException("upload.begin", 502, "节点未返回 uploadId，上传已取消");
-        }
-        try {
-            int chunk = 96 * 1024;
-            for (int offset = 0; offset < data.length; offset += chunk) {
-                int end = Math.min(offset + chunk, data.length);
-                Map<String, Object> part = new LinkedHashMap<>();
-                part.put("instanceId", id);
-                part.put("uploadId", uploadId);
-                part.put("offset", (long) offset);
-                part.put("content", java.util.Base64.getEncoder().encodeToString(
-                        java.util.Arrays.copyOfRange(data, offset, end)));
-                call(node.id(), "file.upload.chunk", part);
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            if (data == null || data.length > 96 * 1024 * 1024) {
+                throw McpanelBusinessException.invalid("上传内容缺失或超过 96MiB");
             }
-            return call(node.id(), "file.upload.commit",
-                    Map.of("instanceId", id, "uploadId", uploadId));
-        } catch (RuntimeException original) {
-            // best-effort 有界清理：abort 失败只吞自己的异常，原始失败原因原样上抛。
+            Map<String, Object> begin = call(node.id(), "file.upload.begin", Map.of(
+                    "instanceId", id, "path", path, "size", data.length, "sha256", sha256Hex));
+            String uploadId = String.valueOf(begin.get("uploadId"));
+            if (uploadId == null || uploadId.isBlank() || "null".equals(uploadId)) {
+                throw new McpanelBusinessException("upload.begin", 502, "节点未返回 uploadId，上传已取消");
+            }
             try {
-                call(node.id(), "file.upload.abort",
-                        Map.of("instanceId", id, "uploadId", uploadId), UPLOAD_ABORT_TIMEOUT_MS);
-            } catch (RuntimeException ignored) {
-                // 节点离线/不支持 abort 等场景：临时分片由节点会话过期清理兜底。
+                int chunk = 96 * 1024;
+                for (int offset = 0; offset < data.length; offset += chunk) {
+                    int end = Math.min(offset + chunk, data.length);
+                    Map<String, Object> part = new LinkedHashMap<>();
+                    part.put("instanceId", id);
+                    part.put("uploadId", uploadId);
+                    part.put("offset", (long) offset);
+                    part.put("content", java.util.Base64.getEncoder().encodeToString(
+                            java.util.Arrays.copyOfRange(data, offset, end)));
+                    call(node.id(), "file.upload.chunk", part);
+                }
+                return call(node.id(), "file.upload.commit",
+                        Map.of("instanceId", id, "uploadId", uploadId));
+            } catch (RuntimeException original) {
+                // best-effort 有界清理：abort 失败只吞自己的异常，原始失败原因原样上抛。
+                try {
+                    call(node.id(), "file.upload.abort",
+                            Map.of("instanceId", id, "uploadId", uploadId), UPLOAD_ABORT_TIMEOUT_MS);
+                } catch (RuntimeException ignored) {
+                    // 节点离线/不支持 abort 等场景：临时分片由节点会话过期清理兜底。
+                }
+                throw original;
             }
-            throw original;
+
         }
     }
 
@@ -1365,11 +1459,14 @@ public class McpanelInstanceAppService {
      */
     public Map<String, Object> uploadOp(String scopeKey, String instanceId, String method,
                                         Map<String, Object> payload) {
-        McpanelInstance instance = findAccessible(scopeKey, instanceId);
-        McpanelNode node = requireNode(instance.nodeId());
-        Map<String, Object> frame = new LinkedHashMap<>(payload);
-        frame.putIfAbsent("instanceId", instanceId);
-        return call(node.id(), method, frame);
+        try (MutationLease mutation = beginMutation(instanceId, !"file.upload.abort".equals(method))) {
+            McpanelInstance instance = findAccessible(scopeKey, instanceId);
+            McpanelNode node = requireNode(instance.nodeId());
+            Map<String, Object> frame = new LinkedHashMap<>(payload);
+            frame.putIfAbsent("instanceId", instanceId);
+            return call(node.id(), method, frame);
+
+        }
     }
 
     /**
@@ -1381,49 +1478,52 @@ public class McpanelInstanceAppService {
      * - trigger：手动异地备份（经宿主备份中心，targetCode 必填）。
      */
     public Map<String, Object> backup(String actor, String scopeKey, String id, String operation, Map<String, Object> args) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        Map<String, Object> payload = new LinkedHashMap<>(args);
-        payload.put("instanceId", id);
-        switch (operation) {
-            case "create" -> {
-                return acceptBackupCreate(actor, id, node, payload);
-            }
-            case "list" -> {
-                return backupList(id, node);
-            }
-            case "restore" -> {
-                payload.put("ik", "panel-backup-" + id + "-restore-" + System.currentTimeMillis());
-                Map<String, Object> restoreResult = call(node.id(), "backup.restore", payload, BACKUP_TIMEOUT_MS);
-                audit.record(actor, "backup.restore", "instance", id,
-                        String.valueOf(payload.get("file")), instance.tenantId());
-                return restoreResult;
-            }
-            case "delete" -> {
-                payload.put("ik", "panel-backup-" + id + "-delete-" + System.currentTimeMillis());
-                Map<String, Object> deleteResult = call(node.id(), "backup.delete", payload);
-                audit.record(actor, "backup.delete", "instance", id,
-                        String.valueOf(payload.get("file")), instance.tenantId());
-                return deleteResult;
-            }
-            case "trigger" -> {
-                Object rawTarget = args == null ? null : args.get("targetCode");
-                String targetCode = rawTarget == null ? "" : String.valueOf(rawTarget).trim();
-                if (!targetCode.matches("[a-z0-9][a-z0-9-]{0,63}")) {
-                    throw McpanelBusinessException.invalid("异地目标编码须为小写字母/数字/连字符（在宿主备份中心配置）");
+        try (MutationLease mutation = beginMutation(id, !"list".equals(operation))) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            Map<String, Object> payload = new LinkedHashMap<>(args);
+            payload.put("instanceId", id);
+            switch (operation) {
+                case "create" -> {
+                    return acceptBackupCreate(actor, id, node, payload);
                 }
-                if (backupCenter == null) {
-                    throw new McpanelBusinessException("backup.no.channel", 509,
-                            "宿主无备份触发通道（宿主或 SPI 过旧），无法发起异地备份");
+                case "list" -> {
+                    return backupList(id, node);
                 }
-                String jobId = backupCenter.trigger(id, targetCode);
-                audit.record(actor, "backup.trigger", "instance", id, "offsite:" + targetCode, instance.tenantId());
-                Map<String, Object> result = new LinkedHashMap<>();
-                result.put("jobId", jobId);
-                result.put("accepted", true);
-                return result;
+                case "restore" -> {
+                    payload.put("ik", "panel-backup-" + id + "-restore-" + System.currentTimeMillis());
+                    Map<String, Object> restoreResult = call(node.id(), "backup.restore", payload, BACKUP_TIMEOUT_MS);
+                    audit.record(actor, "backup.restore", "instance", id,
+                            String.valueOf(payload.get("file")), instance.tenantId());
+                    return restoreResult;
+                }
+                case "delete" -> {
+                    payload.put("ik", "panel-backup-" + id + "-delete-" + System.currentTimeMillis());
+                    Map<String, Object> deleteResult = call(node.id(), "backup.delete", payload);
+                    audit.record(actor, "backup.delete", "instance", id,
+                            String.valueOf(payload.get("file")), instance.tenantId());
+                    return deleteResult;
+                }
+                case "trigger" -> {
+                    Object rawTarget = args == null ? null : args.get("targetCode");
+                    String targetCode = rawTarget == null ? "" : String.valueOf(rawTarget).trim();
+                    if (!targetCode.matches("[a-z0-9][a-z0-9-]{0,63}")) {
+                        throw McpanelBusinessException.invalid("异地目标编码须为小写字母/数字/连字符（在宿主备份中心配置）");
+                    }
+                    if (backupCenter == null) {
+                        throw new McpanelBusinessException("backup.no.channel", 509,
+                                "宿主无备份触发通道（宿主或 SPI 过旧），无法发起异地备份");
+                    }
+                    String jobId = backupCenter.trigger(id, targetCode);
+                    audit.record(actor, "backup.trigger", "instance", id, "offsite:" + targetCode, instance.tenantId());
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    result.put("jobId", jobId);
+                    result.put("accepted", true);
+                    return result;
+                }
+                default -> throw McpanelBusinessException.invalid("不支持的备份操作：" + operation);
             }
-            default -> throw McpanelBusinessException.invalid("不支持的备份操作：" + operation);
+
         }
     }
 
@@ -1557,28 +1657,31 @@ public class McpanelInstanceAppService {
     /** 保存实例备份保留策略；节点可用时立即 prune 一次（best-effort，不阻塞保存）。 */
     public Map<String, Object> saveBackupPolicy(String actor, String scopeKey, String id,
                                                 Object rawKeepCount, Object rawKeepDays) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        if (backupPolicies == null) {
-            throw McpanelBusinessException.invalid("备份策略存储未就绪");
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            if (backupPolicies == null) {
+                throw McpanelBusinessException.invalid("备份策略存储未就绪");
+            }
+            BackupPolicyStore.Policy policy = backupPolicies.save(id, intValue(rawKeepCount), intValue(rawKeepDays));
+            audit.record(actor, "backup.policy", "instance", id,
+                    "keepCount=" + policy.keepCount() + ",keepDays=" + policy.keepDays(), instance.tenantId());
+            try {
+                McpanelNode node = requireNode(instance.nodeId());
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("instanceId", id);
+                payload.put("keepCount", policy.keepCount());
+                payload.put("keepDays", policy.keepDays());
+                call(node.id(), "backup.prune", payload, CALL_TIMEOUT_MS);
+            } catch (RuntimeException ignored) {
+                // 节点离线/旧版本：策略已保存，下次备份打包时同样会按策略清理
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("instanceId", id);
+            result.put("keepCount", policy.keepCount());
+            result.put("keepDays", policy.keepDays());
+            return result;
+
         }
-        BackupPolicyStore.Policy policy = backupPolicies.save(id, intValue(rawKeepCount), intValue(rawKeepDays));
-        audit.record(actor, "backup.policy", "instance", id,
-                "keepCount=" + policy.keepCount() + ",keepDays=" + policy.keepDays(), instance.tenantId());
-        try {
-            McpanelNode node = requireNode(instance.nodeId());
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("instanceId", id);
-            payload.put("keepCount", policy.keepCount());
-            payload.put("keepDays", policy.keepDays());
-            call(node.id(), "backup.prune", payload, CALL_TIMEOUT_MS);
-        } catch (RuntimeException ignored) {
-            // 节点离线/旧版本：策略已保存，下次备份打包时同样会按策略清理
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("instanceId", id);
-        result.put("keepCount", policy.keepCount());
-        result.put("keepDays", policy.keepDays());
-        return result;
     }
 
     private static int intValue(Object value) {
@@ -1819,56 +1922,62 @@ public class McpanelInstanceAppService {
 
     /** 分配/重新同步域名（幂等）：按节点接入方式写入记录，Java 版再写 SRV；入口模式再推路由。 */
     public Map<String, Object> domainAssign(String actor, String scopeKey, String id, boolean srv) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        Map<String, Object> result = new LinkedHashMap<>(
-                requireDomains().assign(actor, instance, domainTargetOf(instance.nodeId()), srv));
-        // 入口模式：实例侧必须允许 PROXY protocol，否则玩家 IP 会显示为入口机地址；
-        // 非入口模式：保持关闭（开着会让直连玩家被拒绝）——失败只提示，不回滚解析写入。
-        ProxyProtocolSyncService sync = proxyProtocolSync;
-        if (sync != null && NodeAccess.MODE_ENTRY.equals(domainTargetOf(instance.nodeId()).mode())) {
-            try {
-                Map<String, Object> synced = sync.syncForInstance(actor, instance, true);
-                if (!Boolean.TRUE.equals(synced.get("supported"))) {
-                    result.put("proxyProtocolNote", String.valueOf(synced.get("reason")));
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            Map<String, Object> result = new LinkedHashMap<>(
+                    requireDomains().assign(actor, instance, domainTargetOf(instance.nodeId()), srv));
+            // 入口模式：实例侧必须允许 PROXY protocol，否则玩家 IP 会显示为入口机地址；
+            // 非入口模式：保持关闭（开着会让直连玩家被拒绝）——失败只提示，不回滚解析写入。
+            ProxyProtocolSyncService sync = proxyProtocolSync;
+            if (sync != null && NodeAccess.MODE_ENTRY.equals(domainTargetOf(instance.nodeId()).mode())) {
+                try {
+                    Map<String, Object> synced = sync.syncForInstance(actor, instance, true);
+                    if (!Boolean.TRUE.equals(synced.get("supported"))) {
+                        result.put("proxyProtocolNote", String.valueOf(synced.get("reason")));
+                    }
+                }
+                catch (RuntimeException error) {
+                    result.put("proxyProtocolNote", "PROXY protocol 未自动开启（可在域名页一键开启）：" + error.getMessage());
                 }
             }
-            catch (RuntimeException error) {
-                result.put("proxyProtocolNote", "PROXY protocol 未自动开启（可在域名页一键开启）：" + error.getMessage());
-            }
-        }
-        EntryRouteService routes = entryRoutes;
-        if (routes != null && routes.configured()) {
-            try {
-                Map<String, Object> published = routes.publish(instance);
-                result.putAll(published);
-                if (Boolean.FALSE.equals(published.get("published"))) {
-                    result.put("entryNote", String.valueOf(published.get("reason")));
+            EntryRouteService routes = entryRoutes;
+            if (routes != null && routes.configured()) {
+                try {
+                    Map<String, Object> published = routes.publish(instance);
+                    result.putAll(published);
+                    if (Boolean.FALSE.equals(published.get("published"))) {
+                        result.put("entryNote", String.valueOf(published.get("reason")));
+                    }
+                }
+                catch (RuntimeException error) {
+                    // 路由推送失败不回滚解析记录：面板会按 1 分钟对账自动补上。
+                    result.put("entryNote", "解析已写入，但入口路由推送失败（将自动重试）：" + error.getMessage());
+                    audit.record(actor, "entry.routes.publish.failed", "instance", instance.id(),
+                            instance.name() + "：" + error.getMessage(), instance.tenantId());
                 }
             }
-            catch (RuntimeException error) {
-                // 路由推送失败不回滚解析记录：面板会按 1 分钟对账自动补上。
-                result.put("entryNote", "解析已写入，但入口路由推送失败（将自动重试）：" + error.getMessage());
-                audit.record(actor, "entry.routes.publish.failed", "instance", instance.id(),
-                        instance.name() + "：" + error.getMessage(), instance.tenantId());
-            }
+            return result;
+
         }
-        return result;
     }
 
     public Map<String, Object> domainRelease(String actor, String scopeKey, String id) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        Map<String, Object> result = new LinkedHashMap<>(requireDomains().release(actor, instance));
-        EntryRouteService routes = entryRoutes;
-        if (routes != null) {
-            try {
-                routes.revoke(instance);
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            Map<String, Object> result = new LinkedHashMap<>(requireDomains().release(actor, instance));
+            EntryRouteService routes = entryRoutes;
+            if (routes != null) {
+                try {
+                    routes.revoke(instance);
+                }
+                catch (RuntimeException error) {
+                    audit.record(actor, "entry.routes.revoke.failed", "instance", instance.id(),
+                            instance.name() + "：" + error.getMessage(), instance.tenantId());
+                }
             }
-            catch (RuntimeException error) {
-                audit.record(actor, "entry.routes.revoke.failed", "instance", instance.id(),
-                        instance.name() + "：" + error.getMessage(), instance.tenantId());
-            }
+            return result;
+
         }
-        return result;
     }
 
     public Map<String, Object> domainVerify(String scopeKey, String id, boolean srv) {
@@ -1959,27 +2068,30 @@ public class McpanelInstanceAppService {
 
     /** 开通实例临时 SFTP（节点 ftp.open：随机账号密码，TTL 自动关）。 */
     public Map<String, Object> ftpOpen(String actor, String scopeKey, String id, Integer ttlMinutes) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        payload.put("ttlMinutes", ttlMinutes == null ? 120 : ttlMinutes);
-        payload.put("ik", "panel-ftp-open-" + id + "-" + System.currentTimeMillis());
-        Map<String, Object> result = call(node.id(), "ftp.open", payload);
-        audit.record(actor, "ftp.open", "instance", id, instance.name(), instance.tenantId());
-        SftpGatewayHandle gateway = sftpGateway;
-        if (gateway == null) {
-            Map<String, Object> response = new LinkedHashMap<>(result);
-            response.putIfAbsent("host", node.advertisedSftpHost());
-            return response;
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            payload.put("ttlMinutes", ttlMinutes == null ? 120 : ttlMinutes);
+            payload.put("ik", "panel-ftp-open-" + id + "-" + System.currentTimeMillis());
+            Map<String, Object> result = call(node.id(), "ftp.open", payload);
+            audit.record(actor, "ftp.open", "instance", id, instance.name(), instance.tenantId());
+            SftpGatewayHandle gateway = sftpGateway;
+            if (gateway == null) {
+                Map<String, Object> response = new LinkedHashMap<>(result);
+                response.putIfAbsent("host", node.advertisedSftpHost());
+                return response;
+            }
+            PanelSettings.SftpGateway config = gateway.config().get();
+            if (config == null || !config.enabled() || config.port() < 1) {
+                Map<String, Object> response = new LinkedHashMap<>(result);
+                response.putIfAbsent("host", node.advertisedSftpHost());
+                return response;
+            }
+            return gatewayResponse(gateway.registry(), config, instance, node, result, ttlMinutes);
+
         }
-        PanelSettings.SftpGateway config = gateway.config().get();
-        if (config == null || !config.enabled() || config.port() < 1) {
-            Map<String, Object> response = new LinkedHashMap<>(result);
-            response.putIfAbsent("host", node.advertisedSftpHost());
-            return response;
-        }
-        return gatewayResponse(gateway.registry(), config, instance, node, result, ttlMinutes);
     }
 
     /** 网关模式：不下发节点侧凭据，改发 mc-短别名 + 网关密码，节点地址对客户端透明。 */
@@ -2006,6 +2118,11 @@ public class McpanelInstanceAppService {
         response.put("nodeId", node.id());
         response.put("nodeName", node.name());
         return response;
+    }
+
+    public void revokeSftpGateway(String id) {
+        SftpGatewayHandle gateway = sftpGateway;
+        if (gateway != null) gateway.registry().dropByInstance(id);
     }
 
     public Map<String, Object> ftpClose(String actor, String scopeKey, String id) {
@@ -2035,21 +2152,24 @@ public class McpanelInstanceAppService {
     }
 
     public Map<String, Object> install(String scopeKey, String id, List<Map<String, Object>> plan) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        // MR/CF 换源：把官方 CDN 直链展开为源回退候选（幂等；未命中已知主机的条目原样保留）。
-        java.util.function.UnaryOperator<Map<String, Object>> enricher = planSourceEnricher;
-        List<Map<String, Object>> enriched = enricher == null ? plan
-                : plan.stream().map(enricher).toList();
-        String fileName = enriched.size() == 1 ? String.valueOf(enriched.get(0).get("path"))
-                : enriched.size() + " 个文件";
-        persistInstallPlan(id, fileName, enriched);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        payload.put("files", enriched);
-        Map<String, Object> receipt = call(node.id(), "install.run", payload);
-        trackInstall(node.id(), id, fileName, receipt);
-        return receipt;
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            // MR/CF 换源：把官方 CDN 直链展开为源回退候选（幂等；未命中已知主机的条目原样保留）。
+            java.util.function.UnaryOperator<Map<String, Object>> enricher = planSourceEnricher;
+            List<Map<String, Object>> enriched = enricher == null ? plan
+                    : plan.stream().map(enricher).toList();
+            String fileName = enriched.size() == 1 ? String.valueOf(enriched.get(0).get("path"))
+                    : enriched.size() + " 个文件";
+            persistInstallPlan(id, fileName, enriched);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            payload.put("files", enriched);
+            Map<String, Object> receipt = call(node.id(), "install.run", payload);
+            trackInstall(node.id(), id, fileName, receipt);
+            return receipt;
+
+        }
     }
 
     /**
@@ -2057,25 +2177,28 @@ public class McpanelInstanceAppService {
      * 无存根时说明该实例未经历过自动安装（或存根已随删除清理），引导重新上传整合包。
      */
     public Map<String, Object> installRetry(String actor, String scopeKey, String id) {
-        McpanelInstance instance = findAccessible(scopeKey, id);
-        McpanelNode node = requireNode(instance.nodeId());
-        InstallTaskTracker tracker = installTracker;
-        if (tracker != null && tracker.hasRunning(id)) {
-            throw new IllegalStateException("已有安装任务进行中，请等待其结束");
+        try (MutationLease mutation = beginMutation(id, true)) {
+            McpanelInstance instance = findAccessible(scopeKey, id);
+            McpanelNode node = requireNode(instance.nodeId());
+            InstallTaskTracker tracker = installTracker;
+            if (tracker != null && tracker.hasRunning(id)) {
+                throw new IllegalStateException("已有安装任务进行中，请等待其结束");
+            }
+            InstallPlanStore store = installPlanStore;
+            InstallPlanStore.StoredPlan stored = store == null ? null : store.find(id).orElse(null);
+            if (stored == null || stored.files().isEmpty()) {
+                throw new IllegalArgumentException("没有可重试的安装计划：整合包实例请重新上传整合包应用，其他实例可在文件页手动上传服务端核心");
+            }
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("instanceId", id);
+            payload.put("files", stored.files());
+            payload.put("ik", "panel-install-retry-" + id + "-" + System.currentTimeMillis());
+            Map<String, Object> receipt = call(node.id(), "install.run", payload, CALL_TIMEOUT_MS);
+            trackInstall(node.id(), id, stored.fileName(), receipt);
+            audit.record(actor, "instance.install.retry", "instance", id, stored.fileName(), instance.tenantId());
+            return receipt;
+
         }
-        InstallPlanStore store = installPlanStore;
-        InstallPlanStore.StoredPlan stored = store == null ? null : store.find(id).orElse(null);
-        if (stored == null || stored.files().isEmpty()) {
-            throw new IllegalArgumentException("没有可重试的安装计划：整合包实例请重新上传整合包应用，其他实例可在文件页手动上传服务端核心");
-        }
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("instanceId", id);
-        payload.put("files", stored.files());
-        payload.put("ik", "panel-install-retry-" + id + "-" + System.currentTimeMillis());
-        Map<String, Object> receipt = call(node.id(), "install.run", payload, CALL_TIMEOUT_MS);
-        trackInstall(node.id(), id, stored.fileName(), receipt);
-        audit.record(actor, "instance.install.retry", "instance", id, stored.fileName(), instance.tenantId());
-        return receipt;
     }
 
     /** 安装计划落存根（重试来源）；尽力而为，存储失败不阻断安装。 */
@@ -2220,6 +2343,7 @@ public class McpanelInstanceAppService {
         dto.put("env", instance.env());
         dto.put("memoryMb", instance.memoryMb());
         dto.put("cpuMillis", instance.cpuMillis());
+        dto.put("maintenanceJobId", maintenance.getOrDefault(instance.id(), ""));
         dto.put("diskMb", instance.diskMb());
         dto.put("ports", instance.ports());
         dto.put("config", instance.config());

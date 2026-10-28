@@ -115,7 +115,7 @@ class InstanceEventTaskServiceTest {
     void unexpectedExitTriggersAutoRestartAndWritesBackState() {
         saveInstance("i1", "node-1", true, false, "exited");
         service.onInstanceExited("i1");
-        await(() -> gateway.count("instance.start") == 1, "意外退出应触发一次自动重启");
+        await(() -> gateway.count("instance.start") == 1 && "running".equals(instances.findById("i1").orElseThrow().state()) && audits.contains("instance.event-task.restart"), "意外退出应完成自动重启与状态回写");
         assertEquals(List.of("i1"), gateway.instanceIds, "自动重启只针对退出实例");
         assertEquals("running", instances.findById("i1").orElseThrow().state(), "启动应答状态应回写");
         assertTrue(audits.contains("instance.event-task.restart"), "自动重启应有审计");
@@ -155,12 +155,12 @@ class InstanceEventTaskServiceTest {
     void fastCrashBreakerSuspendsUntilManualStart() {
         saveInstance("i1", "node-1", true, false, "exited");
         service.onInstanceExited("i1");
-        await(() -> gateway.count("instance.start") == 1, "第 1 次拉起");
+        await(() -> gateway.count("instance.start") == 1 && "running".equals(instances.findById("i1").orElseThrow().state()), "第 1 次拉起与状态回写");
         for (int expected = 2; expected <= 3; expected++) {
             instances.mutateState("i1", current -> current.withState("exited", 1, 2L));
             service.onInstanceExited("i1");
             int target = expected;
-            await(() -> gateway.count("instance.start") == target, "第 " + target + " 次拉起");
+            await(() -> gateway.count("instance.start") == target && "running".equals(instances.findById("i1").orElseThrow().state()), "第 " + target + " 次拉起与状态回写");
         }
         // 第 4、5 次退出：连续 3 次快速崩溃（<60s）→ 熔断，不再拉起。
         for (int i = 0; i < 2; i++) {

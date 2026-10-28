@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { YdLoadingOverlay } from '@yudream/components'
+import { YdForm, YdFormItem, YdLoadingOverlay } from '@yudream/components'
 import type { FileItem, TableColumn, ActionMenuItem } from '@yudream/components'
 import type { YuDreamPluginSdk } from '@yudream/plugin-sdk'
-import { YdAction, YdAlert, YdButton, YdCard, YdContextMenu, YdFileUpload, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdProgress, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
+import { YdAction, YdAlert, YdButton, YdCard, YdContextMenu, YdFileUpload, YdFilePicker, YdIcon, YdInput, YdModal, YdPageHeader, YdPageMain, YdPagination, YdProgress, YdSelect, YdTag, useYdModal, useYdToast, YdResponsiveEnhancedTable } from '@yudream/components'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { folderUploadPlan, uploadRelativePath } from '../../utils/uploadPaths.ts'
 import { withTimeout } from '../../utils/fileContent.ts'
 import { relativeFilePath } from '../../utils/textFileAccess.ts'
 import { useChunkedDownload } from '../../composables/useChunkedDownload.ts'
@@ -68,6 +69,65 @@ const uploadPath = ref('')
 const uploadBusy = ref(false)
 const uploadItems = ref<FileItem[]>([])
 const uploadFileRef = ref<File | null>(null)
+const folderFiles = ref<File[]>([])
+const folderOpen = ref(false)
+const folderBusy = ref(false)
+const folderError = ref('')
+const folderBase = ref('')
+let folderGeneration = 0
+const folderBytes = computed(() => folderFiles.value.reduce((sum, file) => sum + file.size, 0))
+
+function selectFolder(files: File[]) {
+  if (!files.length) return
+  try {
+    folderUploadPlan(files)
+    folderGeneration++
+    folderFiles.value = files
+    folderBase.value = currentPath.value
+    folderError.value = ''
+    folderOpen.value = true
+  }
+  catch (error) { toast.error(errorMessage(error, '文件夹无法上传')) }
+}
+
+async function uploadFolder(done: () => void) {
+  if (folderBusy.value || !canManage.value) return
+  folderBusy.value = true
+  folderError.value = ''
+  const id = instanceId.value
+  const token = folderGeneration
+  try {
+    const plan = folderUploadPlan(folderFiles.value)
+    const base = folderBase.value ? uploadRelativePath(folderBase.value) : ''
+    const directories = new Set<string>()
+    for (const item of plan) {
+      const parts = joinPath(base, item.path).split('/')
+      for (let i = 1; i < parts.length; i++) directories.add(parts.slice(0, i).join('/'))
+    }
+    for (const path of directories) {
+      if (id !== instanceId.value || token !== folderGeneration) return
+      await extra.mkdir(id, path)
+    }
+    if (id !== instanceId.value || token !== folderGeneration) return
+    const requests = folderFiles.value.map((file, index) => startUpload(file, joinPath(base, plan[index]!.path)))
+    done()
+    folderFiles.value = []
+    toast.success(`已加入 ${requests.length} 个文件；离开页面会取消尚未完成的上传`)
+    void Promise.all(requests).then(results => {
+      if (id !== instanceId.value) return
+      const failed = results.filter(ok => !ok).length
+      if (failed) toast.warning(`${results.length - failed} 个文件成功，${failed} 个未完成，请查看上传任务`)
+      else toast.success(`文件夹上传完成，共 ${results.length} 个文件`)
+      void fetchList()
+    })
+  }
+  catch (error) { if (token === folderGeneration) folderError.value = errorMessage(error, '准备文件夹失败') }
+  finally { if (token === folderGeneration) folderBusy.value = false }
+}
+watch(folderOpen, open => {
+  if (!open) { folderGeneration++; folderFiles.value = []; folderBusy.value = false; folderError.value = '' }
+})
+onBeforeUnmount(() => { folderGeneration++ })
 
 /** 异步分片上传任务：上传不阻塞页面，进度面板实时可见，重进页面自动恢复。 */
 const { tasks: uploadTaskItems, startUpload, cancelTask: cancelUploadTask, isHashing: uploadHashing } =
@@ -301,11 +361,13 @@ function doUpload(done: () => void) {
   if (uploadBusy.value) {
     return
   }
-  const target = uploadPath.value.trim() || file.name
+  let target: string
+  try { target = uploadRelativePath(uploadPath.value.trim() || file.name) }
+  catch (error) { toast.error(errorMessage(error, '上传路径无效')); return }
   uploadBusy.value = true
   try {
     // 异步任务：立即入列返回，进度见「上传任务」面板；完成后刷新目录
-    startUpload(file, joinPath(currentPath.value, target), (ok) => {
+    void startUpload(file, joinPath(currentPath.value, target), (ok) => {
       if (ok) {
         toast.success(`${file.name} 上传完成`)
         void fetchList()
@@ -681,6 +743,11 @@ watch(instanceId, () => {
   nodeStats.value = null
   instanceName.value = ''
   uploadOpen.value = false
+  folderOpen.value = false
+  folderFiles.value = []
+  uploadItems.value = []
+  uploadFileRef.value = null
+  uploadPath.value = ''
   renameOpen.value = false
   moveOpen.value = false
   ftpOpen.value = false
@@ -716,6 +783,11 @@ const rowActions: ActionMenuItem<unknown>[] = [
       <YdIcon name="i-ri:upload-line" />
       上传
     </YdButton>
+    <YdFilePicker v-if="canManage" directory multiple label="上传文件夹" @select="selectFolder">
+      <template #default="{ open: pick, triggerAttrs }">
+        <YdButton v-bind="triggerAttrs" variant="outline" @click="pick"><YdIcon name="i-ri:folder-upload-line" />上传文件夹</YdButton>
+      </template>
+    </YdFilePicker>
     <YdButton v-if="canUse" variant="outline" :loading="ftpBusy" @click="openFtp">
       <YdIcon name="i-ri:key-2-line" />
       开通 SFTP
@@ -724,6 +796,8 @@ const rowActions: ActionMenuItem<unknown>[] = [
       <YdIcon name="i-ri:refresh-line" />
       刷新
     </YdButton>
+    <YdButton variant="outline" @click="router.push(`${detailPath}/deployments`)">覆盖与回退</YdButton>
+    <YdButton variant="outline" @click="router.push(`${detailPath}/resources`)">安装 CE 资源</YdButton>
   </YdPageHeader>
 
   <YdPageMain class="mt-4">
@@ -922,6 +996,15 @@ const rowActions: ActionMenuItem<unknown>[] = [
       @saved="() => fetchList()"
     />
 
+    <YdModal v-model="folderOpen" title="上传文件夹" :show-cancel-button="true" confirm-button-text="开始上传"
+      :confirm-button-loading="folderBusy" :before-close="(action: 'confirm' | 'cancel' | 'close', done: () => void) => action === 'confirm' ? uploadFolder(done) : done()">
+      <YdForm :model="{ folderBase }" :disabled="folderBusy">
+        <p>{{ folderFiles.length }} 个文件 · {{ formatSize(folderBytes) }}，保留所选文件夹的目录结构。</p>
+        <YdFormItem field="folderBase" label="目标目录" extra="相对实例根的路径，留空为根目录。"><YdInput v-model="folderBase" placeholder="例如 plugins/MyPlugin" /></YdFormItem>
+        <YdAlert title="同名文件将被替换" description="同时上传两个文件，保留目录结构。浏览器不能选择空目录；需要回退时请使用「安装 CE 资源」。离开页面会取消未完成任务。" />
+        <YdAlert v-if="folderError" variant="destructive" title="无法上传" :description="folderError" />
+      </YdForm>
+    </YdModal>
     <YdModal
       v-model="uploadOpen"
       title="上传文件"
@@ -931,16 +1014,14 @@ const rowActions: ActionMenuItem<unknown>[] = [
       class="max-w-[min(32rem,calc(100vw-2rem))]"
       :before-close="(action: 'confirm' | 'cancel' | 'close', done: () => void) => action === 'confirm' ? doUpload(done) : done()"
     >
-      <div class="mcp-form">
-        <label class="mcp-form-item">
-          <span class="mcp-form-label">保存到：/{{ currentPath || '根目录' }} 下的文件名</span>
+      <YdForm :model="{ uploadPath, uploadItems }" :disabled="uploadBusy">
+        <YdFormItem field="uploadPath" label="保存文件名" :extra="`位于 /${currentPath || '根目录'}；同名文件将被替换。`">
           <YdInput v-model="uploadPath" :placeholder="uploadItems[0]?.name ?? 'server.jar'" class="mcp-w-full" />
-        </label>
-        <label class="mcp-form-item">
-          <span class="mcp-form-label">选择文件（≤ 2GB；异步分片上传，完成后自动出现在目录）</span>
+        </YdFormItem>
+        <YdFormItem field="uploadItems" label="选择文件" required extra="不超过 2GiB；上传进度显示在任务列表。离开页面会取消未完成任务。">
           <YdFileUpload v-model="uploadItems" :max="1" :http-request="customUpload" description="拖放或点击选择" />
-        </label>
-      </div>
+        </YdFormItem>
+      </YdForm>
     </YdModal>
 
     <YdModal
