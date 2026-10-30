@@ -1,2 +1,2 @@
-# 聊天证书签名格式修复：仅发布外置认证插件 1.6.1
-yudream-plugin-authlib-injector
+# MCPanel 文件体验、测试服复制、覆盖回退与 CE 资源安装：仅发布 0.24.0
+yudream-plugin-mcpanel

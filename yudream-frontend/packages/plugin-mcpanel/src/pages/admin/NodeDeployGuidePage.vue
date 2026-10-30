@@ -21,7 +21,7 @@ const panelUrl = ref(window.location.origin)
 
 const safePanelUrl = computed(() => panelUrl.value.trim() || 'https://panel.example.com')
 
-const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.5'
+const NODE_IMAGE = 'registry.yudream.online/yda-skin/mcpanel-node:0.7.9'
 
 const DATA_DIR = '/opt/mcpanel-node/data'
 
@@ -205,7 +205,7 @@ const composeUpCommand = [
           </YdAlert>
           <YdAlert title="升级节点" variant="default">
             <template #description>
-              Docker 部署：<code class="mcp-inline-code">docker pull</code> 新版本镜像 → <code class="mcp-inline-code">docker rm -f mcpanel-node</code> → 按原命令重建，数据与凭据都在 /data，升级不影响已注册状态与实例。二进制部署：替换可执行文件后 <code class="mcp-inline-code">systemctl restart mcpanel-node</code>。节点版本需满足面板功能要求（回收站等能力需节点 0.4.0+；安装文件级明细需 0.5.0+；安装停滞自愈与自动重试需 0.5.1+；MR/CF 换源下载回退需 0.6.0+；大整合包安装（帧上限协商）需 0.6.1+；存量实例容器策略自动对齐（旧节点创建的容器升级后自动重建修复 EACCES 启动失败）需 0.6.3+；启动中状态、启动成功检测与启动阶段实时输出需 0.7.0+；实例数据目录权限自动修复（启动前自动放开节点侧写入与容器内非 root 用户的属主错位，根治模组写 config 报 EACCES 启动即崩）需 0.7.1+；SFTP 网关标准 sftp subsystem 契约需 0.7.2+；实例 SFTP 目录钉死在实例数据目录（安全修复，此前客户端可见节点宿主机全部文件，强烈建议所有节点立即升级）需 0.7.3+；实例容器继承宿主 /etc/hosts（容器部署同时需按模板只读挂载 /etc/hosts）需 0.7.4+）。
+              Docker 部署：<code class="mcp-inline-code">docker pull</code> 新版本镜像 → <code class="mcp-inline-code">docker rm -f mcpanel-node</code> → 按原命令重建，数据与凭据都在 /data，升级不影响已注册状态与实例。二进制部署：替换可执行文件后 <code class="mcp-inline-code">systemctl restart mcpanel-node</code>。节点版本需满足面板功能要求（回收站等能力需节点 0.4.0+；安装文件级明细需 0.5.0+；安装停滞自愈与自动重试需 0.5.1+；MR/CF 换源下载回退需 0.6.0+；大整合包安装（帧上限协商）需 0.6.1+；存量实例容器策略自动对齐（旧节点创建的容器升级后自动重建修复 EACCES 启动失败）需 0.6.3+；启动中状态、启动成功检测与启动阶段实时输出需 0.7.0+；实例数据目录权限自动修复（启动前自动放开节点侧写入与容器内非 root 用户的属主错位，根治模组写 config 报 EACCES 启动即崩）需 0.7.1+；SFTP 网关标准 sftp subsystem 契约需 0.7.2+；实例 SFTP 目录钉死在实例数据目录（安全修复，此前客户端可见节点宿主机全部文件，强烈建议所有节点立即升级）需 0.7.3+；实例容器继承宿主 /etc/hosts（容器部署同时需按模板只读挂载 /etc/hosts）需 0.7.4+；CPU 0 不限额、SFTP 多级目录导航与在用会话撤销需 0.7.9+，面板 0.24.0 的覆盖与回退也需要此版本）。
             </template>
           </YdAlert>
           <YdAlert title="控制信道地址怎么填" variant="default">
